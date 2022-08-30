@@ -17,8 +17,10 @@ As staking is done on p-chain, you first need to transfer the funds there. This 
 funds from c-chain to p-chain and then importing them:
 - `yarn ts-node src/exportTxCP.ts amount`,
 - `yarn ts-node src/importTxCP.ts`.
+
 Staking is then done by:
 - `yarn ts-node src/delegate.ts duration amount`.
+
 Here `amount` is the amount to export / delegate (in `FLR` / 1e18) and duration is the staking time (in seconds).
 
 The configuration for the network is inside `config.ts`. 
