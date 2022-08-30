@@ -19,26 +19,26 @@ const memo: Buffer = Buffer.from(
 const asOf: BN = UnixNow()
 
 const main = async (): Promise<any> => {
-  const platformVMUTXOResponse: any = await pchain.getUTXOs(
-    pAddressStrings,
-    cChainBlockchainID
-  )
-  const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
-  const unsignedTx: UnsignedTx = await pchain.buildImportTx(
-    utxoSet,
-    pAddressStrings,
-    cChainBlockchainID,
-    pAddressStrings,
-    pAddressStrings,
-    pAddressStrings,
-    memo,
-    asOf,
-    locktime,
-    threshold
-  )
-  const tx: Tx = unsignedTx.sign(pKeychain)
-  const txid: string = await pchain.issueTx(tx)
-  console.log(`Success! TXID: ${txid}`)
+	const platformVMUTXOResponse: any = await pchain.getUTXOs(
+		pAddressStrings,
+		cChainBlockchainID
+	)
+	const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
+	const unsignedTx: UnsignedTx = await pchain.buildImportTx(
+		utxoSet,
+		pAddressStrings,
+		cChainBlockchainID,
+		pAddressStrings,
+		pAddressStrings,
+		pAddressStrings,
+		memo,
+		asOf,
+		locktime,
+		threshold
+	)
+	const tx: Tx = unsignedTx.sign(pKeychain)
+	const txid: string = await pchain.issueTx(tx)
+	console.log(`Success! TXID: ${txid}`)
 }
 
 main()
