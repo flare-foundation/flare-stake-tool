@@ -10,21 +10,28 @@ while the standard for c-chain matches that of Ethereum (to comply with EVM (Eth
 
 ## stake flow
 To set up, obtain a private key (length 64 hexadecimal - standard Ethereum format) and paste it into `.env`.
-If you want to know your c-address and p-address, use `yarn ts-node src/deriveAddresses.ts`.
+To find out the derived c-address and p-address, use `yarn ts-node src/deriveAddresses.ts`.
 
-To fund the c-chain address, use a flare testnet faucet (e.g. [here](https://faucet.towolabs.com/)).
-As staking is done on p-chain, you first need to transfer the funds there. This is done by first exporting 
-funds from c-chain to p-chain and then importing them:
-- `yarn ts-node src/exportTxCP.ts amount`,
-- `yarn ts-node src/importTxCP.ts`.
+As staking is done on p-chain, you would need to transfer funds from c-chain to p-chain and then stake them.
+The steps are
+- export funds from c-chain,
+- import funds to p-chain,
+- stake on p-chain.
 
-Staking is then done by:
-- `yarn ts-node src/delegate.ts duration amount`.
+For that, run the following script
+```bash
+yarn ts-node src/exportTxCP.ts amount
+yarn ts-node src/importTxCP.ts
+yarn ts-node src/delegate.ts duration amount
+```
 
-Here `amount` is the amount to export / delegate (in `FLR` / 1e18) and duration is the staking time (in seconds).
+Here, `amount` is the amount to export / delegate (in `FLR` / 1e18) and duration is the staking time (in seconds).
 
-The configuration for the network is inside `config.ts`. 
-Mainly, it is used to differentiate the testing (coston2) network and mainnet (flare).
+The configuration for the network is inside `config.ts`. Mainly, it is used to differentiate the testnet (coston2) and mainnet (flare).
 
-## Note
-Flare is not yet operational in its chain implementations, so code is still suited for avalanche.
+## testing
+When testing, you can fund a testnet c-chain address by using a faucet (e.g. [here](https://faucet.towolabs.com/)).
+
+## TODO
+- [ ] make the code flare specific,
+- [ ] test everything, configured on the coston2 network.
