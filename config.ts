@@ -20,12 +20,6 @@ const web3 = new Web3('http://localhost:9650/ext/')
 let cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
 let cAddressHex: string = cAccount.address.toLowerCase()
 
-let main = async () => {
-  let balance = await web3.eth.getBalance(cAddressHex)
-  console.log(balance)
-}
-main()
-
 module.exports = {
   protocol: 'http',
   ip: 'localhost',
