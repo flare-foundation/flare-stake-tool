@@ -41,7 +41,10 @@
   },
   "dependencies": {
     "@avalabs/avalanche-wallet-sdk": "^0.18.1",
-    "avalanche": "^3.15.3",
+    "@types/bs58check": "^2.1.0",
+    "avalanche": "https://github.com/kuco23/avalanchejs-flare.git",
+    "bech32-converting": "^1.0.9",
+    "bs58check": "^2.1.2",
     "dotenv": "^16.0.1",
     "web3": "^1.7.5"
   }

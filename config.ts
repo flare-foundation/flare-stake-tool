@@ -1,18 +1,37 @@
-require("dotenv").config('.env')
-import { Avalanche, BinTools, Buffer, BN } from "avalanche"
+require('dotenv').config('.env')
+const Web3 = require('web3')
+import { BinTools, Buffer } from 'avalanche'
 
-let hexprivatekey = process.env.PRIVATEKEY!
+// learn how to derive hex private key from b58!
+let privkCB58 = process.env.PRIVATE_KEY_B58!
+let privkHex = process.env.PRIVATE_KEY_HEX!
 
+// derive private key in both b58 and hex if only one is provided
 let bintools = BinTools.getInstance()
-let privkBuffer = bintools.addChecksum(Buffer.from(hexprivatekey, 'hex'))
-let privkB58 = bintools.bufferToB58(privkBuffer)
+if (privkHex !== undefined && privkHex !== '') {
+  let privkBuf = bintools.addChecksum(Buffer.from(privkHex, 'hex'))
+  privkCB58 = bintools.bufferToB58(privkBuf)
+} else if (privkCB58 !== undefined && privkCB58 !== '') {
+  let privkBuf = bintools.cb58Decode(privkCB58)
+  privkHex = privkBuf.toString('hex')
+} else throw Error('Private key has to be provided in either hex or cb58')
+
+const web3 = new Web3('http://localhost:9650/ext/')
+let cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
+let cAddressHex: string = cAccount.address.toLowerCase()
+
+let main = async () => {
+  let balance = await web3.eth.getBalance(cAddressHex)
+  console.log(balance)
+}
+main()
 
 module.exports = {
-  protocol: "https",
-  ip: "api.avax-test.network",
-  port: 443,
-  networkID: 5,
-  privateKey: privkB58,
-  publicKeyC: process.env.CHEXADDRESS,
-  mnemonic: process.env.MNEMONIC,
+  protocol: 'http',
+  ip: 'localhost',
+  port: 9650,
+  networkID: 162,
+  cAddressHex: cAddressHex,
+  privateKeyHex: privkHex,
+  privateKey: privkCB58,
 }
