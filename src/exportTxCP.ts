@@ -60,7 +60,7 @@ const main = async (): Promise<any> => {
 
   let unsignedTx: UnsignedTx = await cchain.buildExportTx(
     avaxAmount,
-    avaxAssetID, // find out this for flare
+    avaxAssetID,
     pChainBlockchainIdStr,
     cHexAddress,
     cAddressStrings[0],
