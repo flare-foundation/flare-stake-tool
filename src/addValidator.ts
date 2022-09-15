@@ -1,32 +1,31 @@
 const { protocol, ip, port, networkID, privateKey } = require('../config.ts')
-import { Avalanche, BN, Buffer } from "avalanche/dist"
+import { Avalanche, BN, Buffer } from 'avalanche/dist'
 import {
   PlatformVMAPI,
   KeyChain,
   UTXOSet,
   UnsignedTx,
-  Tx
-} from "avalanche/dist/apis/platformvm"
-import { PrivateKeyPrefix, UnixNow } from "avalanche/dist/utils"
+  Tx,
+} from 'avalanche/dist/apis/platformvm'
+import { PrivateKeyPrefix, UnixNow } from 'avalanche/dist/utils'
 
 const avalanche: Avalanche = new Avalanche(ip, port, protocol, networkID)
 const pchain: PlatformVMAPI = avalanche.PChain()
 const pKeychain: KeyChain = pchain.keyChain()
-const privKey: string = `${PrivateKeyPrefix}${privateKey}`
+const privKey = `${PrivateKeyPrefix}${privateKey}`
 pKeychain.importKey(privKey)
 const pAddressStrings: string[] = pchain.keyChain().getAddressStrings()
-const threshold: number = 1
+const threshold = 1
 const locktime: BN = new BN(0)
 const memo: Buffer = Buffer.from(
-  "PlatformVM utility method buildAddValidatorTx to add a validator to the primary subnet"
+  'PlatformVM utility method buildAddValidatorTx to add a validator to the primary subnet'
 )
 const asOf: BN = UnixNow()
-const nodeID: string = "NodeID-4XZ7a7fGCzw6xqMFNQHy46JjUXnnq51Y1"
 const startTime: BN = UnixNow().add(new BN(60 * 1))
 const endTime: BN = startTime.add(new BN(1512000))
-const delegationFee: number = 10
+const delegationFee = 10
 
-const main = async (): Promise<any> => {
+async function addValidator (nodeID: string): Promise<any> {
   const stakeAmount: any = await pchain.getMinStake()
   console.log(stakeAmount.minValidatorStake.toString())
   console.log(stakeAmount.minDelegatorStake.toString())
@@ -42,7 +41,7 @@ const main = async (): Promise<any> => {
     startTime,
     endTime,
     // stakeAmount.minValidatorStake,
-    new BN("10000000000000"),
+    new BN('10000000000000'),
     pAddressStrings,
     delegationFee,
     locktime,
@@ -56,4 +55,34 @@ const main = async (): Promise<any> => {
   console.log(`Success! TXID: ${txid}`)
 }
 
+const nodesToAdd = [
+/*   "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ",
+  "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN",
+  "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu", */
+  "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5"
+]
+export async function sleepms(milliseconds: number) {
+  await new Promise((resolve: any) => {
+    setTimeout(() => {
+      resolve();
+    }, milliseconds);
+  });
+}
+
+async function main() {
+  for (let i = 0; i < nodesToAdd.length; i++) {
+    console.log(`adding ${i} ${nodesToAdd[i]}`)
+    try {
+      await addValidator(nodesToAdd[i])
+    } catch (e) {console.log(e)}
+    await sleepms(3 * 1000)
+  }
+}
+
 main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+

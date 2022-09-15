@@ -2,6 +2,13 @@ require('dotenv').config('.env')
 const Web3 = require('web3')
 import { BinTools, Buffer } from 'avalanche'
 
+export function unPrefix0x(tx: string) {
+  if (!tx) {
+     return "0x0";
+  }
+  return tx.startsWith("0x") ? tx.slice(2) : tx;
+}
+
 // learn how to derive hex private key from b58!
 let privkCB58 = process.env.PRIVATE_KEY_B58!
 let privkHex = process.env.PRIVATE_KEY_HEX!
@@ -9,6 +16,7 @@ let privkHex = process.env.PRIVATE_KEY_HEX!
 // derive private key in both b58 and hex if only one is provided
 let bintools = BinTools.getInstance()
 if (privkHex !== undefined && privkHex !== '') {
+  privkHex = unPrefix0x(privkHex)
   let privkBuf = bintools.addChecksum(Buffer.from(privkHex, 'hex'))
   privkCB58 = bintools.bufferToB58(privkBuf)
 } else if (privkCB58 !== undefined && privkCB58 !== '') {

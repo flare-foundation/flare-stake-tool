@@ -76,7 +76,7 @@ const main = async (): Promise<any> => {
   const txstatus = await cchain.getAtomicTxStatus(txid)
 
   let balance: BN = new BN(await web3.eth.getBalance(cHexAddress))
-  balance = new BN(balance.toString().substring(0, 11))
+  balance = new BN(balance.toString().slice(0,-18))
 
   console.log(`TXID: ${txid}, Status ${txstatus}`)
   console.log(

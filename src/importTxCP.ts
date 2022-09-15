@@ -18,6 +18,8 @@ const memo: Buffer = Buffer.from(
 )
 const asOf: BN = UnixNow()
 
+console.log(pAddressStrings)
+
 const main = async (): Promise<any> => {
 	const platformVMUTXOResponse: any = await pchain.getUTXOs(
 		pAddressStrings,
