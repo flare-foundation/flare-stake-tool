@@ -1,38 +1,8 @@
 require('dotenv').config('.env')
-const Web3 = require('web3')
-import { BinTools, Buffer } from 'avalanche'
-
-function unPrefix0x(tx: string) {
-  if (!tx) {
-     return "0x0";
-  }
-  return tx.startsWith("0x") ? tx.slice(2) : tx;
-}
-
-let privkCB58 = process.env.PRIVATE_KEY_CB58!
-let privkHex = process.env.PRIVATE_KEY_HEX!
-
-// derive private key in both b58 and hex if only one is provided
-let bintools = BinTools.getInstance()
-if (privkHex !== undefined && privkHex !== '') {
-  privkHex = unPrefix0x(privkHex)
-  let privkBuf = bintools.addChecksum(Buffer.from(privkHex, 'hex'))
-  privkCB58 = bintools.bufferToB58(privkBuf)
-} else if (privkCB58 !== undefined && privkCB58 !== '') {
-  let privkBuf = bintools.cb58Decode(privkCB58)
-  privkHex = privkBuf.toString('hex')
-} else throw Error('Private key has to be provided in either hex or cb58')
-
-const web3 = new Web3('http://localhost:9650/ext/')
-let cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
-let cAddressHex: string = cAccount.address.toLowerCase()
 
 module.exports = {
   protocol: 'http',
   ip: 'localhost',
   port: 9650,
-  networkID: 162,
-  cAddressHex: cAddressHex,
-  privateKeyHex: privkHex,
-  privateKey: privkCB58,
+  networkID: 162
 }

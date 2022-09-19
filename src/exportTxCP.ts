@@ -1,65 +1,27 @@
-// export c-chain to p-chain
+import { cchain, cKeychain, cAddressHex, pAddressBech32, cAddressBech32, pChainBlockchainID, avaxAssetID, web3 } from './constants'
+import { BN } from "avalanche/dist"
+import { UnsignedTx, Tx } from 'avalanche/dist/apis/evm'
 
-const {
-  protocol,
-  ip,
-  port,
-  networkID,
-  privateKey,
-  cAddressHex,
-} = require('../config.ts')
-import Web3 from 'web3'
-import { Avalanche, BN } from 'avalanche'
-import { AVMAPI, KeyChain as AVMKeyChain } from 'avalanche/dist/apis/avm'
-import {
-  EVMAPI,
-  KeyChain as EVMKeyChain,
-  UnsignedTx,
-  Tx,
-} from 'avalanche/dist/apis/evm'
-import {
-  PlatformVMAPI,
-  KeyChain as PVMKeyChain,
-} from 'avalanche/dist/apis/platformvm'
-import { PrivateKeyPrefix, Defaults } from 'avalanche/dist/utils'
-
-const avalanche = new Avalanche(ip, port, protocol, networkID)
-const xchain: AVMAPI = avalanche.XChain()
-const cchain: EVMAPI = avalanche.CChain()
-const pchain: PlatformVMAPI = avalanche.PChain()
-const privKey = `${PrivateKeyPrefix}${privateKey}`
-const xKeychain: AVMKeyChain = xchain.keyChain()
-const cKeychain: EVMKeyChain = cchain.keyChain()
-const pKeychain: PVMKeyChain = pchain.keyChain()
-xKeychain.importKey(privKey)
-cKeychain.importKey(privKey)
-pKeychain.importKey(privKey)
-const cAddressStrings: string[] = cKeychain.getAddressStrings()
-const pAddressStrings: string[] = pKeychain.getAddressStrings()
-const pChainBlockchainIdStr: string = Defaults.network[networkID].P.blockchainID
-const avaxAssetID: string = Defaults.network[networkID].P.avaxAssetID! // same for X = P
-const cHexAddress: string = cAddressHex
-
-const path = '/ext/bc/C/rpc'
-const web3 = new Web3(`${protocol}://${ip}:${port}${path}`)
-const threshold = 1
-
-const main = async (): Promise<any> => {
+/**
+ * Exports funds from c-chain to p-chain
+ * @param avaxAmount - amount to export from c-chain to p-chain
+ */
+async function exportTxCP(avaxAmount: BN): Promise<any> {
+  const threshold = 1
   const baseFeeResponse: string = await cchain.getBaseFee()
   const baseFee = new BN(parseInt(baseFeeResponse, 16))
-  const txcount = await web3.eth.getTransactionCount(cHexAddress)
+  const txcount = await web3.eth.getTransactionCount(cAddressHex)
   const nonce: number = txcount
   const locktime: BN = new BN(0)
-  const avaxAmount: BN = new BN(process.argv[2])
   const fee: BN = baseFee.div(new BN(1e9)).add(new BN(1e7))
 
   let unsignedTx: UnsignedTx = await cchain.buildExportTx(
     avaxAmount,
     avaxAssetID,
-    pChainBlockchainIdStr,
-    cHexAddress,
-    cAddressStrings[0],
-    pAddressStrings,
+    pChainBlockchainID,
+    cAddressHex,
+    cAddressBech32,
+    [pAddressBech32],
     nonce,
     locktime,
     threshold,
@@ -70,14 +32,12 @@ const main = async (): Promise<any> => {
   const txid = await cchain.issueTx(tx)
   const txstatus = await cchain.getAtomicTxStatus(txid)
 
-  let balance: BN = new BN(await web3.eth.getBalance(cHexAddress))
+  let balance: BN = new BN(await web3.eth.getBalance(cAddressHex))
   balance = new BN(balance.toString().slice(0,-18))
 
   console.log(`TXID: ${txid}, Status ${txstatus}`)
-  console.log(
-    `exported ${avaxAmount} from ${cHexAddress} to ${pAddressStrings}`
-  )
+  console.log(`exported ${avaxAmount} from ${cAddressHex} to ${pAddressBech32}`)
   console.log(`balance: ${balance}`)
 }
 
-main()
+exportTxCP(new BN(process.argv[2]))

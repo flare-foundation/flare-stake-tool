@@ -1,38 +1,27 @@
-const { protocol, ip, port, networkID, privateKey } = require("../config.ts")
-import { Avalanche, BN, Buffer } from "avalanche/dist"
-import { PlatformVMAPI, KeyChain, UTXOSet, UnsignedTx, Tx } from "avalanche/dist/apis/platformvm"
-import { PrivateKeyPrefix, Defaults, UnixNow } from "avalanche/dist//utils"
+import { pchain, pKeychain, pAddressBech32, cChainBlockchainID } from './constants'
+import { BN, Buffer } from "avalanche/dist"
+import { UTXOSet, UnsignedTx, Tx } from "avalanche/dist/apis/platformvm"
+import { UnixNow } from "avalanche/dist//utils"
 
-const avalanche: Avalanche = new Avalanche(ip, port, protocol, networkID)
-const pchain: PlatformVMAPI = avalanche.PChain()
-const pKeychain: KeyChain = pchain.keyChain()
-const privKey: string = `${PrivateKeyPrefix}${privateKey}`
-pKeychain.importKey(privKey)
-const pAddressStrings: string[] = pchain.keyChain().getAddressStrings()
-const cChainBlockchainID: string = Defaults.network[networkID].C.blockchainID
-const pChainBlockchainID: string = Defaults.network[networkID].P.blockchainID
-const threshold: number = 1
-const locktime: BN = new BN(0)
-const memo: Buffer = Buffer.from(
-  "PlatformVM utility method buildImportTx to import AVAX to the P-Chain from the X-Chain"
-)
-const asOf: BN = UnixNow()
-
-console.log(pAddressStrings)
-
-const main = async (): Promise<any> => {
-	const platformVMUTXOResponse: any = await pchain.getUTXOs(
-		pAddressStrings,
-		cChainBlockchainID
+/**
+ * Import funds exported from c-chain to p-chain to p-chain
+ */
+async function importTxCP(): Promise<any> {
+	const threshold: number = 1
+	const locktime: BN = new BN(0)
+	const memo: Buffer = Buffer.from(
+		"PlatformVM utility method buildImportTx to import AVAX to the P-Chain from the C-Chain"
 	)
+	const asOf: BN = UnixNow()
+	const platformVMUTXOResponse: any = await pchain.getUTXOs([pAddressBech32], cChainBlockchainID)
 	const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
 	const unsignedTx: UnsignedTx = await pchain.buildImportTx(
 		utxoSet,
-		pAddressStrings,
+		[pAddressBech32],
 		cChainBlockchainID,
-		pAddressStrings,
-		pAddressStrings,
-		pAddressStrings,
+		[pAddressBech32],
+		[pAddressBech32],
+		[pAddressBech32],
 		memo,
 		asOf,
 		locktime,
@@ -43,4 +32,4 @@ const main = async (): Promise<any> => {
 	console.log(`Success! TXID: ${txid}`)
 }
 
-main()
+importTxCP()
