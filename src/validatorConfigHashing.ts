@@ -1,5 +1,6 @@
 import { bech32 } from 'bech32';
 import * as sha256 from "fast-sha256";
+import { BinTools, Buffer } from 'avalanche'
 
 const addressSep = '-';
 const ripemd160Size = 20;
@@ -28,9 +29,20 @@ function ToShortId(addrBytes: number[]): number[] {
     return addrBytes;
 }
 
-export function ParseToID(addrStr: string): number[] {
+function ParseToIDBuffer(addrStr: string): number[] {
     const { addr } = Parse(addrStr);
     return ToShortId(addr);
+}
+
+/**
+ * 
+ * @param addrStr 
+ * @returns 
+ */
+export function ParseToID(addrStr: string): string {
+    const bintools = BinTools.getInstance()
+    const bufferID = Buffer.from(ParseToIDBuffer(addrStr))
+    return bintools.cb58Encode(bufferID)
 }
 
 /* example configurations

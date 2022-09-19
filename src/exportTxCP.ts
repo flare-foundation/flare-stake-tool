@@ -9,7 +9,7 @@ const {
   cAddressHex,
 } = require('../config.ts')
 import Web3 from 'web3'
-import { Avalanche, BinTools, Buffer, BN } from 'avalanche'
+import { Avalanche, BN } from 'avalanche'
 import { AVMAPI, KeyChain as AVMKeyChain } from 'avalanche/dist/apis/avm'
 import {
   EVMAPI,
@@ -34,10 +34,8 @@ const pKeychain: PVMKeyChain = pchain.keyChain()
 xKeychain.importKey(privKey)
 cKeychain.importKey(privKey)
 pKeychain.importKey(privKey)
-const xAddressStrings: string[] = xKeychain.getAddressStrings()
 const cAddressStrings: string[] = cKeychain.getAddressStrings()
 const pAddressStrings: string[] = pKeychain.getAddressStrings()
-const xChainBlockchainIdStr: string = Defaults.network[networkID].X.blockchainID
 const pChainBlockchainIdStr: string = Defaults.network[networkID].P.blockchainID
 const avaxAssetID: string = Defaults.network[networkID].P.avaxAssetID! // same for X = P
 const cHexAddress: string = cAddressHex
@@ -52,11 +50,8 @@ const main = async (): Promise<any> => {
   const txcount = await web3.eth.getTransactionCount(cHexAddress)
   const nonce: number = txcount
   const locktime: BN = new BN(0)
-  let avaxAmount: BN = new BN(process.argv[2])
-  let fee: BN = baseFee.div(new BN(1e9))
-  fee = fee.add(new BN(1e6))
-
-  console.log('chainid', pChainBlockchainIdStr)
+  const avaxAmount: BN = new BN(process.argv[2])
+  const fee: BN = baseFee.div(new BN(1e9)).add(new BN(1e7))
 
   let unsignedTx: UnsignedTx = await cchain.buildExportTx(
     avaxAmount,

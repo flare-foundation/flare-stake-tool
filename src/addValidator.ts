@@ -9,6 +9,7 @@ import {
 } from 'avalanche/dist/apis/platformvm'
 import { PrivateKeyPrefix, UnixNow } from 'avalanche/dist/utils'
 
+
 const avalanche: Avalanche = new Avalanche(ip, port, protocol, networkID)
 const pchain: PlatformVMAPI = avalanche.PChain()
 const pKeychain: KeyChain = pchain.keyChain()
@@ -61,7 +62,8 @@ const nodesToAdd = [
   "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu", */
   "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5"
 ]
-export async function sleepms(milliseconds: number) {
+
+async function sleepms(milliseconds: number) {
   await new Promise((resolve: any) => {
     setTimeout(() => {
       resolve();
