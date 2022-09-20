@@ -1,20 +1,21 @@
-# p-chain-staking-code-samples
-The repo is tailored for flare validator staking, where a validator can stake FLR for gaining block creation power on Flare.
+# P-chain staking code samples
 
-## c-chain and p-chain
-Flare has three chains - x-chain (transaction chain), c-chain (contract chain), and p-chain (platform chain). The relevant ones here are the latter two. Funds are received on c chain, but need to be transfered to p-chain, where they can be staked.
+The repo is tailored for Flare validator staking, where a validator can stake FLR for gaining block creation power on Flare.
 
-Note that each chain has a different address. On p-chain there is no standard format and usually Bech32 is used,
-while the standard for c-chain matches that of Ethereum (to comply with Ethereum Virtual Machine). 
+## C-chain and P-chain
+Flare has three chains - X-chain (transaction chain), C-chain (contract chain), and P-chain (platform chain). The relevant ones here are the latter two. Funds are received on C-chain, but need to be transfered to P-chain, where they can be staked.
+
+Note that each chain has a different address. On P-chain there is no standard format and usually Bech32 is used,
+while the standard for C-chain matches that of Ethereum (to comply with Ethereum Virtual Machine). 
 
 ## Stake flow
 For staking using this repo, start by obtaining a private key (either a length 64 hexadecimal or cb58 format) and paste it into `.env` file.
-To find out the derived c-address and p-address, use `yarn ts-node src/deriveAddresses.ts`.
+To find out the derived C-address and P-address, use `yarn ts-node src/deriveAddresses.ts`.
 
-As staking is done on p-chain, funds need to be transfered from c-chain to p-chain. The steps are
-- export funds from c-chain,
-- import funds to p-chain,
-- stake on p-chain.
+As staking is done on P-chain, funds need to be transfered from C-chain to P-chain. The steps are
+- export funds from C-chain,
+- import funds to P-chain,
+- stake on P-chain.
 
 For that, run the following scripts
 ```bash
@@ -28,12 +29,12 @@ Here, `amount` is the amount to export / delegate (in `FLR` / 1e18) and duration
 The configuration for the network is inside `config.ts`. Mainly, it is used to differentiate the testnet (coston2) and mainnet (flare).
 
 ## Testing
-When testing, you can fund a testnet c-chain address by using a faucet (e.g. [here](https://faucet.towolabs.com/)).
+When testing, you can fund a testnet C-chain address by using a faucet (e.g. [here](https://faucet.towolabs.com/)).
 
 ## Testing with go-flare node
 This code can be tested using a node sourced [here](https://github.com/sprwn/go-flare).
 
-First, log a private key with some funds on c-chain into `.env` - you can use a testing funded account
+First, log a private key with some funds on C-chain into `.env` - you can use a testing funded account
 with private key `0xd49743deccbccc5dc7baa8e69e5be03298da8688a15dd202e20f15d5e0e9a9fb`. 
 
 Then, you have to register your validator configuration hash in the node code.
