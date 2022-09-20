@@ -6,7 +6,12 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "tsc": "tsc"
+    "tsc": "tsc",
+    "export": "yarn ts-node src/exportTxCP.ts",
+    "import": "yarn ts-node src/importTxCP.ts",
+    "stake": "yarn ts-node src/addValidator.ts",
+    "getAddresses": "yarn ts-node src/deriveAddresses.ts",
+    "getHash": "yarn ts-node src/deriveConfigHash.ts"
   },
   "husky": {
     "hooks": {
