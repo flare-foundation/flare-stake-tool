@@ -56,7 +56,7 @@ To stake, you have to first export funds from P-chain to C-chain, which is done 
 `yarn export 20000000000000` and `yarn import` (if you get `errInsufficientFunds` error, 
 try raising the default fee when exporting funds). Finally you can add the validator with
 ```bash
-yarn ts-node src/addValidator.ts NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK 10000000000000 1512000
+yarn stake NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK 10000000000000 1512000
 ```
 
 ## TODO
