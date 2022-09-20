@@ -1,5 +1,14 @@
-import { cchain, cKeychain, cAddressHex, pAddressBech32, cAddressBech32, pChainBlockchainID, avaxAssetID, web3 } from './constants'
-import { BN } from "avalanche/dist"
+import {
+  cchain,
+  cKeychain,
+  cAddressHex,
+  pAddressBech32,
+  cAddressBech32,
+  pChainBlockchainID,
+  avaxAssetID,
+  web3,
+} from './constants'
+import { BN } from 'avalanche/dist'
 import { UnsignedTx, Tx } from 'avalanche/dist/apis/evm'
 
 /**
@@ -33,7 +42,7 @@ async function exportTxCP(avaxAmount: BN, fee?: BN): Promise<any> {
   const txstatus = await cchain.getAtomicTxStatus(txid)
 
   let balance: BN = new BN(await web3.eth.getBalance(cAddressHex))
-  balance = new BN(balance.toString().slice(0,-18))
+  balance = new BN(balance.toString().slice(0, -18))
 
   console.log(`TXID: ${txid}, Status ${txstatus}`)
   console.log(`exported ${avaxAmount} from ${cAddressHex} to ${pAddressBech32}`)
