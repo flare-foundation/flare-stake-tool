@@ -5,7 +5,7 @@ curl -X POST --data '{
   "params" :{
       "address":"P-localflare16xd77u7gdkayd52mcjm6wzqjv9pvfgdtlp04xt"
   }
-}' -H 'content-type:application/json;' 127.0.0.1:9650/ext/bc/P 
+}' -H 'content-type:application/json;' 127.0.0.1:9650/ext/ext/bc/P 
 
 curl -X POST --data '{
     "jsonrpc":"2.0",

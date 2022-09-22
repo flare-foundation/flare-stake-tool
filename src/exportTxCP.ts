@@ -24,6 +24,9 @@ async function exportTxCP(avaxAmount: BN, fee?: BN): Promise<any> {
   const locktime: BN = new BN(0)
   const defaultFee: BN = baseFee.div(new BN(1e9)).add(new BN(1e7))
 
+  let balance2: BN = new BN(await web3.eth.getBalance(cAddressHex))
+  console.log(balance2.toString())
+
   let unsignedTx: UnsignedTx = await cchain.buildExportTx(
     avaxAmount,
     avaxAssetID,

@@ -9,7 +9,7 @@ import { UnixNow } from 'avalanche/dist/utils'
  * @param stakeAmount - the amount of funds to stake during the node's validation
  * @param stakeDuration - the duration of the node's validation
  */
-async function addValidator (nodeID: string, stakeAmount: BN, stakeDuration: BN): Promise<any> {
+export async function addValidator (nodeID: string, stakeAmount: BN, stakeDuration: BN): Promise<any> {
     const threshold = 1
     const locktime: BN = new BN(0)
     const memo: Buffer = Buffer.from(
@@ -45,32 +45,5 @@ async function addValidator (nodeID: string, stakeAmount: BN, stakeDuration: BN)
     console.log(`Success! TXID: ${txid}`)
 }
 
-addValidator(process.argv[2], new BN(process.argv[3]), new BN(process.argv[4]))
+//addValidator(process.argv[2], new BN(process.argv[3]), new BN(process.argv[4]))
 
-/* 
-import { sleepms } from './utils'
-
-const nodesToAdd = [
-    "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ",
-    "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN",
-    "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu",
-    "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5"
-]
-
-async function main() {
-    for (let i = 0; i < nodesToAdd.length; i++) {
-        console.log(`adding ${i} ${nodesToAdd[i]}`)
-        try {
-            await addValidator(nodesToAdd[i], new BN("10000000000000"))
-        } catch (e) {console.log(e)}
-        await sleepms(3 * 1000)
-    }
-}
-
-main()
-    .then(() => process.exit(0))
-    .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
- */

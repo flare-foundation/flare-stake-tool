@@ -24,8 +24,6 @@ if (privkHex !== undefined && privkHex !== '') {
 
 const path = '/ext/bc/C/rpc'
 export const web3 = new Web3(`${protocol}://${ip}:${port}${path}`)
-const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
-export const cAddressHex: string = cAccount.address.toLowerCase()
 
 export const avalanche = new Avalanche(ip, port, protocol, networkID)
 export const xchain: AVMAPI = avalanche.XChain()
@@ -46,4 +44,10 @@ export const cChainBlockchainID: string = Defaults.network[networkID].C.blockcha
 export const avaxAssetID: string = Defaults.network[networkID].P.avaxAssetID!
 
 export const pAddressBech32 = pAddressStrings[0]
-export const cAddressBech32 = cAddressStrings[0]
+export const cAddressBech32 = cAddressStrings[0] 
+export const cAddressHex: string = `0x${cKeychain.getAddresses()[0].toString('hex')}`
+
+/* Alternative way to derive hex address
+const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
+export const cAddressHex: string = cAccount.address.toLowerCase()
+*/

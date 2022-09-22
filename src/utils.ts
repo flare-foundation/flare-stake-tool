@@ -1,6 +1,7 @@
 import { bech32 } from 'bech32';
 import * as sha256 from "fast-sha256";
 import { BinTools, Buffer } from 'avalanche'
+import converter from "bech32-converting"
 
 export async function sleepms(milliseconds: number) {
     await new Promise((resolve: any) => {
@@ -67,7 +68,7 @@ export function parseToID(addrStr: string): string {
  * @param nodeID - id of the node associated with the validator 
  * (e.g. "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ" = parseToID("P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"))
  * @param weight - staking amount (e.g. "10000000000000")
- * @param duration - duration of the staking / validation process in seconds (e.g. "1512000")
+ * @param duration - duration of the validation process in seconds (e.g. "1512000")
  * @returns Hash generated via sha-256 function
  */
 export function toValidatorConfigHash(networkID: string, pChainPublicKey: string, nodeID: string, weight: string, duration: string) {
@@ -87,4 +88,27 @@ export function toValidatorConfigHash(networkID: string, pChainPublicKey: string
     let validatorConfigHash = sha256.hash(validatorConfig)
 
 	return Buffer.from(validatorConfigHash).toString('hex')
+}
+
+/**
+ * This function converts the bech32 format to hexadecimal.
+ * This is useful when trying to derive the C-chain address.
+ * @param hrp - human readable part (e.g. localflare)
+ * @param bech32addr - full bech32 address (e.g. P-localflare1pynhfl09rfrf20s83lf6ra5egqylmx75dmpf9s)
+ * @returns The bech32 address converted to hexadecimal
+ */
+export function fromBech32ToHex(hrp: string, bech32addr: string): string {
+  return converter(hrp).toHex(bech32addr.split('-')[1])
+}
+
+/**
+ * This function converts the hexadecimal address to bech32.
+ * It is useful when trying to derive P-chain address from C-chain address 
+ * that is usually expressed in hexadecimal.
+ * @param hrp - human readable part (e.g. localflare)
+ * @param hexaddr - hex address (e.g. 0x092774fde51a46953e078fd3a1f6994009fd9bd4)
+ * @returns The hexadecimal address converted to bech32 format
+ */
+export function fromHexToBech32(hrp: string, hexaddr: string): string {
+  return converter(hrp).toBech32(unPrefix0x(hexaddr))
 }
