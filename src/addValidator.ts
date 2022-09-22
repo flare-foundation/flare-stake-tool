@@ -44,6 +44,3 @@ export async function addValidator (nodeID: string, stakeAmount: BN, stakeDurati
     const txid: string = await pchain.issueTx(tx)
     console.log(`Success! TXID: ${txid}`)
 }
-
-//addValidator(process.argv[2], new BN(process.argv[3]), new BN(process.argv[4]))
-

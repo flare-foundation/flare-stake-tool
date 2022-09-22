@@ -45,9 +45,8 @@ export const avaxAssetID: string = Defaults.network[networkID].P.avaxAssetID!
 
 export const pAddressBech32 = pAddressStrings[0]
 export const cAddressBech32 = cAddressStrings[0] 
-export const cAddressHex: string = `0x${cKeychain.getAddresses()[0].toString('hex')}`
-
-/* Alternative way to derive hex address
 const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
 export const cAddressHex: string = cAccount.address.toLowerCase()
-*/
+
+/* export let cAddressHex: string = cKeychain.getAddresses()[0].toString('hex')
+cAddressHex = `0x${cAddressHex}` */

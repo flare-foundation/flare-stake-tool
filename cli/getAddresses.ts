@@ -1,5 +1,5 @@
-import { cAddressHex, pAddressBech32 } from './constants'
-import { parseToID } from './utils'
+import { cAddressHex, pAddressBech32 } from '../src/constants'
+import { parseToID } from '../src/utils'
 
 const publicKey = parseToID(pAddressBech32)
 

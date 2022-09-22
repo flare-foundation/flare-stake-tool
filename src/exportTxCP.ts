@@ -15,14 +15,14 @@ import { UnsignedTx, Tx } from 'avalanche/dist/apis/evm'
  * Exports funds from c-chain to p-chain
  * @param avaxAmount - amount to export from c-chain to p-chain
  */
-async function exportTxCP(avaxAmount: BN, fee?: BN): Promise<any> {
+export async function exportTxCP(avaxAmount: BN, fee?: BN): Promise<any> {
   const threshold = 1
   const baseFeeResponse: string = await cchain.getBaseFee()
   const baseFee = new BN(parseInt(baseFeeResponse, 16))
   const txcount = await web3.eth.getTransactionCount(cAddressHex)
   const nonce: number = txcount
   const locktime: BN = new BN(0)
-  const defaultFee: BN = baseFee.div(new BN(1e9)).add(new BN(1e7))
+  const defaultFee: BN = baseFee.div(new BN(1e9)).add(new BN(1e8))
 
   let balance2: BN = new BN(await web3.eth.getBalance(cAddressHex))
   console.log(balance2.toString())
@@ -51,5 +51,3 @@ async function exportTxCP(avaxAmount: BN, fee?: BN): Promise<any> {
   console.log(`exported ${avaxAmount} from ${cAddressHex} to ${pAddressBech32}`)
   console.log(`balance: ${balance}`)
 }
-
-exportTxCP(new BN(process.argv[2]), new BN(process.argv[3]))

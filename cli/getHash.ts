@@ -1,6 +1,6 @@
 const { networkID } = require('../config.ts')
-import { pAddressBech32 } from './constants'
-import { parseToID, toValidatorConfigHash } from './utils'
+import { pAddressBech32 } from '../src/constants'
+import { parseToID, toValidatorConfigHash } from '../src/utils'
 
 /* example parameters
 const nodeID = "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5"

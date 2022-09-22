@@ -6,7 +6,7 @@ import { UnixNow } from "avalanche/dist//utils"
 /**
  * Import funds exported from c-chain to p-chain to p-chain
  */
-async function importTxCP(): Promise<any> {
+export async function importTxCP(): Promise<any> {
 	const threshold: number = 1
 	const locktime: BN = new BN(0)
 	const memo: Buffer = Buffer.from(
@@ -31,5 +31,3 @@ async function importTxCP(): Promise<any> {
 	const txid: string = await pchain.issueTx(tx)
 	console.log(`Success! TXID: ${txid}`)
 }
-
-importTxCP()
