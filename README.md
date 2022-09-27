@@ -11,18 +11,18 @@ and run `yarn` inside the cloned repo folder.
 
 ## C-chain and P-chain
 
-Flare has three chains - X-chain (exchange chain), C-chain (contract chain), and P-chain (platform chain). For staking flow we use C-chain and P-chain. 
+Flare has three chains - X-chain (exchange chain), C-chain (contract chain), and P-chain (platform chain). For stake flow we use C-chain and P-chain. 
 An account on each chain is defined by a public-private key pair. The addresses on each of the two chains are derived from the public key.
-Note that each chain has a different address representations. On P-chain there is no standard format and usually Bech32 format is used,
-while on C-chain the usual Ethereum format is used (to comply with Ethereum Virtual Machine).
+Note that each chain has different address representations. On the P-chain there is no standard format and usually Bech32 format is used,
+while on the C-chain the usual Ethereum format is used (to comply with Ethereum Virtual Machine).
 
 ## Stake flow
 
 A usual stake flow works as follows.
 - User wants to add a validator node by staking for a given `duration` and `amount` from his account (defined by the private key).
-- Funds usually reside on the C-chain account and have to be first exported from the C-chain.
+- Funds usually reside on the C-chain account and have to be exported from the C-chain.
 - Exported funds can then be imported to the corresponding P-chain account.
-- Funds on the P-chain account can be used to start staking.
+- Funds on the P-chain account can be used to start staking (adding validator node).
 - After the period (`duration`) ends, the validator is automatically removed (staking is finished).
 
 In order to use the scripts from this repo, one has first to obtain the private key (either a length 64 hexadecimal or cb58 format) and paste it into `.env` file.
@@ -66,7 +66,3 @@ try raising the default fee when exporting funds). Finally you can add the valid
 ```bash
 yarn stake NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK 10000000000000 1512000
 ```
-
-## TODO
-- [ ] make the code flare specific,
-- [ ] test everything, configured on the coston2 network.
