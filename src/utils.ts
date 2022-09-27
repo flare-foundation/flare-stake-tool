@@ -1,6 +1,6 @@
 import { bech32 } from 'bech32';
 import * as sha256 from "fast-sha256";
-import { BinTools, Buffer } from 'avalanche'
+import { BinTools, Buffer } from 'flare'
 import converter from "bech32-converting"
 
 export async function sleepms(milliseconds: number) {

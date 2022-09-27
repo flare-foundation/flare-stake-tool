@@ -7,8 +7,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "tsc": "tsc",
-    "export": "yarn ts-node cli/export.ts",
-    "import": "yarn ts-node cli/import.ts",
+    "exportCP": "yarn ts-node cli/exportCP.ts",
+    "importCP": "yarn ts-node cli/importCP.ts",
     "stake": "yarn ts-node cli/stake.ts",
     "getAddresses": "yarn ts-node cli/getAddresses.ts",
     "getHash": "yarn ts-node cli/getHash.ts",
@@ -30,6 +30,7 @@
   "author": "github.com/martingaston",
   "license": "MIT",
   "devDependencies": {
+    "@types/yargs": "^17.0.12",
     "@types/jest": "^24.0.15",
     "@types/node": "*",
     "@typescript-eslint/eslint-plugin": "^1.11.0",
@@ -46,8 +47,7 @@
     "typescript": "^3.5.2"
   },
   "dependencies": {
-    "@types/yargs": "^17.0.12",
-    "avalanche": "../avalanchejs-flare",
+    "flare": "../flarejs",
     "bech32": "^2.0.0",
     "bech32-converting": "^1.0.9",
     "dotenv": "^16.0.1",

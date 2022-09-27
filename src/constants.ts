@@ -1,12 +1,15 @@
 const { protocol, ip, port, networkID } = require('../config.ts')
 import { unPrefix0x } from './utils'
 const Web3 = require('web3')
-import { BinTools, Buffer } from 'avalanche'
-import { Avalanche } from 'avalanche'
-import { AVMAPI, KeyChain as AVMKeyChain } from 'avalanche/dist/apis/avm'
-import { EVMAPI, KeyChain as EVMKeyChain } from 'avalanche/dist/apis/evm'
-import { PlatformVMAPI, KeyChain as PVMKeyChain } from 'avalanche/dist/apis/platformvm'
-import { PrivateKeyPrefix, Defaults } from 'avalanche/dist/utils'
+import { BinTools, Buffer } from 'flare'
+import { Avalanche } from 'flare'
+import { AVMAPI, KeyChain as AVMKeyChain } from 'flare/dist/apis/avm'
+import { EVMAPI, KeyChain as EVMKeyChain } from 'flare/dist/apis/evm'
+import {
+  PlatformVMAPI,
+  KeyChain as PVMKeyChain,
+} from 'flare/dist/apis/platformvm'
+import { PrivateKeyPrefix, Defaults } from 'flare/dist/utils'
 
 export let privkCB58 = process.env.PRIVATE_KEY_CB58!
 export let privkHex = process.env.PRIVATE_KEY_HEX!
@@ -39,12 +42,14 @@ pKeychain.importKey(privKey)
 
 const pAddressStrings: string[] = pchain.keyChain().getAddressStrings()
 const cAddressStrings: string[] = cchain.keyChain().getAddressStrings()
-export const pChainBlockchainID: string = Defaults.network[networkID].P.blockchainID
-export const cChainBlockchainID: string = Defaults.network[networkID].C.blockchainID
+export const pChainBlockchainID: string =
+  Defaults.network[networkID].P.blockchainID
+export const cChainBlockchainID: string =
+  Defaults.network[networkID].C.blockchainID
 export const avaxAssetID: string = Defaults.network[networkID].P.avaxAssetID!
 
 export const pAddressBech32 = pAddressStrings[0]
-export const cAddressBech32 = cAddressStrings[0] 
+export const cAddressBech32 = cAddressStrings[0]
 const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
 export const cAddressHex: string = cAccount.address.toLowerCase()
 

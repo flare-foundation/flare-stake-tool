@@ -8,8 +8,8 @@ import {
   avaxAssetID,
   web3,
 } from './constants'
-import { BN } from 'avalanche/dist'
-import { UnsignedTx, Tx } from 'avalanche/dist/apis/evm'
+import { BN } from 'flare/dist'
+import { UnsignedTx, Tx } from 'flare/dist/apis/evm'
 
 /**
  * Exports funds from c-chain to p-chain

@@ -1512,27 +1512,6 @@ available-typed-arrays@^1.0.5:
   resolved "https://registry.yarnpkg.com/available-typed-arrays/-/available-typed-arrays-1.0.5.tgz#92f95616501069d07d10edb2fc37d3e1c65123b7"
   integrity sha512-DMD0KiN46eipeziST1LPP/STfDU0sufISXmjSgvVsoU2tqxctQeASejWcfNtxYKqETM1UxQ8sp2OrSBWpHY6sw==
 
-avalanche@../avalanchejs-flare:
-  version "3.15.4"
-  dependencies:
-    assert "2.0.0"
-    axios "0.27.2"
-    bech32 "2.0.0"
-    bip39 "3.0.4"
-    bn.js "5.2.1"
-    buffer "6.0.3"
-    create-hash "1.2.0"
-    crypto-browserify "3.12.0"
-    elliptic "6.5.4"
-    ethers "5.7.0"
-    hdkey "2.0.1"
-    isomorphic-ws "5.0.0"
-    randombytes "^2.1.0"
-    store2 "2.14.2"
-    stream-browserify "3.0.0"
-    ws "8.8.1"
-    xss "1.0.14"
-
 aws-sign2@~0.7.0:
   version "0.7.0"
   resolved "https://registry.yarnpkg.com/aws-sign2/-/aws-sign2-0.7.0.tgz#b46e890934a9591f2d2f6f86d7e6a9f1b3fe76a8"
@@ -3309,6 +3288,27 @@ find-up@^4.0.0:
   dependencies:
     locate-path "^5.0.0"
     path-exists "^4.0.0"
+
+flare@../flarejs:
+  version "3.15.4"
+  dependencies:
+    assert "2.0.0"
+    axios "0.27.2"
+    bech32 "2.0.0"
+    bip39 "3.0.4"
+    bn.js "5.2.1"
+    buffer "6.0.3"
+    create-hash "1.2.0"
+    crypto-browserify "3.12.0"
+    elliptic "6.5.4"
+    ethers "5.7.0"
+    hdkey "2.0.1"
+    isomorphic-ws "5.0.0"
+    randombytes "^2.1.0"
+    store2 "2.14.2"
+    stream-browserify "3.0.0"
+    ws "8.8.1"
+    xss "1.0.14"
 
 flat-cache@^2.0.1:
   version "2.0.1"
