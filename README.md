@@ -1,6 +1,6 @@
 # P-chain staking scripts
 
-The repo contains scripts for adding (staking) FTSO validators on Flare and Coston2 networks. FTSO validators are data providers for Flare Time Series Oracles (FTSO) on respective networks. By submitting price signals and competing for reward they earn certain weight, which allows them to add their validator node for a limited time with exactly the earned weight. Adding a validator node is equivalent to opening a staking session for the prescribed duration with staking amount equal to the prescribed weight earn by data providing activity. The amount (weight) is between 1 and 10000 FLR (or C2FLR).  
+The repo contains scripts for adding (staking) FTSO validators on Flare and Coston2 networks. FTSO validators are data providers for Flare Time Series Oracles (FTSO) on respective networks. By submitting price signals and competing for reward they earn certain weight, which allows them to add their validator node for a limited time with exactly the earned weight. Adding a validator node is equivalent to opening a staking session for the prescribed duration with staking amount equal to the prescribed weight, earned by the data providing activity. The amount (weight) is between 1 and 10000 FLR (or C2FLR).  
 
 ## Installation
 Clone this repository by running 
