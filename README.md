@@ -26,9 +26,9 @@ A usual stake flow works as follows.
 - After the period (`duration`) ends, the validator is automatically removed (staking is finished).
 
 In order to use the scripts from this repo, one has first to obtain the private key (either a length 64 hexadecimal or cb58 format) and paste it into `.env` file.
-Make sure that the you run scripts on secure machine.
+Make sure that you run scripts on a secure machine.
 
-To obtain the derived C-chain and P-chain addresses, use `yarn getAddresses`.
+To obtain the derived C-chain and P-chain addresses, along with the associated public key, use `yarn getAddresses`.
 
 To perform full stake flow, run the following scripts
 ```bash
@@ -37,32 +37,29 @@ yarn import
 yarn stake duration amount
 ```
 
-Here, `amount` is the amount to export / delegate (in `FLR` / 1e9) and `duration` is the staking time (in seconds).
+Here, `amount` is the amount to export / stake (in `FLR` / 1e9) and `duration` is the staking time (in seconds).
 
 The configuration for the network is inside `config.ts`. Mainly, it is used to differentiate between testnet (Coston2) and mainnet (flare).
-
-## Testing
-When testing, you can fund a testnet C-chain address by using a faucet (e.g. [here](https://faucet.towolabs.com/)).
 
 ## Testing locally with `go-flare` node
 
 This code can be tested locally, using a node sourced [here](https://github.com/flare-foundation/go-flare).
 
-First, add a private key with some funds on C-chain into `.env` - you can use a testing account
-with the private key `0xd49743deccbccc5dc7baa8e69e5be03298da8688a15dd202e20f15d5e0e9a9fb` which is funded.
+First, add a private key with some funds on C-chain into `.env` - you can use a well-funded test account
+with the private key `0xd49743deccbccc5dc7baa8e69e5be03298da8688a15dd202e20f15d5e0e9a9fb`.
 
-Then, you have to register your validator configuration hash in the node code.
+Then, you have to register your validator configuration hash directly in the node code.
 Say you want to use the node with id `NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK` to stake `10000000000000` wei
-for duration of `1512000` seconds. To calculate the hash, use
+for duration of `1512000` seconds. To calculate the hash, run
 ```bash
 yarn getHash NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK 10000000000000 1512000
 ```
-With that you get the hash `2b52aae672d041ec5ec597bb72b6c1815f01f2b895ed5cddb42c45ca0e629317`.
-Add this hash to the array [here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo. Now you can setup the node(s) as described in its README.md. 
+The above produces the hash `2b52aae672d041ec5ec597bb72b6c1815f01f2b895ed5cddb42c45ca0e629317`.
+Add the hash to the array [here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo. Now you can setup the node(s) as described in go-flare's README.md. 
 
-To stake, you have to first export funds from the C-chain and import them to the P-chain, which is done by running
+To stake, you have to first export funds from the C-chain and then import them to the P-chain, which is done by running
 `yarn export 20000000000000` and `yarn import` (if you get `errInsufficientFunds` error, 
-try raising the default fee when exporting funds). Finally you can add the validator with
+try raising the default fee when exporting funds). Finally, you can add a validator by running
 ```bash
 yarn stake NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK 10000000000000 1512000
 ```
