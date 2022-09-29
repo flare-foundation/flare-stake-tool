@@ -37,5 +37,10 @@ export async function importTxCP(): Promise<any> {
   )
   const tx: Tx = unsignedTx.sign(pKeychain)
   const txid: string = await pchain.issueTx(tx)
-  console.log(`Success! TXID: ${txid}`)
+
+  const balanceResp = await pchain.getBalance(pAddressBech32)
+  const balance = new BN(balanceResp.balance.toString())
+
+  console.log(`success! TXID: ${txid}`)
+  console.log(`balance on P-chain: ${balance}`)
 }

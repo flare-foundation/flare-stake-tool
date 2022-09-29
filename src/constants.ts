@@ -26,7 +26,8 @@ if (privkHex !== undefined && privkHex !== '') {
 } else throw Error('Private key has to be provided in either hex or cb58')
 
 const path = '/ext/bc/C/rpc'
-export const web3 = new Web3(`${protocol}://${ip}:${port}${path}`)
+const iport = port ? `${ip}:${port}` : `${ip}`
+export const web3 = new Web3(`${protocol}://${iport}${path}`)
 
 export const avalanche = new Avalanche(ip, port, protocol, networkID)
 export const xchain: AVMAPI = avalanche.XChain()
@@ -52,6 +53,3 @@ export const pAddressBech32 = pAddressStrings[0]
 export const cAddressBech32 = cAddressStrings[0]
 const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
 export const cAddressHex: string = cAccount.address.toLowerCase()
-
-/* export let cAddressHex: string = cKeychain.getAddresses()[0].toString('hex')
-cAddressHex = `0x${cAddressHex}` */
