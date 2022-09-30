@@ -1,50 +1,12 @@
-import { rpcurl } from '../src/constants'
-const request = require('request')
+import { pchain } from '../src/constants'
 
-const path = '/ext/bc/P'
-const fullrpcurl = `${rpcurl}${path}`
+async function main() {
+  const pending = await pchain.getPendingValidators()
+  const current = await pchain.getCurrentValidators()
+  console.log('pending validators:')
+  console.log(pending)
+  console.log('current validators:')
+  console.log(current)
+}
 
-request(
-  {
-    url: fullrpcurl,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: `{
-    "jsonrpc": "2.0",
-    "method": "platform.getPendingValidators",
-    "params": {
-        "subnetID": null,
-        "nodeIDs": []
-    },
-    "id": 1
-  }`,
-  },
-  (error: any, response: any, body: any) => {
-    if (!error && response.statusCode == 200) {
-      const data = JSON.parse(body)
-      const validators = JSON.stringify(data.result.validators)
-      console.log(`Pending validators: ${validators}`)
-    }
-  }
-)
-
-request(
-  {
-    url: fullrpcurl,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: `{
-    "jsonrpc": "2.0",
-    "method": "platform.getCurrentValidators",
-    "params": {},
-    "id": 1
-  }`,
-  },
-  (error: any, response: any, body: any) => {
-    if (!error && response.statusCode == 200) {
-      const data = JSON.parse(body)
-      const validators = JSON.stringify(data.result.validators)
-      console.log(`Current validators: ${validators}`)
-    }
-  }
-)
+main()

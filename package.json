@@ -13,7 +13,6 @@
     "getAddresses": "yarn ts-node cli/getAddresses.ts",
     "getBalance": "yarn ts-node cli/getBalance.ts",
     "getHash": "yarn ts-node cli/getHash.ts",
-    "toPChainAddress": "yarn ts-node cli/toPChainAddress.ts",
     "validatorsInfo": "yarn ts-node cli/validatorsInfo.ts",
     "networkInfo": "yarn ts-node cli/networkInfo.ts"
   },

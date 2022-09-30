@@ -1,7 +1,5 @@
 const { networkID } = require('../config.ts')
-import { parseToID, toValidatorConfigHash, sleepms } from '../src/utils'
-import { addValidator } from '../src/addValidator'
-import { BN } from 'flare/dist'
+import { parseToID, toValidatorConfigHash } from '../src/utils'
 
 interface ValidatorConfig {
   nodeId: string,
@@ -26,36 +24,20 @@ function getHashes(validatorConfigs: ValidatorConfig[]) {
   return hashes
 }
 
-async function addValidators(validatorConfigs: ValidatorConfig[]) {
-  for (let config of validatorConfigs) {
-    console.log(`adding ${config.nodeId}`)
-    try {
-      await addValidator(
-        config.nodeId,
-        new BN(config.stake),
-        new BN(config.duration)
-      )
-    } catch (e) {
-      console.log(e)
-    }
-    await sleepms(3 * 1000)
-  }
-}
-
 const configs: ValidatorConfig[] = [
   {
     nodeId: 'NodeID-NZSS8sNLobmi4eZwwKX2NFuc8MAhQNfe7',
-    pChainAddress: 'P-costwo1c7palz59papw0al9wqfht8pgtj48q84krnneq9',
+    pChainAddress: 'P-costwo16xd77u7gdkayd52mcjm6wzqjv9pvfgdt5fq3mq',
     stake: '5000000000000',
     duration: '90000',
   },
   {
     nodeId: 'NodeID-2yRFUEXQFty2X3JAwRpfmvbuw52XxDtdj',
-    pChainAddress: 'P-costwo1atvujwme4e7ptyd3ldfj80th06rwz5x5yuudzz',
+    pChainAddress: 'P-costwo16xd77u7gdkayd52mcjm6wzqjv9pvfgdt5fq3mq',
     stake: '2000000000000',
     duration: '90000',
   },
 ]
 
-const hashes = getHashes(configs)
+let hashes = getHashes(configs)
 console.log(hashes)
