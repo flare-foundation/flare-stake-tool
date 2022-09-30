@@ -1,8 +1,5 @@
-const { protocol, ip, port, networkID } = require('../config.ts')
+import { rpcurl } from "../src/constants"
 const request = require('request')
-
-const iport = port ? `${ip}:${port}` : `${ip}`
-const rpcurl = `${protocol}://${iport}`
 
 const chains = ['X', 'C', 'P']
 chains.map(chain =>

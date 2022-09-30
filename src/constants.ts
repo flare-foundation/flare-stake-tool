@@ -27,7 +27,8 @@ if (privkHex !== undefined && privkHex !== '') {
 
 const path = '/ext/bc/C/rpc'
 const iport = port ? `${ip}:${port}` : `${ip}`
-export const web3 = new Web3(`${protocol}://${iport}${path}`)
+export const rpcurl = `${protocol}://${iport}`
+export const web3 = new Web3(`${rpcurl}${path}`)
 
 export const avalanche = new Avalanche(ip, port, protocol, networkID)
 export const xchain: AVMAPI = avalanche.XChain()

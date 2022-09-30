@@ -1,13 +1,12 @@
-const { protocol, ip, port, networkID } = require('../config.ts')
+import { rpcurl } from '../src/constants'
 const request = require('request')
 
 const path = '/ext/bc/P'
-const iport = port ? `${ip}:${port}` : `${ip}`
-const rpcurl = `${protocol}://${iport}${path}`
+const fullrpcurl = `${rpcurl}${path}`
 
 request(
   {
-    url: rpcurl,
+    url: fullrpcurl,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: `{
@@ -31,7 +30,7 @@ request(
 
 request(
   {
-    url: rpcurl,
+    url: fullrpcurl,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: `{

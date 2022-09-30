@@ -19,10 +19,16 @@ const costwo = {
   networkID: 114,
 }
 
+const costworocks = {
+  protocol: 'https',
+  ip: 'coston2-api.flare.rocks',
+  networkID: 114
+}
+
 const flare = {
   protocol: 'https',
   ip: 'flare-api.flare.network',
   networkID: 14,
 }
 
-module.exports = localflare
+module.exports = costworocks

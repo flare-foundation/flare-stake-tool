@@ -13,9 +13,9 @@ import { UnsignedTx, Tx } from 'flare/dist/apis/evm'
 
 /**
  * Exports funds from c-chain to p-chain
- * @param avaxAmount - amount to export from c-chain to p-chain
+ * @param amount - amount to export from c-chain to p-chain
  */
-export async function exportTxCP(avaxAmount: BN, fee?: BN): Promise<any> {
+export async function exportTxCP(amount: BN, fee?: BN): Promise<any> {
   const threshold = 1
   const baseFeeResponse: string = await cchain.getBaseFee()
   const baseFee = new BN(parseInt(baseFeeResponse, 16))
@@ -25,7 +25,7 @@ export async function exportTxCP(avaxAmount: BN, fee?: BN): Promise<any> {
   const defaultFee: BN = baseFee.div(new BN(1e9)).add(new BN(1e8))
 
   const unsignedTx: UnsignedTx = await cchain.buildExportTx(
-    avaxAmount,
+    amount,
     avaxAssetID,
     pChainBlockchainID,
     cAddressHex,
@@ -45,6 +45,6 @@ export async function exportTxCP(avaxAmount: BN, fee?: BN): Promise<any> {
   balance = new BN(balance.toString().slice(0, -18))
 
   console.log(`TXID: ${txid}, Status ${txstatus}`)
-  console.log(`exported ${avaxAmount} from ${cAddressHex} to ${pAddressBech32}`)
+  console.log(`exported ${amount} from ${cAddressHex} to ${pAddressBech32}`)
   console.log(`balance on C-chain: ${balance}`)
 }
