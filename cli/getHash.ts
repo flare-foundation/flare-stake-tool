@@ -3,11 +3,6 @@ import { pAddressBech32 } from '../src/constants'
 import { parseToID, toValidatorConfigHash } from '../src/utils'
 const yargs = require('yargs')
 
-/* example parameters
-const nodeID = "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5"
-const weight = "10000000000000"
-const duration = "1512000" */
-
 const args = yargs
   .option('nodeID', {
     alias: 'id',

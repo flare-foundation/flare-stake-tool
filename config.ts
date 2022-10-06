@@ -5,37 +5,28 @@ const localflare = {
   ip: 'localhost',
   port: 9650,
   networkID: 162,
+  hrp: 'localflare'
 }
 
-const coston = {
+const costworocks = {
   protocol: 'https',
-  ip: 'coston-api.flare.network',
-  networkID: 7,
+  ip: 'coston2-api.flare.rocks',
+  networkID: 114,
+  hrp: 'costwo'
 }
 
 const costwo = {
   protocol: 'https',
   ip: 'coston2-api.flare.network',
   networkID: 114,
-}
-
-const costworocks = {
-  protocol: 'https',
-  ip: 'coston2-api.flare.rocks',
-  networkID: 114
+  hrp: 'costwo'
 }
 
 const flare = {
   protocol: 'https',
   ip: 'flare-api.flare.network',
   networkID: 14,
+  hrp: 'flare'
 }
 
-const costworockslocal = {
-  protocol: 'http',
-  ip: 'localhost',
-  port: 9650,
-  networkID: 114
-}
-
-module.exports = costworocks
+module.exports = costwo

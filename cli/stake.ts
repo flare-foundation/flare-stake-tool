@@ -1,5 +1,6 @@
+import { decimalToInteger } from '../src/utils'
 import { addValidator } from '../src/addValidator'
-import { BN } from 'flare/dist'
+import { BN } from '@flarenetwork/flarejs/dist'
 const yargs = require('yargs')
 
 const args = yargs
@@ -22,4 +23,5 @@ const args = yargs
     type: 'string',
   }).argv
 
-addValidator(args.nodeID, new BN(args.amount), new BN(args.duration))
+let amount = decimalToInteger(args.amount, 9)
+addValidator(args.nodeID, new BN(amount), new BN(args.duration))

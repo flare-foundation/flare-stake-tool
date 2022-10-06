@@ -1,3 +1,3 @@
-import { importTxCP } from '../src/importTxCP'
+import { importTxCP } from '../src/pvmExchange'
 
 importTxCP()

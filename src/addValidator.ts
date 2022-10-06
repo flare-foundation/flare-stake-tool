@@ -1,7 +1,7 @@
 import { pchain, pKeychain, pAddressBech32 } from './constants'
-import { BN, Buffer } from 'flare/dist'
-import { UTXOSet, UnsignedTx, Tx } from 'flare/dist/apis/platformvm'
-import { UnixNow } from 'flare/dist/utils'
+import { BN, Buffer } from '@flarenetwork/flarejs/dist'
+import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
+import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 
 /**
  * Stake by registring your node for validation
@@ -43,7 +43,7 @@ export async function addValidator(
     memo,
     asOf
   )
-
+  
   const tx: Tx = unsignedTx.sign(pKeychain)
   const txid: string = await pchain.issueTx(tx)
   console.log(`Success! TXID: ${txid}`)

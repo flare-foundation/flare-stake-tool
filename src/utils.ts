@@ -1,7 +1,6 @@
 import { bech32 } from 'bech32'
 import * as sha256 from 'fast-sha256'
-import { BinTools, Buffer } from 'flare'
-import converter from 'bech32-converting'
+import { BinTools, Buffer } from '@flarenetwork/flarejs'
 
 export async function sleepms(milliseconds: number) {
   await new Promise((resolve: any) => {
@@ -109,4 +108,28 @@ export function toValidatorConfigHash(
   const validatorConfigHash = sha256.hash(validatorConfig)
 
   return Buffer.from(validatorConfigHash).toString('hex')
+}
+
+export function formatBech32(hrp: string, address: string): string {
+   const bintools = BinTools.getInstance()
+   const buff = bintools.b58ToBuffer(address)
+   const words = bech32.toWords([...buff].slice(0, -4))
+   return bech32.encode(hrp, words)
+}
+
+export function decimalToInteger(dec: string, n: number): string {
+  let ret = dec
+  if (ret.includes('.')) {
+    const split = ret.split('.')
+    ret = split[0] + split[1].slice(0,n).padEnd(n,'0')
+  } else {
+    ret = ret + '0'.repeat(n)
+  }
+  return ret
+}
+
+export function integerToDecimal(int: string, n: number): string {
+  const part1 = int.slice(0,-n)
+  const part2 = int.slice(-n)
+  return part1 + '.' + part2
 }

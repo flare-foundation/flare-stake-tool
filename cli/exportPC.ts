@@ -1,5 +1,5 @@
 import { decimalToInteger } from '../src/utils'
-import { exportTxCP } from '../src/evmExchange'
+import { exportTxPC } from '../src/pvmExchange'
 import { BN } from '@flarenetwork/flarejs/dist'
 const yargs = require('yargs')
 
@@ -7,7 +7,7 @@ const args = yargs
   .option('amount', {
     alias: 'a',
     description: 'amount of funds to export from C-chain to P-chain',
-    demand: true,
+    demand: false,
     type: 'string',
   })
   .option('fee', {
@@ -18,6 +18,11 @@ const args = yargs
     type: 'string',
   }).argv
 
-const amount = new BN(decimalToInteger(args.amount, 9))
-const fee = (args.fee === undefined) ? undefined : new BN(decimalToInteger(args.fee, 9))
-exportTxCP(amount, fee)
+let amount = args.amount
+let fee = args.fee
+if (amount !== undefined) 
+    amount = new BN(decimalToInteger(args.amount, 9))
+if (fee !== undefined) 
+    fee = new BN(fee)
+
+exportTxPC(amount, fee)

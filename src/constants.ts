@@ -1,15 +1,15 @@
 const { protocol, ip, port, networkID } = require('../config.ts')
 import { unPrefix0x } from './utils'
 const Web3 = require('web3')
-import { BinTools, Buffer } from 'flare'
-import { Avalanche } from 'flare'
-import { AVMAPI, KeyChain as AVMKeyChain } from 'flare/dist/apis/avm'
-import { EVMAPI, KeyChain as EVMKeyChain } from 'flare/dist/apis/evm'
+import { BinTools, Buffer } from '@flarenetwork/flarejs'
+import { Avalanche } from '@flarenetwork/flarejs'
+import { AVMAPI, KeyChain as AVMKeyChain } from '@flarenetwork/flarejs/dist/apis/avm'
+import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
 import {
   PlatformVMAPI,
   KeyChain as PVMKeyChain,
-} from 'flare/dist/apis/platformvm'
-import { PrivateKeyPrefix, Defaults } from 'flare/dist/utils'
+} from '@flarenetwork/flarejs/dist/apis/platformvm'
+import { PrivateKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
 
 export let privkCB58 = process.env.PRIVATE_KEY_CB58!
 export let privkHex = process.env.PRIVATE_KEY_HEX!
@@ -44,13 +44,15 @@ pKeychain.importKey(privKey)
 
 const pAddressStrings: string[] = pchain.keyChain().getAddressStrings()
 const cAddressStrings: string[] = cchain.keyChain().getAddressStrings()
+const xAddressStrings: string[] = xchain.keyChain().getAddressStrings()
+export const pAddressBech32 = pAddressStrings[0]
+export const cAddressBech32 = cAddressStrings[0]
+export const xAddressBech32 = xAddressStrings[0]
+const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
+export const cAddressHex: string = cAccount.address.toLowerCase()
+
 export const pChainBlockchainID: string =
   Defaults.network[networkID].P.blockchainID
 export const cChainBlockchainID: string =
   Defaults.network[networkID].C.blockchainID
 export const avaxAssetID: string = Defaults.network[networkID].P.avaxAssetID!
-
-export const pAddressBech32 = pAddressStrings[0]
-export const cAddressBech32 = cAddressStrings[0]
-const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
-export const cAddressHex: string = cAccount.address.toLowerCase()
