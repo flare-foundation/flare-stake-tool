@@ -48,10 +48,10 @@ Mainly, it is used to differentiate between testnet (Coston2) and mainnet (flare
 
 The funds can be returned from P-chain back to C-chain by running the following scripts
 ```bash
-yarn exportPC -a amount -f fee
-yarn importPC
+yarn exportPC -a amount
+yarn importPC -f fee
 ```
-where `amount` and `fee` are optional. Omitting `amount` whithdraws everything from P-chain.
+where `amount` and `fee` are optional. Omitting `amount` exports all funds from P-chain.
 
 Note that methods affecting the P-chain (`importCP` and `exportPC`) always use a fixed fee of 0.001,
 while methods affecting the C-chain (`exportCP` and `importPC`) have variable fees and can thus be
