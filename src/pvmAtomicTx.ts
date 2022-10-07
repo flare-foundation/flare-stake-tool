@@ -43,15 +43,9 @@ export async function importTxCP(): Promise<any> {
 
 /**
  * Export funds from P-chain to C-chain.
- * @param amount - amount to export
- * @param fee - fee used when exporting the transaction
+ * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
-export async function exportTxPC(amount: BN, fee?: BN): Promise<any> {
-  fee = (fee == undefined) ? pchain.getDefaultTxFee() : fee
-  if (amount === undefined) { 
-    const getBalanceResponse: any = await pchain.getBalance(pAddressBech32)
-    amount = new BN(getBalanceResponse.unlocked)
-  }
+export async function exportTxPC(amount?: BN): Promise<any> {
   const threshold: number = 1
   const locktime: BN = new BN(0)
   const memo: Buffer = Buffer.from(
@@ -60,9 +54,17 @@ export async function exportTxPC(amount: BN, fee?: BN): Promise<any> {
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await pchain.getUTXOs([pAddressBech32])
   const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
+  const fee = pchain.getDefaultTxFee()
+
+  if (amount === undefined) { 
+    const getBalanceResponse: any = await pchain.getBalance(pAddressBech32)
+    const unlocked = new BN(getBalanceResponse.unlocked)
+    amount = unlocked.sub(fee)
+  }
+  
   const unsignedTx: UnsignedTx = await pchain.buildExportTx(
     utxoSet,
-    amount.sub(fee),
+    amount,
     cChainBlockchainID,
     [cAddressBech32],
     [pAddressBech32],

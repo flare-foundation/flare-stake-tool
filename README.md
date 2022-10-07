@@ -39,7 +39,7 @@ yarn stake --id nodeId -d duration -a amount
 
 Here, `amount` is the amount to export / stake (in FLR), `fee` is an optional parameter that specifies
 the fee of a transaction (in FLR), `duration` is the staking time (in seconds), 
-and `nodeId` is the id of the node you wish to deploy as a validator.
+and `nodeId` is the id of the node you wish to deploy as a validator. 
 
 The configuration for the network is inside `config.ts`. 
 Mainly, it is used to differentiate between testnet (Coston2) and mainnet (flare).
@@ -52,6 +52,10 @@ yarn exportPC -a amount -f fee
 yarn importPC
 ```
 where `amount` and `fee` are optional. Omitting `amount` whithdraws everything from P-chain.
+
+Note that methods affecting the P-chain (`importCP` and `exportPC`) always use a fixed fee of 0.001,
+while methods affecting the C-chain (`exportCP` and `importPC`) have variable fees and can thus be
+either set or else calculated automatically.
 
 ## Testing locally with `go-flare` node
 

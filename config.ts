@@ -29,4 +29,11 @@ const flare = {
   hrp: 'flare'
 }
 
+const costworockslocal = {
+  protocol: 'http',
+  ip: 'localhost',
+  port: 9650,
+  networkID: 114
+}
+
 module.exports = costwo

@@ -129,6 +129,7 @@ export function decimalToInteger(dec: string, n: number): string {
 }
 
 export function integerToDecimal(int: string, n: number): string {
+  int = int.padStart(n, '0')
   const part1 = int.slice(0,-n)
   const part2 = int.slice(-n)
   return part1 + '.' + part2
