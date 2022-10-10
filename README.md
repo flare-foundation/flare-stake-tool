@@ -39,7 +39,7 @@ yarn stake --id nodeId -d duration -a amount
 
 Here, `amount` is the amount to export / stake (in FLR), `fee` is an optional parameter that specifies
 the fee of a transaction (in FLR), `duration` is the staking time (in seconds), 
-and `nodeId` is the id of the node you wish to deploy as a validator. 
+and `nodeId` is the id of the node being deployed as a validator. 
 
 The configuration for the network is inside `config.ts`. 
 Mainly, it is used to differentiate between testnet (Coston2) and mainnet (flare).
