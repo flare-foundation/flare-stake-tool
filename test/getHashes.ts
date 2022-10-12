@@ -1,4 +1,4 @@
-const { networkID } = require('../config.ts')
+const { networkID } = require('../src/config')
 import { parseToID, toValidatorConfigHash, sleepms } from '../src/utils'
 import { addValidator } from '../src/addValidator'
 import { BN } from '@flarenetwork/flarejs/dist'

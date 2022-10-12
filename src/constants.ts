@@ -1,4 +1,4 @@
-const { protocol, ip, port, networkID } = require('../config.ts')
+export const { protocol, ip, port, networkID, hrp } = require('./config')
 import { unPrefix0x } from './utils'
 const Web3 = require('web3')
 import { BinTools, Buffer } from '@flarenetwork/flarejs'
@@ -23,7 +23,7 @@ if (privkHex !== undefined && privkHex !== '') {
 } else if (privkCB58 !== undefined && privkCB58 !== '') {
   const privkBuf = bintools.cb58Decode(privkCB58)
   privkHex = privkBuf.toString('hex')
-} else throw Error('Private key has to be provided in either hex or cb58')
+}
 
 const path = '/ext/bc/C/rpc'
 const iport = port ? `${ip}:${port}` : `${ip}`
@@ -34,13 +34,15 @@ export const avalanche = new Avalanche(ip, port, protocol, networkID)
 export const xchain: AVMAPI = avalanche.XChain()
 export const cchain: EVMAPI = avalanche.CChain()
 export const pchain: PlatformVMAPI = avalanche.PChain()
-const privKey = `${PrivateKeyPrefix}${privkCB58}`
 export const xKeychain: AVMKeyChain = xchain.keyChain()
 export const cKeychain: EVMKeyChain = cchain.keyChain()
 export const pKeychain: PVMKeyChain = pchain.keyChain()
-xKeychain.importKey(privKey)
-cKeychain.importKey(privKey)
-pKeychain.importKey(privKey)
+if (privkCB58) {
+  const privKey = `${PrivateKeyPrefix}${privkCB58}`
+  xKeychain.importKey(privKey)
+  cKeychain.importKey(privKey)
+  pKeychain.importKey(privKey)
+}
 
 const pAddressStrings: string[] = pchain.keyChain().getAddressStrings()
 const cAddressStrings: string[] = cchain.keyChain().getAddressStrings()
@@ -48,8 +50,12 @@ const xAddressStrings: string[] = xchain.keyChain().getAddressStrings()
 export const pAddressBech32 = pAddressStrings[0]
 export const cAddressBech32 = cAddressStrings[0]
 export const xAddressBech32 = xAddressStrings[0]
-const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
-export const cAddressHex: string = cAccount.address.toLowerCase()
+
+export let cAddressHex: string = ""
+if (privkHex) {
+  const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
+  cAddressHex = cAccount.address.toLowerCase()
+}
 
 export const pChainBlockchainID: string =
   Defaults.network[networkID].P.blockchainID

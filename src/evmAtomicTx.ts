@@ -18,7 +18,7 @@ import { costImportTx, costExportTx } from "@flarenetwork/flarejs/dist/utils"
  * Exports funds from C-chain to P-chain
  * @param amount - amount to export from C-chain to P-chain
  */
-export async function exportTxCP(amount: BN, fee?: BN): Promise<any> {
+export async function exportTxCP(amount: BN, fee?: BN): Promise<{ txid: string, usedFee: string }> {
   const threshold = 1
   const txcount = await web3.eth.getTransactionCount(cAddressHex)
   const nonce: number = txcount
@@ -40,7 +40,7 @@ export async function exportTxCP(amount: BN, fee?: BN): Promise<any> {
     threshold,
     baseFee
   )
-
+  
   if (fee === undefined) {
     const exportCost: number = costExportTx(unsignedTx)
     fee = baseFee.mul(new BN(exportCost))
@@ -56,20 +56,19 @@ export async function exportTxCP(amount: BN, fee?: BN): Promise<any> {
       threshold,
       fee
     )
-    const feeRepr = integerToDecimal(fee.toString(), 9)
-    console.log(`Using fee of ${feeRepr}`)
   }
 
   const tx: Tx = unsignedTx.sign(cKeychain)
   const txid = await cchain.issueTx(tx)
-  const txstatus = await cchain.getAtomicTxStatus(txid)
-  console.log(`TXID: ${txid}, Status ${txstatus}`)
+  // const txstatus = await cchain.getAtomicTxStatus(txid)
+  const usedFee = integerToDecimal(fee.toString(), 9)
+  return { txid: txid, usedFee: usedFee }
 }
 
 /**
  * Import funds exported from P-chain to C-chain to C-chain.
  */
-export async function importTxPC(fee?: BN) {
+export async function importTxPC(fee?: BN): Promise<{ txid: string, usedFee: string }> {
   const baseFeeResponse: string = await cchain.getBaseFee()
   const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
   const evmUTXOResponse: any = await cchain.getUTXOs(
@@ -97,11 +96,10 @@ export async function importTxPC(fee?: BN) {
       [cAddressBech32],
       fee
     )
-    const feeRepr = integerToDecimal(fee.toString(), 9)
-    console.log(`Using fee of ${feeRepr}`)
   }
 
   const tx: Tx = unsignedTx.sign(cKeychain)
   const txid: string = await cchain.issueTx(tx)
-  console.log(`Success! TXID: ${txid}`)
+  const usedFee = integerToDecimal(fee.toString(), 9)
+  return { txid: txid, usedFee: usedFee }
 }
