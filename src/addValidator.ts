@@ -1,15 +1,17 @@
-import { pchain, pKeychain, pAddressBech32 } from './constants'
+import { Context } from './constants'
 import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 
 /**
  * Stake by registring your node for validation
+ * @param ctx - context with constants initialized from user keys
  * @param nodeID - id of the node you are running (can get it via rpc call)
  * @param stakeAmount - the amount of funds to stake during the node's validation
  * @param stakeDuration - the duration of the node's validation
  */
 export async function addValidator(
+  ctx: Context,
   nodeID: string,
   stakeAmount: BN,
   stakeDuration: BN
@@ -24,19 +26,19 @@ export async function addValidator(
   const endTime: BN = startTime.add(stakeDuration)
   const delegationFee = 10
   // const stakeAmount: any = (await pchain.getMinStake()).minValidatorStake
-  const platformVMUTXOResponse: any = await pchain.getUTXOs(pAddressBech32)
+  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32)
   const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
 
-  const unsignedTx: UnsignedTx = await pchain.buildAddValidatorTx(
+  const unsignedTx: UnsignedTx = await ctx.pchain.buildAddValidatorTx(
     utxoSet,
-    [pAddressBech32],
-    [pAddressBech32],
-    [pAddressBech32],
+    [ctx.pAddressBech32],
+    [ctx.pAddressBech32],
+    [ctx.pAddressBech32],
     nodeID,
     startTime,
     endTime,
     stakeAmount,
-    [pAddressBech32],
+    [ctx.pAddressBech32],
     delegationFee,
     locktime,
     threshold,
@@ -44,7 +46,7 @@ export async function addValidator(
     asOf
   )
   
-  const tx: Tx = unsignedTx.sign(pKeychain)
-  const txid: string = await pchain.issueTx(tx)
+  const tx: Tx = unsignedTx.sign(ctx.pKeychain)
+  const txid: string = await ctx.pchain.issueTx(tx)
   return { txid: txid }
 }

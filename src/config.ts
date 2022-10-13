@@ -1,4 +1,3 @@
-require('dotenv').config('.env')
 
 const localflare = {
   protocol: 'http',
