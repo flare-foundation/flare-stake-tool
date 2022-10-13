@@ -14,6 +14,7 @@ import { Program } from '@caporal/core'
 import { BN } from '@flarenetwork/flarejs/dist'
 
 export const cli = async (program: Program) => {
+  const validatorstring = { validator: program.STRING }
   program
     // information about the network
     .command("info", "Relevant information")
@@ -31,12 +32,11 @@ export const cli = async (program: Program) => {
         await getValidatorInfo(logger)
       }
     })
-
     // moving funds from one chain to another
     .command("crosschain", "Move funds from one chain to another")
     .argument("<type>", "Type of a crosschain transaction")
-    .option("-a, --amount <amount>", "Amount to transfer")
-    .option("-f, --fee <fee>", "Fee of a transaction")
+    .option("-a, --amount <amount>", "Amount to transfer", validatorstring)
+    .option("-f, --fee <fee>", "Fee of a transaction", validatorstring)
     .action(async ({ logger, args, options }: any) => {
       if (args.type == 'exportCP') {
         await exportCP(logger, options.amount, options.fee)
@@ -50,29 +50,30 @@ export const cli = async (program: Program) => {
     })
     // staking
     .command("stake", "Stake funds on the P-chain") 
-    .option("-n, --node-id <nodeID>", "The staking node's id")
-    .option("-w, --weight <weight>", "Weight or amount to stake")
-    .option("-d, --duration <duration>", "Duration of the staking process")
+    .option("-n, --node-id <nodeID>", "The staking node's id", validatorstring)
+    .option("-w, --weight <weight>", "Weight or amount to stake", validatorstring)
+    .option("-d, --duration <duration>", "Duration of the staking process", validatorstring)
     .action(async ({ logger, args, options }: any) => {
-      await stake(options.nodeID, options.weight, options.duration)
+      await stake(logger, options.nodeId, options.weight, options.duration)
     })
     // hashing validator configuration
     .command("hash", "Utilities to calculate validator config hashes")
-    .option("-n, --node-id <nodeID>", "The staking node's id")
-    .option("-w, --weight <weight>", "Weight or amount to stake")
-    .option("-d, --duration <duration>", "Duration of the staking process")
+    .option("-n, --node-id <nodeID>", "The staking node's id", validatorstring)
+    .option("-w, --weight <weight>", "Weight or amount to stake", validatorstring)
+    .option("-d, --duration <duration>", "Duration of the staking process", validatorstring)
     .option("-a, --address <address>",
-      "Validator's address in Bech32 format (default is derived from logged private key)")
+      "Validator's address in Bech32 format (default is derived from logged private key)", 
+      validatorstring)
     .action(async ({ logger, args, options }: any) => {
-      await getHash(options.nodeID, options.weight, options.duration, options.address)
+      await getHash(logger, options.nodeId, options.weight, options.duration, options.address)
     })
     // converting addresses
     .command("convert", "Utility for conversion of address formats") 
     .argument("<type>", "Type of conversion") 
-    .option("-p, --public-key <pubk>", "User's secp256k1 public key")
+    .option("-p, --public-key <pubk>", "User's secp256k1 public key", validatorstring)
     .action(async ({ logger, args, options }: any) => {
       if (args.type == 'PChainAddressFromPublicKey') {
-        getAddressFromPublicKey(logger, options.pubk)
+        getAddressFromPublicKey(logger, options.publicKey)
       }
     })
   }
@@ -145,10 +146,14 @@ async function importPC(logger: any, fee?: string) {
   logger.info(`Success! TXID: ${txid}`)
 }
 
-async function stake(nodeID: string, weight: string, duration: string) {
+async function stake(
+  logger: any, nodeID: string, 
+  weight: string, duration: string
+) {
   const fweight = new BN(decimalToInteger(weight, 9))
   const fduration = new BN(duration)
-  await addValidator(nodeID, fweight, fduration)
+  const { txid } = await addValidator(nodeID, fweight, fduration)
+  logger.info(`Success! TXID: ${txid}`)
 }
 
 async function getHash(
@@ -156,12 +161,12 @@ async function getHash(
   nodeID: string, weight: string, 
   duration: string, address?: string
 ) {
-  if (address === undefined) address = parseToID(pAddressBech32)
+  if (address === undefined) address = pAddressBech32
   const configHash = toValidatorConfigHash(
     networkID.toString(),
-    address,
+    parseToID(address),
     nodeID,
-    weight,
+    decimalToInteger(weight, 9),
     duration
   )
   logger.info(`Validator configuration hash: ${configHash}`)

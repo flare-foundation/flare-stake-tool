@@ -92,3 +92,4 @@ build/*
 
 # app-specific
 build
+dist

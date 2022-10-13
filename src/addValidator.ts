@@ -13,7 +13,7 @@ export async function addValidator(
   nodeID: string,
   stakeAmount: BN,
   stakeDuration: BN
-): Promise<any> {
+): Promise<{ txid: string }> {
   const threshold = 1
   const locktime: BN = new BN(0)
   const memo: Buffer = Buffer.from(
@@ -46,5 +46,5 @@ export async function addValidator(
   
   const tx: Tx = unsignedTx.sign(pKeychain)
   const txid: string = await pchain.issueTx(tx)
-  console.log(`Success! TXID: ${txid}`)
+  return { txid: txid }
 }

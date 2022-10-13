@@ -2,5 +2,5 @@
 
 require = require('esm')(module /*, options*/)
 const program = require('@caporal/core').program
-require("../build/cli").cli(program)
+require("../dist/cli").cli(program)
 program.run()

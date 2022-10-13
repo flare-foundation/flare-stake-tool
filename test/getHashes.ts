@@ -29,6 +29,12 @@ function getHashes(validatorConfigs: ValidatorConfig[]) {
 
 const configs: ValidatorConfig[] = [
   {
+    nodeId: "NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK",
+    pChainAddress: "P-costwo1pynhfl09rfrf20s83lf6ra5egqylmx75xnwdcm",
+    stake: "10000000000000",
+    duration: "1512000"
+  },
+  {
     nodeId: 'NodeID-NZSS8sNLobmi4eZwwKX2NFuc8MAhQNfe7',
     pChainAddress: 'P-costwo16xd77u7gdkayd52mcjm6wzqjv9pvfgdt5fq3mq',
     stake: '5000000000000',
@@ -78,4 +84,4 @@ async function addValidators(validatorConfigs: any[]) {
 
 let hashes = getHashes(configs)
 console.log(hashes)
-addValidators([configs[1]])
+//addValidators([configs[1]])

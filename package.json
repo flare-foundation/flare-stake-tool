@@ -1,8 +1,8 @@
 {
   "name": "pchain",
-  "version": "0.0.1",
-  "description": "A barebones starter for spinning up a TypeScript/Jest environment",
-  "main": "index.js",
+  "version": "0.0.0",
+  "description": "Utilities for staking on the Flare network",
+  "main": "dist/index.js",
   "bin": {
     "pchain": "bin/pchain"
   },
@@ -10,23 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "tsc": "tsc",
-    "build": "rm -rf dist/ && yarn tsc -b",
-    "exportCP": "yarn ts-node cli/exportCP.ts",
-    "importCP": "yarn ts-node cli/importCP.ts",
-    "exportPC": "yarn ts-node cli/exportPC.ts",
-    "importPC": "yarn ts-node cli/importPC.ts",
-    "stake": "yarn ts-node cli/stake.ts",
-    "getAddresses": "yarn ts-node cli/getAddresses.ts",
-    "getBalance": "yarn ts-node cli/getBalance.ts",
-    "getHash": "yarn ts-node cli/getHash.ts",
-    "validatorsInfo": "yarn ts-node cli/validatorsInfo.ts",
-    "networkInfo": "yarn ts-node cli/networkInfoLive.ts",
-    "getAddressFromPublicKey": "yarn ts-node cli/getAddressFromPublicKey.ts"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
+    "build": "rm -rf dist/ && yarn tsc -b"
   },
   "lint-staged": {
     "*.{ts,js,tsx,jsx}": [
@@ -35,8 +19,17 @@
       "git add"
     ]
   },
-  "keywords": [],
-  "author": "github.com/martingaston",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flare-foundation/p-chain-staking-code"
+  },
+  "keywords": [
+    "Flare",
+    "blockchain",
+    "defi"
+  ],
+  "author": "Flare Networks",
+  "homepage": "https://github.com/flare-foundation/p-chain-staking-code#readme",
   "license": "MIT",
   "devDependencies": {
     "@types/elliptic": "^6.4.14",
