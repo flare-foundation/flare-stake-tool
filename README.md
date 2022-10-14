@@ -4,9 +4,12 @@ The repo contains a cli for adding (staking) FTSO validators on Flare and Coston
 
 ## Installation
 Installation of the cli app is done by running `npm install chainstake --global`. 
-Or, for development purposes, you can setup the app from cloned repo by running the following scripts
+Or, for development purposes, you can first clone the repo by running
 ```bash
 git clone https://github.com/flare-foundation/p-chain-staking-code.git
+```
+and then set up the app by running
+```bash
 yarn
 yarn build
 npm link
@@ -31,19 +34,19 @@ A usual stake flow works as follows.
 ## CLI app usage
 
 To use the chainstake cli app, one has to first obtain a private key (either a length 64 hexadecimal or cb58 format) and paste it into `.env` 
-file, according to the below format
+file (make sure that you run the app on a secure machine), that has the following format
 ```
 PRIVATE_KEY_HEX = "0x..."
 PRIVATE_KEY_CB58 = ""
 ```
-Make sure that you run the app on a secure machine.
 
-The cli app is stateless and requires users to provide a path to their `.env` file in the form of a global option `--env-path`.
-Another global option is `--network`, which can be set to either `flare` or `costwo` (it defaults to `flare`).
+The cli app is stateless and requires users to provide a path to their `.env` file.
+The path is passed to a global option `--env-path`. Another global option is `--network`,
+which can be set to either `flare` or `costwo` (defaults to `flare`).
 
 To obtain the derived C-chain and P-chain addresses, along with the associated public key, use 
 ```bash
-chainstake info addresses -e /path/to/.env
+chainstake info addresses --env-path /path/to/.env
 ```
 
 To perform full stake flow, run the following scripts
@@ -78,10 +81,10 @@ Then, you have to register your validator configuration hash directly in the nod
 Say you want to use the node with id `NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK` to stake `10000` FLR
 for duration of `1512000` seconds. To calculate the hash, run
 ```bash
-chainstake hash -n "NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK" -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
+chainstake hash -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
 ```
-The above produces the hash `2b52aae672d041ec5ec597bb72b6c1815f01f2b895ed5cddb42c45ca0e629317`.
-Add the hash to the array [here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo. Now you can setup the node(s) as described in go-flare's README.md. 
+The above produces `2b52aae672d041ec5ec597bb72b6c1815f01f2b895ed5cddb42c45ca0e629317`.
+Add this hash to the array [here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo. Now you can setup the node(s) as described in go-flare's README.md. 
 
 To stake, you have to first export funds from the C-chain and then import them to the P-chain, which is done by running
 ```bash
@@ -91,7 +94,7 @@ chainstake crosschain importCP --env-path /path/to/.env
 If you get the `errInsufficientFunds` error, try raising the default fee when exporting funds. 
 Finally, you can add a validator by running
 ```bash
-chainstake stake -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000
+chainstake stake -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
 ```
 
 ## Versions
