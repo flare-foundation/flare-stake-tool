@@ -1,4 +1,3 @@
-const { networkID, hrp } = require('./config')
 import { 
   parseToID, integerToDecimal, formatBech32,
   decimalToInteger, toValidatorConfigHash 
@@ -13,12 +12,22 @@ import { BN } from '@flarenetwork/flarejs/dist'
 export async function cli(program: Program) {
   const validatorstring = { validator: program.STRING }
   program
+    // global configurations
+    .option("--network", "Network name (flare or costwo)", {
+      validator: program.STRING,
+      global: true,
+      default: 'flare'
+    })
+    .option("--env-path", "Path to the .env file", {
+      validator: program.STRING,
+      global: true,
+      default: 'env'
+    })
     // information about the network
     .command("info", "Relevant information")
     .argument("<type>", "Type of information")
-    .option("-e, --env-path", "Path to the .env file", validatorstring)
     .action(async ({ logger, args, options }: any) => {
-      const ctx = contextEnv(options.envPath)
+      const ctx = contextEnv(options.envPath, options.network)
       if (args.type == 'addresses') {
         getAddressInfo(ctx, logger)
       } else if (args.type == 'balance') {
@@ -36,9 +45,8 @@ export async function cli(program: Program) {
     .argument("<type>", "Type of a crosschain transaction")
     .option("-a, --amount <amount>", "Amount to transfer", validatorstring)
     .option("-f, --fee <fee>", "Fee of a transaction", validatorstring)
-    .option("-e, --env-path", "Path to the .env file", validatorstring)
     .action(async ({ logger, args, options }: any) => {
-      const ctx = contextEnv(options.envPath)
+      const ctx = contextEnv(options.envPath, options.network)
       if (args.type == 'exportCP') {
         await exportCP(ctx, logger, options.amount, options.fee)
       } else if (args.type == 'importCP') {
@@ -54,9 +62,8 @@ export async function cli(program: Program) {
     .option("-n, --node-id <nodeID>", "The staking node's id", validatorstring)
     .option("-w, --weight <weight>", "Weight or amount to stake", validatorstring)
     .option("-d, --duration <duration>", "Duration of the staking process", validatorstring)
-    .option("-e, --env-path", "Path to the .env file", validatorstring)
     .action(async ({ logger, args, options }: any) => {
-      const ctx = contextEnv(options.envPath)
+      const ctx = contextEnv(options.envPath, options.network)
       await stake(ctx, logger, options.nodeId, options.weight, options.duration)
     })
     // hashing validator configuration
@@ -68,24 +75,30 @@ export async function cli(program: Program) {
       "Validator's address in Bech32 format (default is derived from logged private key)", 
       validatorstring)
     .action(async ({ logger, args, options }: any) => {
-      await getHash(logger, options.nodeId, options.weight, options.duration, options.address)
+      const ctx = contextEnv(options.envPath, options.network)
+      await getHash(
+        ctx, logger, options.nodeId, options.weight, 
+        options.duration, options.address
+      )
     })
     // converting addresses
     .command("convert", "Utility for conversion of address formats") 
     .argument("<type>", "Type of conversion") 
     .option("-p, --public-key <pubk>", "User's secp256k1 public key", validatorstring)
     .action(({ logger, args, options }: any) => {
+      const ctx = contextEnv(options.envPath, options.network)
       if (args.type == 'PChainAddressFromPublicKey') {
-        getAddressFromPublicKey(logger, options.publicKey)
+        getAddressFromPublicKey(ctx, logger, options.publicKey)
       }
     })
   }
 
 function getAddressInfo(ctx: Context, logger: any) {
   const publicKey = parseToID(ctx.pAddressBech32)
+  logger.info(`X-chain address: ${ctx.xAddressBech32}`)
   logger.info(`P-chain address: ${ctx.pAddressBech32}`)
   logger.info(`C-chain address hex: ${ctx.cAddressHex}`)
-  logger.info(`public key: ${publicKey}`)
+  logger.info(`secp256k1 public key: ${publicKey}`)
 }
 
 async function getBalanceInfo(ctx: Context, logger: any) {
@@ -159,12 +172,13 @@ async function stake(
 }
 
 async function getHash(
-  logger: any, 
+  ctx: Context, logger: any, 
   nodeID: string, weight: string, 
-  duration: string, address: string
+  duration: string, address?: string
 ) {
+  if (address === undefined) address = ctx.pAddressBech32
   const configHash = toValidatorConfigHash(
-    networkID.toString(),
+    ctx.config.networkID.toString(),
     parseToID(address),
     nodeID,
     decimalToInteger(weight, 9),
@@ -173,7 +187,7 @@ async function getHash(
   logger.info(`Validator configuration hash: ${configHash}`)
 }
 
-function getAddressFromPublicKey(logger: any, pubk: string) {
-  const bech32 = formatBech32(hrp, pubk)
+function getAddressFromPublicKey(ctx: Context, logger: any, pubk: string) {
+  const bech32 = formatBech32(ctx.config.hrp, pubk)
   logger.info(`P-chain address: P-${bech32}`)
 }

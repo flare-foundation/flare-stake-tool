@@ -1,4 +1,4 @@
-export const { protocol, ip, port, networkID, hrp } = require('./config')
+import { costwo, flare, localflare, NetworkConfig } from './config'
 import { unPrefix0x } from './utils'
 const Web3 = require('web3')
 import { BinTools, Buffer } from '@flarenetwork/flarejs'
@@ -30,10 +30,12 @@ export interface Context {
   xChainBlockchainID: string,
   cChainBlockchainID: string,
   pChainBlockchainID: string,
-  avaxAssetID: string
+  avaxAssetID: string,
+  config: NetworkConfig
 }
 
-export function context(privkHex?: string, privkCB58?: string): Context {
+export function context(config: NetworkConfig, privkHex?: string, privkCB58?: string): Context {
+  const { protocol, ip, port, networkID, hrp } = config
 
   // derive private key in both cb58 and hex if only one is provided
   const bintools = BinTools.getInstance()
@@ -105,14 +107,27 @@ export function context(privkHex?: string, privkCB58?: string): Context {
     xChainBlockchainID: xChainBlockchainID,
     cChainBlockchainID: cChainBlockchainID,
     pChainBlockchainID: pChainBlockchainID,
-    avaxAssetID: avaxAssetID
+    avaxAssetID: avaxAssetID,
+    config: config
   }
 }
 
-export function contextEnv(path: string): Context {
-  require('dotenv').config(path)
-  const privkHex = process.env.PRIVATE_KEY_HEX!
-  const privkCB58 = process.env.PRIVATE_KEY_CB58!
-  return context(privkHex, privkCB58)
+export function getConfig(network: string): NetworkConfig {
+  let networkConfig
+  if (network == 'flare' || network === undefined) {
+    networkConfig = flare
+  } else if (network == 'costwo') {
+    networkConfig = costwo
+  } else if (network == 'localflare') {
+    networkConfig = localflare
+  } else throw Error('Invalid network')
+  return networkConfig
 }
 
+export function contextEnv(path: string, network: string): Context {
+  require('dotenv').config(path)
+  const config = getConfig(network)
+  const privkHex = process.env.PRIVATE_KEY_HEX!
+  const privkCB58 = process.env.PRIVATE_KEY_CB58!
+  return context(config, privkHex, privkCB58)
+}
