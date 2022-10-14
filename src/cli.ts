@@ -81,7 +81,7 @@ export async function cli(program: Program) {
         options.duration, options.address
       )
     })
-    // converting addresses
+    // converting between address formats
     .command("convert", "Utility for conversion of address formats") 
     .argument("<type>", "Type of conversion") 
     .option("-p, --public-key <pubk>", "User's secp256k1 public key", validatorstring)
@@ -126,10 +126,10 @@ function getNetworkInfo(ctx: Context, logger: any) {
 async function getValidatorInfo(ctx: Context, logger: any) {
   const pending = await ctx.pchain.getPendingValidators()
   const current = await ctx.pchain.getCurrentValidators()
-  logger.info('pending validators:')
-  logger.info(JSON.stringify(pending))
-  logger.info('current validators:')
-  logger.info(JSON.stringify(current))
+  const fpending = JSON.stringify(pending, null, 2)
+  const fcurrent = JSON.stringify(current, null, 2)
+  logger.info(`pending: ${fpending}`)
+  logger.info(`current: ${fcurrent}`)
 }
 
 async function exportCP(ctx: Context, logger: any, amount: string, fee?: string) {

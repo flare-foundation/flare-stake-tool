@@ -34,7 +34,27 @@ export interface Context {
   config: NetworkConfig
 }
 
-export function context(config: NetworkConfig, privkHex?: string, privkCB58?: string): Context {
+export function contextEnv(path: string, network: string): Context {
+  require('dotenv').config(path)
+  const config = getConfig(network)
+  const privkHex = process.env.PRIVATE_KEY_HEX!
+  const privkCB58 = process.env.PRIVATE_KEY_CB58!
+  return context(config, privkHex, privkCB58)
+}
+
+function getConfig(network: string): NetworkConfig {
+  let networkConfig
+  if (network == 'flare' || network === undefined) {
+    networkConfig = flare
+  } else if (network == 'costwo') {
+    networkConfig = costwo
+  } else if (network == 'localflare') {
+    networkConfig = localflare
+  } else throw Error('Invalid network')
+  return networkConfig
+}
+
+function context(config: NetworkConfig, privkHex?: string, privkCB58?: string): Context {
   const { protocol, ip, port, networkID, hrp } = config
 
   // derive private key in both cb58 and hex if only one is provided
@@ -110,24 +130,4 @@ export function context(config: NetworkConfig, privkHex?: string, privkCB58?: st
     avaxAssetID: avaxAssetID,
     config: config
   }
-}
-
-export function getConfig(network: string): NetworkConfig {
-  let networkConfig
-  if (network == 'flare' || network === undefined) {
-    networkConfig = flare
-  } else if (network == 'costwo') {
-    networkConfig = costwo
-  } else if (network == 'localflare') {
-    networkConfig = localflare
-  } else throw Error('Invalid network')
-  return networkConfig
-}
-
-export function contextEnv(path: string, network: string): Context {
-  require('dotenv').config(path)
-  const config = getConfig(network)
-  const privkHex = process.env.PRIVATE_KEY_HEX!
-  const privkCB58 = process.env.PRIVATE_KEY_CB58!
-  return context(config, privkHex, privkCB58)
 }

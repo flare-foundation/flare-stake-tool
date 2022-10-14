@@ -3,7 +3,10 @@
 The repo contains a cli for adding (staking) FTSO validators on Flare and Coston2 networks. FTSO validators are data providers for Flare Time Series Oracles (FTSO) on respective networks. By submitting price signals and competing for reward they earn certain weight, which allows them to add their validator node for a limited time with exactly the earned weight. Adding a validator node is equivalent to opening a staking session for the prescribed duration with staking amount equal to the prescribed weight, earned by the data providing activity. The amount (weight) is between 1 and 10000 FLR (or C2FLR). A validator can get (or calculate) their staking amount on [this](https://github.com/flare-foundation/Calculating-FTSO-Validation-Block-Creation-Power) repository.
 
 ## Installation
-Installation of the cli app is done by running `npm install chainstake --global`. 
+Installation of the cli app is done by running 
+```bash
+npm install chainstake --global
+```
 Or, for development purposes, you can first clone the repo by running
 ```bash
 git clone https://github.com/flare-foundation/p-chain-staking-code.git
@@ -72,29 +75,34 @@ either set or else calculated automatically.
 
 ## Testing locally with `go-flare` node
 
-This code can be tested locally, using a node sourced [here](https://github.com/flare-foundation/go-flare).
+This code can be tested locally on the localflare network, 
+using a node with code sourced from [here](https://github.com/flare-foundation/go-flare).
 
 First, add a private key with some funds on C-chain into `.env` - you can use a well-funded test account
 with the private key `0xd49743deccbccc5dc7baa8e69e5be03298da8688a15dd202e20f15d5e0e9a9fb`.
 
-Then, you have to register your validator configuration hash directly in the node code.
+Then, you have to hardcode your validator configuration hash directly in the node code.
 Say you want to use the node with id `NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK` to stake `10000` FLR
 for duration of `1512000` seconds. To calculate the hash, run
 ```bash
 chainstake hash -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
 ```
 The above produces `2b52aae672d041ec5ec597bb72b6c1815f01f2b895ed5cddb42c45ca0e629317`.
-Add this hash to the array [here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo. Now you can setup the node(s) as described in go-flare's README.md. 
+Add this hash to the array [here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo. Now you can setup the node(s) as described in [here](https://github.com/flare-foundation/p-chain-staking-code/tree/cli-app#testing-locally-with-go-flare-node).
 
-To stake, you have to first export funds from the C-chain and then import them to the P-chain, which is done by running
+To stake, you have to first export funds from the C-chain and then import them to the P-chain, 
+then add the validator node to the network. This is done by running the following scripts
 ```bash
-chainstake crosschain exportCP -a 10000 -f <fee> --env-path /path/to/.env
-chainstake crosschain importCP --env-path /path/to/.env
+chainstake crosschain exportCP -a 10000 -f <fee> --env-path /path/to/.env --network localflare
+chainstake crosschain importCP --env-path /path/to/.env --network localflare
+chainstake stake -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
 ```
 If you get the `errInsufficientFunds` error, try raising the default fee when exporting funds. 
-Finally, you can add a validator by running
+
+You can check if a validator has been added successfully by checking that the node's id is inside the list of current validators,
+which you can fetch by running
 ```bash
-chainstake stake -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
+chainstake info validators --network localflare
 ```
 
 ## Versions
