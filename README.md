@@ -65,7 +65,7 @@ Above, `amount` specifies the funds to export / stake (in FLR / C2FLR),
 Checking whether a validator has been added successfully can be done by fetching 
 lists of both pending and current validators. This is done by running
 ```bash
-flare-stake-tool info validators --network localflare
+flare-stake-tool info validators
 ```
 
 Funds can also be returned from P-chain back to C-chain by running the following scripts
