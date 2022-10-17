@@ -1,17 +1,17 @@
 # P-chain staking scripts
 
-The repo contains a cli for adding (staking) FTSO validators on Flare and Coston2 networks. FTSO validators are data providers for Flare Time Series Oracles (FTSO) on respective networks. By submitting price signals and competing for the reward they earn a certain weight, which allows them to add their validator node for a limited time with exactly the earned weight. Adding a validator node is equivalent to opening a staking session for the prescribed duration with a staking amount equal to the prescribed weight, earned by the data providing activity. The amount (weight) is between 1 and 10000 FLR (or C2FLR). A validator can get (or calculate) their staking amount on [this](https://github.com/flare-foundation/Calculating-FTSO-Validation-Block-Creation-Power) repository.
+The repo contains a cli app for adding (staking) FTSO validators on Flare and Coston2 networks. FTSO validators are data providers for Flare Time Series Oracles (FTSO) on respective networks. By submitting price signals and competing for the reward they earn a certain weight, which allows them to add their validator node for a limited time with exactly the earned weight. Adding a validator node is equivalent to opening a staking session for the prescribed duration with a staking amount equal to the prescribed weight, earned by the data providing activity. The amount (weight) is between 1 and 10000 FLR (or C2FLR). A validator can get (or calculate) their staking amount on [this](https://github.com/flare-foundation/Calculating-FTSO-Validation-Block-Creation-Power) repository.
 
 ## Installation
 Installation of the cli app is done by running 
 ```bash
 npm install @flarenetwork/flare-stake-tool --global
 ```
-Or, for development purposes, you can first clone the repo by running
+Or, for development purposes, you can first clone the repo with
 ```bash
 git clone https://github.com/flare-foundation/p-chain-staking-code.git
 ```
-and then set up the app by running
+and then set up the app with
 ```bash
 yarn
 yarn build
@@ -39,11 +39,11 @@ A usual stake flow works as follows.
 To use the flare-stake-tool cli app, one has to first obtain a private key (either a length 64 hexadecimal or cb58 format) and paste it into `.env` 
 file (make sure that you run the app on a secure machine), that has the following format
 ```
-PRIVATE_KEY_HEX = "0x..."
+PRIVATE_KEY_HEX = ""
 PRIVATE_KEY_CB58 = ""
 ```
 
-The flare-stake-tool app is stateless and requires users to provide a path to their `.env` file,
+The app is stateless and requires users to provide a path to their `.env` file,
 which has to be passed to a global option `--env-path`. Another global option is `--network`,
 which can be set to either `flare` or `costwo` (default is `flare`).
 
@@ -61,6 +61,12 @@ flare-stake-tool stake -n <nodeId> -d <duration> -w <amount/weight> --env-path /
 Above, `amount` specifies the funds to export / stake (in FLR / C2FLR), 
 `fee` is an optional parameter that specifies the fee of a transaction (in FLR / C2FLR), 
 `duration` is the staking time (in seconds), and `nodeId` is the id of the node being deployed as a validator. 
+
+Checking whether a validator has been added successfully can be done by fetching 
+lists of both pending and current validators. This is done by running
+```bash
+flare-stake-tool info validators --network localflare
+```
 
 Funds can also be returned from P-chain back to C-chain by running the following scripts
 ```bash
@@ -99,12 +105,6 @@ flare-stake-tool crosschain importCP --env-path /path/to/.env --network localfla
 flare-stake-tool stake -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
 ```
 In case of `errInsufficientFunds` error, try raising the fee when exporting funds. 
-
-You can check if a validator has been added successfully by checking that the node's id is inside the list of current validators,
-which you can fetch by running
-```bash
-flare-stake-tool info validators --network localflare
-```
 
 ## Versions
 Some info on upgrading to a new version.
