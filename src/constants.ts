@@ -35,7 +35,7 @@ export interface Context {
 }
 
 export function contextEnv(path: string, network: string): Context {
-  require('dotenv').config(path)
+  require('dotenv').config({path: path})
   const config = getConfig(network)
   const privkHex = process.env.PRIVATE_KEY_HEX!
   const privkCB58 = process.env.PRIVATE_KEY_CB58!

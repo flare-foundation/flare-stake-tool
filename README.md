@@ -5,7 +5,7 @@ The repo contains a cli for adding (staking) FTSO validators on Flare and Coston
 ## Installation
 Installation of the cli app is done by running 
 ```bash
-npm install chainstake --global
+npm install @flarenetwork/flare-stake-tool --global
 ```
 Or, for development purposes, you can first clone the repo by running
 ```bash
@@ -36,27 +36,27 @@ A usual stake flow works as follows.
 
 ## CLI app usage
 
-To use the chainstake cli app, one has to first obtain a private key (either a length 64 hexadecimal or cb58 format) and paste it into `.env` 
+To use the flare-stake-tool cli app, one has to first obtain a private key (either a length 64 hexadecimal or cb58 format) and paste it into `.env` 
 file (make sure that you run the app on a secure machine), that has the following format
 ```
 PRIVATE_KEY_HEX = "0x..."
 PRIVATE_KEY_CB58 = ""
 ```
 
-The chainstake app is stateless and requires users to provide a path to their `.env` file,
+The flare-stake-tool app is stateless and requires users to provide a path to their `.env` file,
 which has to be passed to a global option `--env-path`. Another global option is `--network`,
 which can be set to either `flare` or `costwo` (default is `flare`).
 
 To obtain the derived C-chain and P-chain addresses, along with the associated public key, use 
 ```bash
-chainstake info addresses --env-path /path/to/.env
+flare-stake-tool info addresses --env-path /path/to/.env
 ```
 
 To perform full stake flow, run the following scripts
 ```bash
-chainstake crosschain exportCP -a <amount> -f <fee> --env-path /path/to/.env
-chainstake crosschain importCP --env-path /path/to/.env
-chainstake stake -n <nodeId> -d <duration> -w <amount/weight> --env-path /path/to/.env
+flare-stake-tool crosschain exportCP -a <amount> -f <fee> --env-path /path/to/.env
+flare-stake-tool crosschain importCP --env-path /path/to/.env
+flare-stake-tool stake -n <nodeId> -d <duration> -w <amount/weight> --env-path /path/to/.env
 ```
 Above, `amount` specifies the funds to export / stake (in FLR / C2FLR), 
 `fee` is an optional parameter that specifies the fee of a transaction (in FLR / C2FLR), 
@@ -64,8 +64,8 @@ Above, `amount` specifies the funds to export / stake (in FLR / C2FLR),
 
 Funds can also be returned from P-chain back to C-chain by running the following scripts
 ```bash
-chainstake crosschain exportPC -a <amount> --env-path /path/to/.env
-chainstake crosschain importPC -f <fee> --env-path /path/to/.env
+flare-stake-tool crosschain exportPC -a <amount> --env-path /path/to/.env
+flare-stake-tool crosschain importPC -f <fee> --env-path /path/to/.env
 ```
 Above, `amount` and `fee` are optional. Omitting `amount` drains the P-chain of all funds.
 
@@ -85,7 +85,7 @@ Then, you have to hardcode your validator configuration hash directly into the n
 Say you want to use the node with id `NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK` to stake `10000` FLR
 for a duration of `1512000` seconds. To calculate the hash, run
 ```bash
-chainstake hash -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
+flare-stake-tool hash -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
 ```
 The above produces `2b52aae672d041ec5ec597bb72b6c1815f01f2b895ed5cddb42c45ca0e629317`.
 Add this hash to the array [here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo. Now you can setup the node(s) as described in [here](https://github.com/flare-foundation/p-chain-staking-code/tree/cli-app#testing-locally-with-go-flare-node).
@@ -94,16 +94,16 @@ Staking requires first exporting funds from C-chain, importing them to P-chain,
 and then stake them by adding a validator node with specific configurations to the network.
 This is done by running the following scripts
 ```bash
-chainstake crosschain exportCP -a 10000 -f <fee> --env-path /path/to/.env --network localflare
-chainstake crosschain importCP --env-path /path/to/.env --network localflare
-chainstake stake -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
+flare-stake-tool crosschain exportCP -a 10000 -f <fee> --env-path /path/to/.env --network localflare
+flare-stake-tool crosschain importCP --env-path /path/to/.env --network localflare
+flare-stake-tool stake -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
 ```
 In case of `errInsufficientFunds` error, try raising the fee when exporting funds. 
 
 You can check if a validator has been added successfully by checking that the node's id is inside the list of current validators,
 which you can fetch by running
 ```bash
-chainstake info validators --network localflare
+flare-stake-tool info validators --network localflare
 ```
 
 ## Versions
