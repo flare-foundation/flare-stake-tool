@@ -1,0 +1,6 @@
+#!/usr/bin/env node
+
+require = require('esm')(module /*, options*/)
+const program = require('@caporal/core').program
+require("../dist/cli").cli(program)
+program.run()

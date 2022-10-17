@@ -1,28 +1,16 @@
 {
-  "name": "typescript-jest",
-  "version": "0.0.1",
-  "description": "A barebones starter for spinning up a TypeScript/Jest environment",
-  "main": "index.js",
+  "name": "@flarenetwork/flare-stake-tool",
+  "version": "1.1.0",
+  "description": "Utilities for staking on the Flare network",
+  "main": "dist/index.js",
+  "bin": {
+    "flare-stake-tool": "bin/flare-stake-tool"
+  },
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
     "tsc": "tsc",
-    "exportCP": "yarn ts-node cli/exportCP.ts",
-    "importCP": "yarn ts-node cli/importCP.ts",
-    "exportPC": "yarn ts-node cli/exportPC.ts",
-    "importPC": "yarn ts-node cli/importPC.ts",
-    "stake": "yarn ts-node cli/stake.ts",
-    "getAddresses": "yarn ts-node cli/getAddresses.ts",
-    "getBalance": "yarn ts-node cli/getBalance.ts",
-    "getHash": "yarn ts-node cli/getHash.ts",
-    "validatorsInfo": "yarn ts-node cli/validatorsInfo.ts",
-    "networkInfo": "yarn ts-node cli/networkInfoLive.ts",
-    "getAddressFromPublicKey": "yarn ts-node cli/getAddressFromPublicKey.ts"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
+    "build": "rm -rf dist/ && yarn tsc -b"
   },
   "lint-staged": {
     "*.{ts,js,tsx,jsx}": [
@@ -31,13 +19,25 @@
       "git add"
     ]
   },
-  "keywords": [],
-  "author": "github.com/martingaston",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flare-foundation/p-chain-staking-code"
+  },
+  "keywords": [
+    "Flare",
+    "blockchain",
+    "defi"
+  ],
+  "author": "Flare Networks",
+  "homepage": "https://github.com/flare-foundation/p-chain-staking-code#readme",
   "license": "MIT",
   "devDependencies": {
+    "@types/elliptic": "^6.4.14",
+    "@types/esm": "^3.2.0",
     "@types/jest": "^24.0.15",
     "@types/node": "*",
     "@types/request": "^2.48.8",
+    "@types/ws": "^8.5.3",
     "@types/yargs": "^17.0.12",
     "@typescript-eslint/eslint-plugin": "^1.11.0",
     "@typescript-eslint/parser": "^1.11.0",
@@ -52,11 +52,13 @@
     "typescript": "^3.5.2"
   },
   "dependencies": {
+    "@caporal/core": "^2.0.2",
+    "@flarenetwork/flarejs": "^1.0.0",
     "bech32": "^2.0.0",
     "bech32-converting": "^1.0.9",
     "dotenv": "^16.0.1",
+    "esm": "^3.2.25",
     "fast-sha256": "^1.3.0",
-    "@flarenetwork/flarejs": "^1.0.0",
     "request": "^2.88.2",
     "web3": "^1.7.5",
     "yargs": "^17.5.1"

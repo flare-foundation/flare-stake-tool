@@ -91,3 +91,6 @@ typings/
 build/*
 
 # app-specific
+build
+dist
+*.lnk

@@ -1,6 +1,13 @@
-require('dotenv').config('.env')
 
-const localflare = {
+export interface NetworkConfig {
+  protocol: string,
+  ip: string,
+  port?: number,
+  networkID: number,
+  hrp: string
+}
+
+export const localflare: NetworkConfig = {
   protocol: 'http',
   ip: 'localhost',
   port: 9650,
@@ -8,32 +15,23 @@ const localflare = {
   hrp: 'localflare'
 }
 
-const costworocks = {
+export const costworocks: NetworkConfig = {
   protocol: 'https',
   ip: 'coston2-api.flare.rocks',
   networkID: 114,
   hrp: 'costwo'
 }
 
-const costwo = {
+export const costwo: NetworkConfig = {
   protocol: 'https',
   ip: 'coston2-api.flare.network',
   networkID: 114,
   hrp: 'costwo'
 }
 
-const flare = {
+export const flare: NetworkConfig = {
   protocol: 'https',
   ip: 'flare-api.flare.network',
   networkID: 14,
   hrp: 'flare'
 }
-
-const costworockslocal = {
-  protocol: 'http',
-  ip: 'localhost',
-  port: 9650,
-  networkID: 114
-}
-
-module.exports = costwo
