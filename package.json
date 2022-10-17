@@ -1,6 +1,6 @@
 {
   "name": "@flarenetwork/flare-stake-tool",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Utilities for staking on the Flare network",
   "main": "dist/index.js",
   "bin": {
