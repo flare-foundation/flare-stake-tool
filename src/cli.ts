@@ -6,7 +6,7 @@ import { contextEnv, Context } from './constants'
 import { exportTxCP, importTxPC } from './evmAtomicTx'
 import { exportTxPC, importTxCP } from './pvmAtomicTx'
 import { addValidator } from './addValidator'
-import { Command } from 'commander'
+import { Command, OptionValues } from 'commander'
 import { BN } from '@flarenetwork/flarejs/dist'
 import createLogger from 'logging'
 
@@ -21,7 +21,7 @@ export async function cli(program: Command) {
   program
     .command("info").description("Relevant information")
     .argument("<type>", "Type of information")
-    .action(async (type) => {
+    .action(async (type: string) => {
       const options = program.opts()
       const ctx = contextEnv(options.envPath, options.network)
       if (type == 'addresses') {
@@ -42,7 +42,7 @@ export async function cli(program: Command) {
     .argument("<type>", "Type of a crosschain transaction")
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Fee of a transaction")
-    .action(async (type, options) => {
+    .action(async (type: string, options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
       if (type == 'exportCP') {
@@ -61,7 +61,7 @@ export async function cli(program: Command) {
     .option("-n, --node-id <nodeID>", "The staking node's id")
     .option("-w, --weight <weight>", "Weight or amount to stake")
     .option("-d, --duration <duration>", "Duration of the staking process")
-    .action(async (options) => {
+    .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
       await stake(ctx, options.nodeId, options.weight, options.duration)
@@ -74,7 +74,7 @@ export async function cli(program: Command) {
     .option("-d, --duration <duration>", "Duration of the staking process")
     .option("-a, --address <address>",
       "Validator's address in Bech32 format (default is derived from logged private key)")
-    .action(async (options) => {
+    .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
       await getHash(
@@ -87,7 +87,7 @@ export async function cli(program: Command) {
     .command("convert").description("Utility for conversion of address formats") 
     .argument("<type>", "Type of conversion") 
     .option("-p, --public-key <pubk>", "User's secp256k1 public key")
-    .action((type, options) => {
+    .action((type: string, options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
       if (type == 'PChainAddressFromPublicKey') {
@@ -165,8 +165,7 @@ async function importPC(ctx: Context, fee?: string) {
 }
 
 async function stake(
-  ctx: Context, 
-  nodeID: string, weight: string, duration: string
+  ctx: Context, nodeID: string, weight: string, duration: string
 ) {
   const fweight = new BN(decimalToInteger(weight, 9))
   const fduration = new BN(duration)
