@@ -59,12 +59,12 @@ export async function cli(program: Command) {
   program
     .command("stake").description("Stake funds on the P-chain") 
     .option("-n, --node-id <nodeID>", "The staking node's id")
-    .option("-w, --weight <weight>", "Weight or amount to stake")
+    .option("-a, --amount <amount>", "Amount to stake")
     .option("-d, --duration <duration>", "Duration of the staking process")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      await stake(ctx, options.nodeId, options.weight, options.duration)
+      await stake(ctx, options.nodeId, options.amount, options.duration)
     })
   // hashing validator configuration
   program
@@ -165,11 +165,11 @@ async function importPC(ctx: Context, fee?: string) {
 }
 
 async function stake(
-  ctx: Context, nodeID: string, weight: string, duration: string
+  ctx: Context, nodeID: string, amount: string, duration: string
 ) {
-  const fweight = new BN(decimalToInteger(weight, 9))
+  const famount = new BN(decimalToInteger(amount, 9))
   const fduration = new BN(duration)
-  const { txid } = await addValidator(ctx, nodeID, fweight, fduration)
+  const { txid } = await addValidator(ctx, nodeID, famount, fduration)
   logger.info(`Success! TXID: ${txid}`)
 }
 

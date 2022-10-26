@@ -56,7 +56,7 @@ To perform full stake flow, run the following scripts
 ```bash
 flare-stake-tool crosschain exportCP -a <amount> -f <fee> --env-path /path/to/.env
 flare-stake-tool crosschain importCP --env-path /path/to/.env
-flare-stake-tool stake -n <nodeId> -d <duration> -w <amount/weight> --env-path /path/to/.env
+flare-stake-tool stake -n <nodeId> -d <duration> -a <amount> --env-path /path/to/.env
 ```
 Above, `amount` specifies the funds to export / stake (in FLR / C2FLR), 
 `fee` is an optional parameter that specifies the fee of a transaction (in FLR / C2FLR), 
