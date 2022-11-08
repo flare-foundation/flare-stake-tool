@@ -1,4 +1,4 @@
-# P-chain staking tool
+# Flare P-chain Staking Tool
 
 This repo contains a tool for staking assets.
 
