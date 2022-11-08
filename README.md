@@ -141,14 +141,7 @@ where `amount` and `fee` are optional.
 
 > **Note:**
 > Methods affecting the P-chain (`importCP` and `exportPC`) always use a fixed gas fee of 0.001FLR, while methods affecting the C-chain (`exportCP` and `importPC`) have variable gas fees and can thus be either set or calculated automatically.
-
 If you get the `errInsufficientFunds` error, try specifying a higher gas fee when exporting funds.
-
-To check whether a validator has been added successfully, fetch lists of both pending and current validators with this command:
-
-```bash
-flare-stake-tool info validators
-```
 
 ### Staking
 
@@ -166,6 +159,12 @@ Where:
 The funds on the P-chain account are available to start staking to the validator nodes.
 
 When the `duration` ends, the nodes automatically stop acting as validators and the staked amount is returned to the C-chain account or you can move them back before the end of the duration.
+
+To check whether a validator has been added successfully, fetch lists of both pending and current validators with this command:
+
+```bash
+flare-stake-tool info validators
+```
 
 ## Testing locally with a `go-flare` node
 
