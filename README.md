@@ -1,4 +1,4 @@
-# P-chain staking scripts
+# Flare Stake Tool
 
 The repo contains a cli app for adding (staking) FTSO validators on Flare and Coston2 networks. FTSO validators are data providers for Flare Time Series Oracles (FTSO) on respective networks. By submitting price signals and competing for the reward they earn a certain weight, which allows them to add their validator node for a limited time with exactly the earned weight. Adding a validator node is equivalent to opening a staking session for the prescribed duration with a staking amount equal to the prescribed weight, earned by the data providing activity. The amount (weight) is between 1 and 10000 FLR (or C2FLR). A validator can get (or calculate) their staking amount on [this](https://github.com/flare-foundation/Calculating-FTSO-Validation-Block-Creation-Power) repository.
 
@@ -56,7 +56,7 @@ To perform full stake flow, run the following scripts
 ```bash
 flare-stake-tool crosschain exportCP -a <amount> -f <fee> --env-path /path/to/.env
 flare-stake-tool crosschain importCP --env-path /path/to/.env
-flare-stake-tool stake -n <nodeId> -d <duration> -w <amount/weight> --env-path /path/to/.env
+flare-stake-tool stake -n <nodeId> -d <duration> -a <amount> --env-path /path/to/.env
 ```
 Above, `amount` specifies the funds to export / stake (in FLR / C2FLR), 
 `fee` is an optional parameter that specifies the fee of a transaction (in FLR / C2FLR), 
@@ -94,7 +94,7 @@ for a duration of `1512000` seconds. To calculate the hash, run
 flare-stake-tool hash -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
 ```
 The above produces `2b52aae672d041ec5ec597bb72b6c1815f01f2b895ed5cddb42c45ca0e629317`.
-Add this hash to the array [here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo. Now you can setup the node(s) as described in [here](https://github.com/flare-foundation/p-chain-staking-code/tree/cli-app#testing-locally-with-go-flare-node).
+Add this hash to the array [here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo. Now you can setup the node(s) as described in [here](https://gitlab.com/flarenetwork/go-flare/-/blob/c75ed8b02fa2fe842cb952481f48f0534c5775be/README.md#compilation-and-unit-testing).
 
 Staking requires first exporting funds from C-chain, importing them to P-chain,
 and then stake them by adding a validator node with specific configurations to the network.

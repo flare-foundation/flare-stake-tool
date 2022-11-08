@@ -6,94 +6,97 @@ import { contextEnv, Context } from './constants'
 import { exportTxCP, importTxPC } from './evmAtomicTx'
 import { exportTxPC, importTxCP } from './pvmAtomicTx'
 import { addValidator } from './addValidator'
-import { Program } from '@caporal/core'
+import { Command, OptionValues } from 'commander'
 import { BN } from '@flarenetwork/flarejs/dist'
+import createLogger from 'logging'
 
-export async function cli(program: Program) {
-  const validatorstring = { validator: program.STRING }
+const logger = createLogger('info')
+
+export async function cli(program: Command) {
+  // global configurations
   program
-    // global configurations
-    .option("--network", "Network name (flare or costwo)", {
-      validator: program.STRING,
-      global: true,
-      default: 'flare'
-    })
-    .option("--env-path", "Path to the .env file", {
-      validator: program.STRING,
-      global: true,
-      default: 'env'
-    })
-    // information about the network
-    .command("info", "Relevant information")
+    .option("--network <network>", "Network name (flare or costwo)", 'flare')
+    .option("--env-path <path>", "Path to the .env file", 'env')
+  // information about the network
+  program
+    .command("info").description("Relevant information")
     .argument("<type>", "Type of information")
-    .action(async ({ logger, args, options }: any) => {
+    .action(async (type: string) => {
+      const options = program.opts()
       const ctx = contextEnv(options.envPath, options.network)
-      if (args.type == 'addresses') {
-        getAddressInfo(ctx, logger)
-      } else if (args.type == 'balance') {
-        await getBalanceInfo(ctx, logger)
-      } else if (args.type == 'network') {
-        getNetworkInfo(ctx, logger)
-      } else if (args.type == 'livenetwork') {
+      if (type == 'addresses') {
+        getAddressInfo(ctx)
+      } else if (type == 'balance') {
+        await getBalanceInfo(ctx)
+      } else if (type == 'network') {
+        getNetworkInfo(ctx)
+      } else if (type == 'livenetwork') {
         // implement this nicely
-      } else if (args.type == 'validators') {
-        await getValidatorInfo(ctx, logger)
+      } else if (type == 'validators') {
+        await getValidatorInfo(ctx)
       }
     })
-    // moving funds from one chain to another
-    .command("crosschain", "Move funds from one chain to another")
+  // moving funds from one chain to another
+  program
+    .command("crosschain").description("Move funds from one chain to another")
     .argument("<type>", "Type of a crosschain transaction")
-    .option("-a, --amount <amount>", "Amount to transfer", validatorstring)
-    .option("-f, --fee <fee>", "Fee of a transaction", validatorstring)
-    .action(async ({ logger, args, options }: any) => {
+    .option("-a, --amount <amount>", "Amount to transfer")
+    .option("-f, --fee <fee>", "Fee of a transaction")
+    .action(async (type: string, options: OptionValues) => {
+      options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      if (args.type == 'exportCP') {
-        await exportCP(ctx, logger, options.amount, options.fee)
-      } else if (args.type == 'importCP') {
-        await importCP(ctx, logger)
-      } else if (args.type == 'exportPC') {
-        await exportPC(ctx, logger, options.amount)
-      } else if (args.type == 'importPC') {
-        await importPC(ctx, logger, options.fee)
+      if (type == 'exportCP') {
+        await exportCP(ctx, options.amount, options.fee)
+      } else if (type == 'importCP') {
+        await importCP(ctx)
+      } else if (type == 'exportPC') {
+        await exportPC(ctx, options.amount)
+      } else if (type == 'importPC') {
+        await importPC(ctx, options.fee)
       }
     })
-    // staking
-    .command("stake", "Stake funds on the P-chain") 
-    .option("-n, --node-id <nodeID>", "The staking node's id", validatorstring)
-    .option("-w, --weight <weight>", "Weight or amount to stake", validatorstring)
-    .option("-d, --duration <duration>", "Duration of the staking process", validatorstring)
-    .action(async ({ logger, args, options }: any) => {
+  // staking
+  program
+    .command("stake").description("Stake funds on the P-chain") 
+    .option("-n, --node-id <nodeID>", "The staking node's id")
+    .option("-a, --amount <amount>", "Amount to stake")
+    .option("-d, --duration <duration>", "Duration of the staking process")
+    .action(async (options: OptionValues) => {
+      options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      await stake(ctx, logger, options.nodeId, options.weight, options.duration)
+      await stake(ctx, options.nodeId, options.amount, options.duration)
     })
-    // hashing validator configuration
-    .command("hash", "Utilities to calculate validator config hashes")
-    .option("-n, --node-id <nodeID>", "The staking node's id", validatorstring)
-    .option("-w, --weight <weight>", "Weight or amount to stake", validatorstring)
-    .option("-d, --duration <duration>", "Duration of the staking process", validatorstring)
+  // hashing validator configuration
+  program
+    .command("hash").description("Utilities to calculate validator config hashes")
+    .option("-n, --node-id <nodeID>", "The staking node's id")
+    .option("-w, --weight <weight>", "Weight or amount to stake")
+    .option("-d, --duration <duration>", "Duration of the staking process")
     .option("-a, --address <address>",
-      "Validator's address in Bech32 format (default is derived from logged private key)", 
-      validatorstring)
-    .action(async ({ logger, args, options }: any) => {
+      "Validator's address in Bech32 format (default is derived from logged private key)")
+    .action(async (options: OptionValues) => {
+      options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
       await getHash(
-        ctx, logger, options.nodeId, options.weight, 
+        ctx, options.nodeId, options.weight, 
         options.duration, options.address
       )
     })
-    // converting between address formats
-    .command("convert", "Utility for conversion of address formats") 
+  // converting between address formats
+  program
+    .command("convert").description("Utility for conversion of address formats") 
     .argument("<type>", "Type of conversion") 
-    .option("-p, --public-key <pubk>", "User's secp256k1 public key", validatorstring)
-    .action(({ logger, args, options }: any) => {
+    .option("-p, --public-key <pubk>", "User's secp256k1 public key")
+    .action((type: string, options: OptionValues) => {
+      options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      if (args.type == 'PChainAddressFromPublicKey') {
-        getAddressFromPublicKey(ctx, logger, options.publicKey)
+      if (type == 'PChainAddressFromPublicKey') {
+        getAddressFromPublicKey(ctx, options.publicKey)
       }
     })
   }
 
-function getAddressInfo(ctx: Context, logger: any) {
+function getAddressInfo(ctx: Context) {
   const publicKey = parseToID(ctx.pAddressBech32)
   logger.info(`X-chain address: ${ctx.xAddressBech32}`)
   logger.info(`P-chain address: ${ctx.pAddressBech32}`)
@@ -101,7 +104,7 @@ function getAddressInfo(ctx: Context, logger: any) {
   logger.info(`secp256k1 public key: ${publicKey}`)
 }
 
-async function getBalanceInfo(ctx: Context, logger: any) {
+async function getBalanceInfo(ctx: Context) {
   let cbalance = (new BN(await ctx.web3.eth.getBalance(ctx.cAddressHex))).toString()
   let pbalance = (new BN((await ctx.pchain.getBalance(ctx.pAddressBech32)).balance)).toString()
   let xbalance = (new BN((await ctx.xchain.getBalance(ctx.xAddressBech32, ctx.avaxAssetID)).balance)).toString()
@@ -113,7 +116,7 @@ async function getBalanceInfo(ctx: Context, logger: any) {
   logger.info(`${ctx.xAddressBech32}: ${xbalance}`)
 }
 
-function getNetworkInfo(ctx: Context, logger: any) {
+function getNetworkInfo(ctx: Context) {
   const pchainId = ctx.pchain.getBlockchainID()
   const cchainId = ctx.cchain.getBlockchainID()
   const xchainId = ctx.xchain.getBlockchainID()
@@ -123,7 +126,7 @@ function getNetworkInfo(ctx: Context, logger: any) {
   logger.info(`assetId: ${ctx.avaxAssetID}`)
 }
 
-async function getValidatorInfo(ctx: Context, logger: any) {
+async function getValidatorInfo(ctx: Context) {
   const pending = await ctx.pchain.getPendingValidators()
   const current = await ctx.pchain.getCurrentValidators()
   const fpending = JSON.stringify(pending, null, 2)
@@ -132,7 +135,7 @@ async function getValidatorInfo(ctx: Context, logger: any) {
   logger.info(`current: ${fcurrent}`)
 }
 
-async function exportCP(ctx: Context, logger: any, amount: string, fee?: string) {
+async function exportCP(ctx: Context, amount: string, fee?: string) {
   const famount: BN = new BN(decimalToInteger(amount, 9))
   const ffee = (fee === undefined) ? 
     fee : new BN(decimalToInteger(fee, 9))
@@ -141,19 +144,19 @@ async function exportCP(ctx: Context, logger: any, amount: string, fee?: string)
   logger.info(`Success! TXID: ${txid}`)
 }
 
-async function importCP(ctx: Context, logger: any) {
+async function importCP(ctx: Context) {
   const { txid } = await importTxCP(ctx)
   logger.info(`Success! TXID: ${txid}`)
 }
 
-async function exportPC(ctx: Context, logger: any, amount?: string) {
+async function exportPC(ctx: Context, amount?: string) {
   const famount = (amount === undefined) ? 
     amount : new BN(decimalToInteger(amount, 9)) 
   const { txid } = await exportTxPC(ctx, famount)
   logger.info(`Success! TXID: ${txid}`)
 }
 
-async function importPC(ctx: Context, logger: any, fee?: string) {
+async function importPC(ctx: Context, fee?: string) {
   const ffee = (fee === undefined) ? 
     fee : new BN(decimalToInteger(fee, 9))
   const { txid, usedFee } = await importTxPC(ctx, ffee)
@@ -162,17 +165,16 @@ async function importPC(ctx: Context, logger: any, fee?: string) {
 }
 
 async function stake(
-  ctx: Context, logger: any, 
-  nodeID: string, weight: string, duration: string
+  ctx: Context, nodeID: string, amount: string, duration: string
 ) {
-  const fweight = new BN(decimalToInteger(weight, 9))
+  const famount = new BN(decimalToInteger(amount, 9))
   const fduration = new BN(duration)
-  const { txid } = await addValidator(ctx, nodeID, fweight, fduration)
+  const { txid } = await addValidator(ctx, nodeID, famount, fduration)
   logger.info(`Success! TXID: ${txid}`)
 }
 
 async function getHash(
-  ctx: Context, logger: any, 
+  ctx: Context, 
   nodeID: string, weight: string, 
   duration: string, address?: string
 ) {
@@ -187,7 +189,7 @@ async function getHash(
   logger.info(`Validator configuration hash: ${configHash}`)
 }
 
-function getAddressFromPublicKey(ctx: Context, logger: any, pubk: string) {
+function getAddressFromPublicKey(ctx: Context, pubk: string) {
   const bech32 = formatBech32(ctx.config.hrp, pubk)
   logger.info(`P-chain address: P-${bech32}`)
 }
