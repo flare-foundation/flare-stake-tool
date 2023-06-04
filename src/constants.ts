@@ -101,7 +101,7 @@ function context(config: NetworkConfig, privkHex?: string, privkCB58?: string): 
   }
 
   const xChainBlockchainID: string =
-    Defaults.network[networkID].X.blockchainID 
+    Defaults.network[networkID].X.blockchainID
   const pChainBlockchainID: string =
     Defaults.network[networkID].P.blockchainID
   const cChainBlockchainID: string =

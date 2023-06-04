@@ -1,0 +1,36 @@
+{
+    "language": "en",
+    "enableFiletypes": [
+        "solidity"
+    ],
+    "words": [
+        "Bech32",
+        "secp256k1",
+        "Coston",
+        "abicoder",
+        "bips",
+        "CRBIPS",
+        "Delegators",
+        "FTSO",
+        "ftsos",
+        "IERC",
+        "keccak",
+        "mintings",
+        "multicollateral",
+        "prng",
+        "Reentrancy",
+        "selfdestruct",
+        "solhint",
+        "sstore",
+        "stablecoins",
+        "struct",
+        "timelock",
+        "timelocked",
+        "timeshift",
+        "topup",
+        "topups",
+        "undelegate",
+        "utxo",
+        "wnat"
+    ]
+}

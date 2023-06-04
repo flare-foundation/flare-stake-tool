@@ -14,7 +14,8 @@ export async function addValidator(
   ctx: Context,
   nodeID: string,
   stakeAmount: BN,
-  stakeDuration: BN
+  startTime: BN,
+  endTime: BN
 ): Promise<{ txid: string }> {
   const threshold = 1
   const locktime: BN = new BN(0)
@@ -22,8 +23,6 @@ export async function addValidator(
     'PlatformVM utility method buildAddValidatorTx to add a validator to the primary subnet'
   )
   const asOf: BN = UnixNow()
-  const startTime: BN = UnixNow().add(new BN(60 * 1))
-  const endTime: BN = startTime.add(stakeDuration)
   const delegationFee = 10
   // const stakeAmount: any = (await pchain.getMinStake()).minValidatorStake
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32)
@@ -45,7 +44,7 @@ export async function addValidator(
     memo,
     asOf
   )
-  
+
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
   return { txid: txid }

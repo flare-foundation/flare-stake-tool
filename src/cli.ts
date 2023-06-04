@@ -1,6 +1,6 @@
-import { 
-  parseToID, integerToDecimal, formatBech32,
-  decimalToInteger, toValidatorConfigHash 
+import {
+  privateKeyToPublicKey, compressPublicKey, publicKeyToBech32AddressString,
+  integerToDecimal, decimalToInteger, parseRelativeTime
 } from './utils'
 import { contextEnv, Context } from './constants'
 import { exportTxCP, importTxPC } from './evmAtomicTx'
@@ -9,6 +9,7 @@ import { addValidator } from './addValidator'
 import { Command, OptionValues } from 'commander'
 import { BN } from '@flarenetwork/flarejs/dist'
 import createLogger from 'logging'
+import { addDelegator } from './addDelegator'
 
 const logger = createLogger('info')
 
@@ -57,51 +58,53 @@ export async function cli(program: Command) {
     })
   // staking
   program
-    .command("stake").description("Stake funds on the P-chain") 
+    .command("stake").description("Stake funds on the P-chain")
     .option("-n, --node-id <nodeID>", "The staking node's id")
     .option("-a, --amount <amount>", "Amount to stake")
-    .option("-d, --duration <duration>", "Duration of the staking process")
+    .option("-s, --start-time <start-time>", "Start time of the staking process")
+    .option("-e, --end-time <end-time>", "End time of the staking process")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      await stake(ctx, options.nodeId, options.amount, options.duration)
+      await stake(ctx, options.nodeId, options.amount,
+        options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime,
+        options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime)
     })
-  // hashing validator configuration
+  // delegating
   program
-    .command("hash").description("Utilities to calculate validator config hashes")
+    .command("delegate").description("Delegate funds on the P-chain")
     .option("-n, --node-id <nodeID>", "The staking node's id")
-    .option("-w, --weight <weight>", "Weight or amount to stake")
-    .option("-d, --duration <duration>", "Duration of the staking process")
-    .option("-a, --address <address>",
-      "Validator's address in Bech32 format (default is derived from logged private key)")
+    .option("-a, --amount <amount>", "Amount to delegate")
+    .option("-s, --start-time <start-time>", "Start time of the delegation process")
+    .option("-e, --end-time <end-time>", "End time of the delegation process")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      await getHash(
-        ctx, options.nodeId, options.weight, 
-        options.duration, options.address
-      )
+      await delegate(ctx, options.nodeId, options.amount,
+        options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime,
+        options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime)
     })
   // converting between address formats
   program
-    .command("convert").description("Utility for conversion of address formats") 
-    .argument("<type>", "Type of conversion") 
-    .option("-p, --public-key <pubk>", "User's secp256k1 public key")
+    .command("convert").description("Utility for conversion of address formats")
+    .argument("<type>", "Type of conversion")
+    .option("-p, --public-key <pubk>", "User's secp256k1 public key (encoded either 0x02, 0x03 or 0x04)")
     .action((type: string, options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      if (type == 'PChainAddressFromPublicKey') {
+      if (type == 'public-key-to-p-chain-address') {
         getAddressFromPublicKey(ctx, options.publicKey)
       }
     })
   }
 
 function getAddressInfo(ctx: Context) {
-  const publicKey = parseToID(ctx.pAddressBech32)
+  const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(ctx.privkHex!, 'hex'))
+  const compressedPubKey = compressPublicKey(pubX, pubY).toString('hex')
   logger.info(`X-chain address: ${ctx.xAddressBech32}`)
   logger.info(`P-chain address: ${ctx.pAddressBech32}`)
   logger.info(`C-chain address hex: ${ctx.cAddressHex}`)
-  logger.info(`secp256k1 public key: ${publicKey}`)
+  logger.info(`secp256k1 public key: 0x${compressedPubKey}`)
 }
 
 async function getBalanceInfo(ctx: Context) {
@@ -137,7 +140,7 @@ async function getValidatorInfo(ctx: Context) {
 
 async function exportCP(ctx: Context, amount: string, fee?: string) {
   const famount: BN = new BN(decimalToInteger(amount, 9))
-  const ffee = (fee === undefined) ? 
+  const ffee = (fee === undefined) ?
     fee : new BN(decimalToInteger(fee, 9))
   const { txid, usedFee } = await exportTxCP(ctx, famount, ffee)
   if (fee !== usedFee) logger.info(`Used fee of ${usedFee}`)
@@ -150,14 +153,14 @@ async function importCP(ctx: Context) {
 }
 
 async function exportPC(ctx: Context, amount?: string) {
-  const famount = (amount === undefined) ? 
-    amount : new BN(decimalToInteger(amount, 9)) 
+  const famount = (amount === undefined) ?
+    amount : new BN(decimalToInteger(amount, 9))
   const { txid } = await exportTxPC(ctx, famount)
   logger.info(`Success! TXID: ${txid}`)
 }
 
 async function importPC(ctx: Context, fee?: string) {
-  const ffee = (fee === undefined) ? 
+  const ffee = (fee === undefined) ?
     fee : new BN(decimalToInteger(fee, 9))
   const { txid, usedFee } = await importTxPC(ctx, ffee)
   if (fee !== usedFee) logger.info(`Used fee of ${usedFee}`)
@@ -165,31 +168,24 @@ async function importPC(ctx: Context, fee?: string) {
 }
 
 async function stake(
-  ctx: Context, nodeID: string, amount: string, duration: string
+  ctx: Context, nodeID: string, amount: string,
+  start: string, end: string
 ) {
   const famount = new BN(decimalToInteger(amount, 9))
-  const fduration = new BN(duration)
-  const { txid } = await addValidator(ctx, nodeID, famount, fduration)
+  const { txid } = await addValidator(ctx, nodeID, famount, new BN(start), new BN(end))
   logger.info(`Success! TXID: ${txid}`)
 }
 
-async function getHash(
-  ctx: Context, 
-  nodeID: string, weight: string, 
-  duration: string, address?: string
+async function delegate(
+  ctx: Context, nodeID: string, amount: string,
+  start: string, end: string
 ) {
-  if (address === undefined) address = ctx.pAddressBech32
-  const configHash = toValidatorConfigHash(
-    ctx.config.networkID.toString(),
-    parseToID(address),
-    nodeID,
-    decimalToInteger(weight, 9),
-    duration
-  )
-  logger.info(`Validator configuration hash: ${configHash}`)
+  const famount = new BN(decimalToInteger(amount, 9))
+  const { txid } = await addDelegator(ctx, nodeID, famount, new BN(start), new BN(end))
+  logger.info(`Success! TXID: ${txid}`)
 }
 
 function getAddressFromPublicKey(ctx: Context, pubk: string) {
-  const bech32 = formatBech32(ctx.config.hrp, pubk)
-  logger.info(`P-chain address: P-${bech32}`)
+  const address = publicKeyToBech32AddressString(ctx.config.hrp, pubk)
+  logger.info(`P-chain address: P-${address}`)
 }

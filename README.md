@@ -88,7 +88,7 @@ On the C-chain, the Ethereum format is normally used to comply with the Ethereum
 X-chain address: X-flare1pynhfl09rfrf20s83lf6ra5egqylmx757ahxn6
 P-chain address: P-flare1pynhfl09rfrf20s83lf6ra5egqylmx757ahxn6
 C-chain address hex: 0xead9c93b79ae7c1591b1fb5323bd777e86e150d4
-secp256k1 public key: qQMFKMYJpmt7iWRLncoMukdZ2aNCDMwR
+secp256k1 public key: 0x02efe41c5d213089cb7a9e808505e9084bb9eb2bf3aa8050ea92a5ae9e20e5a692
 ```
 
 ### Export and import assets
@@ -146,57 +146,26 @@ If you get the `errInsufficientFunds` error, try specifying a higher gas fee whe
 ### Staking
 
 ```bash
-flare-stake-tool stake -n <nodeId> -d <duration> -a <amount> --env-path <path to your private key file>
+flare-stake-tool stake -n <nodeId> -s <start-time> -e <end-time> -a <amount> --env-path <path to your private key file>
 ```
 
 Where:
 - `nodeId` is the ID of the node being deployed as a validator.
-- `duration` is the staking time in seconds.
+- `start-time` is the unix time of the start of the staking process.
+- `end-time` is the unix time of the end of the staking process.
 - `amount` is the amount to export and stake in FLR. The minimum is 2000 FLR and the maximum is 10000 FLR.
 - `env-path` is the path to the file where you stored your private key.
-- `network` is not available to change for staking. It is always the Flare network.
+- `network` is the network to stake on. It defaults and should always be the Flare network, except when testing.
 
 The funds on the P-chain account are available to start staking to the validator nodes.
 
-When the `duration` ends, the nodes automatically stop acting as validators and the staked amount is returned to the C-chain account or you can move them back before the end of the duration.
+When the staking period ends, the nodes automatically stop acting as validators and the staked amount is returned to the C-chain account or you can move them back before the end of the staking period.
 
 To check whether a validator has been added successfully, fetch lists of both pending and current validators with this command:
 
 ```bash
 flare-stake-tool info validators
 ```
-
-## Testing locally with a `go-flare` node
-
-This code can be tested locally on the `localflare` network, using a node with code sourced from [the go-flare repo](https://github.com/flare-foundation/go-flare).
-
-First, add a private key with some funds on the C-chain into the `.env` file.
-You can use the well-funded test account with the private key:
-`0xd49743deccbccc5dc7baa8e69e5be03298da8688a15dd202e20f15d5e0e9a9fb`.
-
-Then, you have to hardcode your validator configuration hash directly into the node code.
-Say you want to use the node with id `NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK` to stake `10000` FLR for a duration of `1512000` seconds.
-To calculate the hash, run:
-
-```sh
-flare-stake-tool hash -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
-```
-
-The above produces `2b52aae672d041ec5ec597bb72b6c1815f01f2b895ed5cddb42c45ca0e629317`.
-Add this hash to [this array here](https://github.com/flare-foundation/go-flare/blob/main/avalanchego/utils/constants/validator_config.go#L76) in your cloned `go-flare` repo.
-Now you can set up the node(s) as described in [the go-flare repo](https://github.com/flare-foundation/go-flare).
-
-Staking requires first exporting funds from C-chain, importing them to P-chain,
-and then stake them by adding a validator node with specific configurations to the network.
-This is done by running the following scripts
-
-```bash
-flare-stake-tool crosschain exportCP -a 10000 -f <fee> --env-path /path/to/.env --network localflare
-flare-stake-tool crosschain importCP --env-path /path/to/.env --network localflare
-flare-stake-tool stake -n NodeID-DMAS3hKKWMydmWGmGd265EYCoV7zFWEHK -w 10000 -d 1512000 --env-path /path/to/.env --network localflare
-```
-
-In case of `errInsufficientFunds` error, try raising the fee when exporting funds.
 
 ## Versions
 
