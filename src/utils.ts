@@ -1,14 +1,19 @@
-import { bech32 } from 'bech32'
-import { sha256, ripemd160 } from 'ethereumjs-util'
-import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
-import * as elliptic from "elliptic"
 import BN from "bn.js"
+import * as ethutil from 'ethereumjs-util'
+import * as elliptic from "elliptic"
+import { bech32 } from 'bech32'
+import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // public keys and bech32 addresses
 
 const EC: typeof elliptic.ec = elliptic.ec
 const ec: elliptic.ec = new EC("secp256k1")
+
+export function privateKeyToPublicKeyEncoding(privateKey: string, compress: boolean = true): string {
+  const keyPair = ec.keyFromPrivate(privateKey)
+  return keyPair.getPublic().encode("hex", compress)
+}
 
 export function privateKeyToPublicKey(privateKey: Buffer): Buffer[] {
   const keyPair = ec.keyFromPrivate(privateKey).getPublic()
@@ -44,13 +49,35 @@ export function compressPublicKey(x: Buffer, y: Buffer): Buffer {
 
 function publicKeyToBech32AddressBuffer(x: Buffer, y: Buffer) {
   const compressed = compressPublicKey(x, y)
-  return ripemd160(sha256(compressed), false)
+  return ethutil.ripemd160(ethutil.sha256(compressed), false)
 }
 
-export function publicKeyToBech32AddressString(hrp: string, publicKey: string) {
+export function publicKeyToBech32AddressString(publicKey: string, hrp: string) {
   const [pubX, pubY] = decodePublicKey(publicKey)
   const addressBuffer = publicKeyToBech32AddressBuffer(pubX, pubY)
   return `${bech32.encode(hrp, bech32.toWords(addressBuffer))}`
+}
+
+export function publicKeyToEthereumAddressString(publicKey: string) {
+  const [pubX, pubY] = decodePublicKey(publicKey)
+  const decompressedPubk = Buffer.concat([pubX, pubY])
+  const ethAddress = ethutil.publicToAddress(decompressedPubk)
+  return prefix0x(ethAddress.toString('hex'))
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// signatures
+
+export function recoverMessageSigner(message: Buffer, signature: string) {
+    const messageHash = ethutil.hashPersonalMessage(message)
+    return recoverTransactionSigner(messageHash, signature)
+}
+
+export function recoverTransactionSigner(message: Buffer, signature: string) {
+    let split = ethutil.fromRpcSig(signature);
+    let publicKey = ethutil.ecrecover(message, split.v, split.r, split.s);
+    let signer = ethutil.pubToAddress(publicKey).toString("hex");
+    return signer;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -69,6 +96,10 @@ export function unPrefix0x(tx: string) {
     return '0x0'
   }
   return tx.startsWith('0x') ? tx.slice(2) : tx
+}
+
+export function prefix0x(hexString: string) {
+  return hexString.startsWith("0x") ? hexString : "0x" + unPrefix0x(hexString)
 }
 
 export function decimalToInteger(dec: string, n: number): string {

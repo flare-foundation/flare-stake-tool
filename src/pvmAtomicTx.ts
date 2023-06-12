@@ -15,17 +15,17 @@ export async function importTxCP(ctx: Context): Promise<{ txid: string }> {
   )
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(
-    [ctx.pAddressBech32],
+    [ctx.pAddressBech32!],
     ctx.cChainBlockchainID
   )
   const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
   const unsignedTx: UnsignedTx = await ctx.pchain.buildImportTx(
     utxoSet,
-    [ctx.pAddressBech32],
+    [ctx.pAddressBech32!],
     ctx.cChainBlockchainID,
-    [ctx.pAddressBech32],
-    [ctx.pAddressBech32],
-    [ctx.pAddressBech32],
+    [ctx.pAddressBech32!],
+    [ctx.pAddressBech32!],
+    [ctx.pAddressBech32!],
     memo,
     asOf,
     locktime,
@@ -48,23 +48,23 @@ export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: str
     "PlatformVM utility method buildExportTx to export AVAX from the P-Chain to the C-Chain"
   )
   const asOf: BN = UnixNow()
-  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs([ctx.pAddressBech32])
+  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs([ctx.pAddressBech32!])
   const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
   const fee = ctx.pchain.getDefaultTxFee()
 
-  if (amount === undefined) { 
-    const getBalanceResponse: any = await ctx.pchain.getBalance(ctx.pAddressBech32)
+  if (amount === undefined) {
+    const getBalanceResponse: any = await ctx.pchain.getBalance(ctx.pAddressBech32!)
     const unlocked = new BN(getBalanceResponse.unlocked)
     amount = unlocked.sub(fee)
   }
-  
+
   const unsignedTx: UnsignedTx = await ctx.pchain.buildExportTx(
     utxoSet,
     amount,
     ctx.cChainBlockchainID,
-    [ctx.cAddressBech32],
-    [ctx.pAddressBech32],
-    [ctx.pAddressBech32],
+    [ctx.cAddressBech32!],
+    [ctx.pAddressBech32!],
+    [ctx.pAddressBech32!],
     memo,
     asOf,
     locktime,
@@ -74,4 +74,3 @@ export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: str
   const txid: string = await ctx.pchain.issueTx(tx)
   return { txid: txid }
 }
-

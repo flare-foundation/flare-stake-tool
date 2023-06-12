@@ -25,19 +25,19 @@ export async function addValidator(
   const asOf: BN = UnixNow()
   const delegationFee = 10
   // const stakeAmount: any = (await pchain.getMinStake()).minValidatorStake
-  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32)
+  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32!)
   const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
 
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddValidatorTx(
     utxoSet,
-    [ctx.pAddressBech32],
-    [ctx.pAddressBech32],
-    [ctx.pAddressBech32],
+    [ctx.pAddressBech32!],
+    [ctx.pAddressBech32!],
+    [ctx.pAddressBech32!],
     nodeID,
     startTime,
     endTime,
     stakeAmount,
-    [ctx.pAddressBech32],
+    [ctx.pAddressBech32!],
     delegationFee,
     locktime,
     threshold,

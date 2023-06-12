@@ -17,7 +17,7 @@ export async function exportTxCP(
   const txcount = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)
   const nonce: number = txcount
   const locktime: BN = new BN(0)
-  
+
   const importFee: BN = ctx.pchain.getDefaultTxFee()
   const baseFeeResponse: string = await ctx.cchain.getBaseFee()
   const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
@@ -27,14 +27,14 @@ export async function exportTxCP(
     ctx.avaxAssetID,
     ctx.pChainBlockchainID,
     ctx.cAddressHex,
-    ctx.cAddressBech32,
-    [ctx.pAddressBech32],
+    ctx.cAddressBech32!,
+    [ctx.pAddressBech32!],
     nonce,
     locktime,
     threshold,
     baseFee
   )
-  
+
   if (fee === undefined) {
     const exportCost: number = costExportTx(unsignedTx)
     fee = baseFee.mul(new BN(exportCost))
@@ -43,8 +43,8 @@ export async function exportTxCP(
       ctx.avaxAssetID,
       ctx.pChainBlockchainID,
       ctx.cAddressHex,
-      ctx.cAddressBech32,
-      [ctx.pAddressBech32],
+      ctx.cAddressBech32!,
+      [ctx.pAddressBech32!],
       nonce,
       locktime,
       threshold,
@@ -70,16 +70,16 @@ export async function importTxPC(
   const baseFeeResponse: string = await ctx.cchain.getBaseFee()
   const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
   const evmUTXOResponse: any = await ctx.cchain.getUTXOs(
-    [ctx.cAddressBech32],
+    [ctx.cAddressBech32!],
     ctx.pChainBlockchainID
   )
   const utxoSet: UTXOSet = evmUTXOResponse.utxos
   let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(
     utxoSet,
     ctx.cAddressHex,
-    [ctx.cAddressBech32],
+    [ctx.cAddressBech32!],
     ctx.pChainBlockchainID,
-    [ctx.cAddressBech32],
+    [ctx.cAddressBech32!],
     baseFee
   )
 
@@ -89,9 +89,9 @@ export async function importTxPC(
     unsignedTx = await ctx.cchain.buildImportTx(
       utxoSet,
       ctx.cAddressHex,
-      [ctx.cAddressBech32],
+      [ctx.cAddressBech32!],
       ctx.pChainBlockchainID,
-      [ctx.cAddressBech32],
+      [ctx.cAddressBech32!],
       fee
     )
   }
