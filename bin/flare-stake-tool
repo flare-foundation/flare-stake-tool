@@ -2,5 +2,5 @@
 
 require = require('esm')(module /*, options*/)
 const program = require('commander').program
-require("../dist/cli").cli(program)
+require("../dist/src/cli").cli(program)
 program.parse()

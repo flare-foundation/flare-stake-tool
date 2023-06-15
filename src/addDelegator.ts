@@ -16,19 +16,19 @@ export async function addDelegator(
     "PlatformVM utility method buildAddDelegatorTx to add a delegator to the primary subnet"
     )
     const asOf: BN = UnixNow()
-    const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32)
+    const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32!)
     const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
 
     const unsignedTx: UnsignedTx = await ctx.pchain.buildAddDelegatorTx(
         utxoSet,
-        [ctx.pAddressBech32],
-        [ctx.pAddressBech32],
-        [ctx.pAddressBech32],
+        [ctx.pAddressBech32!],
+        [ctx.pAddressBech32!],
+        [ctx.pAddressBech32!],
         nodeID,
         startTime,
         endTime,
         stakeAmount,
-        [ctx.pAddressBech32],
+        [ctx.pAddressBech32!],
         locktime,
         threshold,
         memo,

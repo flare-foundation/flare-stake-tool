@@ -101,7 +101,6 @@ export async function cli(program: Command) {
 function getAddressInfo(ctx: Context) {
   const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(ctx.privkHex!, 'hex'))
   const compressedPubKey = compressPublicKey(pubX, pubY).toString('hex')
-  logger.info(`X-chain address: ${ctx.xAddressBech32}`)
   logger.info(`P-chain address: ${ctx.pAddressBech32}`)
   logger.info(`C-chain address hex: ${ctx.cAddressHex}`)
   logger.info(`secp256k1 public key: 0x${compressedPubKey}`)
@@ -109,23 +108,18 @@ function getAddressInfo(ctx: Context) {
 
 async function getBalanceInfo(ctx: Context) {
   let cbalance = (new BN(await ctx.web3.eth.getBalance(ctx.cAddressHex))).toString()
-  let pbalance = (new BN((await ctx.pchain.getBalance(ctx.pAddressBech32)).balance)).toString()
-  let xbalance = (new BN((await ctx.xchain.getBalance(ctx.xAddressBech32, ctx.avaxAssetID)).balance)).toString()
+  let pbalance = (new BN((await ctx.pchain.getBalance(ctx.pAddressBech32!)).balance)).toString()
   cbalance = integerToDecimal(cbalance, 18)
   pbalance = integerToDecimal(pbalance, 9)
-  xbalance = integerToDecimal(xbalance, 9)
   logger.info(`${ctx.cAddressHex}: ${cbalance}`)
   logger.info(`${ctx.pAddressBech32}: ${pbalance}`)
-  logger.info(`${ctx.xAddressBech32}: ${xbalance}`)
 }
 
 function getNetworkInfo(ctx: Context) {
   const pchainId = ctx.pchain.getBlockchainID()
   const cchainId = ctx.cchain.getBlockchainID()
-  const xchainId = ctx.xchain.getBlockchainID()
   logger.info(`blockchainId for P-chain: ${pchainId}`)
   logger.info(`blockchainId for C-chain: ${cchainId}`)
-  logger.info(`blockchainId for X-chain: ${xchainId}`)
   logger.info(`assetId: ${ctx.avaxAssetID}`)
 }
 

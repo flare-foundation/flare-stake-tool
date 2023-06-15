@@ -1,12 +1,10 @@
-import { costwo, flare, localflare, NetworkConfig } from './config'
-import { unPrefix0x, publicKeyToBech32AddressString, publicKeyToEthereumAddressString } from './utils'
 import Web3 from 'web3'
-import { BinTools, Buffer } from '@flarenetwork/flarejs'
-import { Avalanche } from '@flarenetwork/flarejs'
-import { PrivateKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
-import { AVMAPI, KeyChain as AVMKeyChain } from '@flarenetwork/flarejs/dist/apis/avm'
+import { Avalanche, BinTools, Buffer } from '@flarenetwork/flarejs'
+import { PrivateKeyPrefix, PublicKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
 import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
 import { PlatformVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
+import { costwo, flare, localflare, NetworkConfig } from './config'
+import { unPrefix0x, publicKeyToBech32AddressString, publicKeyToEthereumAddressString } from './utils'
 
 
 export interface Context {
@@ -15,17 +13,13 @@ export interface Context {
   rpcurl: string,
   web3: any,
   avalanche: Avalanche,
-  xchain: AVMAPI,
   cchain: EVMAPI,
   pchain: PlatformVMAPI,
-  xKeychain: AVMKeyChain,
   cKeychain: EVMKeyChain,
   pKeychain: PVMKeyChain,
-  xAddressBech32?: string,
   pAddressBech32?: string,
   cAddressBech32?: string,
   cAddressHex: string,
-  xChainBlockchainID: string,
   cChainBlockchainID: string,
   pChainBlockchainID: string,
   avaxAssetID: string,
@@ -34,26 +28,12 @@ export interface Context {
 
 export function contextEnv(path: string, network: string): Context {
   require('dotenv').config({path: path})
-  const config = getConfig(network)
-  const privkHex = process.env.PRIVATE_KEY_HEX
-  const privkCB58 = process.env.PRIVATE_KEY_CB58
-  const addressHex = process.env.ADDRESS_HEX
-  const addressBech32 = process.env.ADDRESS_BECH32
-  const publicKey = process.env.PUBLIC_KEY
-
-  let _addressHex
-  let _addressBech32
-  if (publicKey) {
-    _addressHex = publicKeyToEthereumAddressString(publicKey)
-    _addressBech32 = publicKeyToBech32AddressString(publicKey, config.hrp)
-  }
-  if (addressHex && _addressHex && addressHex !== _addressHex) {
-    throw Error('c-chain address does not match publicKey')
-  }
-  if (addressBech32 && _addressBech32 && addressBech32 !== _addressBech32) {
-    throw Error('p-chain address does not match publicKey')
-  }
-  return context(config, privkHex, privkCB58, addressHex || _addressHex, addressBech32 || _addressBech32)
+  return context(
+    getConfig(network),
+    process.env.PRIVATE_KEY_HEX,
+    process.env.PRIVATE_KEY_CB58,
+    process.env.PUBLIC_KEY
+  )
 }
 
 function getConfig(network: string): NetworkConfig {
@@ -70,10 +50,20 @@ function getConfig(network: string): NetworkConfig {
 
 function context(
   config: NetworkConfig,
-  privkHex?: string, privkCB58?: string,
-  cAddressHex?: string, addressBech32?: string
+  privkHex?: string, privkCB58?: string, publicKey?: string
 ): Context {
   const { protocol, ip, port, networkID, hrp } = config
+
+  let cAddressHex: string = ""
+  let addressBech32: string = ""
+
+  // derive addresses from public key if provided (bech32 is later derived again)
+  if (publicKey) {
+    const _cAddressHex = publicKeyToEthereumAddressString(publicKey)
+    const _addressBech32 = publicKeyToBech32AddressString(publicKey, config.hrp)
+    cAddressHex = _cAddressHex
+    addressBech32 = _addressBech32
+  }
 
   // derive private key in both cb58 and hex if only one is provided
   const bintools = BinTools.getInstance()
@@ -86,35 +76,31 @@ function context(
     privkHex = privkBuf.toString('hex')
   }
 
+  // TODO: check that the private key correctly derives the public key,
+  // tho if we have the private key there is really no need for the public key,
+  // so only one should ever be provided
+
   const path = '/ext/bc/C/rpc'
   const iport = port ? `${ip}:${port}` : `${ip}`
   const rpcurl = `${protocol}://${iport}`
   const web3 = new Web3(`${rpcurl}${path}`)
 
   const avalanche = new Avalanche(ip, port, protocol, networkID)
-  const xchain: AVMAPI = avalanche.XChain()
   const cchain: EVMAPI = avalanche.CChain()
   const pchain: PlatformVMAPI = avalanche.PChain()
-  const xKeychain: AVMKeyChain = xchain.keyChain()
   const cKeychain: EVMKeyChain = cchain.keyChain()
   const pKeychain: PVMKeyChain = pchain.keyChain()
 
-  if (privkCB58) {
-    const privKey = `${PrivateKeyPrefix}${privkCB58}`
-    xKeychain.importKey(privKey)
-    cKeychain.importKey(privKey)
-    pKeychain.importKey(privKey)
+  if (privkCB58 || publicKey) {
+    const key = (privkCB58) ? `${PrivateKeyPrefix}${privkCB58}` : `${PublicKeyPrefix}${publicKey!}`
+    pKeychain.importKey(key)
+    cKeychain.importKey(key)
   }
 
   const pAddressStrings: string[] = pchain.keyChain().getAddressStrings()
   const cAddressStrings: string[] = cchain.keyChain().getAddressStrings()
-  const xAddressStrings: string[] = xchain.keyChain().getAddressStrings()
-  if (pAddressStrings.length > 0 && addressBech32 && addressBech32 !== pAddressStrings[0].substring(2)) {
-    throw Error('p-chain address does not match private key')
-  }
-  const pAddressBech32 = pAddressStrings.length > 0 ? pAddressStrings[0] : `P-${addressBech32}`
-  const cAddressBech32 = cAddressStrings.length > 0 ? cAddressStrings[0] : `C-${addressBech32}`
-  const xAddressBech32 = xAddressStrings.length > 0 ? xAddressStrings[0] : `X-${addressBech32}`
+  const pAddressBech32 = pAddressStrings[0] || `P-${addressBech32}`
+  const cAddressBech32 = cAddressStrings[0] || `C-${addressBech32}`
 
   if (privkHex) {
     const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
@@ -125,8 +111,8 @@ function context(
     cAddressHex = _cAddressHex
   }
 
-  const xChainBlockchainID: string =
-    Defaults.network[networkID].X.blockchainID
+  console.log(cAddressHex)
+
   const pChainBlockchainID: string =
     Defaults.network[networkID].P.blockchainID
   const cChainBlockchainID: string =
@@ -139,17 +125,13 @@ function context(
     rpcurl: rpcurl,
     web3: web3,
     avalanche: avalanche,
-    xchain: xchain,
     cchain: cchain,
     pchain: pchain,
-    xKeychain: xKeychain,
     cKeychain: cKeychain,
     pKeychain: pKeychain,
-    xAddressBech32: xAddressBech32,
     pAddressBech32: pAddressBech32,
     cAddressBech32: cAddressBech32,
     cAddressHex: cAddressHex!,
-    xChainBlockchainID: xChainBlockchainID,
     cChainBlockchainID: cChainBlockchainID,
     pChainBlockchainID: pChainBlockchainID,
     avaxAssetID: avaxAssetID,
