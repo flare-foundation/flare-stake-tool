@@ -5,6 +5,29 @@ import { UnsignedTx, Tx, UTXOSet, ExportTx } from '@flarenetwork/flarejs/dist/ap
 import { EcdsaSignature, SignatureRequest } from '@flarenetwork/flarejs/dist/common'
 import { costImportTx, costExportTx, Serialization } from "@flarenetwork/flarejs/dist/utils"
 
+interface SignData {
+  requests: CompressedSignatureRequest[],
+  transaction: string
+}
+
+interface CompressedSignatureRequest extends SignatureRequest {
+  indices: number[]
+}
+
+/* function compressSign(signData: SignatureRequest[]): CompressedSignatureRequest[] {
+  const repetitions: number[] = []
+  const uniqueRequests: SignatureRequest[] = []
+  for (let i = 0; i < signData.length; i++) {
+    const d = signData[i]
+    if (index === -1) {
+      uniqueRequests.push(d)
+      repetitions.push(1)
+    } else {
+      repetitions[index]++
+    }
+  }
+} */
+
 function fireblocksSignatureToEcdsaSignature(signature: string): EcdsaSignature {
   return {
     r: new BN(signature.slice(0, 64), 'hex'),
@@ -13,23 +36,16 @@ function fireblocksSignatureToEcdsaSignature(signature: string): EcdsaSignature 
   }
 }
 
+// serialization of atomic c-chain addresses does not work correctly, so we have to improvise
 function serializeArgs(args: [BN, string, string, string, string, string[], number, BN, number, BN?]): string {
-  //JSON.stringify(unsignedTx.serialize("hex"))
   [0,7,9].map(i => args[i] = args[i]!.toString(16))
   return JSON.stringify(args)
 }
 
 function deserializeArgs(serargs: string): [BN, string, string, string, string, string[], number, BN, number, BN?] {
-  //const unsignedTx: UnsignedTx = new UnsignedTx()
-  //unsignedTx.deserialize(JSON.parse(transaction), "hex")
   const args = JSON.parse(serargs);
   [0,7,9].map(i => args[i] = new BN(args[i], 16))
   return args
-}
-
-interface SignData {
-  requests: SignatureRequest[],
-  transaction: string
 }
 
 export async function exportTxCPUnsignedHashes(

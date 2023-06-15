@@ -112,6 +112,7 @@ function context(
   }
 
   console.log(cAddressHex)
+  console.log(cAddressBech32)
 
   const pChainBlockchainID: string =
     Defaults.network[networkID].P.blockchainID
