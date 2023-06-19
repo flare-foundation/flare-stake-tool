@@ -80,6 +80,11 @@ export function recoverTransactionSigner(message: Buffer, signature: string) {
     return signer;
 }
 
+export function recoverPublicKey(message: Buffer, signature: string): Buffer {
+  const split = ethutil.fromRpcSig(signature)
+  return ethutil.ecrecover(message, split.v, split.r, split.s)
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // general helper functions
 
