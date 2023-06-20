@@ -2,7 +2,7 @@
 const fetch = require('node-fetch')
 import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
-import { sleep, publicKeyToEthereumAddressString } from "../src/utils"
+import { sleepms, publicKeyToEthereumAddressString } from "../src/utils"
 import { parse } from 'json2csv';
 
 const accessToken = "eyJhbGciOiJFZERTQSIsImtpZCI6ImZ3MFc3aVpocUc0SUEzaXV4ZmhQIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL2FwaS5mb3JkZWZpLmNvbS8iLCJzdWIiOiI2MzVjMTcwOC1iYzhkLTQ4N2UtYjQwZC0zZjk0ODE0NmI0OWFAZm9yZGVmaSIsImF1ZCI6WyJodHRwczovL2FwaS5mb3JkZWZpLmNvbS9hcGkvIl0sImV4cCI6LTY3OTUzNjQ1NzksImlhdCI6MTY4NzE2MjQwOCwianRpIjoiMjViMDg2NjMtNjJlMC00MzRkLWI2MjgtZGQwNmJhMzk1NzQzIn0.cvh25D0cFIzZMjmNoyTdl9RwtX01WpTkuOT_ogwSKbjv-Q21CQFGSDPYionHtQE72TLhdeBWkhOmRJmoH0A0CQ"
@@ -62,7 +62,7 @@ async function sendToForDefi(hash: string): Promise<string> {
     let transaction_id = responseJson["id"];
     console.log("id", transaction_id)
 
-    await sleep(10000);
+    await sleepms(10000);
 
     let responseSignature = await fetch(`https://${gatewayHost}${path}/${transaction_id}`, {
         method: 'GET',

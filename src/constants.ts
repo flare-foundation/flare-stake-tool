@@ -1,15 +1,20 @@
 import Web3 from 'web3'
-import { Avalanche, BinTools, Buffer } from '@flarenetwork/flarejs'
+import { Avalanche, BinTools, Buffer as FlrBuffer } from '@flarenetwork/flarejs'
 import { PrivateKeyPrefix, PublicKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
 import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
 import { PlatformVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { costwo, flare, localflare, NetworkConfig } from './config'
-import { unPrefix0x, publicKeyToBech32AddressString, publicKeyToEthereumAddressString } from './utils'
+import {
+  unPrefix0x, publicKeyToBech32AddressString, publicKeyToEthereumAddressString,
+  privateKeyToPublicKey,
+  decodePublicKey
+} from './utils'
 
 
 export interface Context {
   privkHex?: string,
   privkCB58?: string,
+  publicKey?: [Buffer, Buffer],
   rpcurl: string,
   web3: any,
   avalanche: Avalanche,
@@ -19,7 +24,7 @@ export interface Context {
   pKeychain: PVMKeyChain,
   pAddressBech32?: string,
   cAddressBech32?: string,
-  cAddressHex: string,
+  cAddressHex?: string,
   cChainBlockchainID: string,
   pChainBlockchainID: string,
   avaxAssetID: string,
@@ -54,8 +59,31 @@ function context(
 ): Context {
   const { protocol, ip, port, networkID, hrp } = config
 
-  let cAddressHex: string = ""
-  let addressBech32: string = ""
+  // those two addresses should be derived for most cli applications
+  let cAddressHex: string | undefined
+  let addressBech32: string | undefined
+
+  // derive private key in both cb58 and hex if only one is provided
+  const bintools = BinTools.getInstance()
+  if (privkHex !== undefined && privkHex !== '') {
+    privkHex = unPrefix0x(privkHex)
+    const privkBuf = bintools.addChecksum(FlrBuffer.from(privkHex, 'hex'))
+    privkCB58 = bintools.bufferToB58(privkBuf)
+  } else if (privkCB58 !== undefined && privkCB58 !== '') {
+    const privkBuf = bintools.cb58Decode(privkCB58)
+    privkHex = privkBuf.toString('hex')
+  }
+
+  // derive the public key coords if private key is present and check that they match
+  // the public key if provided
+  let publicKeyPair = (publicKey) ? decodePublicKey(publicKey) : undefined
+  if (privkHex) {
+    const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(privkHex, 'hex'))
+    if (publicKey && (!publicKeyPair![0].equals(pubX) || !publicKeyPair![0].equals(pubY))) {
+      throw Error("provided private key does not match the public key")
+    }
+    publicKeyPair = [pubX, pubY]
+  }
 
   // derive addresses from public key if provided (bech32 is later derived again)
   if (publicKey) {
@@ -64,21 +92,6 @@ function context(
     cAddressHex = _cAddressHex
     addressBech32 = _addressBech32
   }
-
-  // derive private key in both cb58 and hex if only one is provided
-  const bintools = BinTools.getInstance()
-  if (privkHex !== undefined && privkHex !== '') {
-    privkHex = unPrefix0x(privkHex)
-    const privkBuf = bintools.addChecksum(Buffer.from(privkHex, 'hex'))
-    privkCB58 = bintools.bufferToB58(privkBuf)
-  } else if (privkCB58 !== undefined && privkCB58 !== '') {
-    const privkBuf = bintools.cb58Decode(privkCB58)
-    privkHex = privkBuf.toString('hex')
-  }
-
-  // TODO: check that the private key correctly derives the public key,
-  // tho if we have the private key there is really no need for the public key,
-  // so only one should ever be provided
 
   const path = '/ext/bc/C/rpc'
   const iport = port ? `${ip}:${port}` : `${ip}`
@@ -111,9 +124,6 @@ function context(
     cAddressHex = _cAddressHex
   }
 
-  console.log(cAddressHex)
-  console.log(cAddressBech32)
-
   const pChainBlockchainID: string =
     Defaults.network[networkID].P.blockchainID
   const cChainBlockchainID: string =
@@ -123,6 +133,7 @@ function context(
   return {
     privkHex: privkHex,
     privkCB58: privkCB58,
+    publicKey: publicKeyPair,
     rpcurl: rpcurl,
     web3: web3,
     avalanche: avalanche,
@@ -132,7 +143,7 @@ function context(
     pKeychain: pKeychain,
     pAddressBech32: pAddressBech32,
     cAddressBech32: cAddressBech32,
-    cAddressHex: cAddressHex!,
+    cAddressHex: cAddressHex,
     cChainBlockchainID: cChainBlockchainID,
     pChainBlockchainID: pChainBlockchainID,
     avaxAssetID: avaxAssetID,

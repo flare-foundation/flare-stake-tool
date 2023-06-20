@@ -1,14 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES6",
+    "target": "es2016",
     "module": "commonjs",
+    "allowJs": true,
+    "esModuleInterop": true,
     "outDir": "dist",
     "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
     "preserveSymlinks": true,
     "moduleResolution": "node",
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "preserveSymlinks": true
   },
   "exclude": [
     "node_modules",
