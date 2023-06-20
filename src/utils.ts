@@ -1,8 +1,9 @@
-import BN from "bn.js"
 import * as ethutil from 'ethereumjs-util'
 import * as elliptic from "elliptic"
 import { bech32 } from 'bech32'
+import { BN } from '@flarenetwork/flarejs/dist'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
+import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // public keys and bech32 addresses
@@ -10,7 +11,7 @@ import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 const EC: typeof elliptic.ec = elliptic.ec
 const ec: elliptic.ec = new EC("secp256k1")
 
-export function privateKeyToPublicKeyEncoding(privateKey: string, compress: boolean = true): string {
+export function privateKeyToEncodedPublicKey(privateKey: string, compress: boolean = true): string {
   const keyPair = ec.keyFromPrivate(privateKey)
   return keyPair.getPublic().encode("hex", compress)
 }
@@ -22,7 +23,7 @@ export function privateKeyToPublicKey(privateKey: Buffer): Buffer[] {
   return [x, y]
 }
 
-export function decodePublicKey(publicKey: string): Buffer[] {
+export function decodePublicKey(publicKey: string): [Buffer, Buffer] {
   let x: Buffer
   let y: Buffer
   publicKey = unPrefix0x(publicKey)
@@ -85,6 +86,16 @@ export function recoverPublicKey(message: Buffer, signature: string): Buffer {
   return ethutil.ecrecover(message, split.v, split.r, split.s)
 }
 
+export function expandSignature(signature: string): EcdsaSignature {
+  let recoveryParam = parseInt(signature.slice(128, 130), 16)
+  if (recoveryParam === 27 || recoveryParam === 28) recoveryParam -= 27
+  return {
+    r: new BN(signature.slice(0, 64), 'hex'),
+    s: new BN(signature.slice(64, 128), 'hex'),
+    recoveryParam: recoveryParam
+  }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // general helper functions
 
@@ -128,4 +139,18 @@ export function integerToDecimal(int: string, n: number): string {
 export function parseRelativeTime(time: string): string {
   // assume time starts with now+
   return UnixNow().add(new BN(time.split('+')[1])).toString()
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// serialization of atomic c-chain addresses does not work correctly, so we have to improvise
+
+export function serializeExportCP_args(args: [BN, string, string, string, string, string[], number, BN, number, BN?]): string {
+  [0,7,9].map(i => args[i] = args[i]!.toString(16))
+  return JSON.stringify(args)
+}
+
+export function deserializeExportCP_args(serargs: string): [BN, string, string, string, string, string[], number, BN, number, BN?] {
+  const args = JSON.parse(serargs);
+  [0,7,9].map(i => args[i] = new BN(args[i], 16))
+  return args
 }

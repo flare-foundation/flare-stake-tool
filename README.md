@@ -42,25 +42,31 @@ sudo npm install @flarenetwork/flare-stake-tool --global
 
 4. Follow the rest of this guide from the repo folder using `bin/flare-stake-tool` instead of just `flare-stake-tool`.
 
-## Set up your private key
+## Set up your private/public key
+
+To use this app in a less-secure manner you can set your private key as an environment variable.
+In this case the signing is done within the app. For a more secure approach, you can log your
+public key into the app and sign transaction hashes offline with ECDSA over the curve secp256k1.
 
 > **WARNING:**
 > You are about to write your staking account's **private key** into a **plain text file**.
 > The following operations should be performed on a **secure** machine, ideally not the validator node.
 > For added security, store the private key file in a removable storage device, plugged in only when needed.
 
-1. Obtain the private key (either a length 64 hexadecimal or [cb58 format](https://support.avax.network/en/articles/4587395-what-is-cb58)).
-2. Create a file to hold your private key.
-3. Paste this code in as follows and enter either the Hex or CB58 private key within the quotation marks:
+1. Obtain the private key (either a length 64 hexadecimal or [cb58 format](https://support.avax.network/en/articles/4587395-what-is-cb58)),
+or the public key (prefixed `0x02`, `0x03` or `0x04` or ethereum-specific format `X  Y`, where `X` and `Y` are 32-byte hexadecimal numbers)
+2. Create a file to hold your key.
+3. Paste this code in as follows and enter either the hex/cb58 private key or the public key within the quotation marks:
 
    ```bash
    PRIVATE_KEY_CB58 = "private key"
    PRIVATE_KEY_HEX = "private key"
+   PUBLIC_KEY = "public key"
    ```
 
-## Operations
+## Operations with private key
 
-These are the operations you can perform with this tool.
+These are the operations you can perform with this tool, when you log in with your private key.
 
 ### Address conversion
 
@@ -166,6 +172,34 @@ To check whether a validator has been added successfully, fetch lists of both pe
 ```bash
 flare-stake-tool info validators
 ```
+
+## Operations with public key
+
+These are the operations you can perform with this tool, when you log in with your private key.
+
+### Exporting from C-chain to P-chain through raw signing
+
+When using the app with public key only, you can export funds from the C-chain to the P-chain by signing a raw transaction.
+Here the export is split in two steps:
+- obtain the hashes with signer addresses along with the serialized transaction,
+- externally sign the hashes and send the signatures back to the app to finalize the export.
+
+To obtain the signed hashes, use the following command:
+
+```bash
+flare-stake-tool crosschain exportCP -a <amount> --get-hashes --env-path <path to your private key file>
+```
+
+This will output a list of `(hash, signer address)` along with the serialized transaction.
+> **Note:**
+> If you are not using multisig, there should always be only one unique pair of a hash and signer address.
+To finalize the transaction with hash signatures, use the following command:
+
+```bash
+flare-stake-tool crosschain exportCP -a <amount> -t <serialized transaction> -s <signed hashes> --use-signatures --env-path <path to your private key file>
+```
+
+The procedure is similar with importing to P-chain and staking there.
 
 ## Versions
 

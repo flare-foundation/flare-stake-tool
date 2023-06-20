@@ -1,14 +1,15 @@
-import {
-  privateKeyToPublicKey, compressPublicKey, publicKeyToBech32AddressString,
-  integerToDecimal, decimalToInteger, parseRelativeTime
-} from './utils'
-import { contextEnv, Context } from './constants'
-import { exportTxCP, importTxPC } from './evmAtomicTx'
-import { exportTxPC, importTxCP } from './pvmAtomicTx'
-import { addValidator } from './addValidator'
 import { Command, OptionValues } from 'commander'
 import { BN } from '@flarenetwork/flarejs/dist'
 import createLogger from 'logging'
+import {
+  privateKeyToPublicKey, compressPublicKey, publicKeyToBech32AddressString,
+  integerToDecimal, decimalToInteger, parseRelativeTime, decodePublicKey
+} from './utils'
+import { rawSignWithLedger } from './ledgerSupport'
+import { contextEnv, Context } from './constants'
+import { exportTxCP, importTxPC, exportTxCP_rawSignatures, exportTxCP_unsignedHashes } from './evmAtomicTx'
+import { exportTxPC, importTxCP, importTxCP_rawSignatures, importTxCP_unsignedHashes } from './pvmAtomicTx'
+import { addValidator, addValidator_rawSignatures, addValidator_unsignedHashes } from './addValidator'
 import { addDelegator } from './addDelegator'
 
 const logger = createLogger('info')
@@ -18,6 +19,8 @@ export async function cli(program: Command) {
   program
     .option("--network <network>", "Network name (flare or costwo)", 'flare')
     .option("--env-path <path>", "Path to the .env file", 'env')
+    .option("--get-hashes", "Get hashes of transaction to sign")
+    .option("--use-signatures", "Use hash signatures to finalize the transaction")
   // information about the network
   program
     .command("info").description("Relevant information")
@@ -43,16 +46,34 @@ export async function cli(program: Command) {
     .argument("<type>", "Type of a crosschain transaction")
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Fee of a transaction")
+    .option("-t, --transaction <transaction>", "Serialized transaction obtained along the hashes")
+    .option("-s, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (type: string, options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
       if (type == 'exportCP') {
-        await exportCP(ctx, options.amount, options.fee)
+        if (options.getHashes) {
+          await exportCP_getHashes(ctx, options.amount, options.fee)
+        } else if (options.useSignatures) {
+          await exportCP_useSignatures(ctx, options.signatures.split(" "), options.transaction)
+        } else if (options.useLedger) {
+          await exportCP_useLedger(ctx, options.amount, options.fee)
+        } else {
+          await exportCP(ctx, options.amount, options.fee)
+        }
       } else if (type == 'importCP') {
-        await importCP(ctx)
+        if (options.getHashes) {
+          await importCP_getHashes(ctx)
+        } else if (options.useSignatures) {
+          await importCP_useSignatures(ctx, options.signatures.split(" "), options.transaction)
+        } else {
+          await importCP(ctx)
+        }
       } else if (type == 'exportPC') {
+        // two-part p-c export not yet implemented
         await exportPC(ctx, options.amount)
       } else if (type == 'importPC') {
+        // two-part p-c import not yet implemented
         await importPC(ctx, options.fee)
       }
     })
@@ -63,12 +84,20 @@ export async function cli(program: Command) {
     .option("-a, --amount <amount>", "Amount to stake")
     .option("-s, --start-time <start-time>", "Start time of the staking process")
     .option("-e, --end-time <end-time>", "End time of the staking process")
+    .option("-t, --transaction <transaction>", "Serialized transaction obtained along the hashes")
+    .option("-s, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      await stake(ctx, options.nodeId, options.amount,
-        options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime,
-        options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime)
+      const startTime = options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime
+      const endTime = options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime
+      if (options.getHashes) {
+        await stake_getHashes(ctx, options.nodeId, options.amount, startTime, endTime)
+      } else if (options.useSignatures) {
+        await stake_useSignatures(ctx, options.signatures.split(" "), options.transaction)
+      } else {
+        await stake(ctx, options.nodeId, options.amount, startTime, endTime)
+      }
     })
   // delegating
   program
@@ -84,22 +113,10 @@ export async function cli(program: Command) {
         options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime,
         options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime)
     })
-  // converting between address formats
-  program
-    .command("convert").description("Utility for conversion of address formats")
-    .argument("<type>", "Type of conversion")
-    .option("-p, --public-key <pubk>", "User's secp256k1 public key (encoded either 0x02, 0x03 or 0x04)")
-    .action((type: string, options: OptionValues) => {
-      options = {...options, ...program.opts()}
-      const ctx = contextEnv(options.envPath, options.network)
-      if (type == 'public-key-to-p-chain-address') {
-        getAddressFromPublicKey(ctx, options.publicKey)
-      }
-    })
   }
 
 function getAddressInfo(ctx: Context) {
-  const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(ctx.privkHex!, 'hex'))
+  const [pubX, pubY] = ctx.publicKey!
   const compressedPubKey = compressPublicKey(pubX, pubY).toString('hex')
   logger.info(`P-chain address: ${ctx.pAddressBech32}`)
   logger.info(`C-chain address hex: ${ctx.cAddressHex}`)
@@ -107,12 +124,12 @@ function getAddressInfo(ctx: Context) {
 }
 
 async function getBalanceInfo(ctx: Context) {
-  let cbalance = (new BN(await ctx.web3.eth.getBalance(ctx.cAddressHex))).toString()
+  let cbalance = (new BN(await ctx.web3.eth.getBalance(ctx.cAddressHex!))).toString()
   let pbalance = (new BN((await ctx.pchain.getBalance(ctx.pAddressBech32!)).balance)).toString()
   cbalance = integerToDecimal(cbalance, 18)
   pbalance = integerToDecimal(pbalance, 9)
-  logger.info(`${ctx.cAddressHex}: ${cbalance}`)
-  logger.info(`${ctx.pAddressBech32}: ${pbalance}`)
+  logger.info(`C-chain ${ctx.cAddressHex}: ${cbalance}`)
+  logger.info(`P-chain ${ctx.pAddressBech32}: ${pbalance}`)
 }
 
 function getNetworkInfo(ctx: Context) {
@@ -134,15 +151,52 @@ async function getValidatorInfo(ctx: Context) {
 
 async function exportCP(ctx: Context, amount: string, fee?: string) {
   const famount: BN = new BN(decimalToInteger(amount, 9))
-  const ffee = (fee === undefined) ?
-    fee : new BN(decimalToInteger(fee, 9))
+  const ffee = (fee === undefined) ? fee : new BN(decimalToInteger(fee, 9))
   const { txid, usedFee } = await exportTxCP(ctx, famount, ffee)
   if (fee !== usedFee) logger.info(`Used fee of ${usedFee}`)
   logger.info(`Success! TXID: ${txid}`)
 }
 
+async function exportCP_getHashes(ctx: Context, amount: string, fee?: string) {
+  const famount: BN = new BN(decimalToInteger(amount, 9))
+  const ffee = (fee === undefined) ? fee : new BN(decimalToInteger(fee, 9))
+  const { usedFee, signData } = await exportTxCP_unsignedHashes(ctx, famount, ffee)
+  if (fee !== usedFee) logger.info(`Used fee of ${usedFee}`)
+  logger.info(`
+  Hashes with signers: ${signData.requests.map(x => `(${x.message}, ${x.signer})`)}
+  Serialized transaction: ${signData.transaction}`)
+}
+
+async function exportCP_useSignatures(ctx: Context, signatures: string[], transaction: string) {
+  const { txid } = await exportTxCP_rawSignatures(ctx, signatures, transaction)
+  logger.info(`Success! TXID: ${txid}`)
+}
+
+async function exportCP_useLedger(ctx: Context, amount: string, fee?: string) {
+  const famount: BN = new BN(decimalToInteger(amount, 9))
+  const ffee = (fee === undefined) ? fee : new BN(decimalToInteger(fee, 9))
+  const { usedFee, signData } = await exportTxCP_unsignedHashes(ctx, famount, ffee)
+  if (fee !== usedFee) logger.info(`Used fee of ${usedFee}`)
+  const signature = await rawSignWithLedger(ctx, signData.requests[0]!.message)
+  const signatures = Array(signData.requests.length).fill(signature)
+  const { txid } = await exportTxCP_rawSignatures(ctx, signatures, signData.transaction)
+  logger.info(`Success! TXID: ${txid}`)
+}
+
 async function importCP(ctx: Context) {
   const { txid } = await importTxCP(ctx)
+  logger.info(`Success! TXID: ${txid}`)
+}
+
+async function importCP_getHashes(ctx: Context) {
+  const signData = await importTxCP_unsignedHashes(ctx)
+  logger.info(`
+  Hashes with signers: ${signData.requests.map(x => `(${x.message}, ${x.signer})`)}
+  Serialized transaction: ${signData.transaction}`)
+}
+
+async function importCP_useSignatures(ctx: Context, signatures: string[], transaction: string) {
+  const { txid } = await importTxCP_rawSignatures(ctx, signatures, transaction)
   logger.info(`Success! TXID: ${txid}`)
 }
 
@@ -167,6 +221,22 @@ async function stake(
 ) {
   const famount = new BN(decimalToInteger(amount, 9))
   const { txid } = await addValidator(ctx, nodeID, famount, new BN(start), new BN(end))
+  logger.info(`Success! TXID: ${txid}`)
+}
+
+async function stake_getHashes(
+  ctx: Context, nodeID: string, amount: string,
+  start: string, end: string
+) {
+  const famount = new BN(decimalToInteger(amount, 9))
+  const signData = await addValidator_unsignedHashes(ctx, nodeID, famount, new BN(start), new BN(end))
+  logger.info(`
+  Hashes with signers: ${signData.requests.map(x => `(${x.message}, ${x.signer})`)}
+  Serialized transaction: ${signData.transaction}`)
+}
+
+async function stake_useSignatures(ctx: Context, signatures: string[], transaction: string) {
+  const { txid } = await addValidator_rawSignatures(ctx, signatures, transaction)
   logger.info(`Success! TXID: ${txid}`)
 }
 

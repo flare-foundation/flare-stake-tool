@@ -1,10 +1,8 @@
 import { contextEnv } from '../src/constants'
 import { BN } from '@flarenetwork/flarejs/dist'
-import { exportTxCP } from '../src/evmAtomicTx'
-import { importTxCP } from '../src/pvmAtomicTx'
-import { exportTxCPSignWithRawSignatures, exportTxCPUnsignedHashes } from './twoStepExportTxCP'
-import { importTxCP_unsignedHashes, importTxCPSign_rawSignatures } from './twoStepImportTxCP'
-import { addValidator_unsignedHashes, addValidator_rawSignatures } from './twoStepValidator'
+import { exportTxCP, exportTxCP_unsignedHashes, exportTxCP_rawSignatures } from '../src/evmAtomicTx'
+import { importTxCP, importTxCP_unsignedHashes, importTxCP_rawSignatures } from '../src/pvmAtomicTx'
+import { addValidator_unsignedHashes, addValidator_rawSignatures } from '../src/addValidator'
 
 async function main() {
     const context = contextEnv('./.env', 'costwo')
@@ -20,11 +18,11 @@ async function main0() {
 
 async function twoStepExport() {
     const context = contextEnv('./.env', 'costwo')
-    const sigRequests = await exportTxCPUnsignedHashes(context, new BN(1e9), new BN(1e9))
+    const sigRequests = await exportTxCP_unsignedHashes(context, new BN(1e9))
     // sign the below output with fireblocks and save it into signature
-    console.log("externally sign hashes:", sigRequests.requests)
-    const signature = "e6d3cb6e678a56f43ee80d23d268ef5a1255d958af4ee37c859b2a75c9b397ae47b424db8231970b503b5db933976a6c055c8cd6ef9e3d1c4c398c8acf7bcc681c"
-    const resp = await exportTxCPSignWithRawSignatures(context, [signature], sigRequests.transaction)
+    console.log("externally sign hashes:", sigRequests.signData.requests)
+    const signature = "06ad351d529713890f3522b7c8940354a8abbe5c842cb16385230ccf18d7ddbe13bfc486a8ce9ac584b3b953d1714bd75c93cfdfeed8cf1f4603df27942bbdea00"
+    const resp = await exportTxCP_rawSignatures(context, [signature], sigRequests.signData.transaction)
     console.log(resp)
 }
 
@@ -34,7 +32,7 @@ async function twoStepImport() {
     // sign the below output with fireblocks and save it into signature
     console.log("externally sign hashes:", sigRequests.requests)
     const signature = "183a7666474995f1ec04b858bbd0b3ab6dabde523202650379f1f8cf3b77418b76af06845bc2882591c8ae4447e127fb43b73d024222be1bf235f0b239c795001b"
-    const resp = await importTxCPSign_rawSignatures(context, [signature, signature], sigRequests.transaction)
+    const resp = await importTxCP_rawSignatures(context, [signature, signature], sigRequests.transaction)
     console.log(resp)
 }
 
@@ -49,4 +47,4 @@ async function twoStepAddValidator() {
     console.log("externally sign hashes:", sigRequests.requests)
 }
 
-twoStepAddValidator()
+twoStepExport()
