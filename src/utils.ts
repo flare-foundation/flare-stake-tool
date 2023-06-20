@@ -124,3 +124,7 @@ export function parseRelativeTime(time: string): string {
   // assume time starts with now+
   return UnixNow().add(new BN(time.split('+')[1])).toString()
 }
+
+export function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

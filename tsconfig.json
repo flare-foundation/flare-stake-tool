@@ -6,11 +6,14 @@
     "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
-    "preserveSymlinks": true
+    "preserveSymlinks": true,
+    "moduleResolution": "node",
+    "noImplicitAny": false
   },
   "exclude": [
     "node_modules",
     "scripts",
-    "cli"
+    "cli",
+    "test"
   ]
 }

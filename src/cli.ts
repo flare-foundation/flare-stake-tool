@@ -10,6 +10,7 @@ import { Command, OptionValues } from 'commander'
 import { BN } from '@flarenetwork/flarejs/dist'
 import createLogger from 'logging'
 import { addDelegator } from './addDelegator'
+import { getSignatures } from "../test/forDefi"
 
 const logger = createLogger('info')
 
@@ -96,7 +97,17 @@ export async function cli(program: Command) {
         getAddressFromPublicKey(ctx, options.publicKey)
       }
     })
+  // get signatures from address IDs
+  program
+  .command("signatures").description("Signatures from transaction IDs")
+  .option("-i, --ids <IDs>", "Transaction IDs")
+  .action(async (options: OptionValues) => {
+    options = {...options, ...program.opts()}
+    let idsArray = options.ids.split(",");
+    await getSignaturesFromIds(idsArray);
+  })
   }
+
 
 function getAddressInfo(ctx: Context) {
   const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(ctx.privkHex!, 'hex'))
@@ -105,6 +116,13 @@ function getAddressInfo(ctx: Context) {
   logger.info(`C-chain address hex: ${ctx.cAddressHex}`)
   logger.info(`secp256k1 public key: 0x${compressedPubKey}`)
 }
+
+// function getAddressInfoPublic(ctx: Context) {
+//   const compressedPubKey = ctx.PUBLIC_KEY.toString('hex')
+//   logger.info(`P-chain address: ${ctx.pAddressBech32}`)
+//   logger.info(`C-chain address hex: ${ctx.cAddressHex}`)
+//   logger.info(`secp256k1 public key: 0x${compressedPubKey}`)
+// }
 
 async function getBalanceInfo(ctx: Context) {
   let cbalance = (new BN(await ctx.web3.eth.getBalance(ctx.cAddressHex))).toString()
@@ -182,4 +200,9 @@ async function delegate(
 function getAddressFromPublicKey(ctx: Context, pubk: string) {
   const address = publicKeyToBech32AddressString(ctx.config.hrp, pubk)
   logger.info(`P-chain address: P-${address}`)
+}
+
+async function getSignaturesFromIds(txIds: string[]) {
+  const signatures = await getSignatures(txIds);
+  logger.info(`Signatures: ${signatures}`)
 }

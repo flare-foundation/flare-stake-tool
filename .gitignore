@@ -94,3 +94,6 @@ build/*
 build
 dist
 *.lnk
+
+# fordefi private key
+private.pem
