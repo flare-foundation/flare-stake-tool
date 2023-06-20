@@ -175,7 +175,7 @@ flare-stake-tool info validators
 
 ## Operations with public key
 
-These are the operations you can perform with this tool, when you log in with your private key.
+These are the operations you can perform with this tool, when you log in with your public key.
 
 ### Exporting from C-chain to P-chain through raw signing
 
@@ -187,7 +187,7 @@ Here the export is split in two steps:
 To obtain the signed hashes, use the following command:
 
 ```bash
-flare-stake-tool crosschain exportCP -a <amount> --get-hashes --env-path <path to your private key file>
+flare-stake-tool crosschain exportCP -a <amount> --get-hashes --env-path <path to your public key file>
 ```
 
 This will output a list of `(hash, signer address)` along with the serialized transaction.
