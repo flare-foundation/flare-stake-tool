@@ -5,7 +5,6 @@ import {
   privateKeyToPublicKey, compressPublicKey, publicKeyToBech32AddressString,
   integerToDecimal, decimalToInteger, parseRelativeTime, decodePublicKey
 } from './utils'
-import { rawSignWithLedger } from './ledgerSupport'
 import { contextEnv, Context } from './constants'
 import { exportTxCP, importTxPC, exportTxCP_rawSignatures, exportTxCP_unsignedHashes } from './evmAtomicTx'
 import { exportTxPC, importTxCP, importTxCP_rawSignatures, importTxCP_unsignedHashes } from './pvmAtomicTx'
@@ -56,8 +55,6 @@ export async function cli(program: Command) {
           await exportCP_getHashes(ctx, options.amount, options.fee)
         } else if (options.useSignatures) {
           await exportCP_useSignatures(ctx, options.signatures.split(" "), options.transaction)
-        } else if (options.useLedger) {
-          await exportCP_useLedger(ctx, options.amount, options.fee)
         } else {
           await exportCP(ctx, options.amount, options.fee)
         }
@@ -169,17 +166,6 @@ async function exportCP_getHashes(ctx: Context, amount: string, fee?: string) {
 
 async function exportCP_useSignatures(ctx: Context, signatures: string[], transaction: string) {
   const { txid } = await exportTxCP_rawSignatures(ctx, signatures, transaction)
-  logger.info(`Success! TXID: ${txid}`)
-}
-
-async function exportCP_useLedger(ctx: Context, amount: string, fee?: string) {
-  const famount: BN = new BN(decimalToInteger(amount, 9))
-  const ffee = (fee === undefined) ? fee : new BN(decimalToInteger(fee, 9))
-  const { usedFee, signData } = await exportTxCP_unsignedHashes(ctx, famount, ffee)
-  if (fee !== usedFee) logger.info(`Used fee of ${usedFee}`)
-  const signature = await rawSignWithLedger(ctx, signData.requests[0]!.message)
-  const signatures = Array(signData.requests.length).fill(signature)
-  const { txid } = await exportTxCP_rawSignatures(ctx, signatures, signData.transaction)
   logger.info(`Success! TXID: ${txid}`)
 }
 

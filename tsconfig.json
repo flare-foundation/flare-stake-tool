@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ES6",
+    "target": "es2016",
     "module": "commonjs",
+    "allowJs": true,
+    "esModuleInterop": true,
     "outDir": "dist",
     "rootDir": "./",
     "strict": true,
-    "esModuleInterop": true,
     "preserveSymlinks": true
   },
   "exclude": [
