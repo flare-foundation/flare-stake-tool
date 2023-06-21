@@ -45,8 +45,8 @@ export async function cli(program: Command) {
     .argument("<type>", "Type of a crosschain transaction")
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Fee of a transaction")
-    .option("-t, --transaction <transaction>", "Serialized transaction obtained along the hashes")
-    .option("-s, --signatures <signatures>", "Signatures of the obtained hashes")
+    .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (type: string, options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
@@ -54,7 +54,7 @@ export async function cli(program: Command) {
         if (options.getHashes) {
           await exportCP_getHashes(ctx, options.amount, options.fee)
         } else if (options.useSignatures) {
-          await exportCP_useSignatures(ctx, options.signatures.split(" "), options.transaction)
+          await exportCP_useSignatures(ctx, options.signatures.split(" "), options.transactionId)
         } else {
           await exportCP(ctx, options.amount, options.fee)
         }
@@ -62,7 +62,7 @@ export async function cli(program: Command) {
         if (options.getHashes) {
           await importCP_getHashes(ctx)
         } else if (options.useSignatures) {
-          await importCP_useSignatures(ctx, options.signatures.split(" "), options.transaction)
+          await importCP_useSignatures(ctx, options.signatures.split(" "), options.transactionId)
         } else {
           await importCP(ctx)
         }
@@ -81,13 +81,17 @@ export async function cli(program: Command) {
     .option("-a, --amount <amount>", "Amount to stake")
     .option("-s, --start-time <start-time>", "Start time of the staking process")
     .option("-e, --end-time <end-time>", "End time of the staking process")
-    .option("-t, --transaction <transaction>", "Serialized transaction obtained along the hashes")
-    .option("-s, --signatures <signatures>", "Signatures of the obtained hashes")
+    .option("-tx, --transaction <transaction>", "Serialized transaction obtained along the hashes")
+    .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      const startTime = options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime
-      const endTime = options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime
+      let startTime
+      let endTime
+      if (options.startTime && options.endTime) {
+        startTime = options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime
+        endTime = options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime
+      }
       if (options.getHashes) {
         await stake_getHashes(ctx, options.nodeId, options.amount, startTime, endTime)
       } else if (options.useSignatures) {
@@ -103,8 +107,8 @@ export async function cli(program: Command) {
     .option("-a, --amount <amount>", "Amount to delegate")
     .option("-s, --start-time <start-time>", "Start time of the delegation process")
     .option("-e, --end-time <end-time>", "End time of the delegation process")
-    .option("-t, --transaction <transaction>", "Serialized transaction obtained along the hashes")
-    .option("-s, --signatures <signatures>", "Signatures of the obtained hashes")
+    .option("-tx, --transaction <transaction>", "Serialized transaction obtained along the hashes")
+    .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
@@ -169,17 +173,17 @@ async function exportCP(ctx: Context, amount: string, fee?: string) {
 async function exportCP_getHashes(ctx: Context, amount: string, fee?: string) {
   const famount: BN = new BN(decimalToInteger(amount, 9))
   const ffee = (fee === undefined) ? fee : new BN(decimalToInteger(fee, 9))
-  const { usedFee, signData } = await exportTxCP_unsignedHashes(ctx, famount, ffee)
+  const { txid, usedFee, signatureRequests } = await exportTxCP_unsignedHashes(ctx, famount, ffee)
   if (fee !== usedFee) logger.info(`Used fee of ${usedFee}`)
   logger.info(`
-  Hashes with signers: ${signData.requests.map(x => `(${x.message}, ${x.signer})`)}
-  Serialized transaction: ${signData.transaction}
-  Unsigned transaction: ${signData.unsignedTransaction}`)
+  txid: ${txid},
+  Hashes with signers: ${signatureRequests.map(x => `(${x.message}, ${x.signer})`)}
+  `)
 }
 
-async function exportCP_useSignatures(ctx: Context, signatures: string[], transaction: string) {
-  const { txid } = await exportTxCP_rawSignatures(ctx, signatures, transaction)
-  logger.info(`Success! TXID: ${txid}`)
+async function exportCP_useSignatures(ctx: Context, signatures: string[], txid: string) {
+  const { chainTxId } = await exportTxCP_rawSignatures(ctx, signatures, txid)
+  logger.info(`Success! TXID: ${chainTxId}`)
 }
 
 async function importCP(ctx: Context) {
@@ -188,16 +192,16 @@ async function importCP(ctx: Context) {
 }
 
 async function importCP_getHashes(ctx: Context) {
-  const signData = await importTxCP_unsignedHashes(ctx)
+  const { txid, signatureRequests } = await importTxCP_unsignedHashes(ctx)
   logger.info(`
-  Hashes with signers: ${signData.requests.map(x => `(${x.message}, ${x.signer})`)}
-  Serialized transaction: ${signData.transaction}
-  Unsigned transaction: ${signData.unsignedTransaction}`)
+  txid: ${txid},
+  Hashes with signers: ${signatureRequests.map(x => `(${x.message}, ${x.signer})`)}
+  `)
 }
 
-async function importCP_useSignatures(ctx: Context, signatures: string[], transaction: string) {
-  const { txid } = await importTxCP_rawSignatures(ctx, signatures, transaction)
-  logger.info(`Success! TXID: ${txid}`)
+async function importCP_useSignatures(ctx: Context, signatures: string[], txid: string) {
+  const { chainTxId } = await importTxCP_rawSignatures(ctx, signatures, txid)
+  logger.info(`Success! TXID: ${chainTxId}`)
 }
 
 async function exportPC(ctx: Context, amount?: string) {

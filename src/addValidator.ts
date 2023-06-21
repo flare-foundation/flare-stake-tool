@@ -1,10 +1,10 @@
-import { Context } from './constants'
-import { SignData } from './interfaces'
 import { EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
 import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
-import { expandSignature } from './utils'
+import { Context } from './constants'
+import { SignData } from './interfaces'
+import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx } from './utils'
 
 /**
  * Stake by registring your node for validation
@@ -96,7 +96,7 @@ export async function addValidator_unsignedHashes(
   )
   return <SignData>{
     requests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-    transaction: JSON.stringify(unsignedTx.serialize("hex")),
+    transaction: serializeUnsignedTx(unsignedTx),
     unsignedTransaction: unsignedTx.toBuffer().toString('hex')
   }
 }
@@ -110,10 +110,8 @@ export async function addValidator_unsignedHashes(
 export async function addValidator_rawSignatures(
   ctx: Context, signatures: string[], transaction: string
 ): Promise<any> {
-  const ecdsaSignatures: EcdsaSignature[] = signatures.map(
-    (signature: string) => expandSignature(signature))
-  const unsignedTx = new UnsignedTx()
-  unsignedTx.deserialize(JSON.parse(transaction), 'hex')
+  const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
+  const unsignedTx = deserializeUnsignedTx(UnsignedTx, transaction)
   const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
   const txid = await ctx.pchain.issueTx(tx)
   return { txid: txid }

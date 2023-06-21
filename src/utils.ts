@@ -1,9 +1,14 @@
 import * as ethutil from 'ethereumjs-util'
 import * as elliptic from "elliptic"
+import fs from 'fs'
 import { bech32 } from 'bech32'
 import { BN } from '@flarenetwork/flarejs/dist'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common"
+import { UnsignedTx as EvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/evm'
+import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm'
+import { UnsignedTxJson } from './interfaces'
+import { sha256 } from 'ethereumjs-util'
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // public keys and bech32 addresses
@@ -144,13 +149,52 @@ export function parseRelativeTime(time: string): string {
 //////////////////////////////////////////////////////////////////////////////////////////
 // serialization of atomic c-chain addresses does not work correctly, so we have to improvise
 
+const EVM_PREFIX = 'evm'
+const PVM_PREFIX = 'pvm'
+
 export function serializeExportCP_args(args: [BN, string, string, string, string, string[], number, BN, number, BN?]): string {
   [0,7,9].map(i => args[i] = args[i]!.toString(16))
-  return JSON.stringify(args)
+  return EVM_PREFIX + JSON.stringify(args)
 }
 
 export function deserializeExportCP_args(serargs: string): [BN, string, string, string, string, string[], number, BN, number, BN?] {
-  const args = JSON.parse(serargs);
+  const args = JSON.parse(serargs.slice(EVM_PREFIX.length));
   [0,7,9].map(i => args[i] = new BN(args[i], 16))
   return args
+}
+
+export function serializeUnsignedTx(unsignedTx: EvmUnsignedTx | PvmUnsignedTx): string {
+  return PVM_PREFIX + JSON.stringify(unsignedTx.serialize("hex"))
+}
+
+export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsignedTx>(
+  type: { new(): UnsignedTx }, serialized: string
+): UnsignedTx {
+  const unsignedTx: UnsignedTx = new type()
+  unsignedTx.deserialize(JSON.parse(serialized.slice(PVM_PREFIX.length)))
+  return unsignedTx
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// storage
+
+export function saveUnsignedTx(unsignedTx: UnsignedTxJson): string {
+  const serialization = JSON.stringify(unsignedTx)
+  const id =  ethutil.keccak256(Buffer.from(serialization)).slice(-20).toString('hex')
+  const fname = `${id}.unsignedTx`
+  if (fs.existsSync(fname)) {
+    throw new Error(`unsignedTx file ${fname} already exists`)
+  }
+  fs.writeFileSync(fname, serialization)
+  return id
+}
+
+export function readUnsignedTx(id: string): UnsignedTxJson {
+  const fname = `${id}.unsignedTx`
+  if (!fs.existsSync(fname)) {
+    throw new Error(`unsignedTx file ${fname} does not exist`)
+  }
+  const serialization = fs.readFileSync(fname).toString()
+  return JSON.parse(serialization) as UnsignedTxJson
 }

@@ -6,6 +6,8 @@ export interface SignData {
     unsignedTransaction: string
 }
 
-export interface CompressedSignatureRequest extends SignatureRequest {
-    indices: number[]
-}
+export interface UnsignedTxJson {
+    serialization: string,
+    signatureRequests: SignatureRequest[],
+    unsignedTransactionBuffer: string // hex
+  }
