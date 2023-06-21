@@ -29,6 +29,7 @@ sudo npm install @flarenetwork/flare-stake-tool --global
 ```
 
 ### Manually building the repository
+note: for none devs follow next section before this one.
 
 1. Clone this repository by running
 
@@ -36,11 +37,21 @@ sudo npm install @flarenetwork/flare-stake-tool --global
    git clone https://github.com/flare-foundation/p-chain-staking-code.git
    ```
 
-2. Run `yarn` inside the cloned repo folder.
+1. Run `yarn` inside the cloned repo folder.
 
-3. Run `yarn build`.
+1. Run `yarn build`.
 
-4. Follow the rest of this guide from the repo folder using `bin/flare-stake-tool` instead of just `flare-stake-tool`.
+1. Follow the rest of this guide from the repo folder using `bin/flare-stake-tool` instead of just `flare-stake-tool`.
+
+### setting up your dev environment
+
+open the terminal on your machine and follow the below steps
+
+1. install NVM (node version manager on your machine) on your machine see [here](https://collabnix.com/how-to-install-and-configure-nvm-on-mac-os/)
+
+1. install node version 16 on your machine `NVM install node 16`
+
+1. make sure NPM was installed using NPM -v. we need version ?? (T.B.D)
 
 ## Set up your private key
 
