@@ -3,7 +3,7 @@ import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist//utils'
 import { Context } from './constants'
-import { SignData, UnsignedTxJson } from './interfaces'
+import { UnsignedTxJson } from './interfaces'
 import {
   deserializeUnsignedTx, expandSignature,
   serializeUnsignedTx, saveUnsignedTx, readUnsignedTx
@@ -86,8 +86,8 @@ export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: str
  * C-chain to P-chain to be imported to P-chain
  * @param ctx - context with constants initialized from user keys
  */
-export async function importTxCP_unsignedHashes(ctx: Context): Promise<{
-  txid: string, signatureRequests: SignatureRequest[]
+export async function importTxCP_unsignedHashes(ctx: Context, id: string): Promise<{
+  signatureRequests: SignatureRequest[]
 }> {
   const threshold = 1
   const locktime: BN = new BN(0)
@@ -111,14 +111,13 @@ export async function importTxCP_unsignedHashes(ctx: Context): Promise<{
     locktime,
     threshold
   )
-
-  const signatureRequests = unsignedTx.prepareUnsignedHashes(ctx.cKeychain)
-  const txid = saveUnsignedTx(<UnsignedTxJson>{
+  const unsignedTxJson = <UnsignedTxJson>{
     serialization: serializeUnsignedTx(unsignedTx),
-    signatureRequests: signatureRequests,
+    signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
-  })
-  return { txid: txid, signatureRequests: signatureRequests }
+  }
+  saveUnsignedTx(unsignedTxJson, id)
+  return { signatureRequests: unsignedTxJson.signatureRequests }
 }
 
 /**
@@ -128,10 +127,13 @@ export async function importTxCP_unsignedHashes(ctx: Context): Promise<{
  * @param transaction - serialized import C - P transaction
  */
 export async function importTxCP_rawSignatures(
-  ctx: Context, signatures: string[], txid: string
+  ctx: Context, signatures: string[], id: string
 ): Promise<any> {
+  const unsignedTxJson = readUnsignedTx(id)
+  if (signatures.length !== unsignedTxJson.signatureRequests.length) {
+    signatures = Array(unsignedTxJson.signatureRequests.length).fill(signatures[0])
+  }
   const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
-  const unsignedTxJson = readUnsignedTx(txid)
   const unsignedTx = deserializeUnsignedTx(UnsignedTx, unsignedTxJson.serialization)
   const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
   const chainTxId = await ctx.pchain.issueTx(tx)

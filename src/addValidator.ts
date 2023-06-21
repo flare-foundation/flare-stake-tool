@@ -1,10 +1,10 @@
-import { EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
+import { EcdsaSignature, SignatureRequest } from '@flarenetwork/flarejs/dist/common'
 import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { Context } from './constants'
-import { SignData } from './interfaces'
-import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx } from './utils'
+import { UnsignedTxJson } from './interfaces'
+import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx, saveUnsignedTx, readUnsignedTx } from './utils'
 
 /**
  * Stake by registring your node for validation
@@ -48,7 +48,6 @@ export async function addValidator(
     memo,
     asOf
   )
-
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
   return { txid: txid }
@@ -64,11 +63,12 @@ export async function addValidator(
  */
 export async function addValidator_unsignedHashes(
   ctx: Context,
+  id: string,
   nodeID: string,
   stakeAmount: BN,
   startTime: BN,
   endTime: BN
-): Promise<SignData> {
+): Promise<SignatureRequest[]> {
   const threshold = 1
   const locktime: BN = new BN(0)
   const memo: Buffer = Buffer.from(
@@ -94,11 +94,13 @@ export async function addValidator_unsignedHashes(
     memo,
     asOf
   )
-  return <SignData>{
-    requests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-    transaction: serializeUnsignedTx(unsignedTx),
-    unsignedTransaction: unsignedTx.toBuffer().toString('hex')
+  const unsignedTxJson = <UnsignedTxJson>{
+    serialization: serializeUnsignedTx(unsignedTx),
+    signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
+    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
   }
+  saveUnsignedTx(unsignedTxJson, id)
+  return unsignedTxJson.signatureRequests
 }
 
 /**
@@ -108,10 +110,14 @@ export async function addValidator_unsignedHashes(
  * @param transaction - serialized addValidator transaction
  */
 export async function addValidator_rawSignatures(
-  ctx: Context, signatures: string[], transaction: string
+  ctx: Context, signatures: string[], id: string
 ): Promise<any> {
+  const unsignedTxJson = readUnsignedTx(id)
+  if (signatures.length !== unsignedTxJson.signatureRequests.length) {
+    signatures = Array(unsignedTxJson.signatureRequests.length).fill(signatures[0])
+  }
   const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
-  const unsignedTx = deserializeUnsignedTx(UnsignedTx, transaction)
+  const unsignedTx = deserializeUnsignedTx(UnsignedTx, unsignedTxJson.serialization)
   const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
   const txid = await ctx.pchain.issueTx(tx)
   return { txid: txid }

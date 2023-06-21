@@ -179,15 +179,13 @@ export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsi
 //////////////////////////////////////////////////////////////////////////////////////////
 // storage
 
-export function saveUnsignedTx(unsignedTx: UnsignedTxJson): string {
-  const serialization = JSON.stringify(unsignedTx)
-  const id =  ethutil.keccak256(Buffer.from(serialization)).slice(-20).toString('hex')
+export function saveUnsignedTx(unsignedTx: UnsignedTxJson, id: string): void {
   const fname = `${id}.unsignedTx`
   if (fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} already exists`)
   }
+  const serialization = JSON.stringify(unsignedTx)
   fs.writeFileSync(fname, serialization)
-  return id
 }
 
 export function readUnsignedTx(id: string): UnsignedTxJson {
