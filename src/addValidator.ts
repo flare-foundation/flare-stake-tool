@@ -96,7 +96,8 @@ export async function addValidator_unsignedHashes(
   )
   return <SignData>{
     requests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-    transaction: JSON.stringify(unsignedTx.serialize("hex"))
+    transaction: JSON.stringify(unsignedTx.serialize("hex")),
+    unsignedTransaction: unsignedTx.toBuffer().toString('hex')
   }
 }
 

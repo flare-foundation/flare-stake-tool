@@ -108,7 +108,8 @@ export async function importTxCP_unsignedHashes(ctx: Context): Promise<SignData>
   )
   return <SignData>{
     requests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-    transaction: JSON.stringify(unsignedTx.serialize("hex"))
+    transaction: JSON.stringify(unsignedTx.serialize("hex")),
+    unsignedTransaction: unsignedTx.toBuffer().toString('hex')
   }
 }
 

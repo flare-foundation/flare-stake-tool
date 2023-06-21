@@ -9,8 +9,8 @@ import { contextEnv, Context } from './constants'
 import { exportTxCP, importTxPC, exportTxCP_rawSignatures, exportTxCP_unsignedHashes } from './evmAtomicTx'
 import { exportTxPC, importTxCP, importTxCP_rawSignatures, importTxCP_unsignedHashes } from './pvmAtomicTx'
 import { addValidator, addValidator_rawSignatures, addValidator_unsignedHashes } from './addValidator'
-import { addDelegator } from './addDelegator'
 import { getSignatures } from "../test/forDefi"
+import { addDelegator, addDelegator_rawSignatures, addDelegator_unsignedHashes } from './addDelegator'
 
 const logger = createLogger('info')
 
@@ -104,12 +104,24 @@ export async function cli(program: Command) {
     .option("-a, --amount <amount>", "Amount to delegate")
     .option("-s, --start-time <start-time>", "Start time of the delegation process")
     .option("-e, --end-time <end-time>", "End time of the delegation process")
+    .option("-t, --transaction <transaction>", "Serialized transaction obtained along the hashes")
+    .option("-s, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      await delegate(ctx, options.nodeId, options.amount,
-        options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime,
-        options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime)
+      let startTime
+      let endTime
+      if (options.startTime && options.endTime) {
+        startTime = options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime
+        endTime = options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime
+      }
+      if (options.getHashes) {
+        await delegate_getHashes(ctx, options.nodeId, options.amount, startTime, endTime)
+      } else if (options.useSignatures) {
+        await delegate_useSignatures(ctx, options.signatures.split(" "), options.transaction)
+      } else {
+        await delegate(ctx, options.nodeId, options.amount, startTime, endTime)
+      }
     })
   // converting between address formats
   program
@@ -191,7 +203,8 @@ async function exportCP_getHashes(ctx: Context, amount: string, fee?: string) {
   if (fee !== usedFee) logger.info(`Used fee of ${usedFee}`)
   logger.info(`
   Hashes with signers: ${signData.requests.map(x => `(${x.message}, ${x.signer})`)}
-  Serialized transaction: ${signData.transaction}`)
+  Serialized transaction: ${signData.transaction}
+  Unsigned transaction: ${signData.unsignedTransaction}`)
 }
 
 async function exportCP_useSignatures(ctx: Context, signatures: string[], transaction: string) {
@@ -208,7 +221,8 @@ async function importCP_getHashes(ctx: Context) {
   const signData = await importTxCP_unsignedHashes(ctx)
   logger.info(`
   Hashes with signers: ${signData.requests.map(x => `(${x.message}, ${x.signer})`)}
-  Serialized transaction: ${signData.transaction}`)
+  Serialized transaction: ${signData.transaction}
+  Unsigned transaction: ${signData.unsignedTransaction}`)
 }
 
 async function importCP_useSignatures(ctx: Context, signatures: string[], transaction: string) {
@@ -248,7 +262,8 @@ async function stake_getHashes(
   const signData = await addValidator_unsignedHashes(ctx, nodeID, famount, new BN(start), new BN(end))
   logger.info(`
   Hashes with signers: ${signData.requests.map(x => `(${x.message}, ${x.signer})`)}
-  Serialized transaction: ${signData.transaction}`)
+  Serialized transaction: ${signData.transaction}
+  Unsigned transaction: ${signData.unsignedTransaction}`)
 }
 
 async function stake_useSignatures(ctx: Context, signatures: string[], transaction: string) {
@@ -273,4 +288,21 @@ function getAddressFromPublicKey(ctx: Context, pubk: string) {
 async function getSignaturesFromIds(txIds: string[]) {
   const signatures = await getSignatures(txIds);
   logger.info(`Signatures: ${signatures}`)
+}
+
+async function delegate_getHashes(
+  ctx: Context, nodeID: string, amount: string,
+  start: string, end: string
+) {
+  const famount = new BN(decimalToInteger(amount, 9))
+  const signData = await addDelegator_unsignedHashes(ctx, nodeID, famount, new BN(start), new BN(end))
+  logger.info(`
+  Hashes with signers: ${signData.requests.map(x => `(${x.message}, ${x.signer})`)}
+  Serialized transaction: ${signData.transaction}
+  Unsigned transaction: ${signData.unsignedTransaction}`)
+}
+
+async function delegate_useSignatures(ctx: Context, signatures: string[], transaction: string) {
+  const { txid } = await addDelegator_rawSignatures(ctx, signatures, transaction)
+  logger.info(`Success! TXID: ${txid}`)
 }

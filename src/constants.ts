@@ -76,7 +76,11 @@ function context(
 
   // derive the public key coords if private key is present and check that they match
   // the public key if provided
-  let publicKeyPair = (publicKey) ? decodePublicKey(publicKey) : undefined
+  let publicKeyPair: [Buffer, Buffer] | undefined
+  if (publicKey) {
+    publicKeyPair = decodePublicKey(publicKey)
+    publicKey = "04" + Buffer.concat(publicKeyPair).toString('hex') // standardize
+  }
   if (privkHex) {
     const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(privkHex, 'hex'))
     if (publicKey && (!publicKeyPair![0].equals(pubX) || !publicKeyPair![0].equals(pubY))) {
@@ -87,10 +91,8 @@ function context(
 
   // derive addresses from public key if provided (bech32 is later derived again)
   if (publicKey) {
-    const _cAddressHex = publicKeyToEthereumAddressString(publicKey)
-    const _addressBech32 = publicKeyToBech32AddressString(publicKey, config.hrp)
-    cAddressHex = _cAddressHex
-    addressBech32 = _addressBech32
+    cAddressHex = publicKeyToEthereumAddressString(publicKey)
+    addressBech32 = publicKeyToBech32AddressString(publicKey, config.hrp)
   }
 
   const path = '/ext/bc/C/rpc'
