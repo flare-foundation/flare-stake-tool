@@ -1,10 +1,11 @@
-import { Context } from './constants'
-import { expandSignature } from './utils'
-import { SignData } from './interfaces'
 import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
+import { Context } from './constants'
+import { SignData } from './interfaces'
+import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx } from './utils'
+
 
 export async function addDelegator(
     ctx: Context,
@@ -76,7 +77,7 @@ export async function addDelegator_unsignedHashes(
     )
     return <SignData>{
       requests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-      transaction: JSON.stringify(unsignedTx.serialize("hex")),
+      transaction: serializeUnsignedTx(unsignedTx),
       unsignedTransaction: unsignedTx.toBuffer().toString('hex')
     }
   }
@@ -84,10 +85,8 @@ export async function addDelegator_unsignedHashes(
   export async function addDelegator_rawSignatures(
     ctx: Context, signatures: string[], transaction: string
   ): Promise<any> {
-    const ecdsaSignatures: EcdsaSignature[] = signatures.map(
-      (signature: string) => expandSignature(signature))
-    const unsignedTx = new UnsignedTx()
-    unsignedTx.deserialize(JSON.parse(transaction), 'hex')
+    const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
+    const unsignedTx = deserializeUnsignedTx(UnsignedTx, transaction)
     const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
     const txid = await ctx.pchain.issueTx(tx)
     return { txid: txid }
