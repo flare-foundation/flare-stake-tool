@@ -45,8 +45,8 @@ export async function cli(program: Command) {
     .argument("<type>", "Type of a crosschain transaction")
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Fee of a transaction")
-    .option("-t, --transaction <transaction>", "Serialized transaction obtained along the hashes")
-    .option("-s, --signatures <signatures>", "Signatures of the obtained hashes")
+    .option("-tx, --transaction <transaction>", "Serialized transaction obtained along the hashes")
+    .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (type: string, options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
@@ -81,13 +81,17 @@ export async function cli(program: Command) {
     .option("-a, --amount <amount>", "Amount to stake")
     .option("-s, --start-time <start-time>", "Start time of the staking process")
     .option("-e, --end-time <end-time>", "End time of the staking process")
-    .option("-t, --transaction <transaction>", "Serialized transaction obtained along the hashes")
-    .option("-s, --signatures <signatures>", "Signatures of the obtained hashes")
+    .option("-tx, --transaction <transaction>", "Serialized transaction obtained along the hashes")
+    .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
-      const startTime = options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime
-      const endTime = options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime
+      let startTime
+      let endTime
+      if (options.startTime && options.endTime) {
+        startTime = options.startTime.startsWith("now+") ? parseRelativeTime(options.startTime) : options.startTime
+        endTime = options.endTime.startsWith("now+") ? parseRelativeTime(options.endTime) : options.endTime
+      }
       if (options.getHashes) {
         await stake_getHashes(ctx, options.nodeId, options.amount, startTime, endTime)
       } else if (options.useSignatures) {
@@ -103,8 +107,8 @@ export async function cli(program: Command) {
     .option("-a, --amount <amount>", "Amount to delegate")
     .option("-s, --start-time <start-time>", "Start time of the delegation process")
     .option("-e, --end-time <end-time>", "End time of the delegation process")
-    .option("-t, --transaction <transaction>", "Serialized transaction obtained along the hashes")
-    .option("-s, --signatures <signatures>", "Signatures of the obtained hashes")
+    .option("-tx, --transaction <transaction>", "Serialized transaction obtained along the hashes")
+    .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
       const ctx = contextEnv(options.envPath, options.network)
