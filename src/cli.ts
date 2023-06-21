@@ -2,7 +2,7 @@ import { Command, OptionValues } from 'commander'
 import { BN } from '@flarenetwork/flarejs/dist'
 import createLogger from 'logging'
 import { compressPublicKey, integerToDecimal, decimalToInteger } from './utils'
-import { contextEnv, Context } from './constants'
+import { contextEnv, contextFile, Context } from './constants'
 import { exportTxCP, importTxPC, exportTxCP_rawSignatures, exportTxCP_unsignedHashes } from './evmAtomicTx'
 import { exportTxPC, importTxCP, importTxCP_rawSignatures, importTxCP_unsignedHashes } from './pvmAtomicTx'
 import { addValidator, addValidator_rawSignatures, addValidator_unsignedHashes } from './addValidator'
@@ -15,6 +15,7 @@ export async function cli(program: Command) {
   program
     .option("--network <network>", "Network name (flare or costwo)", 'flare')
     .option("--env-path <path>", "Path to the .env file", 'env')
+    .option("--ctx-file <file>", "Context file as returned by ledger commnunication tool")
     .option("--get-hashes", "Get hashes of transaction to sign")
     .option("--use-signatures", "Use hash signatures to finalize the transaction")
   // information about the network
@@ -43,15 +44,20 @@ export async function cli(program: Command) {
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Fee of a transaction")
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
+    // .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (type: string, options: OptionValues) => {
       options = {...options, ...program.opts()}
-      const ctx = contextEnv(options.envPath, options.network)
+      let ctx
+      if (options.ctxFile) {
+        ctx = contextFile(options.ctxFile)
+      } else {
+        ctx = contextEnv(options.envPath, options.network)
+      }
       if (type == 'exportCP') {
         if (options.getHashes) {
           await exportCP_getHashes(ctx, options.transactionId, options.amount, options.fee)
         } else if (options.useSignatures) {
-          await exportCP_useSignatures(ctx, options.signatures.split(" "), options.transactionId)
+          await exportCP_useSignatures(ctx, [] /* options.signatures.split(" ") */ , options.transactionId)
         } else {
           await exportCP(ctx, options.amount, options.fee)
         }
@@ -59,7 +65,7 @@ export async function cli(program: Command) {
         if (options.getHashes) {
           await importCP_getHashes(ctx, options.transactionId)
         } else if (options.useSignatures) {
-          await importCP_useSignatures(ctx, options.signatures.split(" "), options.transactionId)
+          await importCP_useSignatures(ctx, [] /* options.signatures.split(" ") */, options.transactionId)
         } else {
           await importCP(ctx)
         }

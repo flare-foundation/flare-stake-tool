@@ -1,4 +1,5 @@
 import Web3 from 'web3'
+import fs from 'fs'
 import { Avalanche, BinTools, Buffer as FlrBuffer } from '@flarenetwork/flarejs'
 import { PrivateKeyPrefix, PublicKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
 import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
@@ -31,6 +32,13 @@ export interface Context {
   config: NetworkConfig
 }
 
+interface ContextFile {
+  publicKey: string
+  flareAddress: string
+  ethAddress: string
+  network: string
+}
+
 export function contextEnv(path: string, network: string): Context {
   require('dotenv').config({path: path})
   return context(
@@ -40,6 +48,18 @@ export function contextEnv(path: string, network: string): Context {
     process.env.PUBLIC_KEY
   )
 }
+
+export function contextFile(ctxFile: string): Context {
+  const file = fs.readFileSync(ctxFile, 'utf8')
+  const ctx = JSON.parse(file) as ContextFile
+  return context(
+    getConfig(ctx.network),
+    undefined,
+    undefined,
+    ctx.publicKey
+  )
+}
+
 
 function getConfig(network: string): NetworkConfig {
   let networkConfig

@@ -5,3 +5,7 @@ export interface UnsignedTxJson {
     signatureRequests: SignatureRequest[],
     unsignedTransactionBuffer: string // hex
   }
+
+export interface SignedTxJson extends UnsignedTxJson {
+    signature: string
+}

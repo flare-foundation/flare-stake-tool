@@ -6,7 +6,7 @@ import { Context } from './constants'
 import { UnsignedTxJson } from './interfaces'
 import {
   deserializeUnsignedTx, expandSignature,
-  serializeUnsignedTx, saveUnsignedTx, readUnsignedTx
+  serializeUnsignedTx, saveUnsignedTx, readUnsignedTx, readSignedTx
 } from './utils'
 
 /**
@@ -130,6 +130,9 @@ export async function importTxCP_rawSignatures(
   ctx: Context, signatures: string[], id: string
 ): Promise<any> {
   const unsignedTxJson = readUnsignedTx(id)
+  if (signatures.length === 0) {
+    signatures = [readSignedTx(id).signature]
+  }
   if (signatures.length !== unsignedTxJson.signatureRequests.length) {
     signatures = Array(unsignedTxJson.signatureRequests.length).fill(signatures[0])
   }

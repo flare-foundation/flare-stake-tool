@@ -7,7 +7,7 @@ import { UnsignedTxJson } from './interfaces'
 import {
   integerToDecimal, expandSignature,
   serializeExportCP_args, deserializeExportCP_args,
-  saveUnsignedTx, readUnsignedTx
+  saveUnsignedTx, readUnsignedTx, readSignedTx
 } from './utils'
 
 /**
@@ -163,6 +163,9 @@ export async function exportTxCP_rawSignatures(
   ctx: Context, signatures: string[], id: string
 ): Promise<{ chainTxId: string }> {
   const unsignedTxJson = readUnsignedTx(id)
+  if (signatures.length === 0) {
+    signatures = [readSignedTx(id).signature]
+  }
   if (signatures.length !== unsignedTxJson.signatureRequests.length) {
     signatures = Array(unsignedTxJson.signatureRequests.length).fill(signatures[0])
   }

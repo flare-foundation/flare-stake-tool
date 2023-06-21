@@ -7,7 +7,7 @@ import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common"
 import { UnsignedTx as EvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/evm'
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm'
-import { UnsignedTxJson } from './interfaces'
+import { SignedTxJson, UnsignedTxJson } from './interfaces'
 import { sha256 } from 'ethereumjs-util'
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -193,4 +193,17 @@ export function readUnsignedTx(id: string): UnsignedTxJson {
   }
   const serialization = fs.readFileSync(fname).toString()
   return JSON.parse(serialization) as UnsignedTxJson
+}
+
+export function readSignedTx(id: string): SignedTxJson {
+  const fname = `${id}.signedTx.json`
+  if (!fs.existsSync(fname)) {
+    throw new Error(`signedTx file ${fname} does not exist`)
+  }
+  const serialization = fs.readFileSync(fname).toString()
+  const resp = JSON.parse(serialization) as SignedTxJson
+  if (!resp.signature) {
+    throw new Error(`unsignedTx file ${fname} does not contain signature`)
+  }
+  return resp
 }
