@@ -138,13 +138,14 @@ export async function exportTxCP_unsignedHashes(
     const exportCost: number = costExportTx(unsignedTx)
     args[9] = baseFee.mul(new BN(exportCost))
     unsignedTx = await ctx.cchain.buildExportTx(...args)
-  }
+}
 
   return {
     usedFee: args[9]!.toString(),
     signData: <SignData>{
       requests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-      transaction: serializeExportCP_args(args)
+      transaction: serializeExportCP_args(args),
+      unsignedTransaction: unsignedTx.toBuffer().toString('hex')
     }
   }
 }
