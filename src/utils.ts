@@ -149,29 +149,27 @@ export function parseRelativeTime(time: string): string {
 //////////////////////////////////////////////////////////////////////////////////////////
 // serialization of atomic c-chain addresses does not work correctly, so we have to improvise
 
-const EVM_PREFIX = 'evm'
-const PVM_PREFIX = 'pvm'
 
 export function serializeExportCP_args(args: [BN, string, string, string, string, string[], number, BN, number, BN?]): string {
   [0,7,9].map(i => args[i] = args[i]!.toString(16))
-  return EVM_PREFIX + JSON.stringify(args)
+  return JSON.stringify(args, null, 2)
 }
 
 export function deserializeExportCP_args(serargs: string): [BN, string, string, string, string, string[], number, BN, number, BN?] {
-  const args = JSON.parse(serargs.slice(EVM_PREFIX.length));
+  const args = JSON.parse(serargs);
   [0,7,9].map(i => args[i] = new BN(args[i], 16))
   return args
 }
 
 export function serializeUnsignedTx(unsignedTx: EvmUnsignedTx | PvmUnsignedTx): string {
-  return PVM_PREFIX + JSON.stringify(unsignedTx.serialize("hex"))
+  return JSON.stringify(unsignedTx.serialize("hex"), null, 2)
 }
 
 export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsignedTx>(
   type: { new(): UnsignedTx }, serialized: string
 ): UnsignedTx {
   const unsignedTx: UnsignedTx = new type()
-  unsignedTx.deserialize(JSON.parse(serialized.slice(PVM_PREFIX.length)))
+  unsignedTx.deserialize(JSON.parse(serialized))
   return unsignedTx
 }
 
@@ -184,7 +182,7 @@ export function saveUnsignedTx(unsignedTx: UnsignedTxJson, id: string): void {
   if (fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} already exists`)
   }
-  const serialization = JSON.stringify(unsignedTx)
+  const serialization = JSON.stringify(unsignedTx, null, 2)
   fs.writeFileSync(fname, serialization)
 }
 
