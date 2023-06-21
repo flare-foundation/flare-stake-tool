@@ -178,7 +178,7 @@ export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsi
 // storage
 
 export function saveUnsignedTx(unsignedTx: UnsignedTxJson, id: string): void {
-  const fname = `${id}.unsignedTx`
+  const fname = `${id}.unsignedTx.json`
   if (fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} already exists`)
   }
@@ -187,7 +187,7 @@ export function saveUnsignedTx(unsignedTx: UnsignedTxJson, id: string): void {
 }
 
 export function readUnsignedTx(id: string): UnsignedTxJson {
-  const fname = `${id}.unsignedTx`
+  const fname = `${id}.unsignedTx.json`
   if (!fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} does not exist`)
   }

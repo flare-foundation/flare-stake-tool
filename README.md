@@ -179,27 +179,39 @@ These are the operations you can perform with this tool, when you log in with yo
 
 ### Exporting from C-chain to P-chain through raw signing
 
-When using the app with public key only, you can export funds from the C-chain to the P-chain by signing a raw transaction.
-Here the export is split in two steps:
-- obtain the hashes with signer addresses along with the serialized transaction,
-- externally sign the hashes and send the signatures back to the app to finalize the export.
+When using the app with public key only, you can export funds from the C-chain to the P-chain by raw signing a transaction hash.
+Here, the export is split in two steps:
+- generate the unsigned transaction inside a json file and take the logged hash / message inside,
+- externally sign the hash and send the signatur back to the app to finalize the export transaction.
 
 To obtain the signed hashes, use the following command:
 
 ```bash
-flare-stake-tool crosschain exportCP -a <amount> --get-hashes --env-path <path to your public key file>
+flare-stake-tool crosschain exportCP -a <amount> -id <id> --get-hashes --env-path <path to your public key file>
 ```
-
-This will output a list of `(hash, signer address)` along with the serialized transaction.
+where `id` is the ID that you want to use to identify the transaction. The command will generate a file caled `{id}.unsignedTx.json`
+file in the current directory, which holds all information about the unsigned transaction. Below is the example of the file structure
+```json
+{
+  "serialization": "[\n  \"3baa0c40\",\n  \"fxMAKpBQQpFedrUhWMsDYfCUJxdUw4mneTczKBzNg3rc2JUub\",\n  \"11111111111111111111111111111111LpoYY\",\n  \"0x63cd3c99b9fecb3e49269f3badb0e1c144d6d1ee\",\n  \"C-costwo1muhws5dv7gqg7z2weurs25vevnxtd0g2arrs40\",\n  [\n    \"P-costwo1muhws5dv7gqg7z2weurs25vevnxtd0g2arrs40\"\n  ],\n  2,\n  \"0\",\n  1,\n  \"448ae\"\n]",
+  "signatureRequests": [
+    {
+      "message": "9c4c628664ab9f3c08643c2f4475f8fae204452e357bd85ea11827340103e411",
+      "signer": "df2ee851acf2008f094ecf0705519964ccb6bd0a"
+    }
+  ],
+  "unsignedTransactionBuffer": "0000000000010000007278db5c30bed04c05ce209179812850bbb3fe6d46d7eef3744d814c0da555247900000000000000000000000000000000000000000000000000000000000000000000000163cd3c99b9fecb3e49269f3badb0e1c144d6d1ee000000003bae54ee58734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000000000000020000000158734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000007000000003baa0c4000000000000000000000000100000001df2ee851acf2008f094ecf0705519964ccb6bd0a"
+}
+```
 > **Note:**
-> If you are not using multisig, there should always be only one unique pair of a hash and signer address.
-To finalize the transaction with hash signatures, use the following command:
+> If you are not using multisig, there should always be only one unique pair of a message and signer address inside the `signatureRequests` array.
 
+To finalize the transaction you need to raw-sign the message/hash and use the following command with your signed hash.
 ```bash
-flare-stake-tool crosschain exportCP -a <amount> -tx <serialized transaction> -sg <signed hashes> --use-signatures --env-path <path to your private key file>
+flare-stake-tool crosschain exportCP -id 1 -sg <signed hash> --use-signatures --env-path <path to your private key file>
 ```
 
-The procedure is similar with importing to P-chain and staking there.
+The procedure for importing / staking / delegating with public key only is similar as it is for exporting
 
 ## Versions
 
