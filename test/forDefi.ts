@@ -2,7 +2,7 @@
 const fetch = require('node-fetch')
 import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
-import { sleepms, publicKeyToEthereumAddressString } from "../src/utils"
+import { sleepms, publicKeyToEthereumAddressString, publicKeyToBech32AddressString } from "../src/utils"
 import { parse } from 'json2csv';
 
 const accessToken = "eyJhbGciOiJFZERTQSIsImtpZCI6ImZ3MFc3aVpocUc0SUEzaXV4ZmhQIiwidHlwIjoiSldUIn0.eyJpc3MiOiJodHRwczovL2FwaS5mb3JkZWZpLmNvbS8iLCJzdWIiOiI2MzVjMTcwOC1iYzhkLTQ4N2UtYjQwZC0zZjk0ODE0NmI0OWFAZm9yZGVmaSIsImF1ZCI6WyJodHRwczovL2FwaS5mb3JkZWZpLmNvbS9hcGkvIl0sImV4cCI6LTY3OTUzNjQ1NzksImlhdCI6MTY4NzE2MjQwOCwianRpIjoiMjViMDg2NjMtNjJlMC00MzRkLWI2MjgtZGQwNmJhMzk1NzQzIn0.cvh25D0cFIzZMjmNoyTdl9RwtX01WpTkuOT_ogwSKbjv-Q21CQFGSDPYionHtQE72TLhdeBWkhOmRJmoH0A0CQ"
@@ -10,7 +10,7 @@ const accessToken = "eyJhbGciOiJFZERTQSIsImtpZCI6ImZ3MFc3aVpocUc0SUEzaXV4ZmhQIiw
 const gatewayHost = "api.fordefi.com"
 
 
-async function sendToForDefi(hash: string): Promise<string> {
+export async function sendToForDefi(hash: string): Promise<string> {
 
     const vault_id = "9e89c940-8e60-44d3-ac1b-a21b79c77e1e"; // 'AjHnyOtLftosCGQcmn/6Ec0pbKd1l732b7jXKY6Brnej'
     // fe5f776d-e844-4603-a65b-9a218da22db1
@@ -19,7 +19,7 @@ async function sendToForDefi(hash: string): Promise<string> {
     // const buffer = Buffer.from("2c4384fbde436b3d6ce597bc36fff82734d4a921fd0aa4512cc17f0fb67796b7", "hex");
     // const buffer64 = base64.encode(hash);
     // console.log(buffer64);
-    var base64String = Buffer.from(hashString, 'hex').toString('base64')
+    var base64String = Buffer.from(hash, 'hex').toString('base64')
 
     const requestJson = {
         "vault_id": vault_id,
@@ -41,7 +41,7 @@ async function sendToForDefi(hash: string): Promise<string> {
     const secretPem = readFileSync(privateKeyFile, 'utf8');
     const privateKey = crypto.createPrivateKey(secretPem);
     const sign = crypto.createSign('SHA256').update(payload, 'utf8').end();
-    const signature = sign.sign(privateKey, 'base64');
+    const signature1 = sign.sign(privateKey, 'base64');
 
 
     let response = await fetch(`https://${gatewayHost}${path}`, {
@@ -50,7 +50,7 @@ async function sendToForDefi(hash: string): Promise<string> {
             'Content-Type': 'application/json',
             "Authorization": `Bearer ${accessToken}`,
             'X-Timestamp': timestamp,
-            'X-Signature': signature,
+            'X-Signature': signature1,
         },
         body: requestBody,
     });
@@ -74,11 +74,13 @@ async function sendToForDefi(hash: string): Promise<string> {
     console.log("responseSignature", responseSignatureJson)
     let r = responseSignatureJson["details"]["signature"]["r"]
     let s = responseSignatureJson["details"]["signature"]["s"]
+    let signature = responseSignatureJson["signatures"][0]["data"];
     console.log("r", r);
     console.log("s", s);
+    console.log(signature);
 
-    return transaction_id;
-}
+    // return transaction_id;
+    return Buffer.from(signature, 'base64').toString('hex')}
 
 export async function getSignatures(transactionIds: string[]): Promise<string> {
 
@@ -100,13 +102,14 @@ export async function getSignatures(transactionIds: string[]): Promise<string> {
             },
         });
         const responseJson = await responseSignature.json();
-        let r = responseJson["details"]["signature"]["r"];
-        let s = responseJson["details"]["signature"]["s"];
+        let r = responseJson.details.signature.r;
+        let s = responseJson.details.signature.s;
+        let signature = responseJson["signatures"][0]["data"];
+        console.log(signature)
 
         signatures.push({
             transactionId: transactionIds[i],
-            r: r,
-            s: s
+            signature: Buffer.from(signature, 'base64').toString('hex')
         });
 
         const signaturesCSV = parse(signatures);
@@ -114,7 +117,6 @@ export async function getSignatures(transactionIds: string[]): Promise<string> {
     }
 
     return JSON.stringify(signatures);
-
 }
 
 async function createVault(vaultName: string): Promise<string> {
@@ -161,7 +163,9 @@ async function getVaultPublickey(vaultId: string): Promise<string> {
     console.log(pubKeyHex);
 
     let x = publicKeyToEthereumAddressString(pubKeyHex);
+    let y = publicKeyToBech32AddressString(pubKeyHex, "flare");
     console.log(x);
+    console.log(y)
     return responseJson["public_key_compressed"];
 }
 
@@ -169,6 +173,6 @@ async function getVaultPublickey(vaultId: string): Promise<string> {
 
 // getVaultPublickey("9e89c940-8e60-44d3-ac1b-a21b79c77e1e")
 
-sendToForDefi("2c4384fbde436b3d6ce597bc36fff82734d4a921fd0aa4512cc17f0fb67796b7");
+// sendToForDefi("b12ad8dbc4e4b8f69483f0adf1a2f788c765ed6022317532ea7d670d48d00a7e");
 
 // getSignatures(["25e2f4df-8b0d-48d2-9426-64a12579b35e"]);

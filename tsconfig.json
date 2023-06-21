@@ -7,11 +7,9 @@
     "outDir": "dist",
     "rootDir": "./",
     "strict": true,
-    "esModuleInterop": true,
     "preserveSymlinks": true,
     "moduleResolution": "node",
     "noImplicitAny": false,
-    "preserveSymlinks": true
   },
   "exclude": [
     "node_modules",
