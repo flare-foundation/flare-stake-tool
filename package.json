@@ -10,9 +10,6 @@
     "tsc": "tsc",
     "build": "rm -rf dist/ && yarn tsc -b"
   },
-  "engines" : {
-    "node" : ">=18 <20"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/flare-foundation/p-chain-staking-code"

@@ -2,8 +2,7 @@
 const fetch = require('node-fetch')
 import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
-import { sleepms, unPrefix0x } from "../src/utils"
-import { parse } from 'json2csv';
+import { sleepms, unPrefix0x, readUnsignedTx } from "../src/utils"
 import * as dotenv from 'dotenv'
 dotenv.config()
 
@@ -12,7 +11,7 @@ const apiSIgnerPrivateKey = process.env.API_SIGNER_PRIVATE_KEY;
 const gatewayHost = "api.fordefi.com"
 
 
-export async function sendToForDefi(hash: string): Promise<string> {
+export async function sendToForDefi(txidFile: string): Promise<string> {
 
     // const vault_id = "9e89c940-8e60-44d3-ac1b-a21b79c77e1e"; // 'AjHnyOtLftosCGQcmn/6Ec0pbKd1l732b7jXKY6Brnej'
     const vault_id = process.env.VAULT_ID;
@@ -24,7 +23,9 @@ export async function sendToForDefi(hash: string): Promise<string> {
     //     throw Error('public key does not match the vault')
     // }
 
-    var hashBase64 = Buffer.from(hash, 'hex').toString('base64')
+    let txidObj = readUnsignedTx(txidFile);
+    let hash = txidObj.signatureRequests[0].message;
+    let hashBase64 = Buffer.from(hash, 'hex').toString('base64')
 
     const requestJson = {
         "vault_id": vault_id,
@@ -57,40 +58,13 @@ export async function sendToForDefi(hash: string): Promise<string> {
         body: requestBody,
     });
     const responseJson = await response.json();
-    // console.log(responseJson)
     let txId = responseJson.id;
 
-    let transactions = JSON.parse(readFileSync(`transactions.json`, 'utf8'));
-
-    for (let i = 0; i < transactions.length; i++) {
-        if (transactions[i].hash == hash) {
-            transactions[i].id = txId
-        }
-    }
-    writeFileSync(`transactions.json`, JSON.stringify(transactions), "utf8");
+    // write tx id (to later fetch the signature)
+    txidObj.id = txId;
+    writeFileSync(`txidFile.json`, JSON.stringify(txidObj), "utf8");
 
     return txId;
-
-
-    // // Obtain the signature result
-    // let transaction_id = responseJson["id"];
-    // console.log("id", transaction_id)
-
-    // await sleepms(10000);
-
-    // let responseSignature = await fetch(`https://${gatewayHost}${path}/${transaction_id}`, {
-    //     method: 'GET',
-    //     headers: {
-    //         "Authorization": `Bearer ${accessToken}`,
-    //     },
-    // });
-    // const responseSignatureJson = await responseSignature.json();
-    // // console.log("responseSignature", responseSignatureJson)
-    // let signature = responseSignatureJson["signatures"][0]["data"];
-    // console.log(Buffer.from(signature, 'base64').toString('hex'));
-
-    // // return transaction_id;
-    // return Buffer.from(signature, 'base64').toString('hex');
 }
 
 export async function getSignatures(transactionIds: string[]): Promise<string> {
