@@ -135,7 +135,7 @@ export async function cli(program: Command) {
         getAddressFromPublicKey(ctx, options.publicKey)
       }
     })
-  // get signatures from address IDs
+  // get fordefi signatures from address IDs
   program
   .command("signatures").description("Signatures from transaction IDs")
   .option("-i, --ids <IDs>", "Transaction IDs")

@@ -55,7 +55,7 @@ export async function sendToForDefi(hash: string): Promise<string> {
         body: requestBody,
     });
     const responseJson = await response.json();
-    console.log(responseJson)
+    // console.log(responseJson)
 
 
     // Obtain the signature result
@@ -71,16 +71,13 @@ export async function sendToForDefi(hash: string): Promise<string> {
         },
     });
     const responseSignatureJson = await responseSignature.json();
-    console.log("responseSignature", responseSignatureJson)
-    let r = responseSignatureJson["details"]["signature"]["r"]
-    let s = responseSignatureJson["details"]["signature"]["s"]
+    // console.log("responseSignature", responseSignatureJson)
     let signature = responseSignatureJson["signatures"][0]["data"];
-    console.log("r", r);
-    console.log("s", s);
     console.log(signature);
 
     // return transaction_id;
-    return Buffer.from(signature, 'base64').toString('hex')}
+    return Buffer.from(signature, 'base64').toString('hex')
+}
 
 export async function getSignatures(transactionIds: string[]): Promise<string> {
 
@@ -162,17 +159,17 @@ async function getVaultPublickey(vaultId: string): Promise<string> {
     let pubKeyHex = Buffer.from(pubKey, 'base64').toString('hex');
     console.log(pubKeyHex);
 
-    let x = publicKeyToEthereumAddressString(pubKeyHex);
-    let y = publicKeyToBech32AddressString(pubKeyHex, "flare");
-    console.log(x);
-    console.log(y)
+    // let x = publicKeyToEthereumAddressString(pubKeyHex);
+    // let y = publicKeyToBech32AddressString(pubKeyHex, "flare");
+    // console.log(x);
+    // console.log(y)
     return responseJson["public_key_compressed"];
 }
 
 // createVault("testEcdsa")
 
-// getVaultPublickey("9e89c940-8e60-44d3-ac1b-a21b79c77e1e")
+getVaultPublickey("9e89c940-8e60-44d3-ac1b-a21b79c77e1e")
 
-// sendToForDefi("b12ad8dbc4e4b8f69483f0adf1a2f788c765ed6022317532ea7d670d48d00a7e");
+// sendToForDefi("3f0ae0d512c896480419b34a89ebe53645e6c975c3c45ff3bca16eee613d7b21");
 
 // getSignatures(["25e2f4df-8b0d-48d2-9426-64a12579b35e"]);

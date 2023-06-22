@@ -3,8 +3,9 @@ import { BN } from '@flarenetwork/flarejs/dist'
 import { exportTxCP, exportTxCP_unsignedHashes, exportTxCP_rawSignatures } from '../src/evmAtomicTx'
 import { importTxCP, importTxCP_unsignedHashes, importTxCP_rawSignatures } from '../src/pvmAtomicTx'
 import { addValidator_unsignedHashes, addValidator_rawSignatures } from '../src/addValidator'
-
 import { sendToForDefi } from './forDefi'
+import { addDelegator_rawSignatures, addDelegator_unsignedHashes } from '../src/addDelegator'
+
 
 async function main() {
     const context = contextEnv('./.env', 'costwo')
@@ -20,10 +21,9 @@ async function main0() {
 
 async function twoStepExport() {
     const context = contextEnv('./.env', 'costwo')
-    const sigRequests = await exportTxCP_unsignedHashes(context, new BN(10 * 1e9))
+    const sigRequests = await exportTxCP_unsignedHashes(context, new BN(0.5 * 1e9))
     // sign the below output with fireblocks and save it into signature
     console.log("externally sign hashes:", sigRequests.signData.requests)
-    console.log("X", sigRequests.signData.transaction)
     console.log(sigRequests.signData.requests[0].message)
     // const signature = "07358d7de5fc6e9828a9be5ef7972fad4a9bba0fea71798a9197e6bab73ccd1e36fa7f11e5523ee3d3f540cfe95b17eaf26aa830fc51786cd85fad9699f6471600"
     const signature = await sendToForDefi(sigRequests.signData.requests[0].message)
@@ -53,5 +53,19 @@ async function twoStepAddValidator() {
     console.log("externally sign hashes:", sigRequests.requests)
 }
 
-// twoStepExport()
-twoStepImport()
+async function twoStepAddDelegator() {
+    const context = contextEnv('./.env', 'costwo')
+    let pbalance = (new BN((await context.pchain.getBalance(context.pAddressBech32!)).balance)).toString()
+    console.log(pbalance)
+    const sigRequests = await addDelegator_unsignedHashes(
+        context, "NodeID-2mCUTA33bHU4vb8NQHE8QewftqC8p1fv8", new BN(1000 * 1e9), new BN(1688014670), new BN(1690606670)
+    )
+    // sign the below output with fireblocks and save it into signature
+    console.log("externally sign hashes:", sigRequests.requests)
+    const signature = await sendToForDefi(sigRequests.requests[0].message)
+    const resp = await addDelegator_rawSignatures(context, [signature], sigRequests.transaction)
+    console.log(resp)
+}
+
+twoStepExport()
+// twoStepImport()

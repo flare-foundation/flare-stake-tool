@@ -10,7 +10,6 @@ import {
   decodePublicKey
 } from './utils'
 
-
 export interface Context {
   privkHex?: string,
   privkCB58?: string,
