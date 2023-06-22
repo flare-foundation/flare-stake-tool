@@ -196,7 +196,7 @@ This will output a list of `(hash, signer address)` along with the serialized tr
 To finalize the transaction with hash signatures, use the following command:
 
 ```bash
-flare-stake-tool crosschain exportCP -a <amount> -t <serialized transaction> -s <signed hashes> --use-signatures --env-path <path to your private key file>
+flare-stake-tool crosschain exportCP -a <amount> -tx <serialized transaction> -sg <signed hashes> --use-signatures --env-path <path to your private key file>
 ```
 
 The procedure is similar with importing to P-chain and staking there.
