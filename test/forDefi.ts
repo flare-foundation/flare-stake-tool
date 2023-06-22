@@ -15,8 +15,9 @@ const gatewayHost = "api.fordefi.com"
 
 export async function sendToForDefi(hash: string): Promise<string> {
 
-    const vault_id = "9e89c940-8e60-44d3-ac1b-a21b79c77e1e"; // 'AjHnyOtLftosCGQcmn/6Ec0pbKd1l732b7jXKY6Brnej'
+    // const vault_id = "9e89c940-8e60-44d3-ac1b-a21b79c77e1e"; // 'AjHnyOtLftosCGQcmn/6Ec0pbKd1l732b7jXKY6Brnej'
     // fe5f776d-e844-4603-a65b-9a218da22db1
+    const vault_id = process.env.VAULT_ID;
 
     const hashString = "2c4384fbde436b3d6ce597bc36fff82734d4a921fd0aa4512cc17f0fb67796b7";
     // const buffer = Buffer.from("2c4384fbde436b3d6ce597bc36fff82734d4a921fd0aa4512cc17f0fb67796b7", "hex");
