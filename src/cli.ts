@@ -88,7 +88,12 @@ export async function cli(program: Command) {
     .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
-      const ctx = contextEnv(options.envPath, options.network)
+      let ctx
+      if (options.ctxFile) {
+        ctx = contextFile(options.ctxFile)
+      } else {
+        ctx = contextEnv(options.envPath, options.network)
+      }
       if (options.getHashes) {
         await stake_getHashes(ctx, options.transactionId, options.nodeId, options.amount, options.startTime, options.endTime)
       } else if (options.useSignatures) {
@@ -108,7 +113,12 @@ export async function cli(program: Command) {
     .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
       options = {...options, ...program.opts()}
-      const ctx = contextEnv(options.envPath, options.network)
+      let ctx
+      if (options.ctxFile) {
+        ctx = contextFile(options.ctxFile)
+      } else {
+        ctx = contextEnv(options.envPath, options.network)
+      }
       if (options.getHashes) {
         await delegate_getHashes(ctx, options.transactionId, options.nodeId, options.amount, options.startTime, options.endTime)
       } else if (options.useSignatures) {
