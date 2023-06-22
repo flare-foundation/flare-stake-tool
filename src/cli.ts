@@ -24,7 +24,12 @@ export async function cli(program: Command) {
     .argument("<type>", "Type of information")
     .action(async (type: string) => {
       const options = program.opts()
-      const ctx = contextEnv(options.envPath, options.network)
+      let ctx
+      if (options.ctxFile) {
+        ctx = contextFile(options.ctxFile)
+      } else {
+        ctx = contextEnv(options.envPath, options.network)
+      }
       if (type == 'addresses') {
         getAddressInfo(ctx)
       } else if (type == 'balance') {
