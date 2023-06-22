@@ -122,7 +122,7 @@ export async function cli(program: Command) {
       if (options.getHashes) {
         await delegate_getHashes(ctx, options.transactionId, options.nodeId, options.amount, options.startTime, options.endTime)
       } else if (options.useSignatures) {
-        await delegate_useSignatures(ctx, [] /* options.signatures.split(" ") */, options.transaction)
+        await delegate_useSignatures(ctx, [] /* options.signatures.split(" ") */, options.transactionId)
       } else {
         await delegate(ctx, options.nodeId, options.amount, options.startTime, options.endTime)
       }
