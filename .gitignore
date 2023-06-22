@@ -96,3 +96,6 @@ dist
 *.lnk
 *unsignedTx.json
 *unsignedTx
+
+
+private.pem
