@@ -18,6 +18,11 @@
     "blockchain",
     "defi"
   ],
+  "files": [
+    "dist",
+    "src",
+    "bin"
+  ],
   "author": "Flare Networks",
   "homepage": "https://github.com/flare-foundation/p-chain-staking-code#readme",
   "license": "MIT",
