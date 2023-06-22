@@ -181,7 +181,7 @@ export function saveUnsignedTx(unsignedTx: UnsignedTxJson, id: string): void {
   const fname = `${id}.unsignedTx.json`
   if (fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} already exists`)
-  }
+}
   const serialization = JSON.stringify(unsignedTx, null, 2)
   fs.writeFileSync(fname, serialization)
 }

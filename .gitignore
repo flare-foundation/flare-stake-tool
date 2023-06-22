@@ -95,3 +95,4 @@ build
 dist
 *.lnk
 *unsignedTx.json
+*unsignedTx
