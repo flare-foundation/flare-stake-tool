@@ -4,7 +4,7 @@ import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platfor
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { Context } from './constants'
 import { UnsignedTxJson } from './interfaces'
-import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx, saveUnsignedTx, readUnsignedTx } from './utils'
+import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx, saveUnsignedTx, readUnsignedTx, readSignedTx } from './utils'
 
 /**
  * Stake by registring your node for validation
@@ -113,6 +113,9 @@ export async function addValidator_rawSignatures(
   ctx: Context, signatures: string[], id: string
 ): Promise<any> {
   const unsignedTxJson = readUnsignedTx(id)
+  if (signatures.length === 0) {
+    signatures = [readSignedTx(id).signature]
+  }
   if (signatures.length !== unsignedTxJson.signatureRequests.length) {
     signatures = Array(unsignedTxJson.signatureRequests.length).fill(signatures[0])
   }

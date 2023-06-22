@@ -4,7 +4,7 @@ import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { EcdsaSignature, SignatureRequest } from '@flarenetwork/flarejs/dist/common'
 import { Context } from './constants'
 import { UnsignedTxJson } from './interfaces'
-import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx, saveUnsignedTx, readUnsignedTx } from './utils'
+import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx, saveUnsignedTx, readUnsignedTx, readSignedTx } from './utils'
 
 
 export async function addDelegator(
@@ -88,6 +88,9 @@ export async function addDelegator_unsignedHashes(
   export async function addDelegator_rawSignatures(
     ctx: Context, signatures: string[], id: string
   ): Promise<any> {
+    if (signatures.length === 0) {
+      signatures = [readSignedTx(id).signature]
+    }
     const unsignedTxJson = readUnsignedTx(id)
     if (signatures.length !== unsignedTxJson.signatureRequests.length) {
       signatures = Array(unsignedTxJson.signatureRequests.length).fill(signatures[0])
