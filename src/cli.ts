@@ -97,7 +97,7 @@ export async function cli(program: Command) {
       if (options.getHashes) {
         await stake_getHashes(ctx, options.transactionId, options.nodeId, options.amount, options.startTime, options.endTime)
       } else if (options.useSignatures) {
-        await stake_useSignatures(ctx, [] /* options.signatures.split(" ") */, options.transaction)
+        await stake_useSignatures(ctx, [] /* options.signatures.split(" ") */, options.transactionId)
       } else {
         await stake(ctx, options.nodeId, options.amount, options.startTime, options.endTime)
       }
