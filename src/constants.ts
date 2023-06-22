@@ -32,11 +32,12 @@ export interface Context {
   config: NetworkConfig
 }
 
-interface ContextFile {
+export interface ContextFile {
   publicKey: string
   flareAddress: string
   ethAddress: string
-  network: string
+  network: string,
+  vaultId: string
 }
 
 export function contextEnv(path: string, network: string): Context {

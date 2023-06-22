@@ -5,22 +5,25 @@ import crypto from "crypto"
 import { sleepms, unPrefix0x, readUnsignedTx } from "../src/utils"
 import * as dotenv from 'dotenv'
 dotenv.config()
+import { ContextFile } from './constants'
 
 const accessToken = process.env.ACCESS_TOKEN;
 const apiSIgnerPrivateKey = process.env.API_SIGNER_PRIVATE_KEY;
 const gatewayHost = "api.fordefi.com"
 
 
-export async function sendToForDefi(unsignedTxidFile: string): Promise<string> {
+export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string): Promise<string> {
 
-    const vault_id = process.env.VAULT_ID;
+    const file = readFileSync(ctxFile, 'utf8');
+    const ctx = JSON.parse(file) as ContextFile;
 
-    // // vaultPublicKey should match PUBLIC_KEY in .env file
-    // let vaultPublicKey = await getVaultPublickey(vault_id!);
+    const vault_id = ctx.vaultId;
 
-    // if (unPrefix0x(process.env.PUBLIC_KEY!) != vaultPublicKey) {
-    //     throw Error('public key does not match the vault')
-    // }
+    // vaultPublicKey should match public key in contex file
+    let vaultPublicKey = await getVaultPublickey(vault_id);
+    if (unPrefix0x(ctx.publicKey) != vaultPublicKey) {
+        throw Error('public key does not match the vault')
+    }
 
     let txidObj = readUnsignedTx(unsignedTxidFile);
     let hash = txidObj.signatureRequests[0].message;
@@ -72,7 +75,6 @@ export async function getSignature(unsignedTxidFile: string): Promise<string> {
 
     let txidObj = readUnsignedTx(unsignedTxidFile);
     let id = txidObj.forDefiTxId;
-    console.log(id)
 
     let responseSignature = await fetch(`https://${gatewayHost}${path}/${id}`, {
         method: 'GET',
@@ -82,62 +84,16 @@ export async function getSignature(unsignedTxidFile: string): Promise<string> {
     });
 
     const responseJson = await responseSignature.json();
-    console.log(responseJson)
     let signatureHex = Buffer.from(responseJson.signatures[0].data, 'base64').toString('hex');
 
     let signedTxid = {
         signature: signatureHex
     }
 
-
     writeFileSync(`${unsignedTxidFile}.signedTx.json`, JSON.stringify(signedTxid), "utf8");
 
     console.log(JSON.stringify(signedTxid))
-    return JSON.stringify(signedTxid);
-}
-
-export async function getSignatures(transactionIds: string[]): Promise<string> {
-
-    const gatewayHost = "api.fordefi.com"
-    const path = "/api/v1/transactions"
-
-    let signatures: any[] = [];
-    let transactions = JSON.parse(readFileSync(`transactions.json`, 'utf8'));
-
-
-    for (let i = 0; i < transactionIds.length; i++) {
-        let id = transactionIds[i];
-        console.log("id", id)
-
-        let responseSignature = await fetch(`https://${gatewayHost}${path}/${id}`, {
-            method: 'GET',
-            headers: {
-                "Authorization": `Bearer ${accessToken}`,
-            },
-        });
-
-        const responseJson = await responseSignature.json();
-        let signatureHex = Buffer.from(responseJson.signatures[0].data, 'base64').toString('hex');
-
-        signatures.push({
-            transactionId: id,
-            signature: signatureHex
-        });
-
-        // match signature with transaction data
-        for (let i = 0; i < transactions.length; i++) {
-            if (transactions[i].id == id) {
-                transactions[i].signature = signatureHex
-            }
-        }
-    }
-
-    writeFileSync(`transactions`, JSON.stringify(transactions), "utf8");
-
-    // const signaturesCSV = parse(signatures);
-    // writeFileSync(`signatures.csv`, signaturesCSV, "utf8");
-    console.log(JSON.stringify(signatures))
-    return JSON.stringify(signatures);
+    return signatureHex;
 }
 
 async function getVaultPublickey(vaultId: string): Promise<string> {
@@ -163,4 +119,4 @@ async function getVaultPublickey(vaultId: string): Promise<string> {
 
 // sendToForDefi("test1");
 
-getSignature("test1");
+// getSignature("test1");
