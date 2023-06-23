@@ -85,8 +85,9 @@ export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: str
  * Get hashes that need to get signed in order for funds exported from
  * C-chain to P-chain to be imported to P-chain
  * @param ctx - context with constants initialized from user keys
+ * @param id - id associated with the transaction
  */
-export async function importTxCP_unsignedHashes(ctx: Context, id: string): Promise<{
+export async function getUnsignedImportTxCP(ctx: Context, id: string): Promise<{
   signatureRequests: SignatureRequest[]
 }> {
   const threshold = 1
@@ -121,21 +122,14 @@ export async function importTxCP_unsignedHashes(ctx: Context, id: string): Promi
 }
 
 /**
- * Import funds from C-chain to P-chain by providing signed hashes
+ * Issues a signed P-chain transation
  * @param ctx - context with constants initialized from user keys
- * @param signatures - signatures of the relevant hashes
- * @param transaction - serialized import C - P transaction
+ * @param id - id associated with the transaction
  */
-export async function importTxCP_rawSignatures(
-  ctx: Context, signatures: string[], id: string
-): Promise<any> {
+export async function issueSignedPvmTx(ctx: Context, id: string): Promise<{ chainTxId: string }> {
   const unsignedTxJson = readUnsignedTx(id)
-  if (signatures.length === 0) {
-    signatures = [readSignedTx(id).signature]
-  }
-  if (signatures.length !== unsignedTxJson.signatureRequests.length) {
-    signatures = Array(unsignedTxJson.signatureRequests.length).fill(signatures[0])
-  }
+  const signedTxJson = readSignedTx(id)
+  const signatures = Array(unsignedTxJson.signatureRequests.length).fill(signedTxJson.signature)
   const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
   const unsignedTx = deserializeUnsignedTx(UnsignedTx, unsignedTxJson.serialization)
   const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
