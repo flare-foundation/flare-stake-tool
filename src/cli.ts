@@ -8,6 +8,8 @@ import { exportTxPC, importTxCP, importTxCP_rawSignatures, importTxCP_unsignedHa
 import { addValidator, addValidator_rawSignatures, addValidator_unsignedHashes } from './addValidator'
 import { addDelegator, addDelegator_rawSignatures, addDelegator_unsignedHashes } from './addDelegator'
 import { getSignature, sendToForDefi } from './forDefi'
+import { initContext, DERIVATION_PATH } from './ledger/key'
+import { sign } from './ledger/sign'
 
 const logger = createLogger('info')
 
@@ -24,6 +26,7 @@ export async function cli(program: Command) {
     .command("info").description("Relevant information")
     .argument("<type>", "Type of information")
     .action(async (type: string) => {
+      logger.info("Getting information about the network")
       const options = program.opts()
       let ctx
       if (options.ctxFile) {
@@ -151,6 +154,28 @@ export async function cli(program: Command) {
       } else if (type == 'fetch') {
         await fetchForDefiTx(options.transactionId)
       }
+    })
+  // ledger signing
+  program
+    .command("init-ctx").description("Initialize context file from ledger")
+    .option("-n, --network <Network>", "Network (HRP)", "flare")
+    .action(async (options: OptionValues) => {
+      await initContext(DERIVATION_PATH, options.network)
+      logger.info("Context file created")
+    })
+  program
+    .command("sign-hash").description("Sign a transaction hash (blind signing)")
+    .argument("<file>", "File to sign")
+    .action(async (file: string) => {
+      await sign(file, DERIVATION_PATH, true)
+      logger.info("Transaction signed")
+    })
+  program
+    .command("sign").description("Sign a transaction (non-blind signing)")
+    .argument("<file>", "File to sign")
+    .action(async (file: string) => {
+      await sign(file, DERIVATION_PATH, false)
+      logger.info("Transaction signed")
     })
 }
 

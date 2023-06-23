@@ -13,6 +13,8 @@
     "node_modules",
     "scripts",
     "cli",
-    "test"
+    "test",
+    "dist",
+    "staking"
   ]
 }
