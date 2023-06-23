@@ -61,7 +61,7 @@ export async function addValidator(
  * @param startTime - start time of the node's validation
  * @param endTime - end time of the node's validation
  */
-export async function addValidator_unsignedHashes(
+export async function getUnsignedAddValidator(
   ctx: Context,
   id: string,
   nodeID: string,
@@ -101,27 +101,4 @@ export async function addValidator_unsignedHashes(
   }
   saveUnsignedTx(unsignedTxJson, id)
   return unsignedTxJson.signatureRequests
-}
-
-/**
- * Execute add validator transaction by providing signed hashes
- * @param ctx - context with constants initialized from user keys
- * @param signatures - signatures of the relevant hashes
- * @param transaction - serialized addValidator transaction
- */
-export async function addValidator_rawSignatures(
-  ctx: Context, signatures: string[], id: string
-): Promise<any> {
-  const unsignedTxJson = readUnsignedTx(id)
-  if (signatures.length === 0) {
-    signatures = [readSignedTx(id).signature]
-  }
-  if (signatures.length !== unsignedTxJson.signatureRequests.length) {
-    signatures = Array(unsignedTxJson.signatureRequests.length).fill(signatures[0])
-  }
-  const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
-  const unsignedTx = deserializeUnsignedTx(UnsignedTx, unsignedTxJson.serialization)
-  const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
-  const txid = await ctx.pchain.issueTx(tx)
-  return { txid: txid }
 }
