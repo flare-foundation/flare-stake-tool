@@ -3,14 +3,10 @@ const fetch = require('node-fetch')
 import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
 import { sleepms, unPrefix0x, readUnsignedTx } from "../src/utils"
-import * as dotenv from 'dotenv'
-dotenv.config()
 import { ContextFile } from './constants'
 
-const accessToken = process.env.ACCESS_TOKEN;
-const apiSIgnerPrivateKey = process.env.API_SIGNER_PRIVATE_KEY;
+const accessToken = readFileSync("accessToken", 'utf8');
 const gatewayHost = "api.fordefi.com"
-
 
 export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string): Promise<string> {
 
@@ -44,7 +40,9 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string): 
     const timestamp = new Date().getTime();
     const payload = `${path}|${timestamp}|${requestBody}`;
 
-    const privateKey = crypto.createPrivateKey(apiSIgnerPrivateKey!);
+    const privateKeyFile = "private.pem"
+    const secretPem = readFileSync(privateKeyFile, 'utf8');
+    const privateKey = crypto.createPrivateKey(secretPem);
     const sign = crypto.createSign('SHA256').update(payload, 'utf8').end();
     const signature1 = sign.sign(privateKey, 'base64');
 
@@ -76,7 +74,9 @@ export async function getSignature(unsignedTxidFile: string): Promise<string> {
     let txidObj = readUnsignedTx(unsignedTxidFile);
     let id = txidObj.forDefiTxId;
 
-    let responseSignature = await fetch(`https://${gatewayHost}${path}/${id}`, {
+    let responseSignature;
+
+    responseSignature = await fetch(`https://${gatewayHost}${path}/${id}`, {
         method: 'GET',
         headers: {
             "Authorization": `Bearer ${accessToken}`,
@@ -84,7 +84,13 @@ export async function getSignature(unsignedTxidFile: string): Promise<string> {
     });
 
     const responseJson = await responseSignature.json();
-    let signatureHex = Buffer.from(responseJson.signatures[0].data, 'base64').toString('hex');
+
+    let signatureHex;
+    try {
+        signatureHex = Buffer.from(responseJson.signatures[0].data, 'base64').toString('hex');
+      } catch (e) {
+        throw Error("Transaction is not signed yet? " + e)
+      }
 
     let signedTxid = {
         signature: signatureHex
@@ -117,6 +123,6 @@ async function getVaultPublickey(vaultId: string): Promise<string> {
 }
 
 
-// sendToForDefi("test1");
+// sendToForDefi("test1", "ctx.json");
 
 // getSignature("test1");
