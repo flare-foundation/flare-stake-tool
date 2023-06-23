@@ -7,6 +7,7 @@ import { exportTxCP, importTxPC, exportTxCP_rawSignatures, exportTxCP_unsignedHa
 import { exportTxPC, importTxCP, importTxCP_rawSignatures, importTxCP_unsignedHashes } from './pvmAtomicTx'
 import { addValidator, addValidator_rawSignatures, addValidator_unsignedHashes } from './addValidator'
 import { addDelegator, addDelegator_rawSignatures, addDelegator_unsignedHashes } from './addDelegator'
+import { getSignature, sendToForDefi } from './forDefi'
 
 const logger = createLogger('info')
 
@@ -24,7 +25,12 @@ export async function cli(program: Command) {
     .argument("<type>", "Type of information")
     .action(async (type: string) => {
       const options = program.opts()
-      const ctx = contextEnv(options.envPath, options.network)
+      let ctx
+      if (options.ctxFile) {
+        ctx = contextFile(options.ctxFile)
+      } else {
+        ctx = contextEnv(options.envPath, options.network)
+      }
       if (type == 'addresses') {
         getAddressInfo(ctx)
       } else if (type == 'balance') {
@@ -46,7 +52,7 @@ export async function cli(program: Command) {
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     // .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (type: string, options: OptionValues) => {
-      options = {...options, ...program.opts()}
+      options = { ...options, ...program.opts() }
       let ctx
       if (options.ctxFile) {
         ctx = contextFile(options.ctxFile)
@@ -57,7 +63,7 @@ export async function cli(program: Command) {
         if (options.getHashes) {
           await exportCP_getHashes(ctx, options.transactionId, options.amount, options.fee)
         } else if (options.useSignatures) {
-          await exportCP_useSignatures(ctx, [] /* options.signatures.split(" ") */ , options.transactionId)
+          await exportCP_useSignatures(ctx, [] /* options.signatures.split(" ") */, options.transactionId)
         } else {
           await exportCP(ctx, options.amount, options.fee)
         }
@@ -87,7 +93,7 @@ export async function cli(program: Command) {
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
-      options = {...options, ...program.opts()}
+      options = { ...options, ...program.opts() }
       let ctx
       if (options.ctxFile) {
         ctx = contextFile(options.ctxFile)
@@ -112,7 +118,7 @@ export async function cli(program: Command) {
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-sg, --signatures <signatures>", "Signatures of the obtained hashes")
     .action(async (options: OptionValues) => {
-      options = {...options, ...program.opts()}
+      options = { ...options, ...program.opts() }
       let ctx
       if (options.ctxFile) {
         ctx = contextFile(options.ctxFile)
@@ -127,7 +133,26 @@ export async function cli(program: Command) {
         await delegate(ctx, options.nodeId, options.amount, options.startTime, options.endTime)
       }
     })
-  }
+  // forDefi signing
+  program
+    .command("forDefi").description("Sign with ForDefi")
+    .argument("<type>", "Type of a forDefi transaction")
+    .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .action(async (type: string, options: OptionValues) => {
+      options = { ...options, ...program.opts() }
+      let ctx
+      if (options.ctxFile) {
+        ctx = contextFile(options.ctxFile)
+      } else {
+        ctx = contextEnv(options.envPath, options.network)
+      }
+      if (type == 'sign') {
+        await signForDefi(options.transactionId, options.ctxFile)
+      } else if (type == 'fetch') {
+        await fetchForDefiTx(options.transactionId)
+      }
+    })
+}
 
 function getAddressInfo(ctx: Context) {
   const [pubX, pubY] = ctx.publicKey!
@@ -259,4 +284,14 @@ async function delegate_getHashes(
 async function delegate_useSignatures(ctx: Context, signatures: string[], transaction: string) {
   const { txid } = await addDelegator_rawSignatures(ctx, signatures, transaction)
   logger.info(`Success! TXID: ${txid}`)
+}
+
+async function signForDefi(transaction: string, ctx: string) {
+  const txid = await sendToForDefi(transaction, ctx)
+  logger.info(`Success! ForDefi TXID: ${txid}`)
+}
+
+async function fetchForDefiTx(transaction: string) {
+  const signature = await getSignature(transaction)
+  logger.info(`Success! Signature: ${signature}`)
 }
