@@ -56,7 +56,7 @@ export async function sendSignedWithdrawalTransaction(ctx: Context, id: string):
 
     // send signed tx to the network
     let receipt = await waitFinalize3(ctx.cAddressHex, () => ctx.web3.eth.sendSignedTransaction(serializedSigned));
-    return receipt.hash;
+    return receipt.transactionHash;
 }
 
 

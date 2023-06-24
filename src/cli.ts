@@ -310,6 +310,5 @@ async function withdraw_getHash(ctx: Context, to: string, amount: number, id: st
 
 async function withdraw_useSignature(ctx: Context, id: string) {
   const txId = await sendSignedWithdrawalTransaction(ctx, id);
-  // TODO: fix txId undefined
   logger.info(`Success! TXID: ${txId}`)
 }
