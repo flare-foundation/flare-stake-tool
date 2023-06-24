@@ -2,13 +2,14 @@
 const fetch = require('node-fetch')
 import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
-import { sleepms, unPrefix0x, readUnsignedTx } from "../src/utils"
+import { sleepms, unPrefix0x, readUnsignedTx, publicKeyToEthereumAddressString, readUnsignedWithdrawalTx } from "../src/utils"
 import { ContextFile } from './constants'
+import { UnsignedTxJson, UnsignedWithdrawalTxJson } from './interfaces'
 
 const accessToken = readFileSync("../token", 'utf8');
 const gatewayHost = "api.fordefi.com"
 
-export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string): Promise<string> {
+export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, withdrawal: boolean = false): Promise<string> {
 
     const file = readFileSync(ctxFile, 'utf8');
     const ctx = JSON.parse(file) as ContextFile;
@@ -21,8 +22,16 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string): 
         throw Error('public key does not match the vault')
     }
 
-    let txidObj = readUnsignedTx(unsignedTxidFile);
-    let hash = txidObj.signatureRequests[0].message;
+    let hash: string;
+    let txidObj: UnsignedTxJson | UnsignedWithdrawalTxJson;
+    if (!withdrawal) {
+        txidObj = readUnsignedTx(unsignedTxidFile);
+        hash = txidObj.signatureRequests[0].message;
+    } else {
+        txidObj = readUnsignedWithdrawalTx(unsignedTxidFile);
+        hash = txidObj.message;
+    }
+
     let hashBase64 = Buffer.from(hash, 'hex').toString('base64')
 
     const requestJson = {
@@ -63,15 +72,19 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string): 
     // write tx id (to later fetch the signature)
     txidObj.forDefiTxId = txId;
     writeFileSync(`${unsignedTxidFile}.unsignedTx.json`, JSON.stringify(txidObj), "utf8");
-    console.log(txId);
     return txId;
 }
 
-export async function getSignature(unsignedTxidFile: string): Promise<string> {
+export async function getSignature(unsignedTxidFile: string, withdrawal: boolean = false): Promise<string> {
 
     const path = "/api/v1/transactions"
 
-    let txidObj = readUnsignedTx(unsignedTxidFile);
+    let txidObj: UnsignedTxJson | UnsignedWithdrawalTxJson;
+    if (!withdrawal) {
+        txidObj = readUnsignedTx(unsignedTxidFile);
+    } else {
+        txidObj = readUnsignedWithdrawalTx(unsignedTxidFile);
+    }
     let id = txidObj.forDefiTxId;
 
     let responseSignature;
@@ -88,9 +101,9 @@ export async function getSignature(unsignedTxidFile: string): Promise<string> {
     let signatureHex;
     try {
         signatureHex = Buffer.from(responseJson.signatures[0].data, 'base64').toString('hex');
-      } catch (e) {
+    } catch (e) {
         throw Error("Transaction is not signed yet? " + e)
-      }
+    }
 
     let signedTxid = {
         signature: signatureHex
@@ -98,7 +111,6 @@ export async function getSignature(unsignedTxidFile: string): Promise<string> {
 
     writeFileSync(`${unsignedTxidFile}.signedTx.json`, JSON.stringify(signedTxid), "utf8");
 
-    console.log(JSON.stringify(signedTxid))
     return signatureHex;
 }
 
@@ -117,12 +129,10 @@ async function getVaultPublickey(vaultId: string): Promise<string> {
     let pubKey = responseJson.public_key_compressed;
 
     let pubKeyHex = Buffer.from(pubKey, 'base64').toString('hex');
-    console.log(pubKeyHex);
 
     return pubKeyHex;
 }
 
+// sendToForDefi("w1", "ctx.json", true);
 
-// sendToForDefi("test1", "ctx.json");
-
-// getSignature("test1");
+// getSignature("w1", true);

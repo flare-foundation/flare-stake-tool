@@ -8,6 +8,7 @@ import { exportTxPC, importTxCP, importTxCP_rawSignatures, importTxCP_unsignedHa
 import { addValidator, addValidator_rawSignatures, addValidator_unsignedHashes } from './addValidator'
 import { addDelegator, addDelegator_rawSignatures, addDelegator_unsignedHashes } from './addDelegator'
 import { getSignature, sendToForDefi } from './forDefi'
+import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal';
 
 const logger = createLogger('info')
 
@@ -138,6 +139,7 @@ export async function cli(program: Command) {
     .command("forDefi").description("Sign with ForDefi")
     .argument("<type>", "Type of a forDefi transaction")
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("--withdrawal", "Withdrawing funds from c-chain")
     .action(async (type: string, options: OptionValues) => {
       options = { ...options, ...program.opts() }
       let ctx
@@ -147,11 +149,39 @@ export async function cli(program: Command) {
         ctx = contextEnv(options.envPath, options.network)
       }
       if (type == 'sign') {
-        await signForDefi(options.transactionId, options.ctxFile)
+        if (options.withdrawal) {
+          await signForDefi(options.transactionId, options.ctxFile, true)
+        } else {
+          await signForDefi(options.transactionId, options.ctxFile)
+        }
       } else if (type == 'fetch') {
-        await fetchForDefiTx(options.transactionId)
+        if (options.withdrawal) {
+          await fetchForDefiTx(options.transactionId, true)
+        } else {
+          await fetchForDefiTx(options.transactionId)
+        }
       }
     })
+  // withdrawal from c-chain
+  program
+  .command("withdrawal").description("Withdraw funds from c-chain")
+  .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+  .option("-a, --amount <amount>", "Amount to transfer")
+  .option("-t, --to <to>", "Address to send funds to")
+  .action(async (options: OptionValues) => {
+    options = { ...options, ...program.opts() }
+    let ctx
+    if (options.ctxFile) {
+      ctx = contextFile(options.ctxFile)
+    } else {
+      ctx = contextEnv(options.envPath, options.network)
+    }
+    if (options.getHashes) {
+      await withdraw_getHash(ctx, options.to, options.amount, options.transactionId)
+    } else if (options.useSignatures) {
+      await withdraw_useSignature(ctx, options.transactionId)
+    }
+  })
 }
 
 function getAddressInfo(ctx: Context) {
@@ -286,12 +316,23 @@ async function delegate_useSignatures(ctx: Context, signatures: string[], transa
   logger.info(`Success! TXID: ${txid}`)
 }
 
-async function signForDefi(transaction: string, ctx: string) {
-  const txid = await sendToForDefi(transaction, ctx)
+async function signForDefi(transaction: string, ctx: string, withdrawal: boolean = false) {
+  const txid = await sendToForDefi(transaction, ctx, withdrawal);
   logger.info(`Success! ForDefi TXID: ${txid}`)
 }
 
-async function fetchForDefiTx(transaction: string) {
-  const signature = await getSignature(transaction)
+async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) {
+  const signature = await getSignature(transaction, withdrawal);
   logger.info(`Success! Signature: ${signature}`)
+}
+
+async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string) {
+  const fileId = await createWithdrawalTransaction(ctx, to, amount, id);
+  logger.info(`Success! Transaction with id ${fileId} constructed`)
+}
+
+async function withdraw_useSignature(ctx: Context, id: string) {
+  const txId = await sendSignedWithdrawalTransaction(ctx, id);
+  // TODO: fix txId undefined
+  logger.info(`Success! TXID: ${txId}`)
 }
