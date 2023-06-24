@@ -123,7 +123,7 @@ export function prefix0x(hexString: string) {
   return hexString.startsWith("0x") ? hexString : "0x" + unPrefix0x(hexString)
 }
 
-export function decimalToInteger(dec: string, n: number): string {
+export function shiftDecimals(dec: string, n: number): string {
   let ret = dec
   if (ret.includes('.')) {
     const split = ret.split('.')
@@ -172,7 +172,6 @@ export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsi
   unsignedTx.deserialize(JSON.parse(serialized))
   return unsignedTx
 }
-
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // storage

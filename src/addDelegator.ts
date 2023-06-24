@@ -1,10 +1,10 @@
 import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
-import { EcdsaSignature, SignatureRequest } from '@flarenetwork/flarejs/dist/common'
+import { SignatureRequest } from '@flarenetwork/flarejs/dist/common'
 import { Context } from './constants'
 import { UnsignedTxJson } from './interfaces'
-import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx, saveUnsignedTx, readUnsignedTx, readSignedTx } from './utils'
+import { serializeUnsignedTx, saveUnsignedTx } from './utils'
 
 
 export async function addDelegator(
@@ -44,7 +44,7 @@ export async function addDelegator(
     return { txid: txid }
 }
 
-export async function addDelegator_unsignedHashes(
+export async function getUnsignedAddDelegator(
     ctx: Context,
     id: string,
     nodeID: string,
@@ -83,21 +83,4 @@ export async function addDelegator_unsignedHashes(
     }
     saveUnsignedTx(unsignedTxJson, id)
     return unsignedTx.prepareUnsignedHashes(ctx.cKeychain)
-  }
-
-  export async function addDelegator_rawSignatures(
-    ctx: Context, signatures: string[], id: string
-  ): Promise<any> {
-    if (signatures.length === 0) {
-      signatures = [readSignedTx(id).signature]
-    }
-    const unsignedTxJson = readUnsignedTx(id)
-    if (signatures.length !== unsignedTxJson.signatureRequests.length) {
-      signatures = Array(unsignedTxJson.signatureRequests.length).fill(signatures[0])
-    }
-    const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
-    const unsignedTx = deserializeUnsignedTx(UnsignedTx, unsignedTxJson.serialization)
-    const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
-    const txid = await ctx.pchain.issueTx(tx)
-    return { txid: txid }
   }
