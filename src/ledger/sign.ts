@@ -3,6 +3,7 @@ import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import AvalancheApp from '@avalabs/hw-app-avalanche'
 import { sha256 } from 'ethereumjs-util'
 import { recoverTransactionPublicKey, recoverTransactionSigner, prefix0x, standardizePublicKey, expandDerivationPath } from './utils'
+import { logInfo } from '../output'
 
 
 // If blind is true, then the message is a hash of the transaction buffer,
@@ -44,7 +45,12 @@ async function ledgerSign(message: string, derivationPath: string, blind: boolea
 	}
 }
 
+export async function signId(id: string, derivationPath: string, blind: boolean = true) {
+	return sign(`${id}.unsignedTx.json`, derivationPath, blind)
+}
+
 export async function sign(file: string, derivationPath: string, blind: boolean = true) {
+	logInfo(`Please sign the transaction on your ledger device...`)
     const json = fs.readFileSync(file, 'utf8')
     const tx: any = JSON.parse(json)
     if (tx && tx.signatureRequests && tx.signatureRequests.length > 0) {
@@ -57,6 +63,6 @@ export async function sign(file: string, derivationPath: string, blind: boolean 
         }
         fs.writeFileSync(outFile, JSON.stringify(tx, null, 2))
     } else {
-        console.log("Invalid transaction file")
+        throw Error("Invalid transaction file")
     }
 }
