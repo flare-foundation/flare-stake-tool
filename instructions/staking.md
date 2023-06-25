@@ -27,7 +27,7 @@ NOTE: for each "session" a new folder should be created. Session is identified b
 Connect the ledger, the modified Avalanche app needs to be turned on:
 
 ```
-flare-ledger-staking init-ctx
+flare-stake-tool init-ctx
 ```
 This creates `ctx.json`.
 
@@ -35,36 +35,48 @@ This creates `ctx.json`.
 # Exporting the funds from C-chain to P-chain (1)
 
 ```
-flare-stake-tool crosschain exportCP -a 16750001 -id 1 --get-hashes --ctx-file ctx.json
+flare-stake-tool crosschain exportCP -a 16750001 -id 1 --get-hashes
 ```
-Connect to the Ledger and have the modified Avalanche app turned on. Sign the hash (blind signing).
+
+Connect to the Ledger and have the modified Avalanche app or "original" Avalanche app turned on. Sign the hash (blind signing).
 
 ```
-flare-ledger-staking sign-hash 1.unsignedTx.json
+flare-stake-tool sign-hash -id 1
+```
+
+OR: connect to the Ledger and have the modified Avalanche app turned on. Sign the transaction.
+```
+flare-stake-tool sign -id 1
 ```
 
 Issue the transaction to the chain.
 
 ```
-flare-stake-tool crosschain exportCP -id 1 --use-signatures --ctx-file ctx.json
+flare-stake-tool crosschain exportCP -id 1 --use-signatures
 ```
 
 
 # Importing the funds to P-chain
 
 ```
-flare-stake-tool crosschain importCP -id 2 --get-hashes --ctx-file ctx.json
+flare-stake-tool crosschain importCP -id 2 --get-hashes
 ```
 
 Connect to the Ledger and have the modified Avalanche app turned on. Sign the hash (blind signing).
 
 ```
-flare-ledger-staking sign-hash 2.unsignedTx.json
+flare-stake-tool sign-hash - id 2
 ```
+
+OR: connect to the Ledger and have the modified Avalanche app turned on. Sign the transaction.
+```
+flare-stake-tool sign -id 2
+```
+
 
 Issue the transaction to the chain.
 ```
-flare-stake-tool crosschain importCP -id 2 --use-signatures --ctx-file ctx.json
+flare-stake-tool crosschain importCP -id 2 --use-signatures
 ```
 
 # Staking
@@ -72,18 +84,24 @@ flare-stake-tool crosschain importCP -id 2 --use-signatures --ctx-file ctx.json
 NOTE: use correct parameters for your stake (nodeid, amount in FLR, start time, end time).
 
 ```
-flare-stake-tool stake -id 3 --get-hashes -n "NodeID-H7TKshVe5cxKiheViWZHKdRo8e7wMZ6ZP" -a 16750000 -s 1688569201 -e 1696863601 --ctx-file ctx.json
+flare-stake-tool stake -id 3 --get-hashes -n "NodeID-H7TKshVe5cxKiheViWZHKdRo8e7wMZ6ZP" -a 16750000 -s 1688569201 -e 1696863601
 ```
 
 Connect to the Ledger and have the modified Avalanche app turned on. Sign the hash (blind signing).
 
 ```
-flare-ledger-staking sign-hash 3.unsignedTx.json
+flare-stake-tool sign-hash -id 3
 ```
+
+OR: connect to the Ledger and have the modified Avalanche app turned on. Sign the transaction.
+```
+flare-stake-tool sign -id 3
+```
+
 
 Issue transaction.
 ```
-flare-stake-tool stake -id 3 --use-signatures --ctx-file ctx.json
+flare-stake-tool stake -id 3 --use-signatures
 ```
 
 # Delegation
@@ -91,7 +109,7 @@ flare-stake-tool stake -id 3 --use-signatures --ctx-file ctx.json
 NOTE: if you have done staking in the session, do not do the delegation in this session.
 
 ```
-flare-stake-tool delegate -id 4 --get-hashes -n "staked_node_ID" -a stake_amount -s stake_start_time -e stake_end_time --ctx-file ctx.json
+flare-stake-tool delegate -id 4 --get-hashes -n "staked_node_ID" -a stake_amount -s stake_start_time -e stake_end_time
 
 replace the following
 - stake_start_time : use 1688569201 for first stake on flare
@@ -100,42 +118,29 @@ replace the following
 - staked_node_ID should be in this format: NodeID-H7TKshVe5cxKiheViWZHKdRo8e7wMZ6ZP
 
 ```
+
 Connect to the Ledger and have the modified Avalanche app turned on. Sign the hash (blind signing).
 ```
-flare-ledger-staking sign-hash 4.unsignedTx.json
+flare-stake-tool sign-hash -id 4
 ```
+OR: connect to the Ledger and have the modified Avalanche app turned on. Sign the transaction.
+```
+flare-stake-tool sign -id 4
+```
+
+
 Issue transaction.
 ```
-flare-stake-tool stake -id 4 --use-signatures --ctx-file ctx.json
+flare-stake-tool stake -id 4 --use-signatures
 ```
 
 # Check balances at any time
 
 At any time, you can check balances on C and P chains.
 
-Configure `env` file.
-```
-cat ctx.json
-```
-Copy public key. Create `env` file
-
-```
-nano env
-```
-
-Type into the file
-```
-PUBLIC_KEY= 'paste_your_public_key'
-```
-
-Run
-```
-flare-stake-tool info balance --env-path env
-```
-
 NOTE: this will get simplified in the next version to:
 ```
-flare-stake-tool info balance --ctx-file ctx.json
+flare-stake-tool info balance
 ```
 
 
