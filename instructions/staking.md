@@ -31,6 +31,8 @@ flare-stake-tool init-ctx
 ```
 This creates `ctx.json`.
 
+All the following commands need to be run from the same folder and use the same `ctx.json` file.
+If you want to use a different "context file", you need to specify it with `--ctx-file <different ctx file>` parameter for each command.
 
 # Exporting the funds from C-chain to P-chain (1)
 
@@ -72,7 +74,6 @@ OR: connect to the Ledger and have the modified Avalanche app turned on. Sign th
 ```
 flare-stake-tool sign -id 2
 ```
-
 
 Issue the transaction to the chain.
 ```
