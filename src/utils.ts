@@ -8,7 +8,6 @@ import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common"
 import { UnsignedTx as EvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/evm'
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { SignedTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, SignedWithdrawalTxJson } from './interfaces'
-import { sha256 } from 'ethereumjs-util'
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // public keys and bech32 addresses
@@ -176,12 +175,14 @@ export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsi
 //////////////////////////////////////////////////////////////////////////////////////////
 // storage
 
-export function saveUnsignedTxJson(unsignedTx: UnsignedTxJson, id: string): void {
+export function saveUnsignedTxJson(unsignedTxJson: UnsignedTxJson, id: string): void {
   const fname = `${id}.unsignedTx.json`
   if (fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} already exists`)
 }
-  const serialization = JSON.stringify(unsignedTx, null, 2)
+  const forDefiHash = Buffer.from(unsignedTxJson.signatureRequests[0].message, 'hex').toString('base64')
+  const unsignedTxJsonForDefi: UnsignedTxJson = {...unsignedTxJson, forDefiHash: forDefiHash }
+  const serialization = JSON.stringify(unsignedTxJsonForDefi, null, 2)
   fs.writeFileSync(fname, serialization)
 }
 

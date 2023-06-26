@@ -1,5 +1,5 @@
-import { BN, Buffer as FlrBuffer } from '@flarenetwork/flarejs/dist'
-import { EcdsaSignature, SignatureRequest } from '@flarenetwork/flarejs/dist/common'
+import { BN } from '@flarenetwork/flarejs/dist'
+import { EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
 import { UnsignedTx, Tx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { costImportTx, costExportTx } from "@flarenetwork/flarejs/dist/utils"
 import { Context } from './constants'
@@ -7,7 +7,7 @@ import { SignedTxJson, UnsignedTxJson } from './interfaces'
 import {
   integerToDecimal as shiftDecimals, expandSignature,
   serializeExportCP_args, deserializeExportCP_args,
-  saveUnsignedTxJson, readUnsignedTxJson, readSignedTxJson
+  serializeUnsignedTx
 } from './utils'
 
 /**
@@ -64,7 +64,52 @@ export async function exportTxCP(
 }
 
 /**
- * Import funds exported from P-chain to C-chain to C-chain.
+ * Generate unsigned import transaction from P-chain to C-chain.
+ * @param ctx - context with constants initialized from user keys
+ * @param fee - import transaction fee
+ */
+export async function getUnsignedImportTxPC(
+  ctx: Context, fee?: BN
+): Promise<UnsignedTxJson> {
+  const baseFeeResponse: string = await ctx.cchain.getBaseFee()
+  const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
+  const evmUTXOResponse: any = await ctx.cchain.getUTXOs(
+    [ctx.cAddressBech32!],
+    ctx.pChainBlockchainID
+  )
+  const utxoSet: UTXOSet = evmUTXOResponse.utxos
+  let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(
+    utxoSet,
+    ctx.cAddressHex!,
+    [ctx.cAddressBech32!],
+    ctx.pChainBlockchainID,
+    [ctx.cAddressBech32!],
+    baseFee
+  )
+
+  if (fee === undefined) {
+    const importCost: number = costImportTx(unsignedTx)
+    fee = baseFee.mul(new BN(importCost))
+    unsignedTx = await ctx.cchain.buildImportTx(
+      utxoSet,
+      ctx.cAddressHex!,
+      [ctx.cAddressBech32!],
+      ctx.pChainBlockchainID,
+      [ctx.cAddressBech32!],
+      fee
+    )
+  }
+
+  return <UnsignedTxJson>{
+    serialization: serializeUnsignedTx(unsignedTx), // TODO: does not work correctly
+    signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
+    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex'),
+    usedFee: fee.toString(10)
+  }
+}
+
+/**
+ * Import funds exported from P-chain to C-chain.
  * @param ctx - context with constants initialized from user keys
  * @param fee - import transaction fee
  */

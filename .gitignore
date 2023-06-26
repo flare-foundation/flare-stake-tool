@@ -97,6 +97,7 @@ dist
 *unsignedTx.json
 *unsignedTx
 *signedTx.json
+ctx.json
 
 # fordefi
 private.pem

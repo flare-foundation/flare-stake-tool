@@ -1,6 +1,3 @@
 #!/usr/bin/env node
 
-require = require('esm')(module /*, options*/)
-const program = require('commander').program
-require("../dist/src/cli").cli(program)
-program.parse()
+require('../dist/src/run')

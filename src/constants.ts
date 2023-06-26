@@ -42,25 +42,22 @@ export interface ContextFile {
 
 export function contextEnv(path: string, network: string): Context {
   require('dotenv').config({path: path})
-  return context(
-    getConfig(network),
+  return getContext(
+    network,
+    process.env.PUBLIC_KEY,
     process.env.PRIVATE_KEY_HEX,
-    process.env.PRIVATE_KEY_CB58,
-    process.env.PUBLIC_KEY
-  )
+    process.env.PRIVATE_KEY_CB58)
 }
 
 export function contextFile(ctxFile: string): Context {
   const file = fs.readFileSync(ctxFile, 'utf8')
   const ctx = JSON.parse(file) as ContextFile
-  return context(
-    getConfig(ctx.network),
-    undefined,
-    undefined,
-    ctx.publicKey
-  )
+  return getContext(ctx.network, ctx.publicKey)
 }
 
+export function getContext(network: string, publicKey?: string, privateKeyHex?: string, privateKeyCB58?: string): Context {
+  return context(getConfig(network), publicKey, privateKeyHex, privateKeyCB58)
+}
 
 function getConfig(network: string): NetworkConfig {
   let networkConfig
@@ -76,7 +73,7 @@ function getConfig(network: string): NetworkConfig {
 
 function context(
   config: NetworkConfig,
-  privkHex?: string, privkCB58?: string, publicKey?: string
+  publicKey?: string, privkHex?: string, privkCB58?: string,
 ): Context {
   const { protocol, ip, port, networkID, hrp } = config
 

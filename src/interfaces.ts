@@ -5,7 +5,9 @@ export interface UnsignedTxJson {
   signatureRequests: SignatureRequest[],
   unsignedTransactionBuffer: string, // hex,
   usedFee?: string, // c-chain fee (don't know why is not logged inside buffer)
-  forDefiTxId?: string
+  txDetails?: string, // JSON of the unsigned transaction
+  forDefiTxId?: string,
+  forDefiHash?: string,
 }
 
 export interface SignedTxJson extends UnsignedTxJson {

@@ -39,10 +39,13 @@
     "typescript": "^4.8.4"
   },
   "dependencies": {
+    "@avalabs/hw-app-avalanche": "^0.10.1",
     "@flarenetwork/flarejs": "1.2.0",
+    "@ledgerhq/hw-transport-node-hid": "^6.0.0",
     "@types/ethereumjs-util": "^6.1.0",
     "bech32": "^2.0.0",
     "bech32-converting": "^1.0.9",
+    "chalk": "4.1.2",
     "commander": "^9.4.1",
     "dotenv": "^16.0.1",
     "esm": "^3.2.25",

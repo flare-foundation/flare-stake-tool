@@ -1,10 +1,9 @@
-import { EcdsaSignature, SignatureRequest } from '@flarenetwork/flarejs/dist/common'
-import { BN, Buffer } from '@flarenetwork/flarejs/dist'
+import { BN } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { Context } from './constants'
 import { UnsignedTxJson } from './interfaces'
-import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx, saveUnsignedTxJson, readUnsignedTxJson, readSignedTxJson } from './utils'
+import { serializeUnsignedTx } from './utils'
 
 /**
  * Stake by registring your node for validation
