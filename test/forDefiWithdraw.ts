@@ -45,7 +45,6 @@ export async function sendToForDefi() {
         },
     };
 
-
     const requestBody = JSON.stringify(requestJson)
     const path = "/api/v1/transactions"
     const privateKeyFile = "./private.pem"

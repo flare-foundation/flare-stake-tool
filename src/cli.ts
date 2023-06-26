@@ -162,7 +162,7 @@ export async function cli(program: Command) {
   .command("withdrawal").description("Withdraw funds from c-chain")
   .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
   .option("-a, --amount <amount>", "Amount to transfer")
-  .option("-t, --to <to>", "Address to send funds to")
+  .option("-to, --to-address <to>", "Address to send funds to")
   .action(async (options: OptionValues) => {
     options = { ...options, ...program.opts() }
     let ctx
