@@ -6,7 +6,6 @@ import { sleepms, unPrefix0x, readUnsignedTxJson, publicKeyToEthereumAddressStri
 import { ContextFile } from './constants'
 import { UnsignedTxJson, UnsignedWithdrawalTxJson } from './interfaces'
 
-const accessToken = '' //readFileSync("../token", 'utf8');
 const gatewayHost = "api.fordefi.com"
 
 export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, withdrawal: boolean = false): Promise<string> {
