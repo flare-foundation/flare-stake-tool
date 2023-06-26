@@ -4,7 +4,7 @@ import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { SignatureRequest } from '@flarenetwork/flarejs/dist/common'
 import { Context } from './constants'
 import { UnsignedTxJson } from './interfaces'
-import { serializeUnsignedTx, saveUnsignedTx } from './utils'
+import { serializeUnsignedTx, saveUnsignedTxJson } from './utils'
 
 
 export async function addDelegator(
@@ -16,9 +16,6 @@ export async function addDelegator(
 ) {
     const threshold: number = 1
     const locktime: BN = new BN(0)
-    const memo: Buffer = Buffer.from(
-    "PlatformVM utility method buildAddDelegatorTx to add a delegator to the primary subnet"
-    )
     const asOf: BN = UnixNow()
     const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32!)
     const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
@@ -35,7 +32,7 @@ export async function addDelegator(
         [ctx.pAddressBech32!],
         locktime,
         threshold,
-        memo,
+        undefined,
         asOf
     )
 
@@ -46,17 +43,13 @@ export async function addDelegator(
 
 export async function getUnsignedAddDelegator(
     ctx: Context,
-    id: string,
     nodeID: string,
     stakeAmount: BN,
     startTime: BN,
     endTime: BN
-  ): Promise<SignatureRequest[]> {
+  ): Promise<UnsignedTxJson> {
     const threshold = 1
     const locktime: BN = new BN(0)
-    const memo: Buffer = Buffer.from(
-      "PlatformVM utility method buildAddDelegatorTx to add a delegator to the primary subnet"
-    )
     const asOf: BN = UnixNow()
     const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32!)
     const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
@@ -73,14 +66,12 @@ export async function getUnsignedAddDelegator(
       [ctx.pAddressBech32!],
       locktime,
       threshold,
-      memo,
+      undefined,
       asOf
     )
-    const unsignedTxJson = <UnsignedTxJson>{
+    return <UnsignedTxJson>{
       serialization: serializeUnsignedTx(unsignedTx),
       signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
       unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
     }
-    saveUnsignedTx(unsignedTxJson, id)
-    return unsignedTx.prepareUnsignedHashes(ctx.cKeychain)
   }

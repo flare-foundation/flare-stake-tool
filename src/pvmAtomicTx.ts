@@ -3,10 +3,10 @@ import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist//utils'
 import { Context } from './constants'
-import { UnsignedTxJson } from './interfaces'
+import { SignedTxJson, UnsignedTxJson } from './interfaces'
 import {
   deserializeUnsignedTx, expandSignature,
-  serializeUnsignedTx, saveUnsignedTx, readUnsignedTx, readSignedTx
+  serializeUnsignedTx, saveUnsignedTxJson, readUnsignedTxJson, readSignedTxJson
 } from './utils'
 
 /**
@@ -16,9 +16,6 @@ import {
 export async function importTxCP(ctx: Context): Promise<{ txid: string }> {
   const threshold = 1
   const locktime: BN = new BN(0)
-  const memo: Buffer = Buffer.from(
-    'PlatformVM utility method buildImportTx to import AVAX to the P-Chain from the C-Chain'
-  )
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(
     [ctx.pAddressBech32!],
@@ -32,7 +29,7 @@ export async function importTxCP(ctx: Context): Promise<{ txid: string }> {
     [ctx.pAddressBech32!],
     [ctx.pAddressBech32!],
     [ctx.pAddressBech32!],
-    memo,
+    undefined,
     asOf,
     locktime,
     threshold
@@ -50,9 +47,6 @@ export async function importTxCP(ctx: Context): Promise<{ txid: string }> {
 export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: string }> {
   const threshold: number = 1
   const locktime: BN = new BN(0)
-  const memo: Buffer = Buffer.from(
-    "PlatformVM utility method buildExportTx to export AVAX from the P-Chain to the C-Chain"
-  )
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs([ctx.pAddressBech32!])
   const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
@@ -71,7 +65,7 @@ export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: str
     [ctx.cAddressBech32!],
     [ctx.pAddressBech32!],
     [ctx.pAddressBech32!],
-    memo,
+    undefined,
     asOf,
     locktime,
     threshold
@@ -87,14 +81,9 @@ export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: str
  * @param ctx - context with constants initialized from user keys
  * @param id - id associated with the transaction
  */
-export async function getUnsignedImportTxCP(ctx: Context, id: string): Promise<{
-  signatureRequests: SignatureRequest[]
-}> {
+export async function getUnsignedImportTxCP(ctx: Context): Promise<UnsignedTxJson> {
   const threshold = 1
   const locktime: BN = new BN(0)
-  const memo: Buffer = Buffer.from(
-    'PlatformVM utility method buildImportTx to import AVAX to the P-Chain from the C-Chain'
-    )
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(
     [ctx.pAddressBech32!],
@@ -107,18 +96,16 @@ export async function getUnsignedImportTxCP(ctx: Context, id: string): Promise<{
     [ctx.pAddressBech32!],
     [ctx.pAddressBech32!],
     [ctx.pAddressBech32!],
-    memo,
+    undefined,
     asOf,
     locktime,
     threshold
   )
-  const unsignedTxJson = <UnsignedTxJson>{
+  return <UnsignedTxJson>{
     serialization: serializeUnsignedTx(unsignedTx),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
   }
-  saveUnsignedTx(unsignedTxJson, id)
-  return { signatureRequests: unsignedTxJson.signatureRequests }
 }
 
 /**
@@ -126,12 +113,10 @@ export async function getUnsignedImportTxCP(ctx: Context, id: string): Promise<{
  * @param ctx - context with constants initialized from user keys
  * @param id - id associated with the transaction
  */
-export async function issueSignedPvmTx(ctx: Context, id: string): Promise<{ chainTxId: string }> {
-  const unsignedTxJson = readUnsignedTx(id)
-  const signedTxJson = readSignedTx(id)
-  const signatures = Array(unsignedTxJson.signatureRequests.length).fill(signedTxJson.signature)
+export async function issueSignedPvmTx(ctx: Context, signedTxJson: SignedTxJson): Promise<{ chainTxId: string }> {
+  const signatures = Array(signedTxJson.signatureRequests.length).fill(signedTxJson.signature)
   const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
-  const unsignedTx = deserializeUnsignedTx(UnsignedTx, unsignedTxJson.serialization)
+  const unsignedTx = deserializeUnsignedTx(UnsignedTx, signedTxJson.serialization)
   const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
   const chainTxId = await ctx.pchain.issueTx(tx)
   return { chainTxId: chainTxId }

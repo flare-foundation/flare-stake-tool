@@ -4,7 +4,7 @@ import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platfor
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { Context } from './constants'
 import { UnsignedTxJson } from './interfaces'
-import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx, saveUnsignedTx, readUnsignedTx, readSignedTx } from './utils'
+import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx, saveUnsignedTxJson, readUnsignedTxJson, readSignedTxJson } from './utils'
 
 /**
  * Stake by registring your node for validation
@@ -23,9 +23,6 @@ export async function addValidator(
 ): Promise<{ txid: string }> {
   const threshold = 1
   const locktime: BN = new BN(0)
-  const memo: Buffer = Buffer.from(
-    'PlatformVM utility method buildAddValidatorTx to add a validator to the primary subnet'
-  )
   const asOf: BN = UnixNow()
   const delegationFee = 10
   // const stakeAmount: any = (await pchain.getMinStake()).minValidatorStake
@@ -45,7 +42,7 @@ export async function addValidator(
     delegationFee,
     locktime,
     threshold,
-    memo,
+    undefined,
     asOf
   )
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
@@ -63,17 +60,13 @@ export async function addValidator(
  */
 export async function getUnsignedAddValidator(
   ctx: Context,
-  id: string,
   nodeID: string,
   stakeAmount: BN,
   startTime: BN,
   endTime: BN
-): Promise<SignatureRequest[]> {
+): Promise<UnsignedTxJson> {
   const threshold = 1
   const locktime: BN = new BN(0)
-  const memo: Buffer = Buffer.from(
-    'PlatformVM utility method buildAddValidatorTx to add a validator to the primary subnet'
-  )
   const asOf: BN = UnixNow()
   const delegationFee = 10
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32!)
@@ -91,14 +84,12 @@ export async function getUnsignedAddValidator(
     delegationFee,
     locktime,
     threshold,
-    memo,
+    undefined,
     asOf
   )
-  const unsignedTxJson = <UnsignedTxJson>{
+  return <UnsignedTxJson>{
     serialization: serializeUnsignedTx(unsignedTx),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
   }
-  saveUnsignedTx(unsignedTxJson, id)
-  return unsignedTxJson.signatureRequests
 }

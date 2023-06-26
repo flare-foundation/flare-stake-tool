@@ -176,7 +176,7 @@ export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsi
 //////////////////////////////////////////////////////////////////////////////////////////
 // storage
 
-export function saveUnsignedTx(unsignedTx: UnsignedTxJson, id: string): void {
+export function saveUnsignedTxJson(unsignedTx: UnsignedTxJson, id: string): void {
   const fname = `${id}.unsignedTx.json`
   if (fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} already exists`)
@@ -185,7 +185,7 @@ export function saveUnsignedTx(unsignedTx: UnsignedTxJson, id: string): void {
   fs.writeFileSync(fname, serialization)
 }
 
-export function readUnsignedTx(id: string): UnsignedTxJson {
+export function readUnsignedTxJson(id: string): UnsignedTxJson {
   const fname = `${id}.unsignedTx.json`
   if (!fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} does not exist`)
@@ -194,7 +194,7 @@ export function readUnsignedTx(id: string): UnsignedTxJson {
   return JSON.parse(serialization) as UnsignedTxJson
 }
 
-export function readSignedTx(id: string): SignedTxJson {
+export function readSignedTxJson(id: string): SignedTxJson {
   const fname = `${id}.signedTx.json`
   if (!fs.existsSync(fname)) {
     throw new Error(`signedTx file ${fname} does not exist`)

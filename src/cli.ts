@@ -1,7 +1,7 @@
 import { Command, OptionValues } from 'commander'
 import { BN } from '@flarenetwork/flarejs/dist'
 import createLogger from 'logging'
-import { compressPublicKey, integerToDecimal, shiftDecimals as shiftDecimals } from './utils'
+import { compressPublicKey, integerToDecimal, readSignedTxJson, saveUnsignedTxJson, shiftDecimals as shiftDecimals } from './utils'
 import { contextEnv, contextFile, Context } from './constants'
 import { exportTxCP, importTxPC, issueSignedEvmTx, getUnsignedExportTxCP } from './evmAtomicTx'
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx } from './pvmAtomicTx'
@@ -9,6 +9,7 @@ import { addValidator, getUnsignedAddValidator } from './addValidator'
 import { addDelegator, getUnsignedAddDelegator } from './addDelegator'
 import { getSignature, sendToForDefi } from './forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal';
+import { UnsignedTxJson } from './interfaces'
 
 const logger = createLogger('info')
 
@@ -209,13 +210,16 @@ async function exportCP(ctx: Context, amount: string, fee?: string) {
 async function exportCP_getHashes(ctx: Context, id: string, amount: string, fee?: string) {
   const famount: BN = new BN(shiftDecimals(amount, 9))
   const ffee = (fee === undefined) ? fee : new BN(shiftDecimals(fee, 9))
-  const { usedFee, signatureRequests } = await getUnsignedExportTxCP(ctx, id, famount, ffee)
-  if (fee !== usedFee) logger.info(`Used fee of ${usedFee}`)
+  const unsignedTxJson: UnsignedTxJson = await getUnsignedExportTxCP(ctx, famount, ffee)
+  saveUnsignedTxJson(unsignedTxJson, id)
+  if (fee !== unsignedTxJson.usedFee)
+    logger.info(`Used fee of ${unsignedTxJson.usedFee}`)
   logger.info(`Success! Transaction with id ${id} constructed`)
 }
 
 async function exportCP_useSignatures(ctx: Context, txid: string) {
-  const { chainTxId } = await issueSignedEvmTx(ctx, txid)
+  const signedTxJson = await readSignedTxJson(txid)
+  const { chainTxId } = await issueSignedEvmTx(ctx, signedTxJson)
   logger.info(`Success! TXID: ${chainTxId}`)
 }
 
@@ -225,12 +229,14 @@ async function importCP(ctx: Context) {
 }
 
 async function importCP_getHashes(ctx: Context, id: string) {
-  const { signatureRequests } = await getUnsignedImportTxCP(ctx, id)
+  const unsignedTxJson = await getUnsignedImportTxCP(ctx)
+  saveUnsignedTxJson(unsignedTxJson, id)
   logger.info(`Success! Transaction with id ${id} constructed`)
 }
 
 async function importCP_useSignatures(ctx: Context, txid: string) {
-  const { chainTxId } = await issueSignedPvmTx(ctx, txid)
+  const signedTxJson = readSignedTxJson(txid)
+  const { chainTxId } = await issueSignedPvmTx(ctx, signedTxJson)
   logger.info(`Success! TXID: ${chainTxId}`)
 }
 
@@ -261,12 +267,14 @@ async function stake_getHashes(
   start: string, end: string
 ) {
   const famount = new BN(shiftDecimals(amount, 9))
-  const signatureRequests = await getUnsignedAddValidator(ctx, id, nodeID, famount, new BN(start), new BN(end))
+  const unsignedTxJson = await getUnsignedAddValidator(ctx, nodeID, famount, new BN(start), new BN(end))
+  saveUnsignedTxJson(unsignedTxJson, id)
   logger.info(`Success! Transaction with id ${id} constructed`)
 }
 
 async function stake_useSignatures(ctx: Context, id: string) {
-  const { chainTxId } = await issueSignedPvmTx(ctx, id)
+  const signedTxJson = readSignedTxJson(id)
+  const { chainTxId } = await issueSignedPvmTx(ctx, signedTxJson)
   logger.info(`Success! TXID: ${chainTxId}`)
 }
 
@@ -284,12 +292,14 @@ async function delegate_getHashes(
   start: string, end: string
 ) {
   const famount = new BN(shiftDecimals(amount, 9))
-  const signData = await getUnsignedAddDelegator(ctx, id, nodeID, famount, new BN(start), new BN(end))
+  const unsignedTxJson = await getUnsignedAddDelegator(ctx, nodeID, famount, new BN(start), new BN(end))
+  saveUnsignedTxJson(unsignedTxJson, id)
   logger.info(`Success! Transaction with id ${id} constructed`)
 }
 
-async function delegate_useSignatures(ctx: Context, transaction: string) {
-  const { chainTxId } = await issueSignedPvmTx(ctx, transaction)
+async function delegate_useSignatures(ctx: Context, id: string) {
+  const signedTxJson = readSignedTxJson(id)
+  const { chainTxId } = await issueSignedPvmTx(ctx, signedTxJson)
   logger.info(`Success! TXID: ${chainTxId}`)
 }
 

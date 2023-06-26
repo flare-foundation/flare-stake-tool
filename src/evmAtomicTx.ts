@@ -3,11 +3,11 @@ import { EcdsaSignature, SignatureRequest } from '@flarenetwork/flarejs/dist/com
 import { UnsignedTx, Tx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { costImportTx, costExportTx } from "@flarenetwork/flarejs/dist/utils"
 import { Context } from './constants'
-import { UnsignedTxJson } from './interfaces'
+import { SignedTxJson, UnsignedTxJson } from './interfaces'
 import {
   integerToDecimal as shiftDecimals, expandSignature,
   serializeExportCP_args, deserializeExportCP_args,
-  saveUnsignedTx, readUnsignedTx, readSignedTx
+  saveUnsignedTxJson, readUnsignedTxJson, readSignedTxJson
 } from './utils'
 
 /**
@@ -113,9 +113,7 @@ export async function importTxPC(
  * @param amount - amount to export from C-chain to P-chain
  * @param fee - export transaction fee
  */
-export async function getUnsignedExportTxCP(
-  ctx: Context, id: string, amount: BN, fee?: BN
-): Promise<{ usedFee: string, signatureRequests: SignatureRequest[] }> {
+export async function getUnsignedExportTxCP(ctx: Context, amount: BN, fee?: BN): Promise<UnsignedTxJson> {
   const threshold = 1
   const txcount = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)
   const nonce: number = txcount
@@ -144,13 +142,12 @@ export async function getUnsignedExportTxCP(
     unsignedTx = await ctx.cchain.buildExportTx(...args)
   }
 
-  const unsignedTxJson = <UnsignedTxJson>{
+  return <UnsignedTxJson>{
     serialization: serializeExportCP_args(args),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
+    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex'),
+    usedFee: args[9]!.toString(10)
   }
-  saveUnsignedTx(unsignedTxJson, id)
-  return { usedFee: args[9]!.toString(10), signatureRequests: unsignedTxJson.signatureRequests }
 }
 
 /**
@@ -158,11 +155,10 @@ export async function getUnsignedExportTxCP(
  * @param ctx - context with constants initialized from user keys
  * @param id - id associated with the transation
  */
-export async function issueSignedEvmTx(ctx: Context, id: string): Promise<{ chainTxId: string }> {
-  const unsignedTxJson = readUnsignedTx(id)
-  const signatures = Array(unsignedTxJson.signatureRequests.length).fill(readSignedTx(id).signature)
+export async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson): Promise<{ chainTxId: string }> {
+  const signatures = Array(signedTxJson.signatureRequests.length).fill(signedTxJson.signature)
   const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
-  const unsignedTx = await ctx.cchain.buildExportTx(...deserializeExportCP_args(unsignedTxJson.serialization))
+  const unsignedTx = await ctx.cchain.buildExportTx(...deserializeExportCP_args(signedTxJson.serialization))
   const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
   const chainTxId = await ctx.cchain.issueTx(tx)
   return { chainTxId: chainTxId }

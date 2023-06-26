@@ -2,11 +2,11 @@
 const fetch = require('node-fetch')
 import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
-import { sleepms, unPrefix0x, readUnsignedTx, publicKeyToEthereumAddressString, readUnsignedWithdrawalTx } from "../src/utils"
+import { sleepms, unPrefix0x, readUnsignedTxJson, publicKeyToEthereumAddressString, readUnsignedWithdrawalTx } from "../src/utils"
 import { ContextFile } from './constants'
 import { UnsignedTxJson, UnsignedWithdrawalTxJson } from './interfaces'
 
-const accessToken = readFileSync("../token", 'utf8');
+const accessToken = '' //readFileSync("../token", 'utf8');
 const gatewayHost = "api.fordefi.com"
 
 export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, withdrawal: boolean = false): Promise<string> {
@@ -25,7 +25,7 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, w
     let hash: string;
     let txidObj: UnsignedTxJson | UnsignedWithdrawalTxJson;
     if (!withdrawal) {
-        txidObj = readUnsignedTx(unsignedTxidFile);
+        txidObj = readUnsignedTxJson(unsignedTxidFile);
         hash = txidObj.signatureRequests[0].message;
     } else {
         txidObj = readUnsignedWithdrawalTx(unsignedTxidFile);
@@ -81,7 +81,7 @@ export async function getSignature(unsignedTxidFile: string, withdrawal: boolean
 
     let txidObj: UnsignedTxJson | UnsignedWithdrawalTxJson;
     if (!withdrawal) {
-        txidObj = readUnsignedTx(unsignedTxidFile);
+        txidObj = readUnsignedTxJson(unsignedTxidFile);
     } else {
         txidObj = readUnsignedWithdrawalTx(unsignedTxidFile);
     }
