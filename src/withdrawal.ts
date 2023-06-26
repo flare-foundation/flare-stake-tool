@@ -25,7 +25,8 @@ export async function createWithdrawalTransaction(ctx: Context, toAddress: strin
 
     const unsignedTx = <UnsignedWithdrawalTxJson> {
         rawTx: rawTx,
-        message: hash
+        message: hash,
+        forDefiHash: Buffer.from(hash, 'hex').toString('base64')
     }
 
     // save tx data
@@ -44,10 +45,8 @@ export async function sendSignedWithdrawalTransaction(ctx: Context, id: string):
     // read signed tx data
     const signedTxJson = readSignedWithdrawalTx(id);
 
-
     // read signature
     const signature = signedTxJson.signature;
-
 
     // create raw signed tx
     const ethersTx = Transaction.from(unsignedTxJson.rawTx);
@@ -58,8 +57,3 @@ export async function sendSignedWithdrawalTransaction(ctx: Context, id: string):
     let receipt = await waitFinalize3(ctx.cAddressHex, () => ctx.web3.eth.sendSignedTransaction(serializedSigned));
     return receipt.transactionHash;
 }
-
-
-// createWithdrawalTransaction("ctx.json", "0xE01e4B85be84Fca554a36Af2F29A80247D88B2B4", 1.3, "w1")
-
-// sendSignedWithdrawalTransaction("ctx.json", "w1");

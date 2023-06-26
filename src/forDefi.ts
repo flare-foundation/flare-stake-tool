@@ -136,7 +136,3 @@ async function getVaultPublickey(vaultId: string): Promise<string> {
 
     return pubKeyHex;
 }
-
-// sendToForDefi("w1", "ctx.json", true);
-
-// getSignature("w1", true);
