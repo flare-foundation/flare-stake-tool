@@ -66,37 +66,37 @@ export async function cli(program: Command) {
       options = getOptions(program, options)
       const ctx = contextFromOptions(options)
       if (type == 'exportCP') {
-        if (options.getHashes) {
+        if (options.getUnsigned) {
           await exportCP_getHashes(ctx, options.transactionId, options.nanoAmount, options.nanoFee)
         } else if(options.useLedger) {
           await exportCP_useLedger(options.network, options.nanoAmount, options.nanoFee, options.blind)
-        } else if (options.useSignatures) {
+        } else if (options.send) {
           await exportCP_useSignatures(ctx, options.transactionId)
         } else {
           await exportCP(ctx, options.nanoAmount, options.nanoFee)
         }
       } else if (type == 'importCP') {
-        if (options.getHashes) {
+        if (options.getUnsigned) {
           await importCP_getHashes(ctx, options.transactionId)
         } else if(options.useLedger) {
           await importCP_useLedger(options.network, options.blind)
-        } else if (options.useSignatures) {
+        } else if (options.send) {
           await importCP_useSignatures(ctx, options.transactionId)
         } else {
           await importCP(ctx)
         }
       } else if (type == 'exportPC') {
-        if (options.getHashes) {
+        if (options.getUnsigned) {
           //await exportPC_getHashes(ctx, options.transactionId, options.nanoAmount)
-        } else if (options.useSignatures) {
+        } else if (options.send) {
           //await exportPC_useSignatures(ctx, options.transactionId)
         } else {
           await exportPC(ctx, options.nanoAmount)
         }
       } else if (type == 'importPC') {
-        if (options.getHashes) {
+        if (options.getUnsigned) {
           await importPC_getHashes(ctx, options.transactionId, options.nanoFee)
-        } else if (options.useSignatures) {
+        } else if (options.send) {
           await importPC_useSignatures(ctx, options.transactionId)
         } else {
           await importPC(ctx, options.nanoFee)
@@ -115,11 +115,11 @@ export async function cli(program: Command) {
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = contextFromOptions(options)
-      if (options.getHashes) {
+      if (options.getUnsigned) {
         await stake_getHashes(ctx, options.transactionId, options.nodeId, options.nanoAmount, options.startTime, options.endTime)
       } else if (options.useLedger) {
         await stakeOrDelegate_useLedger('stake', options.network, options.nodeId, options.nanoAmount, options.startTime, options.endTime, options.blind)
-      } else if (options.useSignatures) {
+      } else if (options.send) {
         await stake_useSignatures(ctx, options.transactionId)
       } else {
         await stake(ctx, options.nodeId, options.nanoAmount, options.startTime, options.endTime)
@@ -137,11 +137,11 @@ export async function cli(program: Command) {
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = contextFromOptions(options)
-      if (options.getHashes) {
+      if (options.getUnsigned) {
         await delegate_getHashes(ctx, options.transactionId, options.nodeId, options.nanoAmount, options.startTime, options.endTime)
       } else if (options.useLedger) {
         await stakeOrDelegate_useLedger('delegate', options.network, options.nodeId, options.nanoAmount, options.startTime, options.endTime, options.blind)
-      } else if (options.useSignatures) {
+      } else if (options.send) {
         await delegate_useSignatures(ctx, options.transactionId)
       } else {
         await delegate(ctx, options.nodeId, options.nanoAmount, options.startTime, options.endTime)
@@ -178,9 +178,9 @@ export async function cli(program: Command) {
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
     const ctx = contextFromOptions(options)
-    if (options.getHashes) {
+    if (options.getUnsigned) {
       await withdraw_getHash(ctx, options.to, options.amount, options.transactionId)
-    } else if (options.useSignatures) {
+    } else if (options.send) {
       await withdraw_useSignature(ctx, options.transactionId)
     }
   })
