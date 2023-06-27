@@ -78,9 +78,7 @@ export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: str
  * @param ctx - context with constants initialized from user keys
  * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
-export async function getUnsignedExportTxPC(ctx: Context, amount?: BN): Promise<{
-  signatureRequests: SignatureRequest[]
-}> {
+export async function getUnsignedExportTxPC(ctx: Context, amount?: BN): Promise<UnsignedTxJson> {
   const threshold: number = 1
   const locktime: BN = new BN(0)
   const memo: Buffer = Buffer.from(
