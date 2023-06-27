@@ -31,7 +31,7 @@ export async function addDelegator(
         [ctx.pAddressBech32!],
         locktime,
         threshold,
-        Buffer.from('Delegation from cli'),
+        undefined,
         asOf
     )
 
@@ -64,7 +64,7 @@ export async function getUnsignedAddDelegator(
       [ctx.pAddressBech32!],
       locktime,
       threshold,
-      Buffer.from('Delegation from cli'),
+      undefined,
       asOf
     )
     return <UnsignedTxJson>{
