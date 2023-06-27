@@ -18,6 +18,7 @@ export async function cli(program: Command) {
   // global configurations
   program
     .option("--network <network>", "Network name (flare or costwo)", 'flare')
+    .option("--env-path <path>", "Path to the .env file")
     .option("--ctx-file <file>", "Context file as returned by ledger commnunication tool", 'ctx.json')
     .option("--get-hashes", "Get hashes of transaction to sign")
     .option("--use-signatures", "Use hash signatures to finalize the transaction")
@@ -29,9 +30,7 @@ export async function cli(program: Command) {
     .action(async (type: string) => {
       logInfo("Getting information about the network")
       const options = program.opts()
-      const ctx = (options.ctxFile) ?
-        contextFile(options.ctxFile) :
-        contextEnv(options.envPath, options.network)
+      const ctx = contextFromOptions(options)
       if (type == 'addresses') {
         getAddressInfo(ctx)
       } else if (type == 'balance') {
@@ -51,16 +50,15 @@ export async function cli(program: Command) {
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Fee of a transaction")
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("-b, --blind", "Blind signing", false)
     .action(async (type: string, options: OptionValues) => {
       options = { ...options, ...program.opts() }
-      const ctx = (options.ctxFile) ?
-        contextFile(options.ctxFile) :
-        contextEnv(options.envPath, options.network)
+      const ctx = contextFromOptions(options)
       if (type == 'exportCP') {
         if (options.getHashes) {
           await exportCP_getHashes(ctx, options.transactionId, options.amount, options.fee)
         } else if(options.useLedger) {
-          await exportCP_useLedger(options.network, options.amount, options.fee)
+          await exportCP_useLedger(options.network, options.amount, options.fee, options.blind)
         } else if (options.useSignatures) {
           await exportCP_useSignatures(ctx, options.transactionId)
         } else {
@@ -102,9 +100,7 @@ export async function cli(program: Command) {
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .action(async (options: OptionValues) => {
       options = { ...options, ...program.opts() }
-      const ctx = (options.ctxFile) ?
-        contextFile(options.ctxFile) :
-        contextEnv(options.envPath, options.network)
+      const ctx = contextFromOptions(options)
       if (options.getHashes) {
         await stake_getHashes(ctx, options.transactionId, options.nodeId, options.amount, options.startTime, options.endTime)
       } else if (options.useSignatures) {
@@ -123,9 +119,7 @@ export async function cli(program: Command) {
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .action(async (options: OptionValues) => {
       options = { ...options, ...program.opts() }
-      const ctx = (options.ctxFile) ?
-        contextFile(options.ctxFile) :
-        contextEnv(options.envPath, options.network)
+      const ctx = contextFromOptions(options)
       if (options.getHashes) {
         await delegate_getHashes(ctx, options.transactionId, options.nodeId, options.amount, options.startTime, options.endTime)
       } else if (options.useSignatures) {
@@ -142,7 +136,6 @@ export async function cli(program: Command) {
     .option("--withdrawal", "Withdrawing funds from c-chain")
     .action(async (type: string, options: OptionValues) => {
       options = { ...options, ...program.opts() }
-      const ctx = (options.ctxFile) ? contextFile(options.ctxFile) : contextEnv(options.envPath, options.network)
       if (type == 'sign') {
         if (options.withdrawal) {
           await signForDefi(options.transactionId, options.ctxFile, true)
@@ -165,12 +158,7 @@ export async function cli(program: Command) {
   .option("-to, --to-address <to>", "Address to send funds to")
   .action(async (options: OptionValues) => {
     options = { ...options, ...program.opts() }
-    let ctx
-    if (options.ctxFile) {
-      ctx = contextFile(options.ctxFile)
-    } else {
-      ctx = contextEnv(options.envPath, options.network)
-    }
+    const ctx = contextFromOptions(options)
     if (options.getHashes) {
       await withdraw_getHash(ctx, options.to, options.amount, options.transactionId)
     } else if (options.useSignatures) {
@@ -199,6 +187,16 @@ export async function cli(program: Command) {
       await signId(options.transactionId, DERIVATION_PATH, false)
       logSuccess("Transaction signed")
     })
+}
+
+function contextFromOptions(options: OptionValues): Context {
+  if (options.useLedger) {
+    return getContext(options.network)
+  } else if (options.envPath) {
+    return contextEnv(options.envPath, options.network)
+  } else {
+    return contextFile(options.ctxFile)
+  }
 }
 
 function getAddressInfo(ctx: Context) {
@@ -256,16 +254,24 @@ async function exportCP_useSignatures(ctx: Context, txid: string) {
   logSuccess(`TXID: ${chainTxId}`)
 }
 
-async function exportCP_useLedger(hrp: string, amount: string, fee?: string) {
+async function exportCP_useLedger(hrp: string, amount: string, fee?: string, blind?: boolean) {
   const famount: BN = new BN(shiftDecimals(amount, 9))
   const ffee = (fee === undefined) ? fee : new BN(shiftDecimals(fee, 9))
+
+  logInfo("Fetching account from ledger...")
   const account = await ledgerGetAccount(DERIVATION_PATH, hrp)
   const context = getContext(hrp, account.publicKey)
+
+  logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await getUnsignedExportTxCP(context, famount, ffee)
-  const { signature } = await ledgerSign(unsignedTxJson.unsignedTransactionBuffer, DERIVATION_PATH, false)
+
+  logInfo("Please review and sign transaction on your ledger device...")
+  const { signature } = await ledgerSign(unsignedTxJson, DERIVATION_PATH, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
+
+  logInfo("Sending transaction to the node...")
   const { chainTxId } = await issueSignedEvmTx(context, signedTxJson)
-  logSuccess(`TXID: ${chainTxId}`)
+  logSuccess(`Transaction with id ${chainTxId} sent to the node`)
 }
 
 async function importCP(ctx: Context) {

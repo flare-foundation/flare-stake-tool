@@ -4,13 +4,13 @@ import AvalancheApp from '@avalabs/hw-app-avalanche'
 import { sha256 } from 'ethereumjs-util'
 import { recoverTransactionPublicKey, recoverTransactionSigner, prefix0x, standardizePublicKey, expandDerivationPath } from './utils'
 import { logInfo } from '../output'
+import { SignedTxJson, UnsignedTxJson } from '../interfaces'
 
 
-// If blind is true, then the message is a hash of the transaction buffer,
-// otherwise the message is the transaction buffer itself.
-export async function ledgerSign(message: string, derivationPath: string, blind: boolean = true): Promise<{
+export async function ledgerSign(tx: UnsignedTxJson, derivationPath: string, blind: boolean = true): Promise<{
 	signature: string, address: string, publicKey: string
 }> {
+	const message = blind ? tx.signatureRequests[0].message : tx.unsignedTransactionBuffer
 	const messageBuffer = Buffer.from(message, 'hex')
 	const transport = await TransportNodeHid.open(undefined)
 	const avalanche = new AvalancheApp(transport)
@@ -52,10 +52,9 @@ export async function signId(id: string, derivationPath: string, blind: boolean 
 export async function sign(file: string, derivationPath: string, blind: boolean = true) {
 	logInfo(`Please sign the transaction on your ledger device...`)
     const json = fs.readFileSync(file, 'utf8')
-    const tx: any = JSON.parse(json)
+    const tx: SignedTxJson = JSON.parse(json)
     if (tx && tx.signatureRequests && tx.signatureRequests.length > 0) {
-		const message = blind ? tx.signatureRequests[0].message : tx.unsignedTransactionBuffer
-        const { signature } = await ledgerSign(message, derivationPath, blind)
+        const { signature } = await ledgerSign(tx, derivationPath, blind)
         tx.signature = signature
         let outFile = file.replace('unsignedTx.json', 'signedTx.json')
         if (outFile === file) {
