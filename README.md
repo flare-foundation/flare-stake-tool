@@ -198,7 +198,7 @@ Here, the export is split in two steps:
 To obtain the signed hashes, use the following command:
 
 ```bash
-flare-stake-tool crosschain exportCP -a <amount> -id <id> --get-hashes --env-path <path to your public key file>
+flare-stake-tool crosschain exportCP -a <amount> -id <id> --get-unsigned --env-path <path to your public key file>
 ```
 where `id` is the ID that you want to use to identify the transaction. The command will generate a file caled `{id}.unsignedTx.json`
 file in the current directory, which holds all information about the unsigned transaction. Below is the example of the file structure
@@ -219,7 +219,7 @@ file in the current directory, which holds all information about the unsigned tr
 
 To finalize the transaction you need to raw-sign the message/hash and use the following command with your signed hash.
 ```bash
-flare-stake-tool crosschain exportCP -id 1 -sg <signed hash> --use-signatures --env-path <path to your private key file>
+flare-stake-tool crosschain exportCP -id 1 -sg <signed hash> --send --env-path <path to your private key file>
 ```
 
 The procedure for importing / staking / delegating with public key only is similar as it is for exporting
