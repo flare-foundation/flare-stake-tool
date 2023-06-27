@@ -100,11 +100,14 @@ export async function cli(program: Command) {
     .option("-s, --start-time <start-time>", "Start time of the staking process")
     .option("-e, --end-time <end-time>", "End time of the staking process")
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("-b, --blind", "Blind signing", false)
     .action(async (options: OptionValues) => {
       options = { ...options, ...program.opts() }
       const ctx = contextFromOptions(options)
       if (options.getHashes) {
         await stake_getHashes(ctx, options.transactionId, options.nodeId, options.amount, options.startTime, options.endTime)
+      } else if (options.useLedger) {
+        await stakeOrDelegate_useLedger('stake', options.network, options.nodeId, options.amount, options.startTime, options.endTime, options.blind)
       } else if (options.useSignatures) {
         await stake_useSignatures(ctx, options.transactionId)
       } else {
@@ -119,11 +122,14 @@ export async function cli(program: Command) {
     .option("-s, --start-time <start-time>", "Start time of the delegation process")
     .option("-e, --end-time <end-time>", "End time of the delegation process")
     .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("-b, --blind", "Blind signing", false)
     .action(async (options: OptionValues) => {
       options = { ...options, ...program.opts() }
       const ctx = contextFromOptions(options)
       if (options.getHashes) {
         await delegate_getHashes(ctx, options.transactionId, options.nodeId, options.amount, options.startTime, options.endTime)
+      } else if (options.useLedger) {
+        await stakeOrDelegate_useLedger('delegate', options.network, options.nodeId, options.amount, options.startTime, options.endTime, options.blind)
       } else if (options.useSignatures) {
         await delegate_useSignatures(ctx, options.transactionId)
       } else {
@@ -381,6 +387,32 @@ async function delegate_useSignatures(ctx: Context, id: string) {
   const signedTxJson = readSignedTxJson(id)
   const { chainTxId } = await issueSignedPvmTx(ctx, signedTxJson)
   logSuccess(`TXID: ${chainTxId}`)
+}
+
+async function stakeOrDelegate_useLedger(type: 'stake' | 'delegate', hrp: string, nodeID: string, amount: string,
+    start: string, end: string, blind?: boolean) {
+  logInfo("Fetching account from ledger...")
+  const account = await ledgerGetAccount(DERIVATION_PATH, hrp)
+  const context = getContext(hrp, account.publicKey)
+
+  let unsignedTxJson: UnsignedTxJson
+  if (type === 'stake') {
+    logInfo("Creating staking transaction...")
+    const famount = new BN(shiftDecimals(amount, 9))
+    unsignedTxJson = await getUnsignedAddValidator(context, nodeID, famount, new BN(start), new BN(end))
+  } else {
+    logInfo("Creating delegation transaction...")
+    const famount = new BN(shiftDecimals(amount, 9))
+    unsignedTxJson = await getUnsignedAddDelegator(context, nodeID, famount, new BN(start), new BN(end))
+  }
+
+  logInfo("Please review and sign the transaction on your ledger device...")
+  const { signature } = await ledgerSign(unsignedTxJson, DERIVATION_PATH, blind)
+  const signedTxJson = { ...unsignedTxJson, signature }
+
+  logInfo("Sending transaction to the node...")
+  const { chainTxId } = await issueSignedPvmTx(context, signedTxJson)
+  logSuccess(`Transaction with id ${chainTxId} sent to the node`)
 }
 
 async function signForDefi(transaction: string, ctx: string, withdrawal: boolean = false) {

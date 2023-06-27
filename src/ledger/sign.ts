@@ -21,6 +21,9 @@ export async function ledgerSign(tx: UnsignedTxJson, derivationPath: string, bli
 	let signature: string
 	if (blind) {
 		const resp = await avalanche.signHash(accountPath, [signPath], messageBuffer)
+		if (resp.errorMessage != 'No errors') {
+			throw new Error(`Can not sign message on ledger: ${resp.errorMessage}, code ${resp.returnCode}`)
+		}
 		const sign = resp.signatures?.get(signPath)?.toString('hex')
 		if (!sign) {
 			throw new Error("No signature returned")
@@ -30,6 +33,9 @@ export async function ledgerSign(tx: UnsignedTxJson, derivationPath: string, bli
 		addr = recoverTransactionSigner(messageBuffer, prefix0x(signature))
 	} else {
 		const resp = await avalanche.sign(accountPath, [signPath], messageBuffer)
+		if (resp.errorMessage != 'No errors') {
+			throw new Error(`Can not sign message on ledger: ${resp.errorMessage}, code ${resp.returnCode}`)
+		}
 		const sign = resp.signatures?.get(signPath)?.toString('hex')
 		if (!sign) {
 			throw new Error("No signature returned")
