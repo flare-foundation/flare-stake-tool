@@ -67,6 +67,8 @@ export async function cli(program: Command) {
       } else if (type == 'importCP') {
         if (options.getHashes) {
           await importCP_getHashes(ctx, options.transactionId)
+        } else if(options.useLedger) {
+          await importCP_useLedger(options.network, options.blind)
         } else if (options.useSignatures) {
           await importCP_useSignatures(ctx, options.transactionId)
         } else {
@@ -265,7 +267,7 @@ async function exportCP_useLedger(hrp: string, amount: string, fee?: string, bli
   logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await getUnsignedExportTxCP(context, famount, ffee)
 
-  logInfo("Please review and sign transaction on your ledger device...")
+  logInfo("Please review and sign the transaction on your ledger device...")
   const { signature } = await ledgerSign(unsignedTxJson, DERIVATION_PATH, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
 
@@ -288,6 +290,23 @@ async function importCP_getHashes(ctx: Context, id: string) {
 async function importCP_useSignatures(ctx: Context, txid: string) {
   const { chainTxId } = await issueSignedPvmTx(ctx, readSignedTxJson(txid))
   logSuccess(`TXID: ${chainTxId}`)
+}
+
+async function importCP_useLedger(hrp: string, blind?: boolean) {
+  logInfo("Fetching account from ledger...")
+  const account = await ledgerGetAccount(DERIVATION_PATH, hrp)
+  const context = getContext(hrp, account.publicKey)
+
+  logInfo("Creating import transaction...")
+  const unsignedTxJson: UnsignedTxJson = await getUnsignedImportTxCP(context)
+
+  logInfo("Please review and sign the transaction on your ledger device...")
+  const { signature } = await ledgerSign(unsignedTxJson, DERIVATION_PATH, blind)
+  const signedTxJson = { ...unsignedTxJson, signature }
+
+  logInfo("Sending transaction to the node...")
+  const { chainTxId } = await issueSignedPvmTx(context, signedTxJson)
+  logSuccess(`Transaction with id ${chainTxId} sent to the node`)
 }
 
 async function exportPC(ctx: Context, amount?: string) {
