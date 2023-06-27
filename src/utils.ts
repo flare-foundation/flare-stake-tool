@@ -122,27 +122,31 @@ export function prefix0x(hexString: string) {
   return hexString.startsWith("0x") ? hexString : "0x" + unPrefix0x(hexString)
 }
 
-export function shiftDecimals(dec: string, n: number): string {
+export function decimalToInteger(dec: string, offset: number): string {
   let ret = dec
   if (ret.includes('.')) {
     const split = ret.split('.')
-    ret = split[0] + split[1].slice(0,n).padEnd(n,'0')
+    ret = split[0] + split[1].slice(0,offset).padEnd(offset,'0')
   } else {
-    ret = ret + '0'.repeat(n)
+    ret = ret + '0'.repeat(offset)
   }
   return ret
 }
 
-export function integerToDecimal(int: string, n: number): string {
-  int = int.padStart(n, '0')
-  const part1 = int.slice(0,-n)
-  const part2 = int.slice(-n)
+export function integerToDecimal(int: string, offset: number): string {
+  int = int.padStart(offset, '0')
+  const part1 = int.slice(0,-offset)
+  const part2 = int.slice(-offset)
   return part1 + '.' + part2
 }
 
 export function parseRelativeTime(time: string): string {
   // assume time starts with now+
   return UnixNow().add(new BN(time.split('+')[1])).toString()
+}
+
+export function toBN(num: number | string | BN | undefined): BN | undefined {
+  return num ? new BN(num) : undefined
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
