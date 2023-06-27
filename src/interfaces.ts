@@ -17,7 +17,8 @@ export interface SignedTxJson extends UnsignedTxJson {
 export interface UnsignedWithdrawalTxJson {
   rawTx: WithdrawalTxData,
   message: string,
-  forDefiTxId?: string
+  forDefiTxId?: string,
+  forDefiHash?: string,
 }
 
 export interface SignedWithdrawalTxJson extends UnsignedWithdrawalTxJson {
