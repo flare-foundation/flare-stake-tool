@@ -3,7 +3,7 @@ import fs from 'fs'
 import { Avalanche, BinTools, Buffer as FlrBuffer } from '@flarenetwork/flarejs'
 import { PrivateKeyPrefix, PublicKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
 import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
-import { PlatformVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
+import { PlatformVMAPI as PVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { costwo, flare, localflare, NetworkConfig } from './config'
 import {
   unPrefix0x, publicKeyToBech32AddressString, publicKeyToEthereumAddressString,
@@ -20,7 +20,7 @@ export interface Context {
   web3: any,
   avalanche: Avalanche,
   cchain: EVMAPI,
-  pchain: PlatformVMAPI,
+  pchain: PVMAPI,
   cKeychain: EVMKeyChain,
   pKeychain: PVMKeyChain,
   pAddressBech32?: string,
@@ -120,7 +120,7 @@ function context(
 
   const avalanche = new Avalanche(ip, port, protocol, networkID)
   const cchain: EVMAPI = avalanche.CChain()
-  const pchain: PlatformVMAPI = avalanche.PChain()
+  const pchain: PVMAPI = avalanche.PChain()
   const cKeychain: EVMKeyChain = cchain.keyChain()
   const pKeychain: PVMKeyChain = pchain.keyChain()
 
