@@ -5,7 +5,7 @@ import { bech32 } from 'bech32'
 import { BN } from '@flarenetwork/flarejs/dist'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common"
-import { UnsignedTx as EvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/evm'
+import { UnsignedTx as EvmUnsignedTx, ImportTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { SignedTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, SignedWithdrawalTxJson } from './interfaces'
 
@@ -163,6 +163,23 @@ export function deserializeExportCP_args(serargs: string): [BN, string, string, 
   [0,7,9].map(i => args[i] = new BN(args[i], 16))
   return args
 }
+
+export function serializeImportPC_args(args: [UTXOSet, string, string[], string, string[], BN]): string {
+  const serargs: any[] = args
+  serargs[5] = args[5]!.toString(16)
+  serargs[0] = args[0].serialize('hex')
+  return JSON.stringify(args, null, 2)
+}
+
+export function deserializeImportPC_args(serargs: string): [UTXOSet, string, string[], string, string[], BN] {
+  const args = JSON.parse(serargs);
+  const utxoSet = new UTXOSet()
+  utxoSet.deserialize(args[0])
+  args[0] = utxoSet
+  args[5] = new BN(args[5], 16)
+  return args
+}
+
 
 export function serializeUnsignedTx(unsignedTx: EvmUnsignedTx | PvmUnsignedTx): string {
   return JSON.stringify(unsignedTx.serialize("hex"), null, 2)

@@ -1,14 +1,17 @@
 import { BN } from '@flarenetwork/flarejs/dist'
-import { EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
-import { UnsignedTx, Tx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
+import { EVMStandardUnsignedTx, EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
+import { UnsignedTx, Tx, UTXOSet, ImportTx } from '@flarenetwork/flarejs/dist/apis/evm'
 import { costImportTx, costExportTx } from "@flarenetwork/flarejs/dist/utils"
 import { Context } from './constants'
 import { SignedTxJson, UnsignedTxJson } from './interfaces'
 import {
   integerToDecimal as shiftDecimals, expandSignature,
-  serializeExportCP_args, deserializeExportCP_args,
-  serializeUnsignedTx
+  serializeExportCP_args, deserializeExportCP_args, deserializeImportPC_args,
+  serializeUnsignedTx,
+  serializeImportPC_args
 } from './utils'
+
+import { UnsignedTx as EvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/evm'
 
 /**
  * Exports funds from C-chain to P-chain
@@ -78,30 +81,30 @@ export async function getUnsignedImportTxPC(
     ctx.pChainBlockchainID
   )
   const utxoSet: UTXOSet = evmUTXOResponse.utxos
-  let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(
+
+  const args: [UTXOSet, string, string[], string, string[], BN] = [
     utxoSet,
     ctx.cAddressHex!,
     [ctx.cAddressBech32!],
     ctx.pChainBlockchainID,
     [ctx.cAddressBech32!],
     baseFee
-  )
+  ]
+
+  let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...args)
 
   if (fee === undefined) {
     const importCost: number = costImportTx(unsignedTx)
     fee = baseFee.mul(new BN(importCost))
-    unsignedTx = await ctx.cchain.buildImportTx(
-      utxoSet,
-      ctx.cAddressHex!,
-      [ctx.cAddressBech32!],
-      ctx.pChainBlockchainID,
-      [ctx.cAddressBech32!],
-      fee
-    )
+    args[5] = fee
+    unsignedTx = await ctx.cchain.buildImportTx(...args)
   }
 
+  const uns = unsignedTx.prepareUnsignedHashes(ctx.cKeychain)
+  console.log("-----", uns)
+
   return <UnsignedTxJson>{
-    serialization: serializeUnsignedTx(unsignedTx), // TODO: does not work correctly
+    serialization: serializeImportPC_args(args),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex'),
     usedFee: fee.toString(10)
@@ -200,10 +203,21 @@ export async function getUnsignedExportTxCP(ctx: Context, amount: BN, fee?: BN):
  * @param ctx - context with constants initialized from user keys
  * @param id - id associated with the transation
  */
+// todo: rename this and next function or join them
 export async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson): Promise<{ chainTxId: string }> {
   const signatures = Array(signedTxJson.signatureRequests.length).fill(signedTxJson.signature)
   const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
   const unsignedTx = await ctx.cchain.buildExportTx(...deserializeExportCP_args(signedTxJson.serialization))
+  const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
+  const chainTxId = await ctx.cchain.issueTx(tx)
+  return { chainTxId: chainTxId }
+}
+
+// TODO: rename this and prev function or join them
+export async function issueSignedEvmTxPC(ctx: Context, signedTxJson: SignedTxJson): Promise<{ chainTxId: string }> {
+  const signatures = Array(signedTxJson.signatureRequests.length).fill(signedTxJson.signature)
+  const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
+  const unsignedTx = await ctx.cchain.buildImportTx(...deserializeImportPC_args(signedTxJson.serialization))
   const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
   const chainTxId = await ctx.cchain.issueTx(tx)
   return { chainTxId: chainTxId }

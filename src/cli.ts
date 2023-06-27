@@ -2,7 +2,7 @@ import { Command, OptionValues } from 'commander'
 import { UnsignedTxJson, SignedTxJson } from './interfaces'
 import { compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson, saveUnsignedTxJson, toBN } from './utils'
 import { contextEnv, contextFile, getContext, Context } from './constants'
-import { exportTxCP, importTxPC, issueSignedEvmTx, getUnsignedExportTxCP, getUnsignedImportTxPC } from './evmAtomicTx'
+import { exportTxCP, importTxPC, issueSignedEvmTx, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxPC } from './evmAtomicTx'
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './pvmAtomicTx'
 import { addValidator, getUnsignedAddValidator } from './addValidator'
 import { addDelegator, getUnsignedAddDelegator } from './addDelegator'
@@ -180,44 +180,57 @@ async function buildAndSendTx(
 }
 
 async function buildUnsignedTxJson(
-  transactionType: string, context: Context, params?: FlareTxParams
+  transactionType: string, context: Context, params: FlareTxParams
 ): Promise<UnsignedTxJson> {
-  if (transactionType === 'exportCP') {
-    const { amount, fee } = params!
-    return getUnsignedExportTxCP(context, toBN(amount)!, toBN(fee))
-  } else if (transactionType === 'importCP') {
-    return getUnsignedImportTxCP(context)
-  } else if (transactionType === 'exportPC') {
-    const { amount } = params!
-    return getUnsignedExportTxPC(context, toBN(amount)!)
-  } else if (transactionType === 'importPC') {
-    const { fee } = params!
-    return getUnsignedImportTxPC(context, toBN(fee))
-  } else if (transactionType === 'stake') {
-    const { nodeId, amount, startTime, endTime } = params!
-    return getUnsignedAddValidator(context, nodeId!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
-  } else if (transactionType === 'delegate') {
-    const { nodeId, amount, startTime, endTime } = params!
-    return getUnsignedAddDelegator(context, nodeId!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
-  } else {
-    throw new Error(`Unknown transaction type: ${transactionType}`)
+  switch (transactionType) {
+    case 'exportCP': {
+      const { amount, fee } = params!
+      return getUnsignedExportTxCP(context, toBN(amount)!, toBN(fee))
+    }
+    case 'importCP':
+      return getUnsignedImportTxCP(context)
+    case 'exportPC': {
+      const { amount } = params!
+      return getUnsignedExportTxPC(context, toBN(amount)!)
+    }
+    case 'importPC': {
+      const { fee } = params!
+      return getUnsignedImportTxPC(context, toBN(fee))
+    }
+    case 'stake': {
+      const { nodeId, amount, startTime, endTime } = params
+      return getUnsignedAddValidator(context, nodeId!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
+    }
+    case 'delegate': {
+      const { nodeId, amount, startTime, endTime } = params
+      return getUnsignedAddDelegator(context, nodeId!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
+    }
+    default:
+      throw new Error(`Unknown transaction type: ${transactionType}`)
   }
 }
 
 async function sendSignedTxJson(
   transactionType: string, context: Context, signedTxJson: SignedTxJson
 ): Promise<string> {
-  if (transactionType === 'exportCP' || transactionType === 'exportPC') {
-    const { chainTxId } = await issueSignedEvmTx(context, signedTxJson)
-    return chainTxId
-  } else if (
-    transactionType === 'importCP' || transactionType === 'importPC' ||
-    transactionType === 'stake' || transactionType === 'delegate'
-  ) {
-    const { chainTxId } = await issueSignedPvmTx(context, signedTxJson)
-    return chainTxId
-  } else {
-    throw new Error(`Unknown transaction type: ${transactionType}`)
+  switch (transactionType) {
+    case 'exportCP': {
+      const { chainTxId } = await issueSignedEvmTx(context, signedTxJson)
+      return chainTxId
+    }
+    case 'importPC': {
+      const { chainTxId } = await issueSignedEvmTxPC(context, signedTxJson)
+      return chainTxId
+    }
+    case 'exportPC':
+    case 'importCP':
+    case 'stake':
+    case 'delegate': {
+      const { chainTxId } = await issueSignedPvmTx(context, signedTxJson)
+      return chainTxId
+    }
+    default:
+      throw new Error(`Unknown transaction type: ${transactionType}`)
   }
 }
 
@@ -285,7 +298,7 @@ async function cliSendSignedTxJson(transactionType: string, ctx: Context, id: st
 // Transaction execution using ledger device
 
 async function buildAndSendTxUsingLedger(
-  transactionType: string, hrp: string, params?: FlareTxParams, blind?: boolean
+  transactionType: string, hrp: string, params: FlareTxParams, blind: boolean
 ): Promise<void> {
   logInfo("Fetching account from ledger...")
   const account = await ledgerGetAccount(DERIVATION_PATH, hrp)
