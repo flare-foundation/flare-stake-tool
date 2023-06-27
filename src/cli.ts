@@ -1,5 +1,5 @@
 import { Command, OptionValues } from 'commander'
-import { UnsignedTxJson, SignedTxJson } from './interfaces'
+import { UnsignedTxJson } from './interfaces'
 import { compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson, saveUnsignedTxJson, toBN } from './utils'
 import { contextEnv, contextFile, getContext, Context } from './constants'
 import { exportTxCP, importTxPC, issueSignedEvmTx, getUnsignedExportTxCP, getUnsignedImportTxPC } from './evmAtomicTx'
@@ -118,7 +118,7 @@ export async function cli(program: Command) {
       if (options.getHashes) {
         await stake_getHashes(ctx, options.transactionId, options.nodeId, options.nanoAmount, options.startTime, options.endTime)
       } else if (options.useLedger) {
-        await stakeOrDelegate_useLedger('stake', options.network, options.nodeId, options.amount, options.startTime, options.endTime, options.blind)
+        await stakeOrDelegate_useLedger('stake', options.network, options.nodeId, options.nanoAmount, options.startTime, options.endTime, options.blind)
       } else if (options.useSignatures) {
         await stake_useSignatures(ctx, options.transactionId)
       } else {
@@ -140,7 +140,7 @@ export async function cli(program: Command) {
       if (options.getHashes) {
         await delegate_getHashes(ctx, options.transactionId, options.nodeId, options.nanoAmount, options.startTime, options.endTime)
       } else if (options.useLedger) {
-        await stakeOrDelegate_useLedger('delegate', options.network, options.nodeId, options.amount, options.startTime, options.endTime, options.blind)
+        await stakeOrDelegate_useLedger('delegate', options.network, options.nodeId, options.nanoAmount, options.startTime, options.endTime, options.blind)
       } else if (options.useSignatures) {
         await delegate_useSignatures(ctx, options.transactionId)
       } else {
@@ -395,12 +395,10 @@ async function stakeOrDelegate_useLedger(type: 'stake' | 'delegate', hrp: string
   let unsignedTxJson: UnsignedTxJson
   if (type === 'stake') {
     logInfo("Creating staking transaction...")
-    const famount = new BN(shiftDecimals(amount, 9))
-    unsignedTxJson = await getUnsignedAddValidator(context, nodeID, famount, new BN(start), new BN(end))
+    unsignedTxJson = await getUnsignedAddValidator(context, nodeID, toBN(amount)!, toBN(start)!, toBN(end)!)
   } else {
     logInfo("Creating delegation transaction...")
-    const famount = new BN(shiftDecimals(amount, 9))
-    unsignedTxJson = await getUnsignedAddDelegator(context, nodeID, famount, new BN(start), new BN(end))
+    unsignedTxJson = await getUnsignedAddDelegator(context, nodeID, toBN(amount)!, toBN(start)!, toBN(end)!)
   }
 
   logInfo("Please review and sign the transaction on your ledger device...")
