@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
 import { sleepms, unPrefix0x, readUnsignedTxJson, publicKeyToEthereumAddressString, readUnsignedWithdrawalTx } from "../src/utils"
 import { ContextFile } from './constants'
-import { UnsignedTxJson, UnsignedWithdrawalTxJson } from './interfaces'
+import { SignedTxJson, SignedWithdrawalTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson } from './interfaces'
 
 const gatewayHost = "api.fordefi.com"
 
@@ -82,10 +82,13 @@ export async function getSignature(unsignedTxidFile: string, withdrawal: boolean
     const accessToken = readFileSync("../token", 'utf8');
 
     let txidObj: UnsignedTxJson | UnsignedWithdrawalTxJson;
+    let signedTxObj: SignedTxJson | SignedWithdrawalTxJson;
     if (!withdrawal) {
         txidObj = readUnsignedTxJson(unsignedTxidFile);
+        signedTxObj = txidObj as SignedTxJson;
     } else {
         txidObj = readUnsignedWithdrawalTx(unsignedTxidFile);
+        signedTxObj = txidObj as SignedWithdrawalTxJson;
     }
     let id = txidObj.forDefiTxId;
 
@@ -107,11 +110,9 @@ export async function getSignature(unsignedTxidFile: string, withdrawal: boolean
         throw Error("Transaction is not signed yet? " + e)
     }
 
-    let signedTxid = {
-        signature: signatureHex
-    }
+    signedTxObj.signature = signatureHex;
 
-    writeFileSync(`${unsignedTxidFile}.signedTx.json`, JSON.stringify(signedTxid), "utf8");
+    writeFileSync(`${unsignedTxidFile}.signedTx.json`, JSON.stringify(signedTxObj), "utf8");
 
     return signatureHex;
 }
