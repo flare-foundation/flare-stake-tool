@@ -37,7 +37,7 @@ If you want to use a different "context file", you need to specify it with `--ct
 # Exporting the funds from C-chain to P-chain (1)
 
 ```
-flare-stake-tool crosschain exportCP -a 16750001 -id 1 --get-hashes
+flare-stake-tool crosschain exportCP -a 16750001 -id 1 --get-unsigned
 ```
 
 Connect to the Ledger and have the modified Avalanche app or "original" Avalanche app turned on. Sign the hash (blind signing).
@@ -54,14 +54,14 @@ flare-stake-tool sign -id 1
 Issue the transaction to the chain.
 
 ```
-flare-stake-tool crosschain exportCP -id 1 --use-signatures
+flare-stake-tool crosschain exportCP -id 1 --send
 ```
 
 
 # Importing the funds to P-chain
 
 ```
-flare-stake-tool crosschain importCP -id 2 --get-hashes
+flare-stake-tool crosschain importCP -id 2 --get-unsigned
 ```
 
 Connect to the Ledger and have the modified Avalanche app turned on. Sign the hash (blind signing).
@@ -77,7 +77,7 @@ flare-stake-tool sign -id 2
 
 Issue the transaction to the chain.
 ```
-flare-stake-tool crosschain importCP -id 2 --use-signatures
+flare-stake-tool crosschain importCP -id 2 --send
 ```
 
 # Staking
@@ -85,7 +85,7 @@ flare-stake-tool crosschain importCP -id 2 --use-signatures
 NOTE: use correct parameters for your stake (nodeid, amount in FLR, start time, end time).
 
 ```
-flare-stake-tool stake -id 3 --get-hashes -n "NodeID-H7TKshVe5cxKiheViWZHKdRo8e7wMZ6ZP" -a 16750000 -s 1688569201 -e 1696863601
+flare-stake-tool stake -id 3 --get-unsigned -n "NodeID-H7TKshVe5cxKiheViWZHKdRo8e7wMZ6ZP" -a 16750000 -s 1688569201 -e 1696863601
 ```
 
 Connect to the Ledger and have the modified Avalanche app turned on. Sign the hash (blind signing).
@@ -102,7 +102,7 @@ flare-stake-tool sign -id 3
 
 Issue transaction.
 ```
-flare-stake-tool stake -id 3 --use-signatures
+flare-stake-tool stake -id 3 --send
 ```
 
 # Delegation
@@ -110,7 +110,7 @@ flare-stake-tool stake -id 3 --use-signatures
 NOTE: if you have done staking in the session, do not do the delegation in this session.
 
 ```
-flare-stake-tool delegate -id 4 --get-hashes -n "staked_node_ID" -a stake_amount -s stake_start_time -e stake_end_time
+flare-stake-tool delegate -id 4 --get-unsigned -n "staked_node_ID" -a stake_amount -s stake_start_time -e stake_end_time
 
 replace the following
 - stake_start_time : use 1688569201 for first stake on flare
@@ -132,7 +132,7 @@ flare-stake-tool sign -id 4
 
 Issue transaction.
 ```
-flare-stake-tool stake -id 4 --use-signatures
+flare-stake-tool stake -id 4 --send
 ```
 
 # Check balances at any time

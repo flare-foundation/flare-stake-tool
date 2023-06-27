@@ -20,8 +20,8 @@ export async function cli(program: Command) {
     .option("--network <network>", "Network name (flare or costwo)", 'flare')
     .option("--env-path <path>", "Path to the .env file")
     .option("--ctx-file <file>", "Context file as returned by ledger commnunication tool", 'ctx.json')
-    .option("--get-hashes", "Get hashes of transaction to sign")
-    .option("--use-signatures", "Use hash signatures to finalize the transaction")
+    .option("--get-unsigned", "Create unsigned transaction")
+    .option("--send", "Use hash signatures to finalize the transaction")
     .option("--use-ledger", "Use ledger to sign transactions")
   // information about the network
   program
