@@ -15,7 +15,7 @@ import { log, logInfo, logSuccess } from './output'
 interface FlareTxParams {
   amount?: string
   fee?: string
-  nodeID?: string
+  nodeId?: string
   startTime?: string
   endTime?: string
 }
@@ -36,7 +36,7 @@ export async function cli(program: Command) {
     .argument("<type>", "Type of information")
     .action(async (type: string) => {
       logInfo("Getting information about the network")
-      const options = getOptions(program, {})
+      const options = program.opts()
       const ctx = contextFromOptions(options)
       if (type == 'addresses') {
         getAddressInfo(ctx)
@@ -57,7 +57,7 @@ export async function cli(program: Command) {
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Fee of a transaction")
-    .option("-n, --node-id <nodeID>", "The staking/delegating node's id")
+    .option("-n, --node-id <nodeId>", "The staking/delegating node's id")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
     .action(async (type: string, options: OptionValues) => {
@@ -68,7 +68,7 @@ export async function cli(program: Command) {
       } else if (options.sendSignedTx) {
         await cliSendSignedTxJson(type, ctx, options.transactionId)
       } else if (options.ledger) {
-        await buildAndSendTxUsingLedger(type, options.network, options as FlareTxParams)
+        await buildAndSendTxUsingLedger(type, options.network, options as FlareTxParams, options.blind)
       } else {
         await cliBuildAndSendTx(type, ctx, options as FlareTxParams)
       }
@@ -104,9 +104,9 @@ export async function cli(program: Command) {
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
     const ctx = contextFromOptions(options)
-    if (options.getHashes) {
+    if (options.getUnsigned) {
       await withdraw_getHash(ctx, options.to, options.amount, options.transactionId)
-    } else if (options.useSignatures) {
+    } else if (options.send) {
       await withdraw_useSignature(ctx, options.transactionId)
     }
   })
@@ -171,9 +171,9 @@ async function buildAndSendTx(
   } else if (transactionType === 'importPC') {
     return importTxPC(context, toBN(params.fee))
   } else if (transactionType === 'stake') {
-    return addValidator(context, params.nodeID!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
+    return addValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
   } else if (transactionType === 'delegate') {
-    return addDelegator(context, params.nodeID!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
+    return addDelegator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
   }
@@ -193,12 +193,12 @@ async function buildUnsignedTxJson(
   } else if (transactionType === 'importPC') {
     const { fee } = params!
     return getUnsignedImportTxPC(context, toBN(fee))
-  } else if (transactionType === 'addValidator') {
-    const { nodeID, amount, startTime, endTime } = params!
-    return getUnsignedAddValidator(context, nodeID!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
-  } else if (transactionType === 'addDelegator') {
-    const { nodeID, amount, startTime, endTime } = params!
-    return getUnsignedAddDelegator(context, nodeID!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
+  } else if (transactionType === 'stake') {
+    const { nodeId, amount, startTime, endTime } = params!
+    return getUnsignedAddValidator(context, nodeId!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
+  } else if (transactionType === 'delegate') {
+    const { nodeId, amount, startTime, endTime } = params!
+    return getUnsignedAddDelegator(context, nodeId!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
   } else {
     throw new Error(`Unknown transaction type: ${transactionType}`)
   }
@@ -212,7 +212,7 @@ async function sendSignedTxJson(
     return chainTxId
   } else if (
     transactionType === 'importCP' || transactionType === 'importPC' ||
-    transactionType === 'addValidator' || transactionType === 'addDelegator'
+    transactionType === 'stake' || transactionType === 'delegate'
   ) {
     const { chainTxId } = await issueSignedPvmTx(context, signedTxJson)
     return chainTxId
@@ -290,14 +290,11 @@ async function buildAndSendTxUsingLedger(
   logInfo("Fetching account from ledger...")
   const account = await ledgerGetAccount(DERIVATION_PATH, hrp)
   const context = getContext(hrp, account.publicKey)
-
   logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
-
   logInfo("Please review and sign the transaction on your ledger device...")
   const { signature } = await ledgerSign(unsignedTxJson, DERIVATION_PATH, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
-
   logInfo("Sending transaction to the node...")
   const chainTxId = await sendSignedTxJson(transactionType, context, signedTxJson)
   logSuccess(`Transaction with id ${chainTxId} sent to the node`)
