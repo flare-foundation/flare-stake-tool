@@ -3,8 +3,7 @@ const fetch = require('node-fetch')
 import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
 import { sleepms, unPrefix0x, readUnsignedTxJson, publicKeyToEthereumAddressString, readUnsignedWithdrawalTx } from "../src/utils"
-import { ContextFile } from './constants'
-import { SignedTxJson, SignedWithdrawalTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson } from './interfaces'
+import { SignedTxJson, SignedWithdrawalTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, ContextFile } from './interfaces'
 
 const gatewayHost = "api.fordefi.com"
 

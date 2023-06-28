@@ -2,8 +2,7 @@ import { EcdsaSignature, SignatureRequest } from '@flarenetwork/flarejs/dist/com
 import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist//utils'
-import { Context } from './constants'
-import { SignedTxJson, UnsignedTxJson } from './interfaces'
+import { SignedTxJson, UnsignedTxJson, Context } from './interfaces'
 import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx } from './utils'
 
 /**

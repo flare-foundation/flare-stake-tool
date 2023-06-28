@@ -1,8 +1,7 @@
-import { BN, Buffer } from '@flarenetwork/flarejs/dist'
+import { BN } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
-import { Context } from './constants'
-import { UnsignedTxJson } from './interfaces'
+import { UnsignedTxJson, Context } from './interfaces'
 import { serializeUnsignedTx } from './utils'
 
 

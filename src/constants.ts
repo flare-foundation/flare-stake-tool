@@ -4,41 +4,13 @@ import { Avalanche, BinTools, Buffer as FlrBuffer } from '@flarenetwork/flarejs'
 import { PrivateKeyPrefix, PublicKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
 import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
 import { PlatformVMAPI as PVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
+import { Context, ContextFile } from './interfaces'
 import { costwo, flare, localflare, NetworkConfig } from './config'
 import {
   unPrefix0x, publicKeyToBech32AddressString, publicKeyToEthereumAddressString,
   privateKeyToPublicKey,
   decodePublicKey
 } from './utils'
-
-
-export interface Context {
-  privkHex?: string,
-  privkCB58?: string,
-  publicKey?: [Buffer, Buffer],
-  rpcurl: string,
-  web3: any,
-  avalanche: Avalanche,
-  cchain: EVMAPI,
-  pchain: PVMAPI,
-  cKeychain: EVMKeyChain,
-  pKeychain: PVMKeyChain,
-  pAddressBech32?: string,
-  cAddressBech32?: string,
-  cAddressHex?: string,
-  cChainBlockchainID: string,
-  pChainBlockchainID: string,
-  avaxAssetID: string,
-  config: NetworkConfig
-}
-
-export interface ContextFile {
-  publicKey: string
-  flareAddress: string
-  ethAddress: string
-  network: string,
-  vaultId: string
-}
 
 export function contextEnv(path: string, network: string): Context {
   require('dotenv').config({path: path})

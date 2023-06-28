@@ -1,17 +1,14 @@
 import { BN } from '@flarenetwork/flarejs/dist'
-import { EVMStandardUnsignedTx, EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
-import { UnsignedTx, Tx, UTXOSet, ImportTx } from '@flarenetwork/flarejs/dist/apis/evm'
+import { EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
+import { UnsignedTx, Tx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { costImportTx, costExportTx } from "@flarenetwork/flarejs/dist/utils"
-import { Context } from './constants'
-import { SignedTxJson, UnsignedTxJson } from './interfaces'
+import { SignedTxJson, UnsignedTxJson, Context } from './interfaces'
 import {
   integerToDecimal as shiftDecimals, expandSignature,
   serializeExportCP_args, deserializeExportCP_args, deserializeImportPC_args,
-  serializeUnsignedTx,
   serializeImportPC_args
 } from './utils'
 
-import { UnsignedTx as EvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/evm'
 
 /**
  * Exports funds from C-chain to P-chain
