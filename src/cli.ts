@@ -2,7 +2,7 @@ import { Command, OptionValues } from 'commander'
 import { UnsignedTxJson, SignedTxJson, Context } from './interfaces'
 import { compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson, saveUnsignedTxJson, toBN } from './utils'
 import { contextEnv, contextFile, getContext } from './constants'
-import { exportTxCP, importTxPC, issueSignedEvmTx, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxPC } from './evmAtomicTx'
+import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './evmAtomicTx'
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './pvmAtomicTx'
 import { addValidator, getUnsignedAddValidator } from './addValidator'
 import { addDelegator, getUnsignedAddDelegator } from './addDelegator'
@@ -10,7 +10,7 @@ import { initContext, DERIVATION_PATH, ledgerGetAccount } from './ledger/key'
 import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal';
-import { log, logInfo, logSuccess } from './output'
+import { log, logError, logInfo, logSuccess } from './output'
 
 interface FlareTxParams {
   amount?: string
@@ -35,19 +35,21 @@ export async function cli(program: Command) {
     .command("info").description("Relevant information")
     .argument("<type>", "Type of information")
     .action(async (type: string) => {
-      logInfo("Getting information about the network")
       const options = program.opts()
-      const ctx = contextFromOptions(options)
       if (type == 'addresses') {
-        getAddressInfo(ctx)
+        const ctx = await contextFromOptions(options)
+        logAddressInfo(ctx)
       } else if (type == 'balance') {
-        await getBalanceInfo(ctx)
+        const ctx = await contextFromOptions(options)
+        await logBalanceInfo(ctx)
       } else if (type == 'network') {
-        getNetworkInfo(ctx)
-      } else if (type == 'livenetwork') {
-        // implement this nicely
+        const ctx = getContext(options.network)
+        logNetworkInfo(ctx)
       } else if (type == 'validators') {
-        await getValidatorInfo(ctx)
+        const ctx = getContext(options.network)
+        await logValidatorInfo(ctx)
+      } else {
+        logError(`Unknown information type ${type}`)
       }
     })
   // moving funds from one chain to another
@@ -62,13 +64,13 @@ export async function cli(program: Command) {
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
-      const ctx = contextFromOptions(options)
+      const ctx = await contextFromOptions(options)
       if (options.getUnsignedTx) {
         await cliBuildUnsignedTxJson(type, ctx, options.transactionId, options as FlareTxParams)
       } else if (options.sendSignedTx) {
         await cliSendSignedTxJson(type, ctx, options.transactionId)
       } else if (options.ledger) {
-        await buildAndSendTxUsingLedger(type, options.network, options as FlareTxParams, options.blind)
+        await buildAndSendTxUsingLedger(type, ctx, options as FlareTxParams, options.blind)
       } else {
         await cliBuildAndSendTx(type, ctx, options as FlareTxParams)
       }
@@ -103,7 +105,7 @@ export async function cli(program: Command) {
   .option("-to, --to <to>", "Address to send funds to")
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
-    const ctx = contextFromOptions(options)
+    const ctx = await contextFromOptions(options)
     if (options.getUnsigned) {
       await withdraw_getHash(ctx, options.to, options.amount, options.transactionId)
     } else if (options.send) {
@@ -134,9 +136,12 @@ export async function cli(program: Command) {
     })
 }
 
-function contextFromOptions(options: OptionValues): Context {
-  if (options.useLedger) {
-    return getContext(options.network)
+async function contextFromOptions(options: OptionValues): Promise<Context> {
+  if (options.ledger) {
+    logInfo("Fetching account from ledger...")
+    const account = await ledgerGetAccount(DERIVATION_PATH, options.network)
+    const context = getContext(options.network, account.publicKey)
+    return context
   } else if (options.envPath) {
     return contextEnv(options.envPath, options.network)
   } else {
@@ -215,11 +220,11 @@ async function sendSignedTxJson(
 ): Promise<string> {
   switch (transactionType) {
     case 'exportCP': {
-      const { chainTxId } = await issueSignedEvmTx(context, signedTxJson)
+      const { chainTxId } = await issueSignedEvmTxCPExport(context, signedTxJson)
       return chainTxId
     }
     case 'importPC': {
-      const { chainTxId } = await issueSignedEvmTxPC(context, signedTxJson)
+      const { chainTxId } = await issueSignedEvmTxPCImport(context, signedTxJson)
       return chainTxId
     }
     case 'exportPC':
@@ -237,36 +242,40 @@ async function sendSignedTxJson(
 //////////////////////////////////////////////////////////////////////////////////////////
 // Network info
 
-function getAddressInfo(ctx: Context) {
+function logAddressInfo(ctx: Context) {
   const [pubX, pubY] = ctx.publicKey!
   const compressedPubKey = compressPublicKey(pubX, pubY).toString('hex')
+  logInfo(`Addresses on the network "${ctx.config.hrp}"`)
   log(`P-chain address: ${ctx.pAddressBech32}`)
   log(`C-chain address hex: ${ctx.cAddressHex}`)
   log(`secp256k1 public key: 0x${compressedPubKey}`)
 }
 
-async function getBalanceInfo(ctx: Context) {
+async function logBalanceInfo(ctx: Context) {
   let cbalance = (toBN(await ctx.web3.eth.getBalance(ctx.cAddressHex!)))!.toString()
   let pbalance = (toBN((await ctx.pchain.getBalance(ctx.pAddressBech32!)).balance))!.toString()
   cbalance = integerToDecimal(cbalance, 18)
   pbalance = integerToDecimal(pbalance, 9)
+  logInfo(`Balances on the network "${ctx.config.hrp}"`)
   log(`C-chain ${ctx.cAddressHex}: ${cbalance}`)
   log(`P-chain ${ctx.pAddressBech32}: ${pbalance}`)
 }
 
-function getNetworkInfo(ctx: Context) {
+function logNetworkInfo(ctx: Context) {
   const pchainId = ctx.pchain.getBlockchainID()
   const cchainId = ctx.cchain.getBlockchainID()
+  logInfo(`Information about the network "${ctx.config.hrp}"`)
   log(`blockchainId for P-chain: ${pchainId}`)
   log(`blockchainId for C-chain: ${cchainId}`)
   log(`assetId: ${ctx.avaxAssetID}`)
 }
 
-async function getValidatorInfo(ctx: Context) {
+async function logValidatorInfo(ctx: Context) {
   const pending = await ctx.pchain.getPendingValidators()
   const current = await ctx.pchain.getCurrentValidators()
   const fpending = JSON.stringify(pending, null, 2)
   const fcurrent = JSON.stringify(current, null, 2)
+  logInfo(`Validators on the network "${ctx.config.hrp}"`)
   log(`pending: ${fpending}`)
   log(`current: ${fcurrent}`)
 }
@@ -297,12 +306,8 @@ async function cliSendSignedTxJson(transactionType: string, ctx: Context, id: st
 //////////////////////////////////////////////////////////////////////////////////////////
 // Transaction execution using ledger device
 
-async function buildAndSendTxUsingLedger(
-  transactionType: string, hrp: string, params: FlareTxParams, blind: boolean
+async function buildAndSendTxUsingLedger(transactionType: string, context: Context, params: FlareTxParams, blind: boolean
 ): Promise<void> {
-  logInfo("Fetching account from ledger...")
-  const account = await ledgerGetAccount(DERIVATION_PATH, hrp)
-  const context = getContext(hrp, account.publicKey)
   logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
   logInfo("Please review and sign the transaction on your ledger device...")

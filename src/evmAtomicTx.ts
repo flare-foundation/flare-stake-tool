@@ -97,9 +97,6 @@ export async function getUnsignedImportTxPC(
     unsignedTx = await ctx.cchain.buildImportTx(...args)
   }
 
-  const uns = unsignedTx.prepareUnsignedHashes(ctx.cKeychain)
-  console.log("-----", uns)
-
   return <UnsignedTxJson>{
     serialization: serializeImportPC_args(args),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
@@ -196,25 +193,30 @@ export async function getUnsignedExportTxCP(ctx: Context, amount: BN, fee?: BN):
 }
 
 /**
- * Export funds from C-chain to P-chain by providing signed hashes
+ * Issue a transaction to export funds from C-chain to P-chain
  * @param ctx - context with constants initialized from user keys
- * @param id - id associated with the transation
+ * @param signedTxJson - signed transaction
  */
-// todo: rename this and next function or join them
-export async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson): Promise<{ chainTxId: string }> {
-  const signatures = Array(signedTxJson.signatureRequests.length).fill(signedTxJson.signature)
-  const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
-  const unsignedTx = await ctx.cchain.buildExportTx(...deserializeExportCP_args(signedTxJson.serialization))
-  const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
-  const chainTxId = await ctx.cchain.issueTx(tx)
-  return { chainTxId: chainTxId }
+export async function issueSignedEvmTxCPExport(ctx: Context, signedTxJson: SignedTxJson): Promise<{ chainTxId: string }> {
+  return issueSignedEvmTx(ctx, signedTxJson, async (serialization: string) =>
+    ctx.cchain.buildExportTx(...deserializeExportCP_args(serialization)))
 }
 
-// TODO: rename this and prev function or join them
-export async function issueSignedEvmTxPC(ctx: Context, signedTxJson: SignedTxJson): Promise<{ chainTxId: string }> {
+/**
+ * Issue a transaction to import funds from P-chain
+ * @param ctx - context with constants initialized from user keys
+ * @param signedTxJson - signed transaction
+ */
+export async function issueSignedEvmTxPCImport(ctx: Context, signedTxJson: SignedTxJson): Promise<{ chainTxId: string }> {
+  return issueSignedEvmTx(ctx, signedTxJson, async (serialization: string) =>
+    ctx.cchain.buildImportTx(...deserializeImportPC_args(serialization)))
+}
+
+async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson,
+    txBuilder: (serialization: string) => Promise<UnsignedTx>): Promise<{ chainTxId: string }> {
   const signatures = Array(signedTxJson.signatureRequests.length).fill(signedTxJson.signature)
   const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
-  const unsignedTx = await ctx.cchain.buildImportTx(...deserializeImportPC_args(signedTxJson.serialization))
+  const unsignedTx = await txBuilder(signedTxJson.serialization)
   const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
   const chainTxId = await ctx.cchain.issueTx(tx)
   return { chainTxId: chainTxId }
