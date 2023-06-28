@@ -81,11 +81,9 @@ export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: str
 export async function getUnsignedExportTxPC(ctx: Context, amount?: BN): Promise<UnsignedTxJson> {
   const threshold: number = 1
   const locktime: BN = new BN(0)
-  const memo: Buffer = Buffer.from(
-    "PlatformVM utility method buildExportTx to export AVAX from the P-Chain to the C-Chain"
-  )
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs([ctx.pAddressBech32!])
+
   const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
   const fee = ctx.pchain.getDefaultTxFee()
 
@@ -102,7 +100,7 @@ export async function getUnsignedExportTxPC(ctx: Context, amount?: BN): Promise<
     [ctx.cAddressBech32!],
     [ctx.pAddressBech32!],
     [ctx.pAddressBech32!],
-    memo,
+    undefined,
     asOf,
     locktime,
     threshold
