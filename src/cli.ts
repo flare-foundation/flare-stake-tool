@@ -332,7 +332,6 @@ async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) 
 }
 
 async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string) {
-  logInfo(amount.toString())
   const fileId = await createWithdrawalTransaction(ctx, to, amount, id);
   logSuccess(`Transaction with id ${fileId} constructed`)
 }
