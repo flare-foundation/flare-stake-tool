@@ -15,7 +15,7 @@ export async function createWithdrawalTransaction(ctx: Context, toAddress: strin
         gasPrice: 500000000000,
         gasLimit: 8000000,
         to: toAddress,
-        value: (amount * 10 ** 18).toString(),
+        value: (amount * 10 ** 9).toString(), // amount has already 9 zeros
         chainId: ctx.config.networkID
     }
 
