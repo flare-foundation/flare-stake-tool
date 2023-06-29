@@ -148,9 +148,7 @@ export function toBN(num: number | string | BN | undefined): BN | undefined {
 // serialization of atomic c-chain addresses does not work correctly, so we have to improvise
 
 export function serializeExportCP_args(args: [BN, string, string, string, string, string[], number, BN, number, BN?]): string {
-  const argsCpy = JSON.parse(JSON.stringify(args));
-  [0,7,9].map(i => argsCpy[i] = argsCpy[i]!.toString(16))
-  return JSON.stringify(argsCpy, null, 2)
+  return JSON.stringify(args, null, 2)
 }
 
 export function deserializeExportCP_args(serargs: string): [BN, string, string, string, string, string[], number, BN, number, BN?] {
@@ -160,10 +158,7 @@ export function deserializeExportCP_args(serargs: string): [BN, string, string, 
 }
 
 export function serializeImportPC_args(args: [UTXOSet, string, string[], string, string[], BN]): string {
-  const serargs: any[] = args
-  serargs[5] = args[5]!.toString(16)
-  serargs[0] = args[0].serialize('hex')
-  return JSON.stringify(args, null, 2)
+  return JSON.stringify([args[0].serialize('hex'), ...args.slice(1)], null, 2)
 }
 
 export function deserializeImportPC_args(serargs: string): [UTXOSet, string, string[], string, string[], BN] {
@@ -174,7 +169,6 @@ export function deserializeImportPC_args(serargs: string): [UTXOSet, string, str
   args[5] = new BN(args[5], 16)
   return args
 }
-
 
 export function serializeUnsignedTx(unsignedTx: EvmUnsignedTx | PvmUnsignedTx): string {
   return JSON.stringify(unsignedTx.serialize("hex"), null, 2)

@@ -179,7 +179,7 @@ function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
     const usedFeeNumber = toBN(usedFee)!.toNumber() // if one of the fees is defined, usedFee is defined
     if (usedFeeNumber > cap)
      throw new Error(`Used fee of ${usedFeeNumber / FLR} is higher than the maximum allowed fee of ${cap / FLR}`)
-    log(`Using fee of ${usedFeeNumber / FLR}`)
+    logInfo(`Using fee of ${usedFeeNumber / FLR}`)
   }
 }
 

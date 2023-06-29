@@ -180,8 +180,7 @@ export async function getUnsignedImportTxPC(
 
   if (fee === undefined) {
     const importCost: number = costImportTx(unsignedTx)
-    fee = baseFee.mul(new BN(importCost))
-    args[5] = fee
+    args[5] = baseFee.mul(new BN(importCost))
     unsignedTx = await ctx.cchain.buildImportTx(...args)
   }
 
@@ -190,7 +189,7 @@ export async function getUnsignedImportTxPC(
     serialization: serializeImportPC_args(args),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex'),
-    usedFee: fee.toString(16)
+    usedFee: args[5].toString()
   }
 }
 
