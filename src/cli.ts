@@ -18,6 +18,7 @@ interface FlareTxParams {
   nodeId?: string
   startTime?: string
   endTime?: string
+  nonce?: string
 }
 
 export async function cli(program: Command) {
@@ -62,6 +63,7 @@ export async function cli(program: Command) {
     .option("-n, --node-id <nodeId>", "The staking/delegating node's id")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
+    .option("--nonce <nonce>", "Nonce of the constructed transaction")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
@@ -103,11 +105,12 @@ export async function cli(program: Command) {
   .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
   .option("-a, --amount <amount>", "Amount to transfer")
   .option("-t, --to <to>", "Address to send funds to")
+  .option("--nonce <nonce>", "Nonce of the constructed transaction")
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
     const ctx = await contextFromOptions(options)
     if (options.getUnsignedTx) {
-      await withdraw_getHash(ctx, options.to, options.amount, options.transactionId)
+      await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
     } else if (options.sendSignedTx) {
       await withdraw_useSignature(ctx, options.transactionId)
     }
@@ -190,8 +193,8 @@ async function buildUnsignedTxJson(
 ): Promise<UnsignedTxJson> {
   switch (transactionType) {
     case 'exportCP': {
-      const { amount, fee } = params!
-      return getUnsignedExportTxCP(context, toBN(amount)!, toBN(fee))
+      const { amount, fee, nonce } = params!
+      return getUnsignedExportTxCP(context, toBN(amount)!, toBN(fee), toBN(nonce))
     }
     case 'importCP':
       return getUnsignedImportTxCP(context)
@@ -332,8 +335,8 @@ async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) 
   logSuccess(`Success! Signature: ${signature}`)
 }
 
-async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string) {
-  const fileId = await createWithdrawalTransaction(ctx, to, amount, id);
+async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string, nonce: number) {
+  const fileId = await createWithdrawalTransaction(ctx, to, amount, id, nonce);
   logSuccess(`Transaction with id ${fileId} constructed`)
 }
 

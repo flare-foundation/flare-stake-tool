@@ -155,10 +155,10 @@ export async function importTxPC(
  * @param amount - amount to export from C-chain to P-chain
  * @param fee - export transaction fee
  */
-export async function getUnsignedExportTxCP(ctx: Context, amount: BN, fee?: BN): Promise<UnsignedTxJson> {
+export async function getUnsignedExportTxCP(ctx: Context, amount: BN, fee?: BN, nonce?: BN): Promise<UnsignedTxJson> {
   const threshold = 1
-  const txcount = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)
-  const nonce: number = txcount
+  const txcount = (nonce === undefined) ? await ctx.web3.eth.getTransactionCount(ctx.cAddressHex) : nonce;
+  const txNonce: number = txcount
   const locktime: BN = new BN(0)
   const importFee: BN = ctx.pchain.getDefaultTxFee()
 
@@ -169,7 +169,7 @@ export async function getUnsignedExportTxCP(ctx: Context, amount: BN, fee?: BN):
     ctx.cAddressHex!,
     ctx.cAddressBech32!,
     [ctx.pAddressBech32!],
-    nonce,
+    txNonce,
     locktime,
     threshold,
     fee
