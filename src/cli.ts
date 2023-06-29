@@ -79,7 +79,7 @@ export async function cli(program: Command) {
   program
     .command("forDefi").description("Sign with ForDefi")
     .argument("<type>", "Type of a forDefi transaction")
-    .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("--withdrawal", "Withdrawing funds from c-chain")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
@@ -100,7 +100,7 @@ export async function cli(program: Command) {
   // withdrawal from c-chain
   program
   .command("withdrawal").description("Withdraw funds from c-chain")
-  .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+  .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
   .option("-a, --amount <amount>", "Amount to transfer")
   .option("-to, --to <to>", "Address to send funds to")
   .action(async (options: OptionValues) => {
