@@ -6,12 +6,12 @@ import { saveUnsignedWithdrawalTx } from './utils'
 import { UnsignedWithdrawalTxJson } from './interfaces';
 import { Context } from 'vm';
 
-export async function createWithdrawalTransaction(ctx: Context, toAddress: string, amount: number, id: string): Promise<string> {
+export async function createWithdrawalTransaction(ctx: Context, toAddress: string, amount: number, id: string, nonce: number): Promise<string> {
 
-    const nonce = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex);
+    const txNonce = (nonce === undefined) ? await ctx.web3.eth.getTransactionCount(ctx.cAddressHex) : nonce;
 
     var rawTx = {
-        nonce: nonce,
+        nonce: txNonce,
         gasPrice: 500000000000,
         gasLimit: 8000000,
         to: toAddress,

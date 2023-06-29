@@ -277,11 +277,6 @@ flare-stake-tool crosschain importCP -f <fee> -i <id> --get-unsigned-tx --env-pa
 ```
 
 
-
-
-### Staking
-
-
 ## Versions
 
 Some info on upgrading this tool to a new version.

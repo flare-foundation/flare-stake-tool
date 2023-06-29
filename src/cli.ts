@@ -22,6 +22,7 @@ interface FlareTxParams {
   nodeId?: string
   startTime?: string
   endTime?: string
+  nonce?: string
 }
 
 export async function cli(program: Command) {
@@ -65,6 +66,7 @@ export async function cli(program: Command) {
     .option("-n, --node-id <nodeId>", "The id of the node to stake/delegate to")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
+    .option("--nonce <nonce>", "Nonce of the constructed transaction")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
@@ -112,12 +114,13 @@ export async function cli(program: Command) {
   .command("withdrawal").description("Withdraw funds from c-chain")
   .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
   .option("-a, --amount <amount>", "Amount to transfer")
-  .option("-to, --to <to>", "Address to send funds to")
+  .option("-t, --to <to>", "Address to send funds to")
+  .option("--nonce <nonce>", "Nonce of the constructed transaction")
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
     const ctx = await contextFromOptions(options)
     if (options.getUnsignedTx) {
-      await withdraw_getHash(ctx, options.to, options.amount, options.transactionId)
+      await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
     } else if (options.sendSignedTx) {
       await withdraw_useSignature(ctx, options.transactionId)
     }
@@ -163,7 +166,7 @@ function getOptions(program: Command, options: OptionValues): OptionValues {
   const allOptions: OptionValues = { ...program.opts(), ...options }
   // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
   if (allOptions.amount) {
-    allOptions.amount = decimalToInteger(allOptions.amount, 9)
+    allOptions.amount = decimalToInteger(allOptions.amount.replace(/,/g, ''), 9)
   }
   if (allOptions.fee) {
     allOptions.fee = decimalToInteger(allOptions.fee, 9)
@@ -208,8 +211,8 @@ function buildUnsignedTxJson(
 ): Promise<UnsignedTxJson> {
   switch (transactionType) {
     case 'exportCP': {
-      const { amount, fee } = params!
-      return getUnsignedExportTxCP(context, toBN(amount)!, toBN(fee))
+      const { amount, fee, nonce } = params!
+      return getUnsignedExportTxCP(context, toBN(amount)!, toBN(fee), toBN(nonce))
     }
     case 'importCP':
       return getUnsignedImportTxCP(context)
@@ -346,8 +349,8 @@ async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) 
   logSuccess(`Success! Signature: ${signature}`)
 }
 
-async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string) {
-  const fileId = await createWithdrawalTransaction(ctx, to, amount, id)
+async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string, nonce: number) {
+  const fileId = await createWithdrawalTransaction(ctx, to, amount, id, nonce)
   logSuccess(`Transaction with id ${fileId} constructed`)
 }
 
