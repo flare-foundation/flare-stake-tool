@@ -157,8 +157,8 @@ Transaction with id 2Ch7Tp3mBxW4QZ57Lr26bddXf7QqNGrukRVbBgwSbrPWisuxYV sent to t
 Note the reversed P and C.
 
 ```bash
-flare-stake-tool crosschain exportPC -a <amount> --ledger
-flare-stake-tool crosschain importPC -f <fee> --ledger
+flare-stake-tool exportPC -a <amount> --ledger
+flare-stake-tool importPC -f <fee> --ledger
 ```
 
 where `amount` and `fee` are optional.
@@ -221,6 +221,7 @@ The app-generated unsigned transaction json file follows the below format:
 
 ```json
 {
+  "transactionType": "",
   "serialization": "",
   "signatureRequests": [
     {
@@ -238,6 +239,7 @@ The signed transaction json file that you should generate via raw signing is the
 
 ```json
 {
+  "transactionType": "",
   "serialization": "",
   "signatureRequests": [
     {
@@ -252,30 +254,26 @@ The signed transaction json file that you should generate via raw signing is the
 
 An example signature looks like `98f8c0d13bf2b5a5b2216894e503a721a099a1944116b802f2d84c0bd83a1bef3378e1b56d7ccd06de321913b8db0e97f4775e1885c86f6bcc583330d37cf5be01` where the last byte is the recovery ID and can also be `1b` or `1c`.
 
+Unsigned transaction files are always in the form of `${id}.unsignedTx.json` and signed transaction files are always in the form of `${id}.signedTx.json`. To send a signed transaction named `${id}.signedTx.json`, use the following command:
+
+```bash
+flare-stake-tool send --id <id>
+```
+
 ### Move assets from the C-chain to the P-chain
 
-To obtain the unsigned export transaction json file, run the following command:
-
+Commands for obtaining unsigned transactions are the same as for the ledger in previous section, except that you replace `--ledger` flag with `--get-unsigned-tx` and additionally have to specify `--env-path <path to your public key file>` along with the `-i <transaction-id>`. For example:
 ```bash
-flare-stake-tool crosschain exportCP -a <amount> -i <id> --get-unsigned-tx --env-path <path to your public key file>
+flare-stake-tool exportCP -a <amount> -i <transaction-id> --get-unsigned-tx --env-path <path to your public key file>
 ```
 
-where
-- `amount` is the amount to export in FLR. The minimum is 2000 FLR and the maximum is 10000 FLR.
-- `id` is the ID that you want to use to identify the transaction.
+## Operations with public key
 
-The above produces `${id}.unsignedTx.json` file in the current directory. To send the `${id}.signedTx.json` file, use the following command:
+To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` flag with `--env-path <path to your private key file>`. For example:
 
 ```bash
-flare-stake-tool crosschain exportCP -i <id> --send-signed-tx --env-path <path to your public key file>
+flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your public key file>
 ```
-
-To obtain the unsigned import transaction json file, run the following command:
-
-```bash
-flare-stake-tool crosschain importCP -f <fee> -i <id> --get-unsigned-tx --env-path <path to your public key file>
-```
-
 
 ## Versions
 
