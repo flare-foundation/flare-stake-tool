@@ -106,9 +106,9 @@ export async function cli(program: Command) {
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
     const ctx = await contextFromOptions(options)
-    if (options.getUnsigned) {
+    if (options.getUnsignedTx) {
       await withdraw_getHash(ctx, options.to, options.amount, options.transactionId)
-    } else if (options.send) {
+    } else if (options.sendSignedTx) {
       await withdraw_useSignature(ctx, options.transactionId)
     }
   })
@@ -332,6 +332,7 @@ async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) 
 }
 
 async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string) {
+  logInfo(amount.toString())
   const fileId = await createWithdrawalTransaction(ctx, to, amount, id);
   logSuccess(`Transaction with id ${fileId} constructed`)
 }
