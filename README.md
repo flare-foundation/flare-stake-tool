@@ -61,17 +61,14 @@ There are three ways to use this app:
 To use this app with a connected ledger device, run the following command:
 
 ```bash
-flare-stake-tool ctx-init
+flare-stake-tool ctx-init --ledger --network <flare or costwo>
 ```
 
-To use this app with your secp256k1 curve public key, set it as an environment variable. To do this, follow the below steps:
-1. Obtain the public key (prefixed `0x02`, `0x03` or `0x04` or ethereum-specific format `X  Y`, where `X` and `Y` are 32-byte hexadecimals).
-1. Create a file to hold your public key.
-1. Paste this code in as follows and enter your public key within the quotation marks:
+To use this app with your secp256k1 curve public key (hexadecimal prefixed `0x02`, `0x03` or `0x04` or ethereum-specific format `X  Y`, where `X` and `Y` are 32-byte hexadecimals), run the following command:
 
-    ```bash
-    PUBLIC_KEY="public key"
-    ```
+```bash
+flare-stake-tool ctx-init -p <public key> --network <flare or costwo>
+```
 
 To use this app in a less-secure manner, you can set your private key as an environment variable. To do this follow the below steps:
 1. Obtain the private key (either a length 64 hexadecimal or [cb58 format](https://support.avax.network/en/articles/4587395-what-is-cb58)).
@@ -81,7 +78,6 @@ To use this app in a less-secure manner, you can set your private key as an envi
    ```bash
    PRIVATE_KEY_CB58="private key"
    PRIVATE_KEY_HEX="private key"
-   PUBLIC_KEY="public key"
    ```
 
 To use this app in a less-secure manner you can set your private key as an environment variable. In this case the signing is done within the app. For a more secure approach, you can log your public key into the app and sign transaction hashes offline with ECDSA over the secp256k1 curve.
@@ -262,17 +258,17 @@ flare-stake-tool send --id <id>
 
 ### Move assets from the C-chain to the P-chain
 
-Commands for obtaining unsigned transactions are the same as for the ledger in previous section, except that you replace `--ledger` flag with `--get-unsigned-tx` and additionally have to specify `--env-path <path to your public key file>` along with the `-i <transaction-id>`. For example:
+Commands for obtaining unsigned transactions are the same as for the ledger in previous section, except that you replace `--ledger` flag with `--get-unsigned-tx` and additionally have to specify transaction id `-i <transaction-id>`. For example:
 ```bash
-flare-stake-tool exportCP -a <amount> -i <transaction-id> --get-unsigned-tx --env-path <path to your public key file>
+flare-stake-tool exportCP -a <amount> -i <transaction-id> --get-unsigned-tx
 ```
 
-## Operations with public key
+## Operations with private key
 
 To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` flag with `--env-path <path to your private key file>`. For example:
 
 ```bash
-flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your public key file>
+flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file>
 ```
 
 ## Versions

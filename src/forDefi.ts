@@ -14,7 +14,7 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, w
     const file = readFileSync(ctxFile, 'utf8');
     const ctx = JSON.parse(file) as ContextFile;
 
-    const vault_id = ctx.vaultId;
+    const vault_id = ctx.vaultId!;
 
     // vaultPublicKey should match public key in contex file
     let vaultPublicKey = await getVaultPublickey(vault_id);

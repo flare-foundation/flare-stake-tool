@@ -26,10 +26,10 @@ export interface Context {
 
 export interface ContextFile {
   publicKey: string
-  flareAddress: string
-  ethAddress: string
   network: string,
-  vaultId: string
+  flareAddress?: string
+  ethAddress?: string
+  vaultId?: string
 }
 
 export interface UnsignedTxJson {

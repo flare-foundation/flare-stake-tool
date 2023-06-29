@@ -1,12 +1,12 @@
 import { Command, OptionValues } from 'commander'
-import { UnsignedTxJson, SignedTxJson, Context } from './interfaces'
-import { compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson, saveUnsignedTxJson, toBN } from './utils'
+import { UnsignedTxJson, SignedTxJson, Context, ContextFile } from './interfaces'
 import { contextEnv, contextFile, getContext } from './constants'
+import { compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson, saveUnsignedTxJson, toBN, initContext, publicKeyToEthereumAddressString } from './utils'
 import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './evmAtomicTx'
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './pvmAtomicTx'
 import { addValidator, getUnsignedAddValidator } from './addValidator'
 import { addDelegator, getUnsignedAddDelegator } from './addDelegator'
-import { initContext, ledgerGetAccount } from './ledger/key'
+import { ledgerGetAccount } from './ledger/key'
 import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal'
@@ -30,10 +30,16 @@ export async function cli(program: Command) {
   program
     .option("--network <network>", "Network name (flare or costwo)", 'flare')
     .option("--env-path <path>", "Path to the .env file")
-    .option("--ctx-file <file>", "Context file as returned by ledger commnunication tool", 'ctx.json')
-    .option("--get-unsigned-tx", "Create unsigned transaction")
-    .option("--ledger", "Use ledger to sign transactions")
-    .option("--blind", "Blind signing (used for ledger)", false)
+    .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
+  // context setup
+  program
+    .command("init-ctx").description("Initialize context file")
+    .option("-p, --public-key <public-key>", "Public key of the account")
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      contextJsonFromOptions(options)
+      logSuccess("Context file created")
+    })
   // information about the network
   program
     .command("info").description("Relevant information")
@@ -60,6 +66,9 @@ export async function cli(program: Command) {
   program
     .command("transaction").description("Move funds from one chain to another")
     .argument("<type>", "Type of a crosschain transaction")
+    .option("--get-unsigned-tx", "Create unsigned transaction")
+    .option("--ledger", "Use ledger to sign transactions")
+    .option("--blind", "Blind signing (used for ledger)", false)
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Transaction fee")
@@ -126,13 +135,6 @@ export async function cli(program: Command) {
     }
   })
   // ledger signing
-  program
-    .command("init-ctx").description("Initialize context file from ledger")
-    .action(async (options: OptionValues) => {
-      options = getOptions(program, options)
-      await initContext(DERIVATION_PATH, options.network)
-      logSuccess("Context file created")
-    })
   program
     .command("sign-hash").description("Sign a transaction hash (blind signing)")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
@@ -259,6 +261,23 @@ async function sendSignedTxJson(
     default:
       throw new Error(`Unknown transaction type: ${signedTxJson.transactionType}`)
   }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// initializing ctx.json
+
+export async function contextJsonFromOptions(options: OptionValues) {
+  let contextFile: ContextFile
+  if (options.ledger) {
+    const { publicKey, address } = await ledgerGetAccount(DERIVATION_PATH, options.network)
+    const ethAddress = publicKeyToEthereumAddressString(publicKey)
+    contextFile = { publicKey, ethAddress, flareAddress: address, network: options.network }
+  } else if (options.publicKey) {
+    contextFile = { publicKey: options.publicKey, network: options.network }
+  } else {
+    throw new Error('Either --ledger or --public-key must be specified')
+  }
+  initContext(contextFile)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

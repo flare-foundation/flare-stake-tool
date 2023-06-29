@@ -7,7 +7,7 @@ import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common"
 import { UnsignedTx as EvmUnsignedTx, ImportTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm'
-import { SignedTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, SignedWithdrawalTxJson } from './interfaces'
+import { SignedTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, SignedWithdrawalTxJson, ContextFile } from './interfaces'
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // public keys and bech32 addresses
@@ -183,7 +183,14 @@ export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsi
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-// unsigned/signed transaction storage
+// key and unsigned/signed transaction storage
+
+export function initContext(contextFile: ContextFile) {
+  if (fs.existsSync('ctx.json')) {
+    throw new Error('ctx.json already exists')
+  }
+  fs.writeFileSync('ctx.json', JSON.stringify(contextFile, null, 2))
+}
 
 export function saveUnsignedTxJson(unsignedTxJson: UnsignedTxJson, id: string): void {
   const fname = `${id}.unsignedTx.json`
