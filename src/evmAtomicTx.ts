@@ -64,48 +64,6 @@ export async function exportTxCP(
 }
 
 /**
- * Generate unsigned import transaction from P-chain to C-chain.
- * @param ctx - context with constants initialized from user keys
- * @param fee - import transaction fee
- */
-export async function getUnsignedImportTxPC(
-  ctx: Context, fee?: BN
-): Promise<UnsignedTxJson> {
-  const baseFeeResponse: string = await ctx.cchain.getBaseFee()
-  const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
-  const evmUTXOResponse: any = await ctx.cchain.getUTXOs(
-    [ctx.cAddressBech32!],
-    ctx.pChainBlockchainID
-  )
-  const utxoSet: UTXOSet = evmUTXOResponse.utxos
-
-  const args: [UTXOSet, string, string[], string, string[], BN] = [
-    utxoSet,
-    ctx.cAddressHex!,
-    [ctx.cAddressBech32!],
-    ctx.pChainBlockchainID,
-    [ctx.cAddressBech32!],
-    baseFee
-  ]
-
-  let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...args)
-
-  if (fee === undefined) {
-    const importCost: number = costImportTx(unsignedTx)
-    fee = baseFee.mul(new BN(importCost))
-    args[5] = fee
-    unsignedTx = await ctx.cchain.buildImportTx(...args)
-  }
-
-  return <UnsignedTxJson>{
-    serialization: serializeImportPC_args(args),
-    signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex'),
-    usedFee: fee.toString(10)
-  }
-}
-
-/**
  * Import funds exported from P-chain to C-chain.
  * @param ctx - context with constants initialized from user keys
  * @param fee - import transaction fee
@@ -184,11 +142,55 @@ export async function getUnsignedExportTxCP(ctx: Context, amount: BN, fee?: BN):
     unsignedTx = await ctx.cchain.buildExportTx(...args)
   }
 
-  return <UnsignedTxJson>{
+  return {
+    transactionType: 'exportCP',
     serialization: serializeExportCP_args(args),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex'),
-    usedFee: args[9]!.toString(10)
+    usedFee: args[9]!.toString()
+  }
+}
+
+/**
+ * Generate unsigned import transaction from P-chain to C-chain.
+ * @param ctx - context with constants initialized from user keys
+ * @param fee - import transaction fee
+ */
+export async function getUnsignedImportTxPC(
+  ctx: Context, fee?: BN
+): Promise<UnsignedTxJson> {
+  const baseFeeResponse: string = await ctx.cchain.getBaseFee()
+  const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
+  const evmUTXOResponse: any = await ctx.cchain.getUTXOs(
+    [ctx.cAddressBech32!],
+    ctx.pChainBlockchainID
+  )
+  const utxoSet: UTXOSet = evmUTXOResponse.utxos
+
+  const args: [UTXOSet, string, string[], string, string[], BN] = [
+    utxoSet,
+    ctx.cAddressHex!,
+    [ctx.cAddressBech32!],
+    ctx.pChainBlockchainID,
+    [ctx.cAddressBech32!],
+    baseFee
+  ]
+
+  let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...args)
+
+  if (fee === undefined) {
+    const importCost: number = costImportTx(unsignedTx)
+    fee = baseFee.mul(new BN(importCost))
+    args[5] = fee
+    unsignedTx = await ctx.cchain.buildImportTx(...args)
+  }
+
+  return {
+    transactionType: 'importPC',
+    serialization: serializeImportPC_args(args),
+    signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
+    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex'),
+    usedFee: fee.toString(16)
   }
 }
 

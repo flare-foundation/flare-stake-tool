@@ -28,18 +28,13 @@ export function privateKeyToPublicKey(privateKey: Buffer): Buffer[] {
 }
 
 export function decodePublicKey(publicKey: string): [Buffer, Buffer] {
-  let x: Buffer
-  let y: Buffer
   publicKey = unPrefix0x(publicKey)
   if (publicKey.length == 128) {
-    // ethereum specific public key encoding
-    x = Buffer.from(publicKey.slice(0, 64), "hex")
-    y = Buffer.from(publicKey.slice(64), "hex")
-  } else {
-    const keyPair = ec.keyFromPublic(publicKey, 'hex').getPublic()
-    x = keyPair.getX().toBuffer(undefined, 32)
-    y = keyPair.getY().toBuffer(undefined, 32)
+    publicKey = "04" + publicKey
   }
+  const keyPair = ec.keyFromPublic(publicKey, 'hex').getPublic()
+  const x = keyPair.getX().toBuffer(undefined, 32)
+  const y = keyPair.getY().toBuffer(undefined, 32)
   return [x, y]
 }
 
@@ -152,10 +147,10 @@ export function toBN(num: number | string | BN | undefined): BN | undefined {
 //////////////////////////////////////////////////////////////////////////////////////////
 // serialization of atomic c-chain addresses does not work correctly, so we have to improvise
 
-
 export function serializeExportCP_args(args: [BN, string, string, string, string, string[], number, BN, number, BN?]): string {
-  [0,7,9].map(i => args[i] = args[i]!.toString(16))
-  return JSON.stringify(args, null, 2)
+  const argsCpy = JSON.parse(JSON.stringify(args));
+  [0,7,9].map(i => argsCpy[i] = argsCpy[i]!.toString(16))
+  return JSON.stringify(argsCpy, null, 2)
 }
 
 export function deserializeExportCP_args(serargs: string): [BN, string, string, string, string, string[], number, BN, number, BN?] {
@@ -194,7 +189,7 @@ export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsi
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-// storage
+// unsigned/signed transaction storage
 
 export function saveUnsignedTxJson(unsignedTxJson: UnsignedTxJson, id: string): void {
   const fname = `${id}.unsignedTx.json`

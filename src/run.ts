@@ -1,6 +1,6 @@
-import { Command } from 'commander';
-import { cli } from './cli';
-import { logError } from './output';
+import { Command } from 'commander'
+import { cli } from './cli'
+import { logError } from './output'
 
 function getArgv() {
     const baseArgv = process.argv
@@ -26,12 +26,12 @@ function getArgv() {
     }
 }
 
-const program = new Command("Flare Stake Tool");
+const program = new Command("Flare Stake Tool")
 
 cli(program).then(() => {
     program.parseAsync(getArgv()).catch(err => {
         if (err instanceof Error) {
-            logError(`Error: ${err.message}`);
+            logError(`Error: ${err.message}`)
         }
     })
 })

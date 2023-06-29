@@ -6,11 +6,15 @@ import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './pvmAtomicTx'
 import { addValidator, getUnsignedAddValidator } from './addValidator'
 import { addDelegator, getUnsignedAddDelegator } from './addDelegator'
-import { initContext, DERIVATION_PATH, ledgerGetAccount } from './ledger/key'
+import { initContext, ledgerGetAccount } from './ledger/key'
 import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi'
-import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal';
+import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
+
+const DERIVATION_PATH = "m/44'/60'/0'/0/0" // derivation path for ledger
+const FLR = 1e9 // one flr in nanoFLR
+const MAX_TRANSCTION_FEE = FLR
 
 interface FlareTxParams {
   amount?: string
@@ -27,7 +31,6 @@ export async function cli(program: Command) {
     .option("--env-path <path>", "Path to the .env file")
     .option("--ctx-file <file>", "Context file as returned by ledger commnunication tool", 'ctx.json')
     .option("--get-unsigned-tx", "Create unsigned transaction")
-    .option("--send-signed-tx", "Send signed transaction to the network")
     .option("--ledger", "Use ledger to sign transactions")
     .option("--blind", "Blind signing (used for ledger)", false)
   // information about the network
@@ -52,14 +55,14 @@ export async function cli(program: Command) {
         logError(`Unknown information type ${type}`)
       }
     })
-  // moving funds from one chain to another
+  // transaction construction and sending
   program
     .command("transaction").description("Move funds from one chain to another")
     .argument("<type>", "Type of a crosschain transaction")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-a, --amount <amount>", "Amount to transfer")
-    .option("-f, --fee <fee>", "Fee of a transaction")
-    .option("-n, --node-id <nodeId>", "The staking/delegating node's id")
+    .option("-f, --fee <fee>", "Transaction fee")
+    .option("-n, --node-id <nodeId>", "The id of the node to stake/delegate to")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
     .action(async (type: string, options: OptionValues) => {
@@ -67,13 +70,20 @@ export async function cli(program: Command) {
       const ctx = await contextFromOptions(options)
       if (options.getUnsignedTx) {
         await cliBuildUnsignedTxJson(type, ctx, options.transactionId, options as FlareTxParams)
-      } else if (options.sendSignedTx) {
-        await cliSendSignedTxJson(type, ctx, options.transactionId)
       } else if (options.ledger) {
-        await buildAndSendTxUsingLedger(type, ctx, options as FlareTxParams, options.blind)
+        await cliBuildAndSendTxUsingLedger(type, ctx, options as FlareTxParams, options.blind)
       } else {
-        await cliBuildAndSendTx(type, ctx, options as FlareTxParams)
+        await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
       }
+    })
+  // signed transaction sending
+  program
+    .command("send").description("Send signed transaction json to the node")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to send to the network")
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      const ctx = await contextFromOptions(options)
+      await cliSendSignedTxJson(ctx, options.transactionId)
     })
   // forDefi signing
   program
@@ -122,14 +132,14 @@ export async function cli(program: Command) {
     })
   program
     .command("sign-hash").description("Sign a transaction hash (blind signing)")
-    .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .action(async (options: OptionValues) => {
       await signId(options.transactionId, DERIVATION_PATH, true)
       logSuccess("Transaction signed")
     })
   program
     .command("sign").description("Sign a transaction (non-blind signing)")
-    .option("-id, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .action(async (options: OptionValues) => {
       await signId(options.transactionId, DERIVATION_PATH, false)
       logSuccess("Transaction signed")
@@ -161,6 +171,15 @@ function getOptions(program: Command, options: OptionValues): OptionValues {
   return allOptions
 }
 
+function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
+  if (usedFee !== specifiedFee) { // if usedFee was that specified by the user, we don't cap it
+    const usedFeeNumber = toBN(usedFee)!.toNumber() // if one of the fees is defined, usedFee is defined
+    if (usedFeeNumber > cap)
+     throw new Error(`Used fee of ${usedFeeNumber / FLR} is higher than the maximum allowed fee of ${cap / FLR}`)
+    log(`Using fee of ${usedFeeNumber / FLR}`)
+  }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // transaction-type translators
 
@@ -184,7 +203,7 @@ async function buildAndSendTx(
   }
 }
 
-async function buildUnsignedTxJson(
+function buildUnsignedTxJson(
   transactionType: string, context: Context, params: FlareTxParams
 ): Promise<UnsignedTxJson> {
   switch (transactionType) {
@@ -216,9 +235,9 @@ async function buildUnsignedTxJson(
 }
 
 async function sendSignedTxJson(
-  transactionType: string, context: Context, signedTxJson: SignedTxJson
+  context: Context, signedTxJson: SignedTxJson
 ): Promise<string> {
-  switch (transactionType) {
+  switch (signedTxJson.transactionType) {
     case 'exportCP': {
       const { chainTxId } = await issueSignedEvmTxCPExport(context, signedTxJson)
       return chainTxId
@@ -235,7 +254,7 @@ async function sendSignedTxJson(
       return chainTxId
     }
     default:
-      throw new Error(`Unknown transaction type: ${transactionType}`)
+      throw new Error(`Unknown transaction type: ${signedTxJson.transactionType}`)
   }
 }
 
@@ -281,62 +300,58 @@ async function logValidatorInfo(ctx: Context) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-// Transaction execution using the private key
+// Transaction building and execution
 
-async function cliBuildAndSendTx(transactionType: string, ctx: Context, params: FlareTxParams) {
-  const { txid, usedFee } = await buildAndSendTx(transactionType, ctx, params)
-  if (params.fee !== usedFee) log(`Used fee of ${usedFee}`)
-  logSuccess(`Success! TXID: ${txid}`)
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-// Transaction execution using raw signature signing
-
-async function cliBuildUnsignedTxJson(transactionType: string, ctx: Context, id: string, params: FlareTxParams) {
-  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
-  saveUnsignedTxJson(unsignedTxJson, id)
-  logSuccess(`Transaction with id ${id} constructed`)
-}
-
-async function cliSendSignedTxJson(transactionType: string, ctx: Context, id: string) {
-  const chainTxId = await sendSignedTxJson(transactionType, ctx, readSignedTxJson(id))
-  logSuccess(`TXID: ${chainTxId}`)
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-// Transaction execution using ledger device
-
-async function buildAndSendTxUsingLedger(transactionType: string, context: Context, params: FlareTxParams, blind: boolean
+async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Context, params: FlareTxParams, blind: boolean
 ): Promise<void> {
   logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
+  capFeeAt(MAX_TRANSCTION_FEE, unsignedTxJson.usedFee, params.fee)
   logInfo("Please review and sign the transaction on your ledger device...")
   const { signature } = await ledgerSign(unsignedTxJson, DERIVATION_PATH, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
   logInfo("Sending transaction to the node...")
-  const chainTxId = await sendSignedTxJson(transactionType, context, signedTxJson)
+  const chainTxId = await sendSignedTxJson(context, signedTxJson)
   logSuccess(`Transaction with id ${chainTxId} sent to the node`)
+}
+
+async function cliBuildUnsignedTxJson(transactionType: string, ctx: Context, id: string, params: FlareTxParams) {
+  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
+  capFeeAt(MAX_TRANSCTION_FEE, unsignedTxJson.usedFee, params.fee)
+  saveUnsignedTxJson(unsignedTxJson, id)
+  logSuccess(`Unsigned transaction with id ${id} constructed`)
+}
+
+async function cliSendSignedTxJson(ctx: Context, id: string) {
+  const chainTxId = await sendSignedTxJson(ctx, readSignedTxJson(id))
+  logSuccess(`Signed transaction ${id} with id ${chainTxId} sent to the node`)
+}
+
+async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
+  const { txid, usedFee } = await buildAndSendTx(transactionType, ctx, params)
+  capFeeAt(MAX_TRANSCTION_FEE, usedFee, params.fee)
+  logSuccess(`Transaction with id ${txid} built and sent to the network`)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Transaction execution using ForDefi api
 
 async function signForDefi(transaction: string, ctx: string, withdrawal: boolean = false) {
-  const txid = await sendToForDefi(transaction, ctx, withdrawal);
+  const txid = await sendToForDefi(transaction, ctx, withdrawal)
   logSuccess(`Transaction with id ${txid} sent to the node`)
 }
 
 async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) {
-  const signature = await getSignature(transaction, withdrawal);
+  const signature = await getSignature(transaction, withdrawal)
   logSuccess(`Success! Signature: ${signature}`)
 }
 
 async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string) {
-  const fileId = await createWithdrawalTransaction(ctx, to, amount, id);
+  const fileId = await createWithdrawalTransaction(ctx, to, amount, id)
   logSuccess(`Transaction with id ${fileId} constructed`)
 }
 
 async function withdraw_useSignature(ctx: Context, id: string) {
-  const txId = await sendSignedWithdrawalTransaction(ctx, id);
+  const txId = await sendSignedWithdrawalTransaction(ctx, id)
   logSuccess(`Transaction with id ${txId} sent to the node`)
 }

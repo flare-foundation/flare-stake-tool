@@ -85,7 +85,8 @@ export async function getUnsignedAddValidator(
     undefined,
     asOf
   )
-  return <UnsignedTxJson>{
+  return {
+    transactionType: 'stake',
     serialization: serializeUnsignedTx(unsignedTx),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')

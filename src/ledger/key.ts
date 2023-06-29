@@ -4,8 +4,6 @@ import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import { publicKeyToEthereumAddressString } from './utils'
 
 
-export const DERIVATION_PATH = "m/44'/60'/0'/0/0"
-
 export class Context {
     constructor(
         public publicKey: string,

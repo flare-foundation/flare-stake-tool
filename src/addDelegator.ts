@@ -66,7 +66,8 @@ export async function getUnsignedAddDelegator(
       undefined,
       asOf
     )
-    return <UnsignedTxJson>{
+    return {
+      transactionType: 'delegate',
       serialization: serializeUnsignedTx(unsignedTx),
       signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
       unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')

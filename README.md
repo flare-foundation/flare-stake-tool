@@ -29,115 +29,125 @@ sudo npm install @flarenetwork/flare-stake-tool --global
 ```
 
 ### Manually building the repository
-note: for none devs follow next section before this one.
+
+note: for none devs, skip this section.
 
 1. Clone this repository by running
-
    ```bash
    git clone https://github.com/flare-foundation/p-chain-staking-code.git
    ```
+2. Run `yarn` inside the cloned repo folder.
+3. Run `yarn build`.
+4. Follow the rest of this guide from the repo folder using `bin/flare-stake-tool` instead of just `flare-stake-tool`.
 
-1. Run `yarn` inside the cloned repo folder.
+### Setting up your dev environment
 
-1. Run `yarn build`.
-
-1. Follow the rest of this guide from the repo folder using `bin/flare-stake-tool` instead of just `flare-stake-tool`.
-
-### setting up your dev environment
-
-open the terminal on your machine and follow the below steps
-
+open the terminal on your machine and follow the below steps:
 1. install NVM (node version manager on your machine) on your machine see [here](https://collabnix.com/how-to-install-and-configure-nvm-on-mac-os/)
+2. install node version 16 on your machine `nvm install node 16`
+3. make sure NPM was installed using npm -v.
 
-1. install node version 16 on your machine `NVM install node 16`
+## Setting up your environment
 
-1. make sure NPM was installed using NPM -v. we need version ?? (T.B.D)
+There are three ways to use this app:
 
-## Set up your private/public key
-
-To use this app in a less-secure manner you can set your private key as an environment variable.
-In this case the signing is done within the app. For a more secure approach, you can log your
-public key into the app and sign transaction hashes offline with ECDSA over the curve secp256k1.
+1. With a connected ledger device
+1. With public key logged inside your environment file,
+1. With private key logged inside your environment file,
 
 > **WARNING:**
-> You are about to write your staking account's **private key** into a **plain text file**.
-> The following operations should be performed on a **secure** machine, ideally not the validator node.
-> For added security, store the private key file in a removable storage device, plugged in only when needed.
+> While easier (as signing is done within the app), we highly discourage the usage of this app with the private key exposed in the file.
 
-1. Obtain the private key (either a length 64 hexadecimal or [cb58 format](https://support.avax.network/en/articles/4587395-what-is-cb58)),
-or the public key (prefixed `0x02`, `0x03` or `0x04` or ethereum-specific format `X  Y`, where `X` and `Y` are 32-byte hexadecimal numbers)
-2. Create a file to hold your key.
-3. Paste this code in as follows and enter either the hex/cb58 private key or the public key within the quotation marks:
+To use this app with a connected ledger device, run the following command:
+
+```bash
+flare-stake-tool ctx-init
+```
+
+To use this app with your secp256k1 curve public key, set it as an environment variable. To do this, follow the below steps:
+1. Obtain the public key (prefixed `0x02`, `0x03` or `0x04` or ethereum-specific format `X  Y`, where `X` and `Y` are 32-byte hexadecimals).
+1. Create a file to hold your public key.
+1. Paste this code in as follows and enter your public key within the quotation marks:
+
+    ```bash
+    PUBLIC_KEY="public key"
+    ```
+
+To use this app in a less-secure manner, you can set your private key as an environment variable. To do this follow the below steps:
+1. Obtain the private key (either a length 64 hexadecimal or [cb58 format](https://support.avax.network/en/articles/4587395-what-is-cb58)).
+1. Create a file to hold your private key.
+1. Paste this code in as follows and enter either the private key in either hex or cb58 format within the quotation marks:
 
    ```bash
-   PRIVATE_KEY_CB58 = "private key"
-   PRIVATE_KEY_HEX = "private key"
-   PUBLIC_KEY = "public key"
+   PRIVATE_KEY_CB58="private key"
+   PRIVATE_KEY_HEX="private key"
+   PUBLIC_KEY="public key"
    ```
 
-## Operations with private key
+To use this app in a less-secure manner you can set your private key as an environment variable. In this case the signing is done within the app. For a more secure approach, you can log your public key into the app and sign transaction hashes offline with ECDSA over the secp256k1 curve.
 
-These are the operations you can perform with this tool, when you log in with your private key.
+## App usage with ledger
+
+Below we describe the functionality offered by the app, when you have your ledger device connected to the computer, with avalanche app running.
 
 ### Address conversion
 
-Convert the private key to P-chain and C-chain addresses to import and export them safely, without exposing a private key.
-The public key is derived from the private key and the P- and C-chain addresses are derived from the public key.
-To get the derived P- and C-chain addresses, along with the associated public key, use:
+This describes how to view the P- and C-chain addresses. Those addresses are derived from your public key, which in turn can be derived from your private key.
 
 ```bash
-flare-stake-tool info addresses --env-path <path to your private key file>
+flare-stake-tool addresses
 ```
 
-Where:
-
-- `env-path` is the path to the file where you stored the private key.
-
-By default the tool connects to the Flare network. You can add `--network costwo` to connect to Coston2, or `--network localflare` to connect to a node running on the same machine.
-
 Sample response:
-
-The X-, P-, and C-chain addresses are returned, along with the public key.
-There is no standard address format for the X- and P-chains, but it’s usually Bech32.
-On the C-chain, the Ethereum format is normally used to comply with the Ethereum Virtual Machine.
-
 ```bash
-X-chain address: X-flare1pynhfl09rfrf20s83lf6ra5egqylmx757ahxn6
 P-chain address: P-flare1pynhfl09rfrf20s83lf6ra5egqylmx757ahxn6
 C-chain address hex: 0xead9c93b79ae7c1591b1fb5323bd777e86e150d4
 secp256k1 public key: 0x02efe41c5d213089cb7a9e808505e9084bb9eb2bf3aa8050ea92a5ae9e20e5a692
 ```
 
+There is no standard address format for the P-chain, but it’s usually Bech32. On the C-chain, the Ethereum format is normally used to comply with the Ethereum Virtual Machine. Lastly, the public key is in the standard compressed format.
+
+### Check balances
+
+This describes how to view your P- and C-chain balances.
+
+```bash
+flare-stake-tool balance
+```
+
+Sample response
+```bash
+C-chain 0x5a6a8c28a2fc040df3b7490440c50f00099c957a: 999.000000000000000000
+P-chain P-flare1mwy6yvuk8xjl87scxfvvl63xtex3ennvkkpasz: 1.000000000
+```
+
+Note that the balances are in FLR.
+
 ### Export and import assets
 
 #### Move assets from the C-chain to the P-chain
 
-Funds typically reside on the C-chain account, so they have to be exported from it.
-Exported funds must then be imported to the corresponding P-chain account.
+This describes how to move assets from the C-chain to the P-chain.
 
-This requires one transaction on each chain so you need to issue two commands:
+Funds typically reside on the C-chain account, so they have to be exported from it. Exported funds must then be imported to the corresponding P-chain account. This requires one transaction on each chain so you need to issue two commands.
 
 ```bash
-flare-stake-tool crosschain exportCP -a <amount> -f <fee> --env-path <path to your private key file>
-flare-stake-tool crosschain importCP --env-path <path to your private key file>
+flare-stake-tool exportPC -a <amount> -f <fee> --ledger
+flare-stake-tool importPC --ledger
 ```
 
 Where:
 
 - `amount` is the amount to export, in FLR.
 - `fee` is optional. It specifies a gas fee for a transaction in FLR.
-- `env-path` is the path to the file where you stored your private key.
 
 > **Note:**
 > Methods affecting the P-chain (`importCP` and `exportPC`) always use a fixed gas fee of 0.001FLR, while methods affecting the C-chain (`exportCP` and `importPC`) have variable gas fees and can thus be either set or calculated automatically.
 If you get the `errInsufficientFunds` error, try specifying a higher gas fee when exporting funds.
 
 Sample response:
-
 ```bash
-Used fee of .000280750
-Success! TXID: 2i5zkusqNou8irBKeJQkYVXp72ZVFeXYhKDdN1S3zCUy35vNAb
-Success! TXID: xNThCnRNMTGnZy8PZgdoyEpTTnRKMBLFfEgH27FzQCFHv79ra
+Transaction with id 2Ch7Tp3mBxW4QZ57Lr26bddXf7QqNGrukRVbBgwSbrPWisuxYV sent to the node
 ```
 
 #### Move assets from the P-chain back to the C-chain
@@ -147,8 +157,8 @@ Success! TXID: xNThCnRNMTGnZy8PZgdoyEpTTnRKMBLFfEgH27FzQCFHv79ra
 Note the reversed P and C.
 
 ```bash
-flare-stake-tool crosschain exportPC -a <amount> --env-path <path to your private key file>
-flare-stake-tool crosschain importPC -f <fee> --env-path <path to your private key file>
+flare-stake-tool crosschain exportPC -a <amount> --ledger
+flare-stake-tool crosschain importPC -f <fee> --ledger
 ```
 
 where `amount` and `fee` are optional.
@@ -162,17 +172,17 @@ If you get the `errInsufficientFunds` error, try specifying a higher gas fee whe
 
 ### Staking
 
+To add a validator node to the flare network, run the following command:
+
 ```bash
-flare-stake-tool stake -n <nodeId> -s <start-time> -e <end-time> -a <amount> --env-path <path to your private key file>
+flare-stake-tool stake -n <nodeId> -s <start-time> -e <end-time> -a <amount> --ledger
 ```
 
 Where:
 - `nodeId` is the ID of the node being deployed as a validator.
 - `start-time` is the unix time of the start of the staking process.
 - `end-time` is the unix time of the end of the staking process.
-- `amount` is the amount to export and stake in FLR. The minimum is 2000 FLR and the maximum is 10000 FLR.
-- `env-path` is the path to the file where you stored your private key.
-- `network` is the network to stake on. It defaults and should always be the Flare network, except when testing.
+- `amount` is the amount to lock and stake in FLR. The minimum is 2000 FLR and the maximum is 10000 FLR.
 
 The funds on the P-chain account are available to start staking to the validator nodes.
 
@@ -184,45 +194,93 @@ To check whether a validator has been added successfully, fetch lists of both pe
 flare-stake-tool info validators
 ```
 
+### Delegating
+
+To delegate to a validator node, run the following command:
+
+```bash
+flare-stake-tool delegate -n <nodeId> -s <start-time> -e <end-time> -a <amount> --ledger
+```
+
+Where:
+- `nodeId` is the ID of the deployed validator node, you wish to delegate to.
+- `start-time` is the unix time of the start of the delegation process.
+- `end-time` is the unix time of the end of the delegation process.
+- `amount` is the amount to lock and delegate in FLR. The minimum is 2000 FLR and the maximum is 10000 FLR.
+
 ## Operations with public key
 
 These are the operations you can perform with this tool, when you log in with your public key.
 
-### Exporting from C-chain to P-chain through raw signing
+This is a more advanced usage, as raw signing of the transaction buffer hash has to be done externally (e.g. through some custodian wallet API). Each transation thus requires three steps:
+1. generate the unsigned transaction inside a json file and take the logged hash / message inside,
+1. externally sign the hash and send the signature back to the app to finalize the export transaction.
+1. finalize the transaction with the signature and send it to a network node.
 
-When using the app with public key only, you can export funds from the C-chain to the P-chain by raw signing a transaction hash.
-Here, the export is split in two steps:
-- generate the unsigned transaction inside a json file and take the logged hash / message inside,
-- externally sign the hash and send the signatur back to the app to finalize the export transaction.
+The app-generated unsigned transaction json file follows the below format:
 
-To obtain the signed hashes, use the following command:
-
-```bash
-flare-stake-tool crosschain exportCP -a <amount> -id <id> --get-unsigned --env-path <path to your public key file>
-```
-where `id` is the ID that you want to use to identify the transaction. The command will generate a file caled `{id}.unsignedTx.json`
-file in the current directory, which holds all information about the unsigned transaction. Below is the example of the file structure
 ```json
 {
-  "serialization": "[\n  \"3baa0c40\",\n  \"fxMAKpBQQpFedrUhWMsDYfCUJxdUw4mneTczKBzNg3rc2JUub\",\n  \"11111111111111111111111111111111LpoYY\",\n  \"0x63cd3c99b9fecb3e49269f3badb0e1c144d6d1ee\",\n  \"C-costwo1muhws5dv7gqg7z2weurs25vevnxtd0g2arrs40\",\n  [\n    \"P-costwo1muhws5dv7gqg7z2weurs25vevnxtd0g2arrs40\"\n  ],\n  2,\n  \"0\",\n  1,\n  \"448ae\"\n]",
+  "serialization": "",
   "signatureRequests": [
     {
-      "message": "9c4c628664ab9f3c08643c2f4475f8fae204452e357bd85ea11827340103e411",
-      "signer": "df2ee851acf2008f094ecf0705519964ccb6bd0a"
-    }
+      "message": "",
+      "signer": ""
+    }, ...
   ],
-  "unsignedTransactionBuffer": "0000000000010000007278db5c30bed04c05ce209179812850bbb3fe6d46d7eef3744d814c0da555247900000000000000000000000000000000000000000000000000000000000000000000000163cd3c99b9fecb3e49269f3badb0e1c144d6d1ee000000003bae54ee58734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000000000000020000000158734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000007000000003baa0c4000000000000000000000000100000001df2ee851acf2008f094ecf0705519964ccb6bd0a"
+  "unsignedTransactionBuffer": ""
 }
 ```
-> **Note:**
-> If you are not using multisig, there should always be only one unique pair of a message and signer address inside the `signatureRequests` array.
 
-To finalize the transaction you need to raw-sign the message/hash and use the following command with your signed hash.
-```bash
-flare-stake-tool crosschain exportCP -id 1 -sg <signed hash> --send --env-path <path to your private key file>
+> **NOTE:** The messages and signers inside `signatureRequests` should all be the same, so one signature should always be required.
+
+The signed transaction json file that you should generate via raw signing is the same as unsigned, but with appended raw `message` signature. So it follows the below format:
+
+```json
+{
+  "serialization": "",
+  "signatureRequests": [
+    {
+      "message": "",
+      "signer": ""
+    }, ...
+  ],
+  "unsignedTransactionBuffer": "",
+  "signature": ""
+}
 ```
 
-The procedure for importing / staking / delegating with public key only is similar as it is for exporting
+An example signature looks like `98f8c0d13bf2b5a5b2216894e503a721a099a1944116b802f2d84c0bd83a1bef3378e1b56d7ccd06de321913b8db0e97f4775e1885c86f6bcc583330d37cf5be01` where the last byte is the recovery ID and can also be `1b` or `1c`.
+
+### Move assets from the C-chain to the P-chain
+
+To obtain the unsigned export transaction json file, run the following command:
+
+```bash
+flare-stake-tool crosschain exportCP -a <amount> -i <id> --get-unsigned-tx --env-path <path to your public key file>
+```
+
+where
+- `amount` is the amount to export in FLR. The minimum is 2000 FLR and the maximum is 10000 FLR.
+- `id` is the ID that you want to use to identify the transaction.
+
+The above produces `${id}.unsignedTx.json` file in the current directory. To send the `${id}.signedTx.json` file, use the following command:
+
+```bash
+flare-stake-tool crosschain exportCP -i <id> --send-signed-tx --env-path <path to your public key file>
+```
+
+To obtain the unsigned import transaction json file, run the following command:
+
+```bash
+flare-stake-tool crosschain importCP -f <fee> -i <id> --get-unsigned-tx --env-path <path to your public key file>
+```
+
+
+
+
+### Staking
+
 
 ## Versions
 

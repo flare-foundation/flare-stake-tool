@@ -105,13 +105,13 @@ export async function getUnsignedExportTxPC(ctx: Context, amount?: BN): Promise<
     threshold
   )
 
-  return <UnsignedTxJson>{
+  return {
+    transactionType: 'exportPC',
     serialization: serializeUnsignedTx(unsignedTx),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
   }
 }
-
 
 /**
  * Get hashes that need to get signed in order for funds exported from
@@ -139,7 +139,8 @@ export async function getUnsignedImportTxCP(ctx: Context): Promise<UnsignedTxJso
     locktime,
     threshold
   )
-  return <UnsignedTxJson>{
+  return {
+    transactionType: 'importCP',
     serialization: serializeUnsignedTx(unsignedTx),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
