@@ -102,7 +102,7 @@ export async function cli(program: Command) {
   .command("withdrawal").description("Withdraw funds from c-chain")
   .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
   .option("-a, --amount <amount>", "Amount to transfer")
-  .option("-to, --to <to>", "Address to send funds to")
+  .option("-t, --to <to>", "Address to send funds to")
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
     const ctx = await contextFromOptions(options)
@@ -153,6 +153,7 @@ function getOptions(program: Command, options: OptionValues): OptionValues {
   const allOptions: OptionValues = { ...program.opts(), ...options }
   // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
   if (allOptions.amount) {
+    allOptions.amount = allOptions.amount.replace(/,/g, '')
     allOptions.amount = decimalToInteger(allOptions.amount, 9)
   }
   if (allOptions.fee) {
