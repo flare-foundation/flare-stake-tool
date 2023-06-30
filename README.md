@@ -52,17 +52,11 @@ open the terminal on your machine and follow the below steps:
 There are three ways to use this app:
 
 1. With a connected ledger device
-1. With public key logged inside your environment file,
+1. With initialized public key,
 1. With private key logged inside your environment file,
 
 > **WARNING:**
 > While easier (as signing is done within the app), we highly discourage the usage of this app with the private key exposed in the file.
-
-To use this app with a connected ledger device, run the following command:
-
-```bash
-flare-stake-tool ctx-init --ledger --network <flare or costwo>
-```
 
 To use this app with your secp256k1 curve public key (hexadecimal prefixed `0x02`, `0x03` or `0x04` or ethereum-specific format `X  Y`, where `X` and `Y` are 32-byte hexadecimals), run the following command:
 
@@ -79,8 +73,12 @@ To use this app in a less-secure manner, you can set your private key as an envi
    PRIVATE_KEY_CB58="private key"
    PRIVATE_KEY_HEX="private key"
    ```
+   You can also log in just your public key in the same file as follows:
+   ```bash
+   PUBLIC_KEY="public key"
+   ```
 
-To use this app in a less-secure manner you can set your private key as an environment variable. In this case the signing is done within the app. For a more secure approach, you can log your public key into the app and sign transaction hashes offline with ECDSA over the secp256k1 curve.
+In the latter case the signing is done within the app. For a more secure approach, you should sign transactions via ledger or log your public key into the app and sign transaction hashes offline with ECDSA over the secp256k1 curve.
 
 ## App usage with ledger
 
@@ -91,7 +89,7 @@ Below we describe the functionality offered by the app, when you have your ledge
 This describes how to view the P- and C-chain addresses. Those addresses are derived from your public key, which in turn can be derived from your private key.
 
 ```bash
-flare-stake-tool addresses
+flare-stake-tool addresses --ledger
 ```
 
 Sample response:
@@ -108,7 +106,7 @@ There is no standard address format for the P-chain, but it’s usually Bech32. 
 This describes how to view your P- and C-chain balances.
 
 ```bash
-flare-stake-tool balance
+flare-stake-tool balance --ledger
 ```
 
 Sample response
@@ -253,7 +251,7 @@ An example signature looks like `98f8c0d13bf2b5a5b2216894e503a721a099a1944116b80
 Unsigned transaction files are always in the form of `${id}.unsignedTx.json` and signed transaction files are always in the form of `${id}.signedTx.json`. To send a signed transaction named `${id}.signedTx.json`, use the following command:
 
 ```bash
-flare-stake-tool send --id <id>
+flare-stake-tool send -i <transaction-id>
 ```
 
 ### Move assets from the C-chain to the P-chain

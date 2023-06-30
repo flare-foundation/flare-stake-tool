@@ -1,7 +1,7 @@
 import { Command, OptionValues } from 'commander'
-import { UnsignedTxJson, SignedTxJson, Context, ContextFile } from './interfaces'
+import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
 import { contextEnv, contextFile, getContext } from './constants'
-import { compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson, saveUnsignedTxJson, toBN, initContext, publicKeyToEthereumAddressString } from './utils'
+import { compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson, saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString } from './utils'
 import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './evmAtomicTx'
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './pvmAtomicTx'
 import { addValidator, getUnsignedAddValidator } from './addValidator'
@@ -13,17 +13,8 @@ import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './
 import { log, logError, logInfo, logSuccess } from './output'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // derivation path for ledger
-const FLR = 1e9 // one flr in nanoFLR
+const FLR = 1e9 // one FLR in nanoFLR
 const MAX_TRANSCTION_FEE = FLR
-
-interface FlareTxParams {
-  amount?: string
-  fee?: string
-  nodeId?: string
-  startTime?: string
-  endTime?: string
-  nonce?: string
-}
 
 export async function cli(program: Command) {
   // global configurations
@@ -31,13 +22,14 @@ export async function cli(program: Command) {
     .option("--network <network>", "Network name (flare or costwo)", 'flare')
     .option("--env-path <path>", "Path to the .env file")
     .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
+    .option("--ledger", "Use ledger to sign transactions")
   // context setup
   program
     .command("init-ctx").description("Initialize context file")
     .option("-p, --public-key <public-key>", "Public key of the account")
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
-      contextJsonFromOptions(options)
+      initCtxJsonFromOptions(options)
       logSuccess("Context file created")
     })
   // information about the network
@@ -45,18 +37,15 @@ export async function cli(program: Command) {
     .command("info").description("Relevant information")
     .argument("<type>", "Type of information")
     .action(async (type: string) => {
-      const options = program.opts()
+      const options = getOptions(program, program.opts())
+      const ctx = await contextFromOptions(options)
       if (type == 'addresses') {
-        const ctx = await contextFromOptions(options)
         logAddressInfo(ctx)
       } else if (type == 'balance') {
-        const ctx = await contextFromOptions(options)
         await logBalanceInfo(ctx)
       } else if (type == 'network') {
-        const ctx = getContext(options.network)
         logNetworkInfo(ctx)
       } else if (type == 'validators') {
-        const ctx = getContext(options.network)
         await logValidatorInfo(ctx)
       } else {
         logError(`Unknown information type ${type}`)
@@ -67,7 +56,6 @@ export async function cli(program: Command) {
     .command("transaction").description("Move funds from one chain to another")
     .argument("<type>", "Type of a crosschain transaction")
     .option("--get-unsigned-tx", "Create unsigned transaction")
-    .option("--ledger", "Use ledger to sign transactions")
     .option("--blind", "Blind signing (used for ledger)", false)
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-a, --amount <amount>", "Amount to transfer")
@@ -188,26 +176,6 @@ function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
 //////////////////////////////////////////////////////////////////////////////////////////
 // transaction-type translators
 
-async function buildAndSendTx(
-  transactionType: string, context: Context, params: FlareTxParams
-): Promise<{ txid?: string, usedFee?: string }> {
-  if (transactionType === 'exportCP') {
-    return exportTxCP(context, toBN(params.amount)!, toBN(params.fee))
-  } else if (transactionType === 'importCP') {
-    return importTxCP(context)
-  } else if (transactionType === 'exportPC') {
-    return exportTxPC(context, toBN(params.amount))
-  } else if (transactionType === 'importPC') {
-    return importTxPC(context, toBN(params.fee))
-  } else if (transactionType === 'stake') {
-    return addValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
-  } else if (transactionType === 'delegate') {
-    return addDelegator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
-  } else {
-    throw new Error(`Unknown transaction type ${transactionType}`)
-  }
-}
-
 function buildUnsignedTxJson(
   transactionType: string, context: Context, params: FlareTxParams
 ): Promise<UnsignedTxJson> {
@@ -263,10 +231,30 @@ async function sendSignedTxJson(
   }
 }
 
+async function buildAndSendTxUsingPrivateKey(
+  transactionType: string, context: Context, params: FlareTxParams
+): Promise<{ txid: string, usedFee?: string }> {
+  if (transactionType === 'exportCP') {
+    return exportTxCP(context, toBN(params.amount)!, toBN(params.fee))
+  } else if (transactionType === 'importCP') {
+    return importTxCP(context)
+  } else if (transactionType === 'exportPC') {
+    return exportTxPC(context, toBN(params.amount))
+  } else if (transactionType === 'importPC') {
+    return importTxPC(context, toBN(params.fee))
+  } else if (transactionType === 'stake') {
+    return addValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
+  } else if (transactionType === 'delegate') {
+    return addDelegator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
+  } else {
+    throw new Error(`Unknown transaction type ${transactionType}`)
+  }
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // initializing ctx.json
 
-export async function contextJsonFromOptions(options: OptionValues) {
+export async function initCtxJsonFromOptions(options: OptionValues) {
   let contextFile: ContextFile
   if (options.ledger) {
     const { publicKey, address } = await ledgerGetAccount(DERIVATION_PATH, options.network)
@@ -277,7 +265,7 @@ export async function contextJsonFromOptions(options: OptionValues) {
   } else {
     throw new Error('Either --ledger or --public-key must be specified')
   }
-  initContext(contextFile)
+  initCtxJson(contextFile)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -350,7 +338,7 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
 }
 
 async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
-  const { txid, usedFee } = await buildAndSendTx(transactionType, ctx, params)
+  const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
   capFeeAt(MAX_TRANSCTION_FEE, usedFee, params.fee)
   logSuccess(`Transaction with id ${txid} built and sent to the network`)
 }

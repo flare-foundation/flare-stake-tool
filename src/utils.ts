@@ -185,7 +185,7 @@ export function deserializeUnsignedTx<UnsignedTx extends EvmUnsignedTx | PvmUnsi
 //////////////////////////////////////////////////////////////////////////////////////////
 // key and unsigned/signed transaction storage
 
-export function initContext(contextFile: ContextFile) {
+export function initCtxJson(contextFile: ContextFile) {
   if (fs.existsSync('ctx.json')) {
     throw new Error('ctx.json already exists')
   }

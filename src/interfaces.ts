@@ -58,6 +58,15 @@ export interface SignedWithdrawalTxJson extends UnsignedWithdrawalTxJson {
   signature: string
 }
 
+export interface FlareTxParams {
+  amount?: string
+  fee?: string
+  nodeId?: string
+  startTime?: string
+  endTime?: string
+  nonce?: string
+}
+
 interface WithdrawalTxData {
   nonce: number
   gasPrice: number
