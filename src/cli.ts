@@ -125,6 +125,8 @@ export async function cli(program: Command) {
   .option("-a, --amount <amount>", "Amount to transfer")
   .option("-t, --to <to>", "Address to send funds to")
   .option("--nonce <nonce>", "Nonce of the constructed transaction")
+  .option("--get-unsigned-tx", "Create unsigned transaction")
+  .option("--send-signed-tx", "Send signed transaction json to the node")
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
     const ctx = await contextFromOptions(options)
