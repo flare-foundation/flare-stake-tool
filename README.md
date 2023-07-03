@@ -2,6 +2,8 @@
 
 This repo contains a tool for staking assets.
 
+> **Note:** This tool is in beta. Use at your own risk.
+
 Because Flare is a fork of [Avalanche](https://docs.avax.network/overview/getting-started/avalanche-platform), like Avalanche, it has three chains:
 
 - C-chain: contract chain, executes EVM smart contracts that manage assets (like ERC-20 tokens).
@@ -55,10 +57,9 @@ There are three ways to use this app:
 1. With initialized public key,
 1. With private key logged inside your environment file,
 
-> **WARNING:**
-> While easier (as signing is done within the app), we highly discourage the usage of this app with the private key exposed in the file.
+The ledger device requires no setup, as the needed public key is always extracted from the connected ledger device.
 
-To use this app with your secp256k1 curve public key (hexadecimal prefixed `0x02`, `0x03` or `0x04` or ethereum-specific format `X  Y`, where `X` and `Y` are 32-byte hexadecimals), run the following command:
+To initialize this app with your secp256k1 curve public key (hexadecimal prefixed `0x02`, `0x03` or `0x04` or ethereum-specific format `X  Y`, where `X` and `Y` are 32-byte hexadecimals), run the following command:
 
 ```bash
 flare-stake-tool ctx-init -p <public key> --network <flare or costwo>
@@ -73,12 +74,11 @@ To use this app in a less-secure manner, you can set your private key as an envi
    PRIVATE_KEY_CB58="private key"
    PRIVATE_KEY_HEX="private key"
    ```
-   You can also log in just your public key in the same file as follows:
-   ```bash
-   PUBLIC_KEY="public key"
-   ```
 
-In the latter case the signing is done within the app. For a more secure approach, you should sign transactions via ledger or log your public key into the app and sign transaction hashes offline with ECDSA over the secp256k1 curve.
+> **WARNING:** While easier (as signing is done within the app), we discourage the usage of this app with the private key exposed in the file.
+This is because the private key is exposed to 800+ dependencies, and there is no way to audit them all.
+
+In the latter case the signing is done within the app. Again, this is not a secure approach, and you should sign transactions via ledger or log your public key into the app and sign transaction hashes offline with ECDSA over the secp256k1 curve.
 
 ## App usage with ledger
 
@@ -169,7 +169,7 @@ If you get the `errInsufficientFunds` error, try specifying a higher gas fee whe
 To add a validator node to the flare network, run the following command:
 
 ```bash
-flare-stake-tool stake -n <nodeId> -s <start-time> -e <end-time> -a <amount> --ledger
+flare-stake-tool stake -n <nodeId> -s <start-time> -e <end-time> -a <amount> --delegation-fee <delegation-fee> --ledger
 ```
 
 Where:
@@ -177,6 +177,7 @@ Where:
 - `start-time` is the unix time of the start of the staking process.
 - `end-time` is the unix time of the end of the staking process.
 - `amount` is the amount to lock and stake in FLR. The minimum is 2000 FLR and the maximum is 10000 FLR.
+- `delegation-fee` is the fee in percent that the validator charges for delegating to it. The minimum is 0 and the maximum is 100.
 
 The funds on the P-chain account are available to start staking to the validator nodes.
 
@@ -246,7 +247,7 @@ The signed transaction json file that you should generate via raw signing is the
 }
 ```
 
-An example signature looks like `98f8c0d13bf2b5a5b2216894e503a721a099a1944116b802f2d84c0bd83a1bef3378e1b56d7ccd06de321913b8db0e97f4775e1885c86f6bcc583330d37cf5be01` where the last byte is the recovery ID and can also be `1b` or `1c`.
+An example signature looks like `98f8c0d13bf2b5a5b2216894e503a721a099a1944116b802f2d84c0bd83a1bef3378e1b56d7ccd06de321913b8db0e97f4775e1885c86f6bcc583330d37cf5be01` where the last byte is the recovery ID and can be either `00`/`01` or `1b`/`1c`.
 
 Unsigned transaction files are always in the form of `${id}.unsignedTx.json` and signed transaction files are always in the form of `${id}.signedTx.json`. To send a signed transaction named `${id}.signedTx.json`, use the following command:
 

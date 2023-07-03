@@ -65,6 +65,7 @@ export interface FlareTxParams {
   startTime?: string
   endTime?: string
   nonce?: string
+  delegationFee?: string
 }
 
 interface WithdrawalTxData {

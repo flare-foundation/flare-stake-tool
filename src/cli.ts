@@ -1,7 +1,11 @@
 import { Command, OptionValues } from 'commander'
 import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
 import { contextEnv, contextFile, getContext } from './constants'
-import { compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson, saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString } from './utils'
+import {
+  compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
+  saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
+  getUserInput, validatePublicKey
+} from './utils'
 import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './evmAtomicTx'
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './pvmAtomicTx'
 import { addValidator, getUnsignedAddValidator } from './addValidator'
@@ -20,9 +24,9 @@ export async function cli(program: Command) {
   // global configurations
   program
     .option("--network <network>", "Network name (flare or costwo)", 'flare')
-    .option("--env-path <path>", "Path to the .env file")
-    .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
     .option("--ledger", "Use ledger to sign transactions")
+    .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
+    .option("--env-path <path>", "Path to the .env file")
   // context setup
   program
     .command("init-ctx").description("Initialize context file")
@@ -30,7 +34,6 @@ export async function cli(program: Command) {
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
       initCtxJsonFromOptions(options)
-      logSuccess("Context file created")
     })
   // information about the network
   program
@@ -63,6 +66,7 @@ export async function cli(program: Command) {
     .option("-n, --node-id <nodeId>", "The id of the node to stake/delegate to")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
+    .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator")
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
@@ -72,7 +76,12 @@ export async function cli(program: Command) {
       } else if (options.ledger) {
         await cliBuildAndSendTxUsingLedger(type, ctx, options as FlareTxParams, options.blind)
       } else {
-        await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
+        const response = await getUserInput(`
+          You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious!
+          This command is not meant to be used in production, but for testing only! Proceed? (Y/N) `
+        )
+        if (response == 'Y')
+          await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
       }
     })
   // signed transaction sending
@@ -124,7 +133,7 @@ export async function cli(program: Command) {
       await withdraw_useSignature(ctx, options.transactionId)
     }
   })
-  // ledger signing
+  // ledger two-step manual signing
   program
     .command("sign-hash").description("Sign a transaction hash (blind signing)")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
@@ -168,10 +177,10 @@ function getOptions(program: Command, options: OptionValues): OptionValues {
 
 function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
   if (usedFee !== specifiedFee) { // if usedFee was that specified by the user, we don't cap it
-    const usedFeeNumber = toBN(usedFee)!.toNumber() // if one of the fees is defined, usedFee is defined
+    const usedFeeNumber = Number(usedFee) // if one of the fees is defined, usedFee is defined
     if (usedFeeNumber > cap)
-     throw new Error(`Used fee of ${usedFeeNumber / FLR} is higher than the maximum allowed fee of ${cap / FLR}`)
-    logInfo(`Using fee of ${usedFeeNumber / FLR}`)
+     throw new Error(`Used fee of ${usedFeeNumber / FLR} FLR is higher than the maximum allowed fee of ${cap / FLR} FLR`)
+    logInfo(`Using fee of ${usedFeeNumber / FLR} FLR`)
   }
 }
 
@@ -183,26 +192,22 @@ function buildUnsignedTxJson(
 ): Promise<UnsignedTxJson> {
   switch (transactionType) {
     case 'exportCP': {
-      const { amount, fee, nonce } = params!
-      return getUnsignedExportTxCP(context, toBN(amount)!, toBN(fee), toBN(nonce))
+      const nonce = (params.nonce === undefined) ? undefined : Number(params.nonce)
+      return getUnsignedExportTxCP(context, toBN(params.amount)!, toBN(params.fee), nonce)
     }
     case 'importCP':
       return getUnsignedImportTxCP(context)
     case 'exportPC': {
-      const { amount } = params!
-      return getUnsignedExportTxPC(context, toBN(amount)!)
+      return getUnsignedExportTxPC(context, toBN(params.amount)!)
     }
     case 'importPC': {
-      const { fee } = params!
-      return getUnsignedImportTxPC(context, toBN(fee))
+      return getUnsignedImportTxPC(context, toBN(params.fee))
     }
     case 'stake': {
-      const { nodeId, amount, startTime, endTime } = params
-      return getUnsignedAddValidator(context, nodeId!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
+      return getUnsignedAddValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
     }
     case 'delegate': {
-      const { nodeId, amount, startTime, endTime } = params
-      return getUnsignedAddDelegator(context, nodeId!, toBN(amount)!, toBN(startTime)!, toBN(endTime)!)
+      return getUnsignedAddDelegator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
     }
     default:
       throw new Error(`Unknown transaction type: ${transactionType}`)
@@ -256,18 +261,20 @@ async function buildAndSendTxUsingPrivateKey(
 //////////////////////////////////////////////////////////////////////////////////////////
 // initializing ctx.json
 
-export async function initCtxJsonFromOptions(options: OptionValues) {
+export async function initCtxJsonFromOptions(options: OptionValues): Promise<void> {
   let contextFile: ContextFile
   if (options.ledger) {
     const { publicKey, address } = await ledgerGetAccount(DERIVATION_PATH, options.network)
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
     contextFile = { publicKey, ethAddress, flareAddress: address, network: options.network }
   } else if (options.publicKey) {
+    if (!validatePublicKey(options.publicKey)) return logError('Invalid public key')
     contextFile = { publicKey: options.publicKey, network: options.network }
   } else {
     throw new Error('Either --ledger or --public-key must be specified')
   }
   initCtxJson(contextFile)
+  logSuccess("Context file created")
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

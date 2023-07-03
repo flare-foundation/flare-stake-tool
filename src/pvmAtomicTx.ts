@@ -5,31 +5,21 @@ import { UnixNow } from '@flarenetwork/flarejs/dist//utils'
 import { SignedTxJson, UnsignedTxJson, Context } from './interfaces'
 import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx } from './utils'
 
+
+type ImportCPParams = [
+  UTXOSet, string[], string, string[], string[], string[], Buffer | undefined, BN, BN, number
+]
+type ExportPCParams = [
+  UTXOSet, BN, string, string[], string[], string[], Buffer | undefined, BN, BN, number
+]
+
 /**
  * Import funds exported from C-chain to P-chain to P-chain
  * @param ctx - context with constants initialized from user keys
  */
 export async function importTxCP(ctx: Context): Promise<{ txid: string }> {
-  const threshold = 1
-  const locktime: BN = new BN(0)
-  const asOf: BN = UnixNow()
-  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(
-    [ctx.pAddressBech32!],
-    ctx.cChainBlockchainID
-  )
-  const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
-  const unsignedTx: UnsignedTx = await ctx.pchain.buildImportTx(
-    utxoSet,
-    [ctx.pAddressBech32!],
-    ctx.cChainBlockchainID,
-    [ctx.pAddressBech32!],
-    [ctx.pAddressBech32!],
-    [ctx.pAddressBech32!],
-    undefined,
-    asOf,
-    locktime,
-    threshold
-  )
+  const params = await getImportCPParams(ctx)
+  const unsignedTx: UnsignedTx = await ctx.pchain.buildImportTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
   return { txid: txid }
@@ -41,72 +31,22 @@ export async function importTxCP(ctx: Context): Promise<{ txid: string }> {
  * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
 export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: string }> {
-  const threshold: number = 1
-  const locktime: BN = new BN(0)
-  const asOf: BN = UnixNow()
-  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs([ctx.pAddressBech32!])
-  const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
-  const fee = ctx.pchain.getDefaultTxFee()
-
-  if (amount === undefined) {
-    const getBalanceResponse: any = await ctx.pchain.getBalance(ctx.pAddressBech32!)
-    const unlocked = new BN(getBalanceResponse.unlocked)
-    amount = unlocked.sub(fee)
-  }
-
-  const unsignedTx: UnsignedTx = await ctx.pchain.buildExportTx(
-    utxoSet,
-    amount,
-    ctx.cChainBlockchainID,
-    [ctx.cAddressBech32!],
-    [ctx.pAddressBech32!],
-    [ctx.pAddressBech32!],
-    undefined,
-    asOf,
-    locktime,
-    threshold
-  )
+  const params = await getExportPCParams(ctx, amount)
+  const unsignedTx: UnsignedTx = await ctx.pchain.buildExportTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
   return { txid: txid }
 }
 
 /**
- * Get hashes that need to get signed in order for funds to be
- * exported from P-chain to C-chain.
+ * Get unsigned transaction for import from C-chain to P-chain.
  * @param ctx - context with constants initialized from user keys
- * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
-export async function getUnsignedExportTxPC(ctx: Context, amount?: BN): Promise<UnsignedTxJson> {
-  const threshold: number = 1
-  const locktime: BN = new BN(0)
-  const asOf: BN = UnixNow()
-  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs([ctx.pAddressBech32!])
-
-  const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
-  const fee = ctx.pchain.getDefaultTxFee()
-
-  if (amount === undefined) {
-    const getBalanceResponse: any = await ctx.pchain.getBalance(ctx.pAddressBech32!)
-    const unlocked = new BN(getBalanceResponse.unlocked)
-    amount = unlocked.sub(fee)
-  }
-
-  const unsignedTx: UnsignedTx = await ctx.pchain.buildExportTx(
-    utxoSet,
-    amount,
-    ctx.cChainBlockchainID,
-    [ctx.cAddressBech32!],
-    [ctx.pAddressBech32!],
-    [ctx.pAddressBech32!],
-    undefined,
-    asOf,
-    locktime,
-    threshold
-  )
-
+export async function getUnsignedImportTxCP(ctx: Context): Promise<UnsignedTxJson> {
+  const params = await getImportCPParams(ctx)
+  const unsignedTx: UnsignedTx = await ctx.pchain.buildImportTx(...params)
   return {
-    transactionType: 'exportPC',
+    transactionType: 'importCP',
     serialization: serializeUnsignedTx(unsignedTx),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
@@ -114,33 +54,15 @@ export async function getUnsignedExportTxPC(ctx: Context, amount?: BN): Promise<
 }
 
 /**
- * Get hashes that need to get signed in order for funds exported from
- * C-chain to P-chain to be imported to P-chain
+ * Get unsigned transaction for export from C-chain to P-chain.
  * @param ctx - context with constants initialized from user keys
- * @param id - id associated with the transaction
+ * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
-export async function getUnsignedImportTxCP(ctx: Context): Promise<UnsignedTxJson> {
-  const threshold = 1
-  const locktime: BN = new BN(0)
-  const asOf: BN = UnixNow()
-  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(
-    [ctx.pAddressBech32!],
-    ctx.cChainBlockchainID
-  )
-  const unsignedTx: UnsignedTx = await ctx.pchain.buildImportTx(
-    platformVMUTXOResponse.utxos,
-    [ctx.pAddressBech32!],
-    ctx.cChainBlockchainID,
-    [ctx.pAddressBech32!],
-    [ctx.pAddressBech32!],
-    [ctx.pAddressBech32!],
-    undefined,
-    asOf,
-    locktime,
-    threshold
-  )
+export async function getUnsignedExportTxPC(ctx: Context, amount?: BN): Promise<UnsignedTxJson> {
+  const params = await getExportPCParams(ctx, amount)
+  const unsignedTx: UnsignedTx = await ctx.pchain.buildExportTx(...params)
   return {
-    transactionType: 'importCP',
+    transactionType: 'exportPC',
     serialization: serializeUnsignedTx(unsignedTx),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
     unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
@@ -159,4 +81,54 @@ export async function issueSignedPvmTx(ctx: Context, signedTxJson: SignedTxJson)
   const tx: Tx = unsignedTx.signWithRawSignatures(ecdsaSignatures, ctx.cKeychain)
   const chainTxId = await ctx.pchain.issueTx(tx)
   return { chainTxId: chainTxId }
+}
+
+async function getImportCPParams(ctx: Context): Promise<ImportCPParams> {
+  const threshold = 1
+  const locktime: BN = new BN(0)
+  const asOf: BN = UnixNow()
+  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(
+    [ctx.pAddressBech32!],
+    ctx.cChainBlockchainID
+  )
+  const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
+  return [
+    utxoSet,
+    [ctx.pAddressBech32!],
+    ctx.cChainBlockchainID,
+    [ctx.pAddressBech32!],
+    [ctx.pAddressBech32!],
+    [ctx.pAddressBech32!],
+    undefined,
+    asOf,
+    locktime,
+    threshold
+  ]
+}
+
+async function getExportPCParams(ctx: Context, amount?: BN): Promise<ExportPCParams> {
+  const threshold: number = 1
+  const locktime: BN = new BN(0)
+  const asOf: BN = UnixNow()
+  const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs([ctx.pAddressBech32!])
+  const utxoSet: UTXOSet = platformVMUTXOResponse.utxos
+  const fee = ctx.pchain.getDefaultTxFee()
+  // if amount is not passed, export all funds minus the fee
+  if (amount === undefined) {
+    const getBalanceResponse: any = await ctx.pchain.getBalance(ctx.pAddressBech32!)
+    const unlocked = new BN(getBalanceResponse.unlocked)
+    amount = unlocked.sub(fee)
+  }
+  return [
+    utxoSet,
+    amount,
+    ctx.cChainBlockchainID,
+    [ctx.cAddressBech32!],
+    [ctx.pAddressBech32!],
+    [ctx.pAddressBech32!],
+    undefined,
+    asOf,
+    locktime,
+    threshold
+  ]
 }
