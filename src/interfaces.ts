@@ -72,6 +72,6 @@ interface WithdrawalTxData {
   gasPrice: number
   gasLimit: number
   to: string
-  value: string
+  value: string | bigint
   chainId: number
 }

@@ -10,12 +10,14 @@ export async function createWithdrawalTransaction(ctx: Context, toAddress: strin
 
     const txNonce = (nonce === undefined) ? await ctx.web3.eth.getTransactionCount(ctx.cAddressHex) : nonce;
 
+    let amountWei = BigInt(amount) * BigInt(10 ** 9) // amount has already 9 zeros
+
     var rawTx = {
         nonce: txNonce,
         gasPrice: 500000000000,
         gasLimit: 8000000,
         to: toAddress,
-        value: (amount * 10 ** 9).toString(), // amount has already 9 zeros
+        value: amountWei.toString(),
         chainId: ctx.config.networkID
     }
 
