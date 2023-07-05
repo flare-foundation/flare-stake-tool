@@ -1,6 +1,7 @@
 import * as ethutil from 'ethereumjs-util'
 import * as elliptic from "elliptic"
 import fs from 'fs'
+import readline from 'readline'
 import { bech32 } from 'bech32'
 import { BN } from '@flarenetwork/flarejs/dist'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
@@ -65,6 +66,15 @@ export function publicKeyToEthereumAddressString(publicKey: string) {
   return prefix0x(ethAddress.toString('hex'))
 }
 
+export function validatePublicKey(publicKey: string): boolean {
+  try {
+    decodePublicKey(publicKey)
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // signatures
 
@@ -103,6 +113,19 @@ export async function sleepms(milliseconds: number) {
     setTimeout(() => {
       resolve()
     }, milliseconds)
+  })
+}
+
+export function getUserInput(prompt: string): Promise<string> {
+  const reader = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  })
+  return new Promise((resolve) => {
+    reader.question(prompt, (answer) => {
+      reader.close();
+      resolve(answer);
+    })
   })
 }
 
