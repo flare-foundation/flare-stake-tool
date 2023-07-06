@@ -71,7 +71,7 @@ export async function cli(program: Command) {
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
-      if (options.exposePrivateKey) {
+      if (options.useLocalPrivateKeyAndLetEveryoneStealMyFunds) {
         const response = await getUserInput(`
           You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious!
           This command is not meant to be used in production, but for testing only! Proceed? (Y/N) `)
