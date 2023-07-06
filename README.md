@@ -257,17 +257,17 @@ flare-stake-tool send -i <transaction-id>
 
 ### Move assets from the C-chain to the P-chain
 
-Commands for obtaining unsigned transactions are the same as for the ledger in previous section, except that you replace `--ledger` flag with `--get-unsigned-tx` and additionally have to specify transaction id `-i <transaction-id>`. For example:
+Commands for obtaining unsigned transactions are the same as for the ledger in previous section, except that you ommit the `--ledger` flag and additionally have to specify transaction id `-i <transaction-id>`. For example:
 ```bash
-flare-stake-tool exportCP -a <amount> -i <transaction-id> --get-unsigned-tx
+flare-stake-tool exportCP -a <amount> -i <transaction-id>
 ```
 
 ## Operations with private key
 
-To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` flag with `--env-path <path to your private key file>`. For example:
+To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` flag with `--use-local-private-key-and-let-everyone-steal-my-funds` and add additional argument`--env-path <path to your private key file>`. For example:
 
 ```bash
-flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file>
+flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file> --use-local-private-key-and-let-everyone-steal-my-funds
 ```
 
 ## Versions
