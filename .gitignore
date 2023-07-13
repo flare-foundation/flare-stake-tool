@@ -94,3 +94,11 @@ build/*
 build
 dist
 *.lnk
+*unsignedTx.json
+*unsignedTx
+*signedTx.json
+ctx*.json
+
+# fordefi
+private.pem
+token
