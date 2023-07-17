@@ -6,7 +6,7 @@ import { bech32 } from 'bech32'
 import { BN } from '@flarenetwork/flarejs/dist'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common"
-import { UnsignedTx as EvmUnsignedTx, ImportTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
+import { UnsignedTx as EvmUnsignedTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { SignedTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, SignedWithdrawalTxJson, ContextFile } from './interfaces'
 

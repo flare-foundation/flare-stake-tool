@@ -1,4 +1,4 @@
-import { EcdsaSignature, SignatureRequest } from '@flarenetwork/flarejs/dist/common'
+import { EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
 import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist//utils'

@@ -1,6 +1,4 @@
-import { contextFile } from './constants'
 import { Transaction } from "ethers";
-import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { prefix0x, readSignedWithdrawalTx, readUnsignedWithdrawalTx, sleepms, unPrefix0x, waitFinalize3Factory } from "../src/utils"
 import { saveUnsignedWithdrawalTx } from './utils'
 import { UnsignedWithdrawalTxJson } from './interfaces';

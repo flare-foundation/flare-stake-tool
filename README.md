@@ -264,10 +264,10 @@ flare-stake-tool exportCP -a <amount> -i <transaction-id>
 
 ## Operations with private key
 
-To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` flag with `--use-local-private-key-and-let-everyone-steal-my-funds` and add additional argument`--env-path <path to your private key file>`. For example:
+To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` flag with `--get-hacked` and add an additional argument `--env-path <path to your private key file>`. For example:
 
 ```bash
-flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file> --use-local-private-key-and-let-everyone-steal-my-funds
+flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file> --get-hacked
 ```
 
 ## Versions

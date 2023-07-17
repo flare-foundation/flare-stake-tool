@@ -25,6 +25,8 @@ export async function cli(program: Command) {
   program
     .option("--network <network>", "Network name (flare or costwo)", 'flare')
     .option("--ledger", "Use ledger to sign transactions")
+    .option("--blind", "Blind signing (used for ledger)", false)
+    .option("--get-hacked", "Use the .env file with the exposed private key")
     .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
     .option("--env-path <path>", "Path to the .env file")
   // context setup
@@ -58,8 +60,6 @@ export async function cli(program: Command) {
   program
     .command("transaction").description("Move funds from one chain to another")
     .argument("<type>", "Type of a crosschain transaction")
-    .option("--use-local-private-key-and-let-everyone-steal-my-funds", "Use the .env file with the exposed private key")
-    .option("--blind", "Blind signing (used for ledger)", false)
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Transaction fee")
@@ -71,7 +71,8 @@ export async function cli(program: Command) {
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
-      if (options.useLocalPrivateKeyAndLetEveryoneStealMyFunds) {
+      if (options.getHacked) {
+        // this is more of a concept for future development, by now private key was already exposed to dependencies
         const response = await getUserInput(`
           You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious!
           This command is not meant to be used in production, but for testing only! Proceed? (Y/N) `)

@@ -4,7 +4,7 @@ import { UnsignedTx, Tx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { costImportTx, costExportTx } from "@flarenetwork/flarejs/dist/utils"
 import { SignedTxJson, UnsignedTxJson, Context } from './interfaces'
 import {
-  integerToDecimal as shiftDecimals, expandSignature,
+  expandSignature,
   serializeExportCP_args, deserializeExportCP_args, deserializeImportPC_args,
   serializeImportPC_args
 } from './utils'
