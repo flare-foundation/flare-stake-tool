@@ -17,8 +17,8 @@ type ExportPCParams = [
  * Import funds exported from C-chain to P-chain to P-chain
  * @param ctx - context with constants initialized from user keys
  */
-export async function importTxCP(ctx: Context): Promise<{ txid: string }> {
-  const params = await getImportCPParams(ctx)
+export async function importTxCP(ctx: Context, threshold?: number): Promise<{ txid: string }> {
+  const params = await getImportCPParams(ctx, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildImportTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
@@ -30,8 +30,8 @@ export async function importTxCP(ctx: Context): Promise<{ txid: string }> {
  * @param ctx - context with constants initialized from user keys
  * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
-export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: string }> {
-  const params = await getExportPCParams(ctx, amount)
+export async function exportTxPC(ctx: Context, amount?: BN, threshold?: number): Promise<{ txid: string }> {
+  const params = await getExportPCParams(ctx, amount, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildExportTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
@@ -42,8 +42,8 @@ export async function exportTxPC(ctx: Context, amount?: BN): Promise<{ txid: str
  * Get unsigned transaction for import from C-chain to P-chain.
  * @param ctx - context with constants initialized from user keys
  */
-export async function getUnsignedImportTxCP(ctx: Context): Promise<UnsignedTxJson> {
-  const params = await getImportCPParams(ctx)
+export async function getUnsignedImportTxCP(ctx: Context, threshold?: number): Promise<UnsignedTxJson> {
+  const params = await getImportCPParams(ctx, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildImportTx(...params)
   return {
     transactionType: 'importCP',
@@ -58,8 +58,8 @@ export async function getUnsignedImportTxCP(ctx: Context): Promise<UnsignedTxJso
  * @param ctx - context with constants initialized from user keys
  * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
-export async function getUnsignedExportTxPC(ctx: Context, amount?: BN): Promise<UnsignedTxJson> {
-  const params = await getExportPCParams(ctx, amount)
+export async function getUnsignedExportTxPC(ctx: Context, amount?: BN, threshold?: number): Promise<UnsignedTxJson> {
+  const params = await getExportPCParams(ctx, amount, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildExportTx(...params)
   return {
     transactionType: 'exportPC',
@@ -83,8 +83,7 @@ export async function issueSignedPvmTx(ctx: Context, signedTxJson: SignedTxJson)
   return { chainTxId: chainTxId }
 }
 
-async function getImportCPParams(ctx: Context): Promise<ImportCPParams> {
-  const threshold = 1
+async function getImportCPParams(ctx: Context, threshold: number = 1): Promise<ImportCPParams> {
   const locktime: BN = new BN(0)
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(
@@ -106,8 +105,7 @@ async function getImportCPParams(ctx: Context): Promise<ImportCPParams> {
   ]
 }
 
-async function getExportPCParams(ctx: Context, amount?: BN): Promise<ExportPCParams> {
-  const threshold: number = 1
+async function getExportPCParams(ctx: Context, amount?: BN, threshold: number = 1): Promise<ExportPCParams> {
   const locktime: BN = new BN(0)
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs([ctx.pAddressBech32!])

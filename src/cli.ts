@@ -66,8 +66,9 @@ export async function cli(program: Command) {
     .option("-n, --node-id <nodeId>", "The id of the node to stake/delegate to")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
-    .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator", "10")
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
+    .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator", "10")
+    .option("--threshold <threshold>", "Threshold of the constructed transaction", "1")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
@@ -190,23 +191,24 @@ function buildUnsignedTxJson(
 ): Promise<UnsignedTxJson> {
   switch (transactionType) {
     case 'exportCP': {
-      const nonce = (params.nonce === undefined) ? undefined : Number(params.nonce)
-      return getUnsignedExportTxCP(context, toBN(params.amount)!, toBN(params.fee), nonce)
+      return getUnsignedExportTxCP(context, toBN(params.amount)!, toBN(params.fee),
+        (params.nonce === undefined) ? undefined : Number(params.nonce))
     }
     case 'importCP':
-      return getUnsignedImportTxCP(context)
+      return getUnsignedImportTxCP(context, Number(params.threshold!))
     case 'exportPC': {
-      return getUnsignedExportTxPC(context, toBN(params.amount)!)
+      return getUnsignedExportTxPC(context, toBN(params.amount)!, Number(params.threshold!))
     }
     case 'importPC': {
       return getUnsignedImportTxPC(context, toBN(params.fee))
     }
     case 'stake': {
-      return getUnsignedAddValidator(
-        context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!, Number(params.delegationFee!))
+      return getUnsignedAddValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!,
+        toBN(params.endTime)!, Number(params.delegationFee!), Number(params.threshold!))
     }
     case 'delegate': {
-      return getUnsignedAddDelegator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
+      return getUnsignedAddDelegator(context, params.nodeId!, toBN(params.amount)!,
+        toBN(params.startTime)!, toBN(params.endTime)!, Number(params.threshold!))
     }
     default:
       throw new Error(`Unknown transaction type: ${transactionType}`)
@@ -243,15 +245,17 @@ async function buildAndSendTxUsingPrivateKey(
   if (transactionType === 'exportCP') {
     return exportTxCP(context, toBN(params.amount)!, toBN(params.fee))
   } else if (transactionType === 'importCP') {
-    return importTxCP(context)
+    return importTxCP(context, Number(params.threshold!))
   } else if (transactionType === 'exportPC') {
-    return exportTxPC(context, toBN(params.amount))
+    return exportTxPC(context, toBN(params.amount), Number(params.threshold!))
   } else if (transactionType === 'importPC') {
     return importTxPC(context, toBN(params.fee))
   } else if (transactionType === 'stake') {
-    return addValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!, Number(params.delegationFee!))
+    return addValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!,
+      toBN(params.endTime)!, Number(params.delegationFee!), Number(params.threshold!))
   } else if (transactionType === 'delegate') {
-    return addDelegator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
+    return addDelegator(context, params.nodeId!, toBN(params.amount)!,
+      toBN(params.startTime)!, toBN(params.endTime)!, Number(params.threshold!))
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
   }
@@ -347,7 +351,7 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
 
 async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
   const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
-  logInfo(`Used fee of ${usedFee}`)
+  if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} FLR`)
   logSuccess(`Transaction with id ${txid} built and sent to the network`)
 }
 

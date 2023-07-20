@@ -20,9 +20,9 @@ type ImportPCParams = [UTXOSet, string, string[], string, string[], BN]
  * @param nonce - export transaction nonce
  */
 export async function exportTxCP(
-  ctx: Context, amount: BN, fee?: BN, nonce?: number
+  ctx: Context, amount: BN, fee?: BN, nonce?: number, threshold?: number
 ): Promise<{ txid: string, usedFee: string }> {
-  const params = await getExportCPParams(ctx, amount, fee, nonce)
+  const params = await getExportCPParams(ctx, amount, fee, nonce, threshold)
   const unsignedTx: UnsignedTx = await ctx.cchain.buildExportTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.cKeychain)
   const txid = await ctx.cchain.issueTx(tx)
@@ -54,8 +54,10 @@ export async function importTxPC(
  * @param fee - export transaction fee
  * @param nonce - export transaction nonce
  */
-export async function getUnsignedExportTxCP(ctx: Context, amount: BN, fee?: BN, nonce?: number): Promise<UnsignedTxJson> {
-  const params = await getExportCPParams(ctx, amount, fee, nonce)
+export async function getUnsignedExportTxCP(
+  ctx: Context, amount: BN, fee?: BN, nonce?: number, threshold?: number
+): Promise<UnsignedTxJson> {
+  const params = await getExportCPParams(ctx, amount, fee, nonce, threshold)
   const unsignedTx = await ctx.cchain.buildExportTx(...params)
   return {
     transactionType: 'exportCP',
@@ -115,8 +117,7 @@ async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson,
   return { chainTxId: chainTxId }
 }
 
-async function getExportCPParams(ctx: Context, amount: BN, fee?: BN, nonce?: number): Promise<ExportCPParams> {
-  const threshold = 1
+async function getExportCPParams(ctx: Context, amount: BN, fee?: BN, nonce?: number, threshold: number = 1): Promise<ExportCPParams> {
   const txcount = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)
   const locktime: BN = new BN(0)
   const importFee: BN = ctx.pchain.getDefaultTxFee()

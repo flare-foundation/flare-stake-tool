@@ -23,9 +23,10 @@ export async function addDelegator(
   nodeID: string,
   stakeAmount: BN,
   startTime: BN,
-  endTime: BN
+  endTime: BN,
+  threshold?: number
 ) {
-  const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime)
+  const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddDelegatorTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
@@ -45,9 +46,10 @@ export async function getUnsignedAddDelegator(
   nodeID: string,
   stakeAmount: BN,
   startTime: BN,
-  endTime: BN
+  endTime: BN,
+  threshold?: number
 ): Promise<UnsignedTxJson> {
-  const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime)
+  const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddDelegatorTx(...params)
   return {
     transactionType: 'delegate',
@@ -62,9 +64,9 @@ async function getAddDelegatorParams(
   nodeID: string,
   stakeAmount: BN,
   startTime: BN,
-  endTime: BN
+  endTime: BN,
+  threshold: number = 1
 ): Promise<AddDelegatorParams> {
-  const threshold: number = 1
   const locktime: BN = new BN(0)
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32!)

@@ -25,9 +25,10 @@ export async function addValidator(
   stakeAmount: BN,
   startTime: BN,
   endTime: BN,
-  delegationFee: number
+  delegationFee: number,
+  threshold?: number
 ): Promise<{ txid: string }> {
-  const params = await getAddValidatorParams(ctx, nodeID, stakeAmount, startTime, endTime, delegationFee)
+  const params = await getAddValidatorParams(ctx, nodeID, stakeAmount, startTime, endTime, delegationFee, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddValidatorTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
@@ -49,9 +50,10 @@ export async function getUnsignedAddValidator(
   stakeAmount: BN,
   startTime: BN,
   endTime: BN,
-  delegationFee: number
+  delegationFee: number,
+  threshold?: number
 ): Promise<UnsignedTxJson> {
-  const params = await getAddValidatorParams(ctx, nodeID, stakeAmount, startTime, endTime, delegationFee)
+  const params = await getAddValidatorParams(ctx, nodeID, stakeAmount, startTime, endTime, delegationFee, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddValidatorTx(...params)
   return {
     transactionType: 'stake',
@@ -67,9 +69,9 @@ async function getAddValidatorParams(
   stakeAmount: BN,
   startTime: BN,
   endTime: BN,
-  delegationFee: number
+  delegationFee: number,
+  threshold: number = 1
 ): Promise<AddValidatorParams> {
-  const threshold = 1
   const locktime: BN = new BN(0)
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32!)
