@@ -66,7 +66,7 @@ export async function cli(program: Command) {
     .option("-n, --node-id <nodeId>", "The id of the node to stake/delegate to")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
-    .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator")
+    .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator", "10")
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
@@ -202,7 +202,8 @@ function buildUnsignedTxJson(
       return getUnsignedImportTxPC(context, toBN(params.fee))
     }
     case 'stake': {
-      return getUnsignedAddValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
+      return getUnsignedAddValidator(
+        context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!, Number(params.delegationFee!))
     }
     case 'delegate': {
       return getUnsignedAddDelegator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
@@ -248,7 +249,7 @@ async function buildAndSendTxUsingPrivateKey(
   } else if (transactionType === 'importPC') {
     return importTxPC(context, toBN(params.fee))
   } else if (transactionType === 'stake') {
-    return addValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
+    return addValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!, Number(params.delegationFee!))
   } else if (transactionType === 'delegate') {
     return addDelegator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!, toBN(params.endTime)!)
   } else {
@@ -346,7 +347,7 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
 
 async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
   const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
-  capFeeAt(MAX_TRANSCTION_FEE, usedFee, params.fee)
+  logInfo(`Used fee of ${usedFee}`)
   logSuccess(`Transaction with id ${txid} built and sent to the network`)
 }
 

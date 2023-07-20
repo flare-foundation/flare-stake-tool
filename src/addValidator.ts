@@ -17,15 +17,17 @@ type AddValidatorParams = [
  * @param stakeAmount - the amount of funds to stake during the node's validation
  * @param startTime - start time of the node's validation
  * @param endTime - end time of the node's validation
+ * @param delegationFee - the fee you charge for delegating to your node
  */
 export async function addValidator(
   ctx: Context,
   nodeID: string,
   stakeAmount: BN,
   startTime: BN,
-  endTime: BN
+  endTime: BN,
+  delegationFee: number
 ): Promise<{ txid: string }> {
-  const params = await getAddValidatorParams(ctx, nodeID, stakeAmount, startTime, endTime)
+  const params = await getAddValidatorParams(ctx, nodeID, stakeAmount, startTime, endTime, delegationFee)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddValidatorTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
@@ -39,15 +41,17 @@ export async function addValidator(
  * @param stakeAmount - the amount of funds to stake during the node's validation
  * @param startTime - start time of the node's validation
  * @param endTime - end time of the node's validation
+ * @param delegationFee - the fee you charge for delegating to your node
  */
 export async function getUnsignedAddValidator(
   ctx: Context,
   nodeID: string,
   stakeAmount: BN,
   startTime: BN,
-  endTime: BN
+  endTime: BN,
+  delegationFee: number
 ): Promise<UnsignedTxJson> {
-  const params = await getAddValidatorParams(ctx, nodeID, stakeAmount, startTime, endTime)
+  const params = await getAddValidatorParams(ctx, nodeID, stakeAmount, startTime, endTime, delegationFee)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddValidatorTx(...params)
   return {
     transactionType: 'stake',
@@ -63,7 +67,7 @@ async function getAddValidatorParams(
   stakeAmount: BN,
   startTime: BN,
   endTime: BN,
-  delegationFee: number = 10
+  delegationFee: number
 ): Promise<AddValidatorParams> {
   const threshold = 1
   const locktime: BN = new BN(0)

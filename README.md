@@ -126,8 +126,8 @@ This describes how to move assets from the C-chain to the P-chain.
 Funds typically reside on the C-chain account, so they have to be exported from it. Exported funds must then be imported to the corresponding P-chain account. This requires one transaction on each chain so you need to issue two commands.
 
 ```bash
-flare-stake-tool exportPC -a <amount> -f <fee> --ledger
-flare-stake-tool importPC --ledger
+flare-stake-tool exportCP -a <amount> -f <fee> --ledger
+flare-stake-tool importCP --ledger
 ```
 
 Where:
