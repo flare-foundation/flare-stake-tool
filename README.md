@@ -62,7 +62,7 @@ The ledger device requires no setup, as the needed public key is always extracte
 To initialize this app with your secp256k1 curve public key (hexadecimal prefixed `0x02`, `0x03` or `0x04` or ethereum-specific format `X  Y`, where `X` and `Y` are 32-byte hexadecimals), run the following command:
 
 ```bash
-flare-stake-tool ctx-init -p <public key> --network <flare or costwo>
+flare-stake-tool init-ctx -p <public key> --network <flare or costwo>
 ```
 
 To use this app in a less-secure manner, you can set your private key as an environment variable. To do this follow the below steps:
