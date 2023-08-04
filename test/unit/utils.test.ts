@@ -1,5 +1,5 @@
 import { privateKeyToEncodedPublicKey } from "../../src/utils"
-import data from "../data"
+import data from "../data/utilsData"
 describe("Unit Test Cases for utils", () => {
     describe("privateKeyToEncodedPublicKey Testcases", () => {
         test("Should pass for valid input for privateKey and compres is true", () => {
