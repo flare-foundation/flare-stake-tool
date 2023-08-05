@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  go-flare:
+    image: flarefoundation/go-flare
+    container_name: go-flare-node
+    # environment:
+    #   - NETWORK_ID=localflare
+    #   - AUTOCONFIGURE_BOOTSTRAP=0
+    ports:
+      - "9650-9651:9650-9651" # Change the left side to the desired host port if needed
+    # volumes:
+    #   - "./config:/app/conf"
+    restart: always # Optional: Set container restart policy
