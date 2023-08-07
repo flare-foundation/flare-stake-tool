@@ -1,6 +1,6 @@
 import { Command, OptionValues } from 'commander'
 import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
-import { contextEnv, contextFile, getContext } from './constants'
+import { contextEnv, contextFile, getContext, getNetworkFromContextFile } from './constants'
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
@@ -164,6 +164,7 @@ async function contextFromOptions(options: OptionValues): Promise<Context> {
 
 function getOptions(program: Command, options: OptionValues): OptionValues {
   const allOptions: OptionValues = { ...program.opts(), ...options }
+  const network = getNetworkFromContextFile(allOptions.ctxFile);
   // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
   if (allOptions.amount) {
     allOptions.amount = decimalToInteger(allOptions.amount.replace(/,/g, ''), 9)
@@ -171,6 +172,7 @@ function getOptions(program: Command, options: OptionValues): OptionValues {
   if (allOptions.fee) {
     allOptions.fee = decimalToInteger(allOptions.fee, 9)
   }
+  allOptions.network = network;
   return allOptions
 }
 

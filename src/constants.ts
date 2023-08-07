@@ -27,6 +27,12 @@ export function contextFile(ctxFile: string): Context {
   return getContext(ctx.network, ctx.publicKey)
 }
 
+export function getNetworkFromContextFile(ctxFile: string): String {
+  const file = fs.readFileSync(ctxFile, 'utf8')
+  const ctx = JSON.parse(file) as ContextFile
+  return ctx.network
+}
+
 export function getContext(network: string, publicKey?: string, privateKeyHex?: string, privateKeyCB58?: string): Context {
   return context(getConfig(network), publicKey, privateKeyHex, privateKeyCB58)
 }
