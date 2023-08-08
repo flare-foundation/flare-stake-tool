@@ -1,6 +1,6 @@
 import { Command, OptionValues } from 'commander'
 import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
-import { contextEnv, contextFile, getContext,colorCodes,networkMapping } from './constants'
+import { contextEnv, contextFile, getContext, colorCodes, networkMapping } from './constants'
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
@@ -15,7 +15,8 @@ import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
-const prompts = require('./prompts');
+import { prompts } from './prompts'
+import { screenConstants } from './screenConstants'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -62,25 +63,25 @@ export async function cli(program: Command) {
     .command("interactive").description("interactive cli")
     .action(async () => {
       try {
-        const {wallet,path} =  await connectWallet()
+        const { wallet, path } = await connectWallet()
         const network = await selectNetwork()
         const task = await selectTask()
-        const options = getOptionsInterativeCli(program,wallet,path,network)
+        const options = getOptionsInterativeCli(program, wallet, path, network)
         const ctx = await contextFromOptions(options)
-        if (task == 'View chain addresses') {
+        if (task == screenConstants.viewChainAddress) {
           logAddressInfo(ctx)
-        } else if (task == 'Check on-chain balance') {
+        } else if (task == screenConstants.checkBalance) {
           await logBalanceInfo(ctx)
-        } else if (task == 'Get network info') {
+        } else if (task == screenConstants.networkInfo) {
           logNetworkInfo(ctx)
-        } else if (task == 'Get validator info') {
+        } else if (task == screenConstants.validatorInfo) {
           await logValidatorInfo(ctx)
         } else {
           logError(`Unknown task ${task}`)
         }
-    } catch (error) {
+      } catch (error) {
         console.error('Error:', error)
-    }
+      }
     })
   // transaction construction and sending
   program
@@ -143,21 +144,21 @@ export async function cli(program: Command) {
     })
   // withdrawal from c-chain
   program
-  .command("withdrawal").description("Withdraw funds from c-chain")
-  .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-  .option("-a, --amount <amount>", "Amount to transfer")
-  .option("-t, --to <to>", "Address to send funds to")
-  .option("--nonce <nonce>", "Nonce of the constructed transaction")
-  .option("--send-signed-tx", "Send signed transaction json to the node")
-  .action(async (options: OptionValues) => {
-    options = getOptions(program, options)
-    const ctx = await contextFromOptions(options)
-    if (options.sendSignedTx) {
-      await withdraw_useSignature(ctx, options.transactionId)
-    } else { // create unsigned transaction
-      await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
-    }
-  })
+    .command("withdrawal").description("Withdraw funds from c-chain")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("-a, --amount <amount>", "Amount to transfer")
+    .option("-t, --to <to>", "Address to send funds to")
+    .option("--nonce <nonce>", "Nonce of the constructed transaction")
+    .option("--send-signed-tx", "Send signed transaction json to the node")
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      const ctx = await contextFromOptions(options)
+      if (options.sendSignedTx) {
+        await withdraw_useSignature(ctx, options.transactionId)
+      } else { // create unsigned transaction
+        await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
+      }
+    })
   // ledger two-step manual signing
   program
     .command("sign-hash").description("Sign a transaction hash (blind signing)")
@@ -204,7 +205,7 @@ function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
   if (usedFee !== specifiedFee) { // if usedFee was that specified by the user, we don't cap it
     const usedFeeNumber = Number(usedFee) // if one of the fees is defined, usedFee is defined
     if (usedFeeNumber > cap)
-     throw new Error(`Used fee of ${usedFeeNumber / FLR} FLR is higher than the maximum allowed fee of ${cap / FLR} FLR`)
+      throw new Error(`Used fee of ${usedFeeNumber / FLR} FLR is higher than the maximum allowed fee of ${cap / FLR} FLR`)
     logInfo(`Using fee of ${usedFeeNumber / FLR} FLR`)
   }
 }
@@ -407,12 +408,12 @@ async function withdraw_useSignature(ctx: Context, id: string) {
 async function connectWallet() {
   const walletPrompt = await prompts.connectWallet()
   const wallet = walletPrompt.wallet.split("\\")[0]
-  if (wallet.includes("Private Key")){
+  if (wallet.includes("Private Key")) {
     console.log(`${colorCodes.redColor}Warning: You are connecting using your private key which is not recommended`)
     const path = await prompts.pvtKeyPath()
-    return {wallet,path : path.pvtKeyPath}
+    return { wallet, path: path.pvtKeyPath }
   }
-  return {wallet}
+  return { wallet }
 }
 
 async function selectNetwork() {
@@ -425,8 +426,8 @@ async function selectTask() {
   return task.task
 }
 
-function getOptionsInterativeCli(program: Command,wallet: string, path: string | undefined, network: "Flare"|"Coston2"): OptionValues {
-  const options: OptionValues = { ...program.opts()}
+function getOptionsInterativeCli(program: Command, wallet: string, path: string | undefined, network: "Flare" | "Coston2"): OptionValues {
+  const options: OptionValues = { ...program.opts() }
   // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
   if (options.amount) {
     options.amount = decimalToInteger(options.amount.replace(/,/g, ''), 9)
@@ -434,9 +435,9 @@ function getOptionsInterativeCli(program: Command,wallet: string, path: string |
   if (options.fee) {
     options.fee = decimalToInteger(options.fee, 9)
   }
-  if (path){
-    options ["getHacked"] = true
-    options ["envPath"] =path
+  if (path) {
+    options["getHacked"] = true
+    options["envPath"] = path
   }
   options["network"] = networkMapping[network]
   return options
