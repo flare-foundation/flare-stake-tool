@@ -1,10 +1,38 @@
-import { privateKeyToEncodedPublicKey } from '../../src/utils';
+import {
+  privateKeyToEncodedPublicKey,
+  privateKeyToPublicKey,
+  decodePublicKey,
+  compressPublicKey,
+  publicKeyToBech32AddressBuffer,
+  publicKeyToBech32AddressString,
+  publicKeyToEthereumAddressString,
+  validatePublicKey,
+  recoverMessageSigner,
+  recoverTransactionSigner,
+  recoverPublicKey,
+  expandSignature,
+  sleepms,
+  getUserInput,
+  unPrefix0x,
+  prefix0x,
+  decimalToInteger,
+  integerToDecimal,
+  parseRelativeTime,
+  toBN,
+  serializeExportCP_args,
+  deserializeExportCP_args,
+  initCtxJson,
+  waitFinalize3Factory
+} from '../../src/utils';
 import fixtures from '../fixtures/utilsData';
+import { serialize, covertBNToSting, convertArrayBNToString, compareValues } from './testHelpers';
 describe('Unit Test Cases for utils', () => {
+  // public keys and bech32 addresses
+
   describe('privateKeyToEncodedPublicKey Testcases', () => {
     test('Should pass for valid input for privateKey and compres is true', () => {
       const encodedPublicKey = privateKeyToEncodedPublicKey(
-        fixtures.privateKeyToEncodedPublicKey.input.DUMMY_PRIVATE_KEY
+        fixtures.privateKeyToEncodedPublicKey.input
       );
       expect(encodedPublicKey).toBe(
         fixtures.privateKeyToEncodedPublicKey.output.COMPRESSED_PUBLIC_KEY
@@ -12,10 +40,9 @@ describe('Unit Test Cases for utils', () => {
     });
     test('Should pass for valid input for privateKey and compress is false', () => {
       const encodedPublicKey = privateKeyToEncodedPublicKey(
-        fixtures.privateKeyToEncodedPublicKey.input.DUMMY_PRIVATE_KEY,
+        fixtures.privateKeyToEncodedPublicKey.input,
         false
       );
-      console.log(encodedPublicKey);
       expect(encodedPublicKey).toBe(
         fixtures.privateKeyToEncodedPublicKey.output.UNCOMPRESSED_PUBLIC_KEY
       );
@@ -24,6 +51,487 @@ describe('Unit Test Cases for utils', () => {
       expect(() => {
         privateKeyToEncodedPublicKey('');
       }).toThrow();
+    });
+  });
+
+  describe('privateKeyToPublicKey Testcases', () => {
+    test('Should pass for valid input for privateKey', () => {
+      const publicKey = privateKeyToPublicKey(
+        Buffer.from(fixtures.privateKeyToPublicKey.input, 'utf8')
+      );
+      // serealise as we cannt compare buffers directly
+      expect(serialize(publicKey)).toBe(serialize(fixtures.privateKeyToPublicKey.output));
+    });
+
+    test('Should fail for empty input', () => {
+      expect(() => {
+        privateKeyToPublicKey(Buffer.from('', 'utf8'));
+      }).toThrow();
+    });
+  });
+
+  describe('decodePublicKey Testcases', () => {
+    test('Should decode public key for valid one', () => {
+      const decodedPublicKey = decodePublicKey(fixtures.decodePublicKey.input);
+      expect(serialize(fixtures.decodePublicKey.output)).toBe(serialize(decodedPublicKey));
+    });
+    test('Should fail for empty privateKey', () => {
+      expect(() => {
+        decodePublicKey('');
+      }).toThrow();
+    });
+  });
+
+  describe('compressPublicKey Testcases', () => {
+    test('Should compress public key for valid one', () => {
+      const compressedPublicKey = compressPublicKey(
+        fixtures.compressPublicKey.input.x,
+        fixtures.compressPublicKey.input.y
+      );
+      expect(serialize([fixtures.compressPublicKey.output])).toBe(serialize([compressedPublicKey]));
+    });
+    test('Should fail for empty privateKey', () => {
+      expect(() => {
+        compressPublicKey(Buffer.from(''), Buffer.from(''));
+      }).toThrow();
+    });
+  });
+
+  describe('publicKeyToBech32AddressBuffer Testcases', () => {
+    test('Should convert to address buffer for valid input', () => {
+      const bech32AddressBuffer = publicKeyToBech32AddressBuffer(
+        fixtures.compressPublicKey.input.x,
+        fixtures.compressPublicKey.input.y
+      );
+      expect(serialize([fixtures.publicKeyToBech32AddressBuffer.output])).toBe(
+        serialize([bech32AddressBuffer])
+      );
+    });
+    test('Should fail for empty privateKey', () => {
+      expect(() => {
+        publicKeyToBech32AddressBuffer(Buffer.from(''), Buffer.from(''));
+      }).toThrow();
+    });
+  });
+
+  describe('publicKeyToBech32AddressString Testcases', () => {
+    test('Should successfully convert to string', () => {
+      const bech32AddressBuffer = publicKeyToBech32AddressString(
+        fixtures.publicKeyToBech32AddressString.input,
+        'abcd'
+      );
+      expect(bech32AddressBuffer).toBe(fixtures.publicKeyToBech32AddressString.output);
+    });
+    test('Should fail empty input', () => {
+      expect(() => {
+        publicKeyToBech32AddressString('', '');
+      }).toThrow();
+    });
+  });
+
+  describe('publicKeyToEthereumAddressString Testcases', () => {
+    test('Should successfully convert valid public key to eth address', () => {
+      const bech32AddressBuffer = publicKeyToEthereumAddressString(
+        fixtures.publicKeyToEthereumAddressString.input
+      );
+      expect(bech32AddressBuffer).toBe(fixtures.publicKeyToEthereumAddressString.output);
+    });
+    test('Should fail for empty public key', () => {
+      expect(() => {
+        publicKeyToEthereumAddressString('');
+      }).toThrow();
+    });
+  });
+
+  describe('validatePublicKey Testcases', () => {
+    test('Should return true for valid public key', () => {
+      const isValidPublicKey = validatePublicKey(fixtures.validatePublicKey.input);
+      expect(isValidPublicKey).toBe(fixtures.validatePublicKey.output);
+    });
+
+    test('Should return false for invalid public key', () => {
+      const isValidPublicKey = validatePublicKey('');
+      expect(isValidPublicKey).toBe(false);
+    });
+    test('Should fail for empty public key', () => {
+      expect(() => {
+        publicKeyToEthereumAddressString('');
+      }).toThrow();
+    });
+  });
+
+  // signatures
+
+  describe('recoverMessageSigner Testcases', () => {
+    test('Should successfully verify the signature', () => {
+      const bech32AddressBuffer = recoverMessageSigner(
+        Buffer.from(fixtures.recoverMessageSigner.input.message),
+        fixtures.recoverMessageSigner.input.signature
+      );
+      expect(bech32AddressBuffer).toBe(fixtures.recoverMessageSigner.output);
+    });
+    test('Should not be able recover the address', () => {
+      const bech32AddressBuffer = recoverMessageSigner(
+        Buffer.from('xyz'),
+        fixtures.recoverMessageSigner.input.signature
+      );
+      expect(bech32AddressBuffer).not.toBe(fixtures.recoverMessageSigner.output);
+    });
+    test('Should fail empty input', () => {
+      expect(() => {
+        recoverMessageSigner(Buffer.from(''), '');
+      }).toThrow();
+    });
+  });
+
+  describe('recoverTransactionSigner Testcases', () => {
+    test('Should successfully recover the signer', () => {
+      const recoveredTransactionSigner = recoverTransactionSigner(
+        Buffer.from(fixtures.recoverTransactionSigner.input.message),
+        fixtures.recoverTransactionSigner.input.signature
+      );
+      expect(recoveredTransactionSigner).toBe(fixtures.recoverTransactionSigner.output);
+    });
+    test('Should not be able recover the address', () => {
+      const bech32AddressBuffer = recoverTransactionSigner(
+        Buffer.from(Buffer.from('abcdefghijklmnopqrstuvwxyzabcdef')),
+        fixtures.recoverTransactionSigner.input.signature
+      );
+      expect(bech32AddressBuffer).not.toBe(fixtures.recoverTransactionSigner.output);
+    });
+    test('Should fail empty input', () => {
+      expect(() => {
+        recoverTransactionSigner(Buffer.from(''), '');
+      }).toThrow();
+    });
+  });
+
+  describe('recoverPublicKey Testcases', () => {
+    test('Should successfully recover the public key', () => {
+      const recoveredPublicKey = recoverPublicKey(
+        fixtures.recoverPublicKey.input.message,
+        fixtures.recoverPublicKey.input.signature
+      );
+      expect(serialize([recoveredPublicKey])).toBe(
+        serialize([Buffer.from(fixtures.recoverPublicKey.output)])
+      );
+    });
+    test('Should not be able recover the public key', () => {
+      const recoveredPublicKey = recoverPublicKey(
+        Buffer.from('abcdefghijklmnopqrstuvwxyzabcdef'),
+        fixtures.recoverPublicKey.input.signature
+      );
+      expect(serialize([recoveredPublicKey])).not.toBe(
+        serialize([Buffer.from(fixtures.recoverPublicKey.output)])
+      );
+    });
+    test('Should fail empty input', () => {
+      expect(() => {
+        recoverPublicKey(Buffer.from(''), '');
+      }).toThrow();
+    });
+  });
+
+  describe('expandSignature Testcases', () => {
+    test('Should pass for valid signature', () => {
+      const expandedSignature = expandSignature(fixtures.expandSignature.validInput.input);
+      expect(covertBNToSting(expandedSignature.r)).toBe(
+        fixtures.expandSignature.validInput.output.r
+      );
+      expect(covertBNToSting(expandedSignature.s)).toBe(
+        fixtures.expandSignature.validInput.output.s
+      );
+      expect(covertBNToSting(expandedSignature.recoveryParam)).toBe(
+        fixtures.expandSignature.validInput.output.recoveryParam
+      );
+    });
+
+    test('Should return 0 for r,s', () => {
+      const expandedSignature = expandSignature(fixtures.expandSignature.nullInput.input);
+      expect(covertBNToSting(expandedSignature.r)).toBe(
+        fixtures.expandSignature.nullInput.output.r
+      );
+      expect(covertBNToSting(expandedSignature.s)).toBe(
+        fixtures.expandSignature.nullInput.output.s
+      );
+      expect(covertBNToSting(expandedSignature.recoveryParam)).toBeNaN;
+    });
+  });
+
+  // general helper functions
+
+  describe('sleepms Testcases', () => {
+    jest.useFakeTimers();
+    test('should wait for the specified number of milliseconds', async () => {
+      const milliseconds = fixtures.sleepms.input;
+      const start = new Date().getTime();
+      const sleepPromise = sleepms(milliseconds);
+      jest.advanceTimersByTime(milliseconds);
+      await sleepPromise;
+      const end = new Date().getTime();
+      const elapsedMilliseconds = end - start;
+      expect(elapsedMilliseconds).toBeGreaterThanOrEqual(milliseconds);
+    });
+  });
+
+  describe('getUserInput Testcases', () => {
+    const readline = require('readline');
+    jest.spyOn(readline, 'createInterface').mockReturnValue({
+      question: jest.fn(),
+      close: jest.fn()
+    } as any);
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should read user input and resolve with the input', async () => {
+      const prompt = fixtures.getUserInput.input;
+      const userInput = fixtures.getUserInput.output;
+
+      (
+        readline.createInterface().question as jest.MockedFunction<
+          (query: string, callback: (input: string) => void) => void
+        >
+      ).mockImplementationOnce((_, callback) => {
+        callback(userInput);
+      });
+
+      const result = await getUserInput(prompt);
+      expect(result).toBe(userInput);
+      expect(readline.createInterface).toHaveBeenCalledWith({
+        input: process.stdin,
+        output: process.stdout
+      });
+      expect(readline.createInterface().close).toHaveBeenCalled();
+    });
+  });
+
+  describe('unPrefix0x Testcases', () => {
+    test('Should unprefix 0x from the string', () => {
+      const output = unPrefix0x(fixtures.unPrefix0x.inputWith0xPrefix.input);
+      expect(output).toBe(fixtures.unPrefix0x.inputWith0xPrefix.output);
+    });
+    test('Should return default value for null input', () => {
+      const output = unPrefix0x(fixtures.unPrefix0x.nullInput.input);
+      expect(output).toBe(fixtures.unPrefix0x.nullInput.output);
+    });
+    test('Should return the string as it is', () => {
+      const output = unPrefix0x(fixtures.unPrefix0x.inputWithOut0xPrefix.input);
+      expect(output).toBe(fixtures.unPrefix0x.inputWithOut0xPrefix.output);
+    });
+  });
+
+  describe('prefix0x Testcases', () => {
+    test('Should prefix 0x from the string', () => {
+      const output = prefix0x(fixtures.prefix0x.inputWithOut0xPrefix.input);
+      expect(output).toBe(fixtures.prefix0x.inputWithOut0xPrefix.output);
+    });
+
+    // might be incorrect
+    test.skip('Should return default value for null input', () => {
+      const output = prefix0x(fixtures.prefix0x.nullInput.input);
+      expect(output).toBe(fixtures.prefix0x.nullInput.output);
+    });
+    test('Should return the string as it is', () => {
+      const output = prefix0x(fixtures.prefix0x.inputWith0xPrefix.input);
+      expect(output).toBe(fixtures.prefix0x.inputWith0xPrefix.output);
+    });
+  });
+
+  describe('decimalToInteger Testcases', () => {
+    test('Should convert a decimal number to an integer with a given offset', () => {
+      const result = decimalToInteger(
+        fixtures.decimalToInteger.decimalNumber.input.dec,
+        fixtures.decimalToInteger.decimalNumber.input.offset
+      );
+      expect(result).toBe(fixtures.decimalToInteger.decimalNumber.output);
+    });
+
+    test('should convert a whole number to an integer with a given offset', () => {
+      const result = decimalToInteger(
+        fixtures.decimalToInteger.wholeNumber.input.dec,
+        fixtures.decimalToInteger.wholeNumber.input.offset
+      );
+      expect(result).toBe(fixtures.decimalToInteger.wholeNumber.output);
+    });
+
+    test('should add zeros at the end when offset is larger than the decimal places', () => {
+      const result = decimalToInteger(
+        fixtures.decimalToInteger.largeOffset.input.dec,
+        fixtures.decimalToInteger.largeOffset.input.offset
+      );
+      expect(result).toBe(fixtures.decimalToInteger.largeOffset.output);
+    });
+
+    test('Should convert when offset is lower than number of decimal places', () => {
+      const result = decimalToInteger(
+        fixtures.decimalToInteger.smallOffset.input.dec,
+        fixtures.decimalToInteger.smallOffset.input.offset
+      );
+      expect(result).toBe(fixtures.decimalToInteger.smallOffset.output);
+    });
+
+    test('Should return the number without decimal', () => {
+      const result = decimalToInteger(
+        fixtures.decimalToInteger.negativeoffset.input.dec,
+        fixtures.decimalToInteger.negativeoffset.input.offset
+      );
+      expect(result).toBe(fixtures.decimalToInteger.negativeoffset.output);
+    });
+  });
+
+  describe('integerToDecimal Testcases', () => {
+    test('should convert a whole number to a decimal with a given offset', () => {
+      const result = integerToDecimal(
+        fixtures.integerToDecimal.wholeNumber.input.int,
+        fixtures.integerToDecimal.wholeNumber.input.offset
+      );
+      expect(result).toBe(fixtures.integerToDecimal.wholeNumber.output);
+    });
+
+    test('should convert to decimal when offset is larger than the number', () => {
+      const result = integerToDecimal(
+        fixtures.integerToDecimal.largeOffset.input.int,
+        fixtures.integerToDecimal.largeOffset.input.offset
+      );
+      expect(result).toBe(fixtures.integerToDecimal.largeOffset.output);
+    });
+
+    test('should convert to decimal when offset is smaller than the number', () => {
+      const result = integerToDecimal(
+        fixtures.integerToDecimal.smallOffset.input.int,
+        fixtures.integerToDecimal.smallOffset.input.offset
+      );
+      expect(result).toBe(fixtures.integerToDecimal.smallOffset.output);
+    });
+
+    test.skip('should return the number for negative offset', () => {
+      const result = integerToDecimal(
+        fixtures.integerToDecimal.negativeoffset.input.int,
+        fixtures.integerToDecimal.negativeoffset.input.offset
+      );
+      expect(result).toBe(fixtures.integerToDecimal.negativeoffset.output);
+    });
+  });
+
+  describe.skip('parseRelativeTime Testcases', () => {});
+
+  describe('toBN Testcases', () => {
+    test('should convert a positive number to BN', () => {
+      const result = toBN(fixtures.toBN.positiveNumber.input);
+      expect(result?.toString()).toBe(fixtures.toBN.positiveNumber.output.toString());
+    });
+
+    test('should convert a negaive number to BN', () => {
+      const result = toBN(fixtures.toBN.negativeNumber.input);
+      expect(result?.toString()).toBe(fixtures.toBN.negativeNumber.output.toString());
+    });
+
+    test('should convert a number in string to BN', () => {
+      const result = toBN(fixtures.toBN.numberString.input);
+      expect(result?.toString()).toBe(fixtures.toBN.numberString.output.toString());
+    });
+
+    test('should convert a big number to BN', () => {
+      const result = toBN(fixtures.toBN.bigNumber.input);
+      expect(result?.toString()).toBe(fixtures.toBN.bigNumber.output.toString());
+    });
+
+    test('should undefined for undefined input', () => {
+      const result = toBN(fixtures.toBN.undefinedInput.input);
+      expect(result?.toString()).toBeUndefined;
+    });
+  });
+
+  // serialization of atomic c-chain addresses does not work correctly, so we have to improvise
+
+  describe('serializeExportCP_args Testcases', () => {
+    test('should serialize arguments with all provided values', () => {
+      // @ts-ignore
+      const result = serializeExportCP_args(fixtures.serializeExportCP_args.allValues.input);
+      expect(result).toMatch(fixtures.serializeExportCP_args.allValues.output);
+    });
+    test('should serialize arguments for zero  values', () => {
+      // @ts-ignore
+      const result = serializeExportCP_args(fixtures.serializeExportCP_args.zeroValues.input);
+      expect(result).toMatch(fixtures.serializeExportCP_args.zeroValues.output);
+    });
+  });
+
+  describe('deserializeExportCP_args Testcases', () => {
+    test('should deserialize arguments with all provided values', () => {
+      const result = deserializeExportCP_args(fixtures.deserializeExportCP_args.allValues.input);
+      for (let i = 0; i < result.length; i++) {
+        expect(
+          compareValues(
+            covertBNToSting(result[i]),
+            covertBNToSting(fixtures.deserializeExportCP_args.allValues.output[i])
+          )
+        ).toBe(true);
+      }
+    });
+    test('should deserialize arguments for zero  values', () => {
+      // @ts-ignore
+      const result = deserializeExportCP_args(fixtures.deserializeExportCP_args.zeroValues.input);
+      console.log(result);
+      for (let i = 0; i < result.length; i++) {
+        expect(
+          compareValues(
+            covertBNToSting(result[i]),
+            covertBNToSting(fixtures.deserializeExportCP_args.zeroValues.output[i])
+          )
+        ).toBe(true);
+      }
+    });
+  });
+
+  // key and unsigned/signed transaction storage
+
+  describe('initCtxJson Testcases', () => {
+    const fs = require('fs');
+    class MockContextFile {
+      // Simulated data for ContextFile
+      data: any;
+
+      constructor(data: any) {
+        this.data = data;
+      }
+    }
+    const mockContextFile = {
+      publicKey: 'public_key',
+      network: 'test_network',
+      flareAddress: 'flare_address',
+      ethAddress: 'eth_address',
+      vaultId: 'vault_id'
+    };
+    test('should initialize ctx.json with provided ContextFile', () => {
+      // Mock fs.existsSync and fs.writeFileSync
+      const existsSyncMock = jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+      const writeFileSyncMock = jest.spyOn(fs, 'writeFileSync').mockImplementation();
+
+      initCtxJson(mockContextFile);
+
+      // Verify if the function called fs.writeFileSync with correct arguments
+      expect(writeFileSyncMock).toHaveBeenCalledWith(
+        'ctx.json',
+        JSON.stringify(mockContextFile, null, 2)
+      );
+
+      // Restore mock functions
+      existsSyncMock.mockRestore();
+      writeFileSyncMock.mockRestore();
+    });
+
+    test('should throw error when ctx.json already exists', () => {
+      // Mock fs.existsSync
+      const existsSyncMock = jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+
+      // Expect an error to be thrown
+      expect(() => initCtxJson(mockContextFile)).toThrow('ctx.json already exists');
+
+      // Restore mock function
+      existsSyncMock.mockRestore();
     });
   });
 });

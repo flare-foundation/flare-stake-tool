@@ -48,7 +48,7 @@ export function compressPublicKey(x: Buffer, y: Buffer): Buffer {
   "hex")
 }
 
-function publicKeyToBech32AddressBuffer(x: Buffer, y: Buffer) {
+export function publicKeyToBech32AddressBuffer(x: Buffer, y: Buffer) {
   const compressed = compressPublicKey(x, y)
   return ethutil.ripemd160(ethutil.sha256(compressed), false)
 }
