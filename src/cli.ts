@@ -1,6 +1,6 @@
 import { Command, OptionValues } from 'commander'
 import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
-import { contextEnv, contextFile, getContext } from './constants'
+import { contextEnv, contextFile, getContext,colorCodes,networkMapping } from './constants'
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
@@ -15,6 +15,7 @@ import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
+const prompts = require('./prompts');
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -55,6 +56,31 @@ export async function cli(program: Command) {
       } else {
         logError(`Unknown information type ${type}`)
       }
+    })
+  //interactive cli
+  program
+    .command("interactive").description("interactive cli")
+    .action(async () => {
+      try {
+        const {wallet,path} =  await connectWallet()
+        const network = await selectNetwork()
+        const task = await selectTask()
+        const options = getOptionsInterativeCli(program,wallet,path,network)
+        const ctx = await contextFromOptions(options)
+        if (task == 'View chain addresses') {
+          logAddressInfo(ctx)
+        } else if (task == 'Check on-chain balance') {
+          await logBalanceInfo(ctx)
+        } else if (task == 'Get network info') {
+          logNetworkInfo(ctx)
+        } else if (task == 'Get validator info') {
+          await logValidatorInfo(ctx)
+        } else {
+          logError(`Unknown task ${task}`)
+        }
+    } catch (error) {
+        console.error('Error:', error)
+    }
     })
   // transaction construction and sending
   program
@@ -376,4 +402,42 @@ async function withdraw_getHash(ctx: Context, to: string, amount: number, id: st
 async function withdraw_useSignature(ctx: Context, id: string) {
   const txId = await sendSignedWithdrawalTransaction(ctx, id)
   logSuccess(`Transaction with id ${txId} sent to the node`)
+}
+
+async function connectWallet() {
+  const walletPrompt = await prompts.connectWallet()
+  const wallet = walletPrompt.wallet.split("\\")[0]
+  if (wallet.includes("Private Key")){
+    console.log(`${colorCodes.redColor}Warning: You are connecting using your private key which is not recommended`)
+    const path = await prompts.pvtKeyPath()
+    return {wallet,path : path.pvtKeyPath}
+  }
+  return {wallet}
+}
+
+async function selectNetwork() {
+  const network = await prompts.selectNetwork()
+  return network.network
+}
+
+async function selectTask() {
+  const task = await prompts.selectTask()
+  return task.task
+}
+
+function getOptionsInterativeCli(program: Command,wallet: string, path: string | undefined, network: "Flare"|"Coston2"): OptionValues {
+  const options: OptionValues = { ...program.opts()}
+  // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
+  if (options.amount) {
+    options.amount = decimalToInteger(options.amount.replace(/,/g, ''), 9)
+  }
+  if (options.fee) {
+    options.fee = decimalToInteger(options.fee, 9)
+  }
+  if (path){
+    options ["getHacked"] = true
+    options ["envPath"] =path
+  }
+  options["network"] = networkMapping[network]
+  return options
 }

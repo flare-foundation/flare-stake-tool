@@ -1,6 +1,16 @@
 import { Command } from 'commander'
 import { cli } from './cli'
 import { logError } from './output'
+import figlet from 'figlet'
+import chalk from 'chalk'
+import clear from 'clear'
+
+clear();
+console.log(
+    chalk.red(
+        figlet.textSync('Flare Stake Tool')
+    )
+);
 
 function getArgv() {
     const baseArgv = process.argv
@@ -21,6 +31,10 @@ function getArgv() {
         command === 'validators'
     ) {
         return [...baseArgv.slice(0, 2), 'info', ...baseArgv.slice(2)]
+    } else if (
+        baseArgv.length<=2
+    ) {
+        return [...baseArgv.slice(0, 2), 'interactive']
     } else {
         return baseArgv
     }

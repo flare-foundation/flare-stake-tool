@@ -27,6 +27,19 @@ export function contextFile(ctxFile: string): Context {
   return getContext(ctx.network, ctx.publicKey)
 }
 
+ // ANSI escape codes for colors
+export const colorCodes = {
+  redColor :'\x1b[31m',
+  greenColor : '\x1b[32m',
+  yellowColor :'\x1b[33m',
+  resetColor : '\x1b[0m'
+}
+
+export const networkMapping = {
+  "Flare":"flare",
+  "Coston2":"costwo"
+}
+
 export function getContext(network: string, publicKey?: string, privateKeyHex?: string, privateKeyCB58?: string): Context {
   return context(getConfig(network), publicKey, privateKeyHex, privateKeyCB58)
 }
