@@ -133,7 +133,7 @@ async function getExportCPParams(ctx: Context, amount: BN, fee?: BN, nonce?: num
     nonce ?? txcount,
     locktime,
     threshold,
-    baseFee
+    fee ?? baseFee
   ]
   const unsignedTx: UnsignedTx = await ctx.cchain.buildExportTx(...params)
   if (fee === undefined) {
