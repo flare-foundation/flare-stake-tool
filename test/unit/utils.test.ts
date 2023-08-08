@@ -474,7 +474,6 @@ describe('Unit Test Cases for utils', () => {
     test('should deserialize arguments for zero  values', () => {
       // @ts-ignore
       const result = deserializeExportCP_args(fixtures.deserializeExportCP_args.zeroValues.input);
-      console.log(result);
       for (let i = 0; i < result.length; i++) {
         expect(
           compareValues(
