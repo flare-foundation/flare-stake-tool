@@ -68,13 +68,13 @@ export async function cli(program: Command) {
         const task = await selectTask()
         const options = getOptionsInterativeCli(program, wallet, path, network)
         const ctx = await contextFromOptions(options)
-        if (task == screenConstants.viewChainAddress) {
+        if (task == screenConstants.VIEW_CHAIN_ADDRESS) {
           logAddressInfo(ctx)
-        } else if (task == screenConstants.checkBalance) {
+        } else if (task == screenConstants.CHECK_BALANCE) {
           await logBalanceInfo(ctx)
-        } else if (task == screenConstants.networkInfo) {
+        } else if (task == screenConstants.NETWORK_INFO) {
           logNetworkInfo(ctx)
-        } else if (task == screenConstants.validatorInfo) {
+        } else if (task == screenConstants.VALIDATOR_INFO) {
           await logValidatorInfo(ctx)
         } else {
           logError(`Unknown task ${task}`)

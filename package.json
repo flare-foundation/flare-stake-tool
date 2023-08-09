@@ -7,7 +7,8 @@
   },
   "scripts": {
     "tsc": "tsc",
-    "build": "rm -rf dist/ && yarn tsc -b"
+    "build": "rm -rf dist/ && yarn tsc -b",
+    "interactive": "bin/flare-stake-tool interactive"
   },
   "repository": {
     "type": "git",

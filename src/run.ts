@@ -30,9 +30,10 @@ function getArgv() {
         command === 'balance' ||
         command === 'validators'
     ) {
+        console.log([...baseArgv.slice(0, 2), 'info', ...baseArgv.slice(2)])
         return [...baseArgv.slice(0, 2), 'info', ...baseArgv.slice(2)]
     } else if (
-        baseArgv.length<=2
+        command === 'interactive'
     ) {
         return [...baseArgv.slice(0, 2), 'interactive']
     } else {
