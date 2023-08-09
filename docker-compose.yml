@@ -1,13 +1,17 @@
-version: '3.8'
+version: "3.8"
 services:
-  go-flare:
+  go-flare-1:
     image: flarefoundation/go-flare
-    container_name: go-flare-node
-    # environment:
-    #   - NETWORK_ID=localflare
-    #   - AUTOCONFIGURE_BOOTSTRAP=0
+    container_name: go-flare-node-1
+    environment:
+      - NETWORK_ID=local
+      - AUTOCONFIGURE_BOOTSTRAP_ENDPOINT=http://127.0.0.1:9653/ext/info
+      - AUTOCONFIGURE_BOOTSTRAP=0
+      - BOOTSTRAP_IPS=0.0.0.0:9653/ext/info
+      - BOOTSTRAP_IDS=NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg
+      - CHAIN_CONFIG_DIR=./config
     ports:
-      - "9650-9651:9650-9651" # Change the left side to the desired host port if needed
-    # volumes:
-    #   - "./config:/app/conf"
-    restart: always # Optional: Set container restart policy
+      - "9650-9651:9650-9651"
+    volumes:
+      - "./config:/app/conf"
+    restart: always

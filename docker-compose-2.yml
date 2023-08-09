@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  go-flare-node-2:
+    image: flarefoundation/go-flare
+    container_name: go-flare-node-2
+    environment:
+      - NETWORK_ID=local
+      - AUTOCONFIGURE_BOOTSTRAP_ENDPOINT=http://127.0.0.1:9651/ext/info
+      # - BOOTSTRAP_IPS=http://127.0.0.1:9651
+      # - BOOTSTRAP_IDS=NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg
+    ports:
+      - "9652-9653:9650-9651"
+    restart: always
