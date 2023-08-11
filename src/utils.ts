@@ -242,7 +242,6 @@ export function readSignedTxJson(id: string): SignedTxJson {
   }
   const serialization = fs.readFileSync(fname).toString()
   const resp = JSON.parse(serialization) as SignedTxJson
-  console.log(resp)
   if (!resp.signature) {
     throw new Error(`unsignedTx file ${fname} does not contain signature`)
   }
