@@ -77,3 +77,7 @@ interface WithdrawalTxData {
   value: string | bigint
   chainId: number
 }
+
+export interface ScreenConstantsInterface  {
+  [key: string]: string;
+}

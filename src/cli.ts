@@ -45,6 +45,7 @@ export async function cli(program: Command) {
     .argument("<type>", "Type of information")
     .action(async (type: string) => {
       const options = getOptions(program, program.opts())
+      console.log(options)
       const ctx = await contextFromOptions(options)
       if (type == 'addresses') {
         logAddressInfo(ctx)
@@ -59,30 +60,30 @@ export async function cli(program: Command) {
       }
     })
   //interactive cli
-  program
-    .command("interactive").description("interactive cli")
-    .action(async () => {
-      try {
-        const { wallet, path } = await connectWallet()
-        const network = await selectNetwork()
-        const task = await selectTask()
-        const options = getOptionsInterativeCli(program, wallet, path, network)
-        const ctx = await contextFromOptions(options)
-        if (task == screenConstants.VIEW_CHAIN_ADDRESS) {
-          logAddressInfo(ctx)
-        } else if (task == screenConstants.CHECK_BALANCE) {
-          await logBalanceInfo(ctx)
-        } else if (task == screenConstants.NETWORK_INFO) {
-          logNetworkInfo(ctx)
-        } else if (task == screenConstants.VALIDATOR_INFO) {
-          await logValidatorInfo(ctx)
-        } else {
-          logError(`Unknown task ${task}`)
-        }
-      } catch (error) {
-        console.error('Error:', error)
-      }
-    })
+  // program
+  //   .command("interactive").description("interactive cli")
+  //   .action(async () => {
+  //     try {
+  //       const { wallet, path } = await connectWallet()
+  //       const network = await selectNetwork()
+  //       const task = await selectTask()
+  //       const options = getOptionsInterativeCli(program, wallet, path, network)
+  //       const ctx = await contextFromOptions(options)
+  //       if (task == screenConstants.VIEW_CHAIN_ADDRESS) {
+  //         logAddressInfo(ctx)
+  //       } else if (task == screenConstants.CHECK_BALANCE) {
+  //         await logBalanceInfo(ctx)
+  //       } else if (task == screenConstants.NETWORK_INFO) {
+  //         logNetworkInfo(ctx)
+  //       } else if (task == screenConstants.VALIDATOR_INFO) {
+  //         await logValidatorInfo(ctx)
+  //       } else {
+  //         logError(`Unknown task ${task}`)
+  //       }
+  //     } catch (error) {
+  //       console.error('Error:', error)
+  //     }
+  //   })
   // transaction construction and sending
   program
     .command("transaction").description("Move funds from one chain to another")

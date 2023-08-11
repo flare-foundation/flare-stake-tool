@@ -275,7 +275,7 @@ flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to yo
 To use the interactive CLI use the following command:
 
 ```bash
-flare-stake-tool
+flare-stake-tool interactive
 ```
 
 ## Versions

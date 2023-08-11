@@ -37,7 +37,9 @@ export const prompts = {
                 message: 'Which network do you want to connect to?',
                 choices: [`Flare ${colorCodes.greenColor}(Mainnet)`, `Coston2 ${colorCodes.yellowColor}(Testnet)`],
                 filter: function (val: string) {
-                    return val.split(" ")[0];
+                    const network = val.split(" ")[0]
+                    if (network=="flare"){ return "flare"}
+                    else return "costwo"
                 }
             },
         ];
@@ -51,7 +53,7 @@ export const prompts = {
                 name: 'task',
                 message: 'What do you want to do?',
                 choices: [
-                    ...Object.values(screenConstants)
+                    ...Object.keys(screenConstants)
                 ],
             },
         ];

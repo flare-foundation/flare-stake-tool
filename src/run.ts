@@ -4,6 +4,7 @@ import { logError } from './output'
 import figlet from 'figlet'
 import chalk from 'chalk'
 import clear from 'clear'
+import { interactiveCli } from "./interactive-cli"
 
 clear();
 console.log(
@@ -12,9 +13,10 @@ console.log(
     )
 );
 
+const baseArgv = process.argv
+const command = baseArgv[2]
+
 function getArgv() {
-    const baseArgv = process.argv
-    const command = baseArgv[2]
     if (
         command === 'exportCP' ||
         command === 'importCP' ||
@@ -41,12 +43,18 @@ function getArgv() {
     }
 }
 
-const program = new Command("Flare Stake Tool")
+if (command == 'interactive') {
+    interactiveCli(baseArgv).then(() => {console.log("Finished execution")})
 
-cli(program).then(() => {
-    program.parseAsync(getArgv()).catch(err => {
-        if (err instanceof Error) {
-            logError(`Error: ${err.message}`)
-        }
+}
+else {
+    const program = new Command("Flare Stake Tool")
+
+    cli(program).then(() => {
+        program.parseAsync(getArgv()).catch(err => {
+            if (err instanceof Error) {
+                logError(`Error: ${err.message}`)
+            }
+        })
     })
-})
+}
