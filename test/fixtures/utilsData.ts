@@ -301,6 +301,150 @@ const fixtures = {
       input: '["0","","","","",[],0,"0",0,""]',
       output: [new BN('0', 16), '', '', '', '', [], 0, new BN('0', 16), 0, '0']
     }
+  },
+  saveUnsignedTxJson: {
+    input: {
+      transactionType: 'exportCP',
+      serialization: `[\n \"8e1bcc131f2640\",\n \"fxMAKpBQQpFedrUhWMsDYfCUJxdUw4mneTczKBzNg3rc2JUub\",\n \"11111111111111111111111111111111LpoYY\",\n \"0x01945cedbb2d43a488bb15af34dd2dd07e7a9330\",\n
+      \"C-costwo13gmymdkp3rd3xq7ykurzz2q2f4ey7apd88p0jt\",\n [\n \"P-costwo13gmymdkp3rd3xq7ykurzz2q2f4ey7apd88p0jt\"\n ],\n 2,\n \"00\",\n 1,\n \"3b9aca00\"\n]`,
+      signatureRequests: [
+        {
+          message: 'd7c3239ac7456ca05cbdaa349ac9b56b643adf7ff1784b079b83d2af82c49e7a',
+          signer: '8a364db6c188db1303c4b70621280a4d724f742d'
+        }
+      ],
+      unsignedTransactionBuffer:
+        '0000000000010000007278db5c30bed04c05ce209179812850bbb3fe6d46d7eef3744d814c0da555247900000000000000000000000000000000000000000000000000000000000000000000000101945cedbb2d43a488bb15af34dd2dd07e7a9330008e1bcc4eb9f04058734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000000000000020000000158734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000007008e1bcc131f2640000000000000000000000001000000018a364db6c188db1303c4b70621280a4d724f742d',
+      usedFee: '1000000000',
+      forDefiHash: '18MjmsdFbKBcvao0msm1a2Q633/xeEsHm4PSr4LEnno='
+    }
+  },
+  readUnsignedTxJson: {
+    input: 'uniqueId123',
+    output: {
+      transactionType: 'exportCP',
+      serialization: `[\n \"8e1bcc131f2640\",\n \"fxMAKpBQQpFedrUhWMsDYfCUJxdUw4mneTczKBzNg3rc2JUub\",\n \"11111111111111111111111111111111LpoYY\",\n \"0x01945cedbb2d43a488bb15af34dd2dd07e7a9330\",\n
+      \"C-costwo13gmymdkp3rd3xq7ykurzz2q2f4ey7apd88p0jt\",\n [\n \"P-costwo13gmymdkp3rd3xq7ykurzz2q2f4ey7apd88p0jt\"\n ],\n 2,\n \"00\",\n 1,\n \"3b9aca00\"\n]`,
+      signatureRequests: [
+        {
+          message: 'd7c3239ac7456ca05cbdaa349ac9b56b643adf7ff1784b079b83d2af82c49e7a',
+          signer: '8a364db6c188db1303c4b70621280a4d724f742d'
+        }
+      ],
+      unsignedTransactionBuffer:
+        '0000000000010000007278db5c30bed04c05ce209179812850bbb3fe6d46d7eef3744d814c0da555247900000000000000000000000000000000000000000000000000000000000000000000000101945cedbb2d43a488bb15af34dd2dd07e7a9330008e1bcc4eb9f04058734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000000000000020000000158734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000007008e1bcc131f2640000000000000000000000001000000018a364db6c188db1303c4b70621280a4d724f742d',
+      usedFee: '1000000000',
+      forDefiHash: '18MjmsdFbKBcvao0msm1a2Q633/xeEsHm4PSr4LEnno='
+    }
+  },
+  readSignedTxJson: {
+    valid: {
+      input: 'uniqueId123',
+      output: {
+        transactionType: 'exportCP',
+        serialization:
+          '[\n  "8e1bcc131f2640",\n  "fxMAKpBQQpFedrUhWMsDYfCUJxdUw4mneTczKBzNg3rc2JUub",\n  "11111111111111111111111111111111LpoYY",\n  "0x01945cedbb2d43a488bb15af34dd2dd07e7a9330",\n  "C-costwo13gmymdkp3rd3xq7ykurzz2q2f4ey7apd88p0jt",\n  [\n    "P-costwo13gmymdkp3rd3xq7ykurzz2q2f4ey7apd88p0jt"\n  ],\n  2,\n  "00",\n  1,\n  "3b9aca00"\n]',
+        signatureRequests: [
+          {
+            message: 'd7c3239ac7456ca05cbdaa349ac9b56b643adf7ff1784b079b83d2af82c49e7a',
+            signer: '8a364db6c188db1303c4b70621280a4d724f742d'
+          }
+        ],
+        unsignedTransactionBuffer:
+          '0000000000010000007278db5c30bed04c05ce209179812850bbb3fe6d46d7eef3744d814c0da555247900000000000000000000000000000000000000000000000000000000000000000000000101945cedbb2d43a488bb15af34dd2dd07e7a9330008e1bcc4eb9f04058734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000000000000020000000158734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000007008e1bcc131f2640000000000000000000000001000000018a364db6c188db1303c4b70621280a4d724f742d',
+        usedFee: '1000000000',
+        forDefiHash: '18MjmsdFbKBcvao0msm1a2Q633/xeEsHm4PSr4LEnno=',
+        forDefiTxId: 'ff335dfa-e58f-4b2e-91da-12134c8c3a0d',
+        signature:
+          '1117279d3c37efb5da376ff4d3139067429767e0c32839df63253468a55bb6691f634ebae45081d0e8cb212d0b24ea1cd5b36d29418dfa3b6aee4d3344aa76b001'
+      }
+    },
+    invalid: {
+      input: 'uniqueId123',
+      //invalid output
+      output: {
+        transactionType: 'exportCP',
+        serialization:
+          '[\n  "8e1bcc131f2640",\n  "fxMAKpBQQpFedrUhWMsDYfCUJxdUw4mneTczKBzNg3rc2JUub",\n  "11111111111111111111111111111111LpoYY",\n  "0x01945cedbb2d43a488bb15af34dd2dd07e7a9330",\n  "C-costwo13gmymdkp3rd3xq7ykurzz2q2f4ey7apd88p0jt",\n  [\n    "P-costwo13gmymdkp3rd3xq7ykurzz2q2f4ey7apd88p0jt"\n  ],\n  2,\n  "00",\n  1,\n  "3b9aca00"\n]',
+        signatureRequests: [
+          {
+            message: 'd7c3239ac7456ca05cbdaa349ac9b56b643adf7ff1784b079b83d2af82c49e7a',
+            signer: '8a364db6c188db1303c4b70621280a4d724f742d'
+          }
+        ],
+        unsignedTransactionBuffer:
+          '0000000000010000007278db5c30bed04c05ce209179812850bbb3fe6d46d7eef3744d814c0da555247900000000000000000000000000000000000000000000000000000000000000000000000101945cedbb2d43a488bb15af34dd2dd07e7a9330008e1bcc4eb9f04058734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000000000000020000000158734f94af871c3d131b56131b6fb7a0291eacadd261e69dfb42a9cdf6f7fddd00000007008e1bcc131f2640000000000000000000000001000000018a364db6c188db1303c4b70621280a4d724f742d',
+        usedFee: '1000000000',
+        forDefiHash: '18MjmsdFbKBcvao0msm1a2Q633/xeEsHm4PSr4LEnno=',
+        forDefiTxId: 'ff335dfa-e58f-4b2e-91da-12134c8c3a0d'
+      }
+    }
+  },
+  saveUnsignedWithdrawalTx: {
+    input: {
+      id: 'uniqueId123',
+      unsignedTx: {
+        rawTx: {
+          nonce: 1,
+          gasPrice: 500000000000,
+          gasLimit: 8000000,
+          to: '0x3AF4d285506B6d4214c21415A6803cd6F8077f35',
+          value: '300000000000000000000',
+          chainId: 114
+        },
+        message: 'f33c6a86cbf25dd7726e8c88f61b39663e35e5e7c5f5fa8a124c28597f67f65c',
+        forDefiHash: '8zxqhsvyXddyboyI9hs5Zj415efF9fqKEkwoWX9n9lw=',
+        forDefiTxId: '5ac078ee-a549-474d-8f93-983177949764'
+      }
+    },
+    output: {}
+  },
+  readUnsignedWithdrawalTx: {
+    input: 'uniqueId123',
+    output: {
+      rawTx: {
+        nonce: 1,
+        gasPrice: 500000000000,
+        gasLimit: 8000000,
+        to: '0x3AF4d285506B6d4214c21415A6803cd6F8077f35',
+        value: '300000000000000000000',
+        chainId: 114
+      },
+      message: 'f33c6a86cbf25dd7726e8c88f61b39663e35e5e7c5f5fa8a124c28597f67f65c',
+      forDefiHash: '8zxqhsvyXddyboyI9hs5Zj415efF9fqKEkwoWX9n9lw=',
+      forDefiTxId: '5ac078ee-a549-474d-8f93-983177949764'
+    }
+  },
+  readSignedWithdrawalTx: {
+    input: 'uniqueId123',
+    validOutput: {
+      rawTx: {
+        nonce: 1,
+        gasPrice: 500000000000,
+        gasLimit: 8000000,
+        to: '0x3AF4d285506B6d4214c21415A6803cd6F8077f35',
+        value: '300000000000000000000',
+        chainId: 114
+      },
+      message: 'f33c6a86cbf25dd7726e8c88f61b39663e35e5e7c5f5fa8a124c28597f67f65c',
+      forDefiHash: '8zxqhsvyXddyboyI9hs5Zj415efF9fqKEkwoWX9n9lw=',
+      forDefiTxId: '5ac078ee-a549-474d-8f93-983177949764',
+      signature:
+        'ae33e0e52b70a23c8f05280a8a60cf99aa530994ca0aaf47a494372ecbaca685764866af903aa7447304c1c40beb790fc0b596afe1db972b8f9aa03e89898b5a01'
+    },
+    invalidOutput: {
+      rawTx: {
+        nonce: 1,
+        gasPrice: 500000000000,
+        gasLimit: 8000000,
+        to: '0x3AF4d285506B6d4214c21415A6803cd6F8077f35',
+        value: '300000000000000000000',
+        chainId: 114
+      },
+      message: 'f33c6a86cbf25dd7726e8c88f61b39663e35e5e7c5f5fa8a124c28597f67f65c',
+      forDefiHash: '8zxqhsvyXddyboyI9hs5Zj415efF9fqKEkwoWX9n9lw=',
+      forDefiTxId: '5ac078ee-a549-474d-8f93-983177949764'
+    }
   }
 };
 

@@ -22,6 +22,13 @@ import {
   serializeExportCP_args,
   deserializeExportCP_args,
   initCtxJson,
+  serializeUnsignedTx,
+  saveUnsignedTxJson,
+  readUnsignedTxJson,
+  readSignedTxJson,
+  saveUnsignedWithdrawalTx,
+  readUnsignedWithdrawalTx,
+  readSignedWithdrawalTx,
   waitFinalize3Factory
 } from '../../src/utils';
 import fixtures from '../fixtures/utilsData';
@@ -485,6 +492,258 @@ describe('Unit Test Cases for utils', () => {
     });
   });
 
+  describe('saveUnsignedTxJson', () => {
+    const fs = require('fs');
+    const mockExistsSync = jest.spyOn(fs, 'existsSync');
+    const mockWriteFileSync = jest.spyOn(fs, 'writeFileSync');
+    beforeEach(() => {
+      mockExistsSync.mockClear();
+      mockWriteFileSync.mockClear();
+    });
+
+    test('should save unsignedTxJson with new id', () => {
+      const id = 'uniqueId123';
+      mockExistsSync.mockReturnValueOnce(false); // Simulate file does not exist
+
+      saveUnsignedTxJson(fixtures.saveUnsignedTxJson.input, id);
+
+      expect(mockExistsSync).toHaveBeenCalledWith(`${id}.unsignedTx.json`);
+      expect(mockWriteFileSync).toHaveBeenCalledWith(`${id}.unsignedTx.json`, expect.any(String));
+    });
+
+    test('should throw error when attempting to save unsignedTxJson with existing id', () => {
+      const id = 'existingId456';
+      mockExistsSync.mockReturnValueOnce(true); // Simulate file already exists
+
+      expect(() => saveUnsignedTxJson(fixtures.saveUnsignedTxJson.input, id)).toThrowError(
+        `unsignedTx file ${id}.unsignedTx.json already exists`
+      );
+      expect(mockExistsSync).toHaveBeenCalledWith(`${id}.unsignedTx.json`);
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('readUnsignedTxJson', () => {
+    const fs = require('fs');
+    const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+    beforeEach(() => {
+      mockReadFileSync.mockClear();
+    });
+    test('should read existing unsignedTxJson file', () => {
+      const mockSerializedData = JSON.stringify(fixtures.readUnsignedTxJson.output);
+      mockReadFileSync.mockReturnValueOnce(mockSerializedData);
+
+      const result = readUnsignedTxJson(fixtures.readUnsignedTxJson.input);
+
+      expect(result).toEqual(fixtures.readUnsignedTxJson.output);
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        `${fixtures.readUnsignedTxJson.input}.unsignedTx.json`
+      );
+    });
+
+    test('should throw error when attempting to read non-existing unsignedTxJson file', () => {
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error('File not found');
+      });
+
+      expect(() => readUnsignedTxJson(fixtures.readUnsignedTxJson.input)).toThrowError(
+        `File not found`
+      );
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        `${fixtures.readUnsignedTxJson.input}.unsignedTx.json`
+      );
+    });
+  });
+
+  describe('readSignedTxJson', () => {
+    const fs = require('fs');
+    const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+    const mockExistsSync = jest.spyOn(fs, 'existsSync');
+    beforeEach(() => {
+      mockReadFileSync.mockClear();
+      mockExistsSync.mockClear();
+    });
+
+    test('should read existing signedTxJson file with signature', () => {
+      const mockSerializedData = JSON.stringify(fixtures.readSignedTxJson.valid.output);
+      mockReadFileSync.mockReturnValueOnce(mockSerializedData);
+      mockExistsSync.mockReturnValueOnce(true);
+      const result = readSignedTxJson(fixtures.readSignedTxJson.valid.input);
+
+      expect(result).toEqual(fixtures.readSignedTxJson.valid.output);
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        `${fixtures.readSignedTxJson.valid.input}.signedTx.json`
+      );
+    });
+
+    test('should throw error when attempting to read non-existing signedTxJson file', () => {
+      mockExistsSync.mockReturnValueOnce(false);
+
+      try {
+        readSignedTxJson(fixtures.readSignedTxJson.valid.input);
+        fail('Expected an error to be thrown');
+      } catch (error: any) {
+        expect(error.message).toBe(
+          `signedTx file ${fixtures.readSignedTxJson.valid.input}.signedTx.json does not exist`
+        );
+      }
+
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${fixtures.readSignedTxJson.valid.input}.signedTx.json`
+      );
+    });
+
+    test('should throw error when attempting to read unsignedTxJson file (missing signature)', () => {
+      const mockSerializedData = JSON.stringify(fixtures.readSignedTxJson.invalid.output);
+      mockReadFileSync.mockReturnValueOnce(mockSerializedData);
+      mockExistsSync.mockReturnValueOnce(true);
+
+      expect(() => readSignedTxJson(fixtures.readSignedTxJson.invalid.input)).toThrowError(
+        `unsignedTx file ${fixtures.readSignedTxJson.invalid.input}.signedTx.json does not contain signature`
+      );
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${fixtures.readSignedTxJson.invalid.input}.signedTx.json`
+      );
+    });
+  });
+
+  // withdrawal
+  describe('saveUnsignedWithdrawalTx', () => {
+    const fs = require('fs');
+    const mockExistsSync = jest.spyOn(fs, 'existsSync');
+    const mockWriteFileSync = jest.spyOn(fs, 'writeFileSync');
+
+    beforeEach(() => {
+      mockExistsSync.mockClear();
+      mockWriteFileSync.mockClear();
+    });
+
+    test('should save unsignedWithdrawalTx with a new id', () => {
+      mockExistsSync.mockReturnValueOnce(false);
+
+      saveUnsignedWithdrawalTx(
+        fixtures.saveUnsignedWithdrawalTx.input.unsignedTx,
+        fixtures.saveUnsignedWithdrawalTx.input.id
+      );
+
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json`
+      );
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        `${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json`,
+        JSON.stringify(fixtures.saveUnsignedWithdrawalTx.input.unsignedTx, null, 2)
+      );
+    });
+
+    test('should throw error when attempting to save unsignedWithdrawalTx with existing id', () => {
+      mockExistsSync.mockReturnValueOnce(true);
+
+      expect(() =>
+        saveUnsignedWithdrawalTx(
+          fixtures.saveUnsignedWithdrawalTx.input.unsignedTx,
+          fixtures.saveUnsignedWithdrawalTx.input.id
+        )
+      ).toThrowError(
+        `unsignedTx file ${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json already exists`
+      );
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json`
+      );
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('readUnsignedWithdrawalTx', () => {
+    const fs = require('fs');
+    const mockExistsSync = jest.spyOn(fs, 'existsSync');
+    const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+
+    beforeEach(() => {
+      mockExistsSync.mockClear();
+      mockReadFileSync.mockClear();
+    });
+
+    test('should read existing unsignedWithdrawalTx file', () => {
+      const mockSerializedData = JSON.stringify(fixtures.readUnsignedWithdrawalTx.output);
+      mockExistsSync.mockReturnValueOnce(true);
+      mockReadFileSync.mockReturnValueOnce(mockSerializedData);
+
+      const result = readUnsignedWithdrawalTx(fixtures.readUnsignedWithdrawalTx.input);
+
+      expect(result).toEqual(fixtures.readUnsignedWithdrawalTx.output);
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json`
+      );
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        `${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json`
+      );
+    });
+    test('should throw error when attempting to read non-existing unsignedWithdrawalTx file', () => {
+      mockExistsSync.mockReturnValueOnce(false);
+
+      expect(() => readUnsignedWithdrawalTx(fixtures.readUnsignedWithdrawalTx.input)).toThrowError(
+        `unsignedTx file ${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json does not exist`
+      );
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json`
+      );
+    });
+  });
+
+  describe('readSignedWithdrawalTx', () => {
+    const fs = require('fs');
+    const mockExistsSync = jest.spyOn(fs, 'existsSync');
+    const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+
+    beforeEach(() => {
+      mockExistsSync.mockClear();
+      mockReadFileSync.mockClear();
+    });
+
+    test('should read existing signedWithdrawalTx file with signature', () => {
+      const mockSerializedData = JSON.stringify(fixtures.readSignedWithdrawalTx.validOutput);
+      mockExistsSync.mockReturnValueOnce(true);
+      mockReadFileSync.mockReturnValueOnce(mockSerializedData);
+
+      const result = readSignedWithdrawalTx(fixtures.readSignedWithdrawalTx.input);
+
+      expect(result).toEqual(fixtures.readSignedWithdrawalTx.validOutput);
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+      );
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+      );
+    });
+
+    test('should throw error when attempting to read non-existing signedWithdrawalTx file', () => {
+      mockExistsSync.mockReturnValueOnce(false);
+
+      expect(() => readSignedWithdrawalTx(fixtures.readSignedWithdrawalTx.input)).toThrowError(
+        `signedTx file ${fixtures.readSignedWithdrawalTx.input}.signedTx.json does not exist`
+      );
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+      );
+    });
+
+    test('should throw error when attempting to read signedWithdrawalTx file without signature', () => {
+      const mockSerializedData = JSON.stringify(fixtures.readSignedWithdrawalTx.invalidOutput);
+      mockExistsSync.mockReturnValueOnce(true);
+      mockReadFileSync.mockReturnValueOnce(mockSerializedData);
+
+      expect(() => readSignedWithdrawalTx(fixtures.readSignedWithdrawalTx.input)).toThrowError(
+        `unsignedTx file ${fixtures.readSignedWithdrawalTx.input}.signedTx.json does not contain signature`
+      );
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+      );
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+      );
+    });
+  });
+
   // key and unsigned/signed transaction storage
 
   describe('initCtxJson Testcases', () => {
@@ -531,6 +790,33 @@ describe('Unit Test Cases for utils', () => {
 
       // Restore mock function
       existsSyncMock.mockRestore();
+    });
+  });
+
+  describe('waitFinalize3Factory', () => {
+    const mockWeb3 = {
+      eth: {
+        getTransactionCount: jest.fn()
+      }
+    };
+
+    const mockFunc = jest.fn();
+    const address = '0xAddress';
+    const delay = 1000; // Set the desired delay value
+    const waitFinalize3 = waitFinalize3Factory(mockWeb3 as any);
+
+    beforeEach(() => {
+      mockFunc.mockClear();
+      mockWeb3.eth.getTransactionCount.mockClear();
+    });
+
+    test('should resolve with result when transaction count changes', async () => {
+      mockWeb3.eth.getTransactionCount.mockReturnValueOnce(0).mockReturnValueOnce(1);
+
+      const result = await waitFinalize3(address, mockFunc, delay);
+
+      expect(result).toBeUndefined();
+      expect(mockFunc).toHaveBeenCalled();
     });
   });
 });
