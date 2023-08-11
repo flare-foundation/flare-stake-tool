@@ -28,8 +28,21 @@ export async function interactiveCli(baseargv: string[]) {
             await program.parseAsync(args)
         }
     }
+    else if (Object.keys(screenConstants).slice(4, 6).includes(task.toString())) {
+        if (wallet.includes("Private Key")) {
+            const amount = await prompts.amount()
+            const argsExport = [...baseargv.slice(0, 2), "transaction", screenConstants[task], '-a', `${amount.amount}`, `--env-path=${path}`, `--network=${network}`, "--get-hacked"]
+            await program.parseAsync(argsExport)
+            const argsImport = [...baseargv.slice(0, 2), "transaction", `import${screenConstants[task].slice(-2)}`, `--env-path=${path}`, `--network=${network}`, "--get-hacked"]
+            await program.parseAsync(argsImport)
+            console.log("Transaction successful!")
+        }
+        else {
+            console.log("only pvt key supported right now")
+        }
+    }
     else {
-        console.log("not supported rn")
+        console.log("Task not supported")
     }
 }
 

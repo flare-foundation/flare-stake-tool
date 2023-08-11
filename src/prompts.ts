@@ -40,6 +40,17 @@ export const prompts = {
         return inquirer.prompt(questions);
     },
 
+    amount: async () => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'amount',
+                message: `Enter amount(in FLR) to move:`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
     ctxFile: async () => {
         const questions = [
             {
