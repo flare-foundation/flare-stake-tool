@@ -32,20 +32,14 @@ function getArgv() {
         command === 'balance' ||
         command === 'validators'
     ) {
-        console.log([...baseArgv.slice(0, 2), 'info', ...baseArgv.slice(2)])
         return [...baseArgv.slice(0, 2), 'info', ...baseArgv.slice(2)]
-    } else if (
-        command === 'interactive'
-    ) {
-        return [...baseArgv.slice(0, 2), 'interactive']
     } else {
         return baseArgv
     }
 }
 
 if (command == 'interactive') {
-    interactiveCli(baseArgv).then(() => {console.log("Finished execution")})
-
+    interactiveCli(baseArgv).then(() => { console.log("Finished execution") })
 }
 else {
     const program = new Command("Flare Stake Tool")

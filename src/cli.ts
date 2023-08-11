@@ -45,7 +45,7 @@ export async function cli(program: Command) {
     .argument("<type>", "Type of information")
     .action(async (type: string) => {
       const options = getOptions(program, program.opts())
-      console.log(options)
+      // console.log(options)
       const ctx = await contextFromOptions(options)
       if (type == 'addresses') {
         logAddressInfo(ctx)

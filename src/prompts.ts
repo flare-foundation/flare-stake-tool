@@ -23,7 +23,33 @@ export const prompts = {
             {
                 type: 'input',
                 name: 'pvtKeyPath',
-                message: `Enter Path to Private Key file ${colorCodes.yellowColor}(E.g. /home/wallet/pvtKeyFile):`,
+                message: `Enter Path to Private Key file ${colorCodes.yellowColor}(E.g. /home/wallet/pvtKeyFile)${colorCodes.resetColor}:`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
+    publicKey: async () => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'publicKey',
+                message: `Enter your secp256k1 curve public key ${colorCodes.yellowColor}(E.g. 0x02efe41c5d213089cb7a9e808505e9084bb9eb2bf3aa8050ea92a5ae9e20e5a692)${colorCodes.resetColor}:`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
+    ctxFile: async () => {
+        const questions = [
+            {
+                type: 'list',
+                name: 'ctxChoice',
+                message: `You already have an existing ctx file. Do you wish to continue with it?`,
+                choices: [
+                    "yes",
+                    "no"
+                ],
             },
         ];
         return inquirer.prompt(questions);
