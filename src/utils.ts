@@ -137,6 +137,9 @@ export function unPrefix0x(tx: string) {
 }
 
 export function prefix0x(hexString: string) {
+  if (!hexString) {
+    return '0x0'
+  }
   return hexString.startsWith("0x") ? hexString : "0x" + unPrefix0x(hexString)
 }
 
