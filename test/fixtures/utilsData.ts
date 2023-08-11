@@ -445,6 +445,31 @@ const fixtures = {
       forDefiHash: '8zxqhsvyXddyboyI9hs5Zj415efF9fqKEkwoWX9n9lw=',
       forDefiTxId: '5ac078ee-a549-474d-8f93-983177949764'
     }
+  },
+  serializeImportPC_args: {
+    input: ['stringValue', ['arrayValue'], 'string1', ['string2'], new BN(123)],
+    output:  {
+      "type": "Buffer",
+      "data": [
+        115,
+        101,
+        114,
+        105,
+        97,
+        108,
+        105,
+        122,
+        101,
+        100,
+        85,
+        84,
+        88,
+        79,
+        83,
+        101,
+        116
+      ]
+    }
   }
 };
 

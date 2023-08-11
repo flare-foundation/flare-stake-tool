@@ -22,7 +22,10 @@ import {
   serializeExportCP_args,
   deserializeExportCP_args,
   initCtxJson,
+  serializeImportPC_args,
+  deserializeImportPC_args,
   serializeUnsignedTx,
+  deserializeUnsignedTx,
   saveUnsignedTxJson,
   readUnsignedTxJson,
   readSignedTxJson,
@@ -31,8 +34,10 @@ import {
   readSignedWithdrawalTx,
   waitFinalize3Factory
 } from '../../src/utils';
+import { UnsignedTx as EvmUnsignedTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm';
+import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm';
 import fixtures from '../fixtures/utilsData';
-import { serialize, covertBNToSting, convertArrayBNToString, compareValues } from './testHelpers';
+import { serialize, covertBNToSting, compareValues } from './testHelpers';
 describe('Unit Test Cases for utils', () => {
   // public keys and bech32 addresses
 
@@ -463,6 +468,105 @@ describe('Unit Test Cases for utils', () => {
       // @ts-ignore
       const result = serializeExportCP_args(fixtures.serializeExportCP_args.zeroValues.input);
       expect(result).toMatch(fixtures.serializeExportCP_args.zeroValues.output);
+    });
+  });
+
+  describe('serializeUnsignedTx', () => {
+    const mockSerialize = jest.fn();
+    // Mock implementation for EvmUnsignedTx
+    class MockEvmUnsignedTx {
+      serialize = mockSerialize;
+    }
+
+    // Mock implementation for PvmUnsignedTx
+    class MockPvmUnsignedTx {
+      serialize = mockSerialize;
+    }
+
+    beforeEach(() => {
+      mockSerialize.mockClear();
+    });
+
+    test('should serialize EvmUnsignedTx', () => {
+      const mockEvmUnsignedTx = new MockEvmUnsignedTx();
+      mockSerialize.mockReturnValueOnce('serializedEvmTx');
+      // @ts-ignore
+      const result = serializeUnsignedTx(mockEvmUnsignedTx);
+
+      expect(result).toBe('"serializedEvmTx"');
+      expect(mockSerialize).toHaveBeenCalledWith('hex');
+    });
+
+    test('should serialize PvmUnsignedTx', () => {
+      const mockPvmUnsignedTx = new MockPvmUnsignedTx();
+      mockSerialize.mockReturnValueOnce('serializedPvmTx');
+      // @ts-ignore
+      const result = serializeUnsignedTx(mockPvmUnsignedTx);
+
+      expect(result).toBe('"serializedPvmTx"');
+      expect(mockSerialize).toHaveBeenCalledWith('hex');
+    });
+  });
+
+  describe('deserializeUnsignedTx', () => {
+    const mockDeserialize = jest.fn();
+
+    // @ts-ignore
+    class MockEvmUnsignedTx implements EvmUnsignedTx {
+      _typeName = 'EvmUnsignedTx';
+      deserialize = mockDeserialize;
+    }
+
+    // Mock implementation for PvmUnsignedTx
+    // @ts-ignore
+    class MockPvmUnsignedTx implements PvmUnsignedTx {
+      _typeName = 'PvmUnsignedTx';
+      deserialize = mockDeserialize;
+    }
+
+    beforeEach(() => {
+      mockDeserialize.mockClear();
+    });
+
+    test('should deserialize EvmUnsignedTx', () => {
+      const mockSerializedEvmTx = '{"someProperty":"someValue"}';
+      const mockEvmUnsignedTx = new MockEvmUnsignedTx();
+      // @ts-ignore
+      const result = deserializeUnsignedTx(MockEvmUnsignedTx, mockSerializedEvmTx);
+      expect(result).toMatchObject(mockEvmUnsignedTx);
+      expect(mockDeserialize).toHaveBeenCalledWith(JSON.parse(mockSerializedEvmTx));
+    });
+
+    test('should deserialize PvmUnsignedTx', () => {
+      const mockSerializedPvmTx = '{"someProperty":"someValue"}';
+      const mockPvmUnsignedTx = new MockPvmUnsignedTx();
+      // @ts-ignore
+      const result = deserializeUnsignedTx(MockPvmUnsignedTx, mockSerializedPvmTx);
+
+      expect(result).toMatchObject(mockPvmUnsignedTx);
+      expect(mockDeserialize).toHaveBeenCalledWith(JSON.parse(mockSerializedPvmTx));
+    });
+  });
+
+  describe('serializeImportPC_args', () => {
+    // @ts-ignore
+    class MockUTXOSet implements UTXOSet {
+      serialize = jest.fn(() => Buffer.from('serializedUTXOSet'));
+    }
+    test('should serialize import PC args', () => {
+      const mockUTXOSet = new MockUTXOSet();
+      const args = [mockUTXOSet, ...fixtures.serializeImportPC_args.input];
+      // @ts-ignore
+      const result = serializeImportPC_args(args);
+      const buffer = Buffer.from(fixtures.serializeImportPC_args.output.data);
+      const expectedSerializedUTXOSet = buffer; // Replace with expected serialized UTXOSet
+      const expectedSerializedArgs = JSON.stringify(
+        [expectedSerializedUTXOSet, ...args.slice(1)],
+        null,
+        2
+      );
+      expect(result).toBe(expectedSerializedArgs);
+      expect(mockUTXOSet.serialize).toHaveBeenCalledWith('hex');
     });
   });
 
