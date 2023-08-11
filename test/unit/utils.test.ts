@@ -37,7 +37,7 @@ import {
 import { UnsignedTx as EvmUnsignedTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm';
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm';
 import fixtures from '../fixtures/utilsData';
-import { serialize, covertBNToSting, compareValues } from './testHelpers';
+import { serialize, covertBNToSting, compareValues } from '../helper/testHelpers';
 describe('Unit Test Cases for utils', () => {
   // public keys and bech32 addresses
 
@@ -922,5 +922,30 @@ describe('Unit Test Cases for utils', () => {
       expect(result).toBeUndefined();
       expect(mockFunc).toHaveBeenCalled();
     });
+
+    it('should retry and eventually throw timeout error', async () => {
+      const mockGetTransactionCount = jest.fn().mockResolvedValueOnce(1).mockResolvedValue(1); // Simulate no nonce change for all retries
+      const mockWeb3 = {
+        eth: {
+          getTransactionCount: mockGetTransactionCount
+        }
+      };
+
+      const waitFinalize = waitFinalize3Factory(mockWeb3);
+
+      const address = '0x123abc';
+      const func = jest.fn().mockResolvedValue('Result');
+
+      jest.useFakeTimers();
+
+      await expect(waitFinalize(address, func, -1, true)).rejects.toThrowError(
+        'Response timeout after -76ms'
+      );
+
+      expect(func).toHaveBeenCalledTimes(1);
+      expect(mockGetTransactionCount).toHaveBeenCalledTimes(10);
+
+      jest.useRealTimers();
+    }, 1000000);
   });
 });

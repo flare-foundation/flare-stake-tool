@@ -284,14 +284,16 @@ export function readSignedWithdrawalTx(id: string): SignedWithdrawalTxJson {
 
 ///////////
 export function waitFinalize3Factory(web3: any) {
-  return async function (address: string, func: () => any, delay: number = 1000) {
+  return async function (address: string, func: () => any, delay: number = 1000, test: boolean = false) {
       let totalDelay = 0;
       let nonce = await web3.eth.getTransactionCount(address)
       let res = await func();
       let backoff = 1.5;
       let cnt = 0;
       while ((await web3.eth.getTransactionCount(address)) == nonce) {
-          await new Promise((resolve: any) => { setTimeout(() => { resolve() }, delay) })
+        // if test is enabled, it will skip the timeout as it was getting stuck here
+          if(!test)
+            await new Promise((resolve: any) => { setTimeout(() => { resolve() }, delay) })
           if (cnt < 8) {
               totalDelay += delay;
               delay = Math.floor(delay * backoff);
