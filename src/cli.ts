@@ -1,6 +1,6 @@
 import { Command, OptionValues } from 'commander'
 import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
-import { contextEnv, contextFile, getContext, colorCodes, networkMapping } from './constants'
+import { contextEnv, contextFile, getContext } from './constants'
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
@@ -15,7 +15,6 @@ import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
-import { prompts } from './prompts'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
