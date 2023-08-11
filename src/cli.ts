@@ -56,7 +56,7 @@ export async function cli(program: Command) {
         logError(`Unknown information type ${type}`)
       }
     })
-
+  // transaction construction and sending
   program
     .command("transaction").description("Move funds from one chain to another")
     .argument("<type>", "Type of a crosschain transaction")
