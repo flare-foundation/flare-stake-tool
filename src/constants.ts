@@ -13,7 +13,7 @@ import {
 } from './utils'
 
 export function contextEnv(path: string, network: string): Context {
-  require('dotenv').config({path: path})
+  require('dotenv').config({ path: path })
   return getContext(
     network,
     process.env.PUBLIC_KEY,
@@ -27,17 +27,23 @@ export function contextFile(ctxFile: string): Context {
   return getContext(ctx.network, ctx.publicKey)
 }
 
- // ANSI escape codes for colors
+// ANSI escape codes for colors
 export const colorCodes = {
-  redColor :'\x1b[31m',
-  greenColor : '\x1b[32m',
-  yellowColor :'\x1b[33m',
-  resetColor : '\x1b[0m'
+  redColor: '\x1b[31m',
+  greenColor: '\x1b[32m',
+  yellowColor: '\x1b[33m',
+  resetColor: '\x1b[0m',
+  magentaColor: '\x1b[35m',
+  orangeColor: '\x1b[38;5;208m'
+}
+
+export const emojis = {
+  happy: '😀',
 }
 
 export const networkMapping = {
-  "Flare":"flare",
-  "Coston2":"costwo"
+  "Flare": "flare",
+  "Coston2": "costwo"
 }
 
 export function getContext(network: string, publicKey?: string, privateKeyHex?: string, privateKeyCB58?: string): Context {

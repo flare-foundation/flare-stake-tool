@@ -8,7 +8,7 @@ export const prompts = {
             {
                 type: 'list',
                 name: 'wallet',
-                message: 'How do you want to connect your wallet?',
+                message: `${colorCodes.magentaColor}How do you want to connect your wallet?${colorCodes.resetColor}`,
                 choices: ['Ledger', 'Public Key', `Private Key ${colorCodes.redColor}(not recommended)`],
                 filter: function (val: string) {
                     return val.split("(")[0];
@@ -23,7 +23,7 @@ export const prompts = {
             {
                 type: 'input',
                 name: 'pvtKeyPath',
-                message: `Enter Path to Private Key file ${colorCodes.yellowColor}(E.g. /home/wallet/pvtKeyFile)${colorCodes.resetColor}:`,
+                message: `${colorCodes.magentaColor}Enter Path to Private Key file ${colorCodes.yellowColor}(E.g. /home/wallet/pvtKeyFile)${colorCodes.resetColor}:`,
             },
         ];
         return inquirer.prompt(questions);
@@ -34,7 +34,7 @@ export const prompts = {
             {
                 type: 'input',
                 name: 'publicKey',
-                message: `Enter your secp256k1 curve public key ${colorCodes.yellowColor}(E.g. 0x02efe41c5d213089cb7a9e808505e9084bb9eb2bf3aa8050ea92a5ae9e20e5a692)${colorCodes.resetColor}:`,
+                message: `${colorCodes.magentaColor}Enter your secp256k1 curve public key ${colorCodes.yellowColor}(E.g. 0x02efe41c5d213089cb7a9e808505e9084bb9eb2bf3aa8050ea92a5ae9e20e5a692)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
             },
         ];
         return inquirer.prompt(questions);
@@ -45,7 +45,7 @@ export const prompts = {
             {
                 type: 'input',
                 name: 'amount',
-                message: `Enter amount(in FLR) to move:`,
+                message: `${colorCodes.magentaColor}Enter amount to move ${colorCodes.yellowColor}(in FLR)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
             },
         ];
         return inquirer.prompt(questions);
@@ -55,12 +55,15 @@ export const prompts = {
         const questions = [
             {
                 type: 'list',
-                name: 'ctxChoice',
-                message: `You already have an existing ctx file. Do you wish to continue with it?`,
+                name: 'isContinue',
+                message: `${colorCodes.magentaColor}Do you wish to continue with this?${colorCodes.resetColor}`,
                 choices: [
                     "yes",
                     "no"
                 ],
+                filter: (val: string) => {
+                    return val == "yes" ? true : false
+                }
             },
         ];
         return inquirer.prompt(questions);
@@ -71,11 +74,11 @@ export const prompts = {
             {
                 type: 'list',
                 name: 'network',
-                message: 'Which network do you want to connect to?',
+                message: `${colorCodes.magentaColor}Which network do you want to connect to?${colorCodes.resetColor}`,
                 choices: [`Flare ${colorCodes.greenColor}(Mainnet)`, `Coston2 ${colorCodes.yellowColor}(Testnet)`],
                 filter: function (val: string) {
                     const network = val.split(" ")[0]
-                    if (network=="flare"){ return "flare"}
+                    if (network == "flare") { return "flare" }
                     else return "costwo"
                 }
             },
@@ -88,7 +91,7 @@ export const prompts = {
             {
                 type: 'list',
                 name: 'task',
-                message: 'What do you want to do?',
+                message: `${colorCodes.magentaColor}What do you want to do?${colorCodes.resetColor}`,
                 choices: [
                     ...Object.keys(screenConstants)
                 ],

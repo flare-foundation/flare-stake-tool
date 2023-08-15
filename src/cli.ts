@@ -15,6 +15,7 @@ import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
+import { colorCodes } from "./constants"
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -74,9 +75,7 @@ export async function cli(program: Command) {
       const ctx = await contextFromOptions(options)
       if (options.getHacked) {
         // this is more of a concept for future development, by now private key was already exposed to dependencies
-        const response = await getUserInput(`
-          You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious!
-          This command is not meant to be used in production, but for testing only! Proceed? (Y/N) `)
+        const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
         if (response == 'Y') await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
       } else if (options.ledger) {
         await cliBuildAndSendTxUsingLedger(type, ctx, options as FlareTxParams, options.blind)
@@ -298,8 +297,8 @@ async function logBalanceInfo(ctx: Context) {
   cbalance = integerToDecimal(cbalance, 18)
   pbalance = integerToDecimal(pbalance, 9)
   logInfo(`Balances on the network "${ctx.config.hrp}"`)
-  log(`C-chain ${ctx.cAddressHex}: ${cbalance}`)
-  log(`P-chain ${ctx.pAddressBech32}: ${pbalance}`)
+  log(`C-chain ${ctx.cAddressHex}: ${cbalance} FLR`)
+  log(`P-chain ${ctx.pAddressBech32}: ${pbalance} FLR`)
 }
 
 function logNetworkInfo(ctx: Context) {
