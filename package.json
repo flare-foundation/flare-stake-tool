@@ -8,7 +8,8 @@
   "scripts": {
     "tsc": "tsc",
     "build": "rm -rf dist/ && yarn tsc -b",
-    "test": "jest"
+    "test": "jest",
+    "coverage": "jest --coverage"
   },
   "repository": {
     "type": "git",
