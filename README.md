@@ -270,6 +270,14 @@ To use the app with the private key, you can copy the commands used with ledger 
 flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file> --get-hacked
 ```
 
+## Interactive CLI
+
+To use the interactive CLI use the following command:
+
+```bash
+flare-stake-tool interactive
+```
+
 ## Versions
 
 Some info on upgrading this tool to a new version.

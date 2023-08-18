@@ -102,3 +102,5 @@ ctx*.json
 # fordefi
 private.pem
 token
+
+--get-hacked
