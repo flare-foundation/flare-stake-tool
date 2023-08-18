@@ -77,3 +77,15 @@ interface WithdrawalTxData {
   value: string | bigint
   chainId: number
 }
+
+export interface ScreenConstantsInterface {
+  [key: string]: string;
+}
+
+export interface connectWalletInterface {
+  wallet: string;
+  path?: string;
+  publicKey?: string;
+  network?: string;
+  isCreateCtx?: boolean;
+}
