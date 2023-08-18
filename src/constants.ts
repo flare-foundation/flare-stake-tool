@@ -12,6 +12,11 @@ import {
   decodePublicKey
 } from './utils'
 
+function readContextFile(ctxFile: string): ContextFile {
+  const file = fs.readFileSync(ctxFile, 'utf8')
+  return JSON.parse(file) as ContextFile
+}
+
 export function contextEnv(path: string, network: string): Context {
   require('dotenv').config({ path: path })
   return getContext(
@@ -22,9 +27,13 @@ export function contextEnv(path: string, network: string): Context {
 }
 
 export function contextFile(ctxFile: string): Context {
-  const file = fs.readFileSync(ctxFile, 'utf8')
-  const ctx = JSON.parse(file) as ContextFile
+  const ctx = readContextFile(ctxFile)
   return getContext(ctx.network, ctx.publicKey)
+}
+
+export function networkFromContextFile(ctxFile: string): string {
+  const ctx = readContextFile(ctxFile)
+  return ctx.network
 }
 
 // ANSI escape codes for colors

@@ -1,6 +1,6 @@
 import { Command, OptionValues } from 'commander'
 import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
-import { contextEnv, contextFile, getContext } from './constants'
+import { contextEnv, contextFile, getContext, networkFromContextFile } from './constants'
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
@@ -24,7 +24,7 @@ const MAX_TRANSCTION_FEE = FLR
 export async function cli(program: Command) {
   // global configurations
   program
-    .option("--network <network>", "Network name (flare or costwo)", 'flare')
+    .option("--network <network>", "Network name (flare or costwo)")
     .option("--ledger", "Use ledger to sign transactions")
     .option("--blind", "Blind signing (used for ledger)", false)
     .option("--get-hacked", "Use the .env file with the exposed private key")
@@ -161,8 +161,24 @@ async function contextFromOptions(options: OptionValues): Promise<Context> {
   }
 }
 
+// Network is obtained from context file, if it exists, else from --network flag.
+// This is because ledger does not need a context file
+function networkFromOptions(options: OptionValues): string {
+  let network = options.network
+  if (network == undefined) {
+    try {
+      network = networkFromContextFile(options.ctxFile)
+    } catch (e) {
+      network = "flare"
+    }
+  }
+  logInfo(`Using network: ${network}`)
+  return network
+}
+
 function getOptions(program: Command, options: OptionValues): OptionValues {
   const allOptions: OptionValues = { ...program.opts(), ...options }
+  const network = networkFromOptions(allOptions)
   // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
   if (allOptions.amount) {
     allOptions.amount = decimalToInteger(allOptions.amount.replace(/,/g, ''), 9)
@@ -170,7 +186,7 @@ function getOptions(program: Command, options: OptionValues): OptionValues {
   if (allOptions.fee) {
     allOptions.fee = decimalToInteger(allOptions.fee, 9)
   }
-  return allOptions
+  return { ...allOptions, network }
 }
 
 function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
