@@ -14,7 +14,6 @@
     "scripts",
     "cli",
     "test",
-    "dist",
-    "staking"
+    "dist"
   ]
 }
