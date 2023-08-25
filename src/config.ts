@@ -1,4 +1,3 @@
-
 export interface NetworkConfig {
   protocol: string,
   ip: string,

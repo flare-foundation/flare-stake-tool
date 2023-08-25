@@ -1,8 +1,8 @@
 import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
-import { UnsignedTxJson, Context } from './interfaces'
-import { serializeUnsignedTx } from './utils'
+import { UnsignedTxJson, Context } from '../interfaces'
+import { serializeUnsignedTx } from '../utils'
 
 
 type AddValidatorParams = [
