@@ -1,6 +1,6 @@
 import inquirer from 'inquirer';
 import { colorCodes } from './constants';
-import { screenConstants } from './screenConstants';
+import { taskConstants, networkConstants } from './screenConstants';
 
 export const prompts = {
     connectWallet: async () => {
@@ -45,7 +45,29 @@ export const prompts = {
             {
                 type: 'input',
                 name: 'amount',
-                message: `${colorCodes.magentaColor}Enter amount to move ${colorCodes.yellowColor}(in FLR)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+                message: `${colorCodes.magentaColor}Enter amount ${colorCodes.yellowColor}(in FLR)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
+    nodeId: async () => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'id',
+                message: `${colorCodes.magentaColor}Enter Node NodeId ${colorCodes.yellowColor}(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
+    unixTime: async (timeType: string) => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'time',
+                message: `${colorCodes.magentaColor}Enter ${timeType} time${colorCodes.yellowColor}(E.g. 1693185095)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
             },
         ];
         return inquirer.prompt(questions);
@@ -75,11 +97,12 @@ export const prompts = {
                 type: 'list',
                 name: 'network',
                 message: `${colorCodes.magentaColor}Which network do you want to connect to?${colorCodes.resetColor}`,
-                choices: [`Flare ${colorCodes.greenColor}(Mainnet)`, `Coston2 ${colorCodes.yellowColor}(Testnet)`],
-                filter: function (val: string) {
-                    const network = val.split(" ")[0]
-                    if (network == "flare") { return "flare" }
-                    else return "costwo"
+                choices: [
+                    ...Object.values(networkConstants)
+                ],
+                filter: (val: string) => {
+                    const key = Object.keys(networkConstants).find(key => networkConstants[key] == val)
+                    return key
                 }
             },
         ];
@@ -93,7 +116,7 @@ export const prompts = {
                 name: 'task',
                 message: `${colorCodes.magentaColor}What do you want to do?${colorCodes.resetColor}`,
                 choices: [
-                    ...Object.keys(screenConstants)
+                    ...Object.keys(taskConstants)
                 ],
             },
         ];
