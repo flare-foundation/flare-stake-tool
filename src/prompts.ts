@@ -2,6 +2,10 @@ import inquirer from 'inquirer';
 import { colorCodes } from './constants';
 import { taskConstants, networkConstants } from './screenConstants';
 
+
+/**
+ * Provides various prompts used in the CLI for user interaction.
+ */
 export const prompts = {
     connectWallet: async () => {
         const questions = [
@@ -122,4 +126,24 @@ export const prompts = {
         ];
         return inquirer.prompt(questions);
     },
+
+    selectAddress: async (choiceList:string[]) => {
+        const questions = [
+            {
+                type: 'list',
+                name: 'address',
+                message: `${colorCodes.magentaColor}Which address do you want to use?${colorCodes.resetColor}`,
+                choices: [
+                    ...choiceList
+                ],
+                filter: (val: string) => {
+                    const address = val.split(" ")[1]
+                    return address
+                }
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
+
 };

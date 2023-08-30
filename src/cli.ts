@@ -76,7 +76,9 @@ export async function cli(program: Command) {
       if (options.getHacked) {
         // this is more of a concept for future development, by now private key was already exposed to dependencies
         const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
-        if (response == 'Y' || response == 'y') await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
+        if (response == 'Y' || response == 'y') {
+          await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
+        }
       } else if (options.ledger) {
         await cliBuildAndSendTxUsingLedger(type, ctx, options as FlareTxParams, options.blind)
       } else {
@@ -279,10 +281,10 @@ async function buildAndSendTxUsingPrivateKey(
 //////////////////////////////////////////////////////////////////////////////////////////
 // initializing ctx.json
 
-export async function initCtxJsonFromOptions(options: OptionValues): Promise<void> {
+export async function initCtxJsonFromOptions(options: OptionValues, derivationPath = DERIVATION_PATH): Promise<void> {
   let contextFile: ContextFile
   if (options.ledger) {
-    const { publicKey, address } = await ledgerGetAccount(DERIVATION_PATH, options.network)
+    const { publicKey, address } = await ledgerGetAccount(derivationPath, options.network)
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
     contextFile = { publicKey, ethAddress, flareAddress: address, network: options.network }
   } else if (options.publicKey) {

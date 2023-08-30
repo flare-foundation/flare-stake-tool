@@ -2,12 +2,19 @@ import { prompts } from "./prompts"
 import { taskConstants } from "./screenConstants"
 import { colorCodes } from "./constants"
 import { Command } from 'commander'
-import { cli } from './cli'
-import { TaskConstantsInterface, connectWalletInterface, ContextFile } from './interfaces'
+import { cli, initCtxJsonFromOptions } from './cli'
+import { TaskConstantsInterface, ConnectWalletInterface, ContextFile } from './interfaces'
+import { getPathsAndAddresses } from './ledger/utils';
+import { DerivedAddress } from './interfaces';
 import fs from 'fs'
 
+/***
+ * @description Handles all operations pertaining to the interactive CLL. Creates a list of arguments and internally calls the comamnder based CLI after taking the relevant inputs from the user.
+ * @param baseargv List of base arguments passed to the application to invoke the interactive CLI
+ * @returns {void}
+ */
 export async function interactiveCli(baseargv: string[]) {
-    const walletProperties: connectWalletInterface = await connectWallet()
+    const walletProperties: ConnectWalletInterface = await connectWallet()
     const task = await selectTask()
 
     const program = new Command("Flare Stake Tool")
@@ -38,19 +45,7 @@ export async function interactiveCli(baseargv: string[]) {
             await program.parseAsync(argsImport)
         }
         else {
-            console.log("only pvt key supported for txns right now")
-        }
-    }
-    else if (Object.keys(taskConstants)[7] == task.toString()) {
-        if (walletProperties.wallet.includes("Private Key") && walletProperties.network && walletProperties.path) {
-            const amount = await prompts.amount()
-            const nodeId = await prompts.nodeId()
-            const { startTime, endTime } = await getDuration()
-            const argsExport = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId.id}`, `--network=${walletProperties.network}`, '-a', `${amount.amount}`, '-s', `${startTime}`, '-e', `${endTime}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
-            await program.parseAsync(argsExport)
-        }
-        else {
-            console.log("only pvt key supported for delegation right now")
+            console.log("only pvt key supported right now")
         }
     }
     else {
@@ -58,7 +53,7 @@ export async function interactiveCli(baseargv: string[]) {
     }
 }
 
-async function connectWallet(): Promise<connectWalletInterface> {
+async function connectWallet(): Promise<ConnectWalletInterface> {
     const walletPrompt = await prompts.connectWallet()
     const wallet = walletPrompt.wallet.split("\\")[0] //removing ANSI color code
     if (wallet.includes("Private Key")) {
@@ -100,6 +95,27 @@ async function connectWallet(): Promise<connectWalletInterface> {
         }
 
         return { wallet, isCreateCtx, publicKey, network }
+    }
+    else if (wallet.includes("Ledger")){
+        const network = await selectNetwork()
+
+        console.log("Fetching Addresses...")
+        const pathList: DerivedAddress[] = await getPathsAndAddresses(network)
+        const choiceList = await createChoicesFromAddress(pathList)
+        const selectedAddress = await prompts.selectAddress(choiceList)
+
+        const selectedDerivedAddress = pathList.find(item => item.ethAddress == selectedAddress.address)
+        const selectedDerivationPath = selectedDerivedAddress?.derivationPath
+
+        const optionsObject = {
+            network,
+            blind:false,
+            ctxFile: 'ctx.json',
+            ledger: true
+        }
+        await initCtxJsonFromOptions(optionsObject,selectedDerivationPath)
+
+        return {wallet , network }
     }
     else {
         return { wallet }
@@ -144,4 +160,15 @@ function readInfoFromCtx(filePath: string): ContextFile {
 
     return { publicKey, network }
 
+}
+
+async function createChoicesFromAddress(pathList : DerivedAddress[]) {
+    const choiceList: string[] = []
+
+    for (let i = 0; i < 10; i++) {
+        const choice = pathList[i].ethAddress
+        choiceList.push(`${i+1}. ${choice}`)
+    }
+
+    return choiceList
 }

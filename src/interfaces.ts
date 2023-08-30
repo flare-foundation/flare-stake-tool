@@ -78,18 +78,41 @@ interface WithdrawalTxData {
   chainId: number
 }
 
+/**
+ * Represents the tasks supported by the CLI
+ * @interface TaskConstantsInterface
+ */
 export interface TaskConstantsInterface {
   [key: string]: string;
 }
 
+
+/**
+ * Represents the networks supported by the CLI
+ * @interface NetworkConstantsInterface
+ */
 export interface NetworkConstantsInterface {
   [key: string]: string;
 }
 
-export interface connectWalletInterface {
+/**
+ * Represents the properties returned from the "connectWallet" function
+ * @interface ConnectWalletInterface
+ */
+export interface ConnectWalletInterface {
   wallet: string;
   path?: string;
   publicKey?: string;
   network?: string;
   isCreateCtx?: boolean;
+}
+
+/**
+ * Represents a derived address from a Ledger device
+ * @interface DerivedAddress
+ */
+export interface DerivedAddress {
+  ethAddress: string,
+  balance?: string,
+  derivationPath: string
 }
