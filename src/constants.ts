@@ -101,7 +101,7 @@ function context(
   }
   if (privkHex) {
     const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(privkHex, 'hex'))
-    if (publicKey && (!publicKeyPair![0].equals(pubX) || !publicKeyPair![0].equals(pubY))) {
+    if (publicKey && (!publicKeyPair![0].equals(pubX) || !publicKeyPair![1].equals(pubY))) {
       throw Error("provided private key does not match the public key")
     }
     publicKeyPair = [pubX, pubY]
