@@ -17,7 +17,7 @@ import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './
 import { log, logError, logInfo, logSuccess } from './output'
 import { colorCodes } from "./constants"
 
-const DERIVATION_PATH = "m/44'/60'/0'/0/0" // derivation path for ledger
+const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
 const MAX_TRANSCTION_FEE = FLR
 
@@ -67,12 +67,13 @@ export async function cli(program: Command) {
     .option("-n, --node-id <nodeId>", "The id of the node to stake/delegate to")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
+    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
     .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator", "10")
     .option("--threshold <threshold>", "Threshold of the constructed transaction", "1")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
-      const ctx = await contextFromOptions(options)
+      const ctx = await contextFromOptions(options,options.derivationPath)
       if (options.getHacked) {
         // this is more of a concept for future development, by now private key was already exposed to dependencies
         const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
@@ -80,7 +81,7 @@ export async function cli(program: Command) {
           await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
         }
       } else if (options.ledger) {
-        await cliBuildAndSendTxUsingLedger(type, ctx, options as FlareTxParams, options.blind)
+        await cliBuildAndSendTxUsingLedger(type, ctx, options as FlareTxParams, options.blind, options.derivationPath)
       } else {
         await cliBuildUnsignedTxJson(type, ctx, options.transactionId, options as FlareTxParams)
       }
@@ -150,10 +151,10 @@ export async function cli(program: Command) {
     })
 }
 
-async function contextFromOptions(options: OptionValues): Promise<Context> {
+async function contextFromOptions(options: OptionValues, derivationPath: string = DERIVATION_PATH): Promise<Context> {
   if (options.ledger) {
     logInfo("Fetching account from ledger...")
-    const account = await ledgerGetAccount(DERIVATION_PATH, options.network)
+    const account = await ledgerGetAccount(derivationPath, options.network)
     const context = getContext(options.network, account.publicKey)
     return context
   } else if (options.envPath) {
@@ -286,7 +287,7 @@ export async function initCtxJsonFromOptions(options: OptionValues, derivationPa
   if (options.ledger) {
     const { publicKey, address } = await ledgerGetAccount(derivationPath, options.network)
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
-    contextFile = { publicKey, ethAddress, flareAddress: address, network: options.network }
+    contextFile = { publicKey, ethAddress, flareAddress: address, network: options.network, derivationPath }
   } else if (options.publicKey) {
     if (!validatePublicKey(options.publicKey)) return logError('Invalid public key')
     contextFile = { publicKey: options.publicKey, network: options.network }
@@ -341,13 +342,13 @@ async function logValidatorInfo(ctx: Context) {
 //////////////////////////////////////////////////////////////////////////////////////////
 // Transaction building and execution
 
-async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Context, params: FlareTxParams, blind: boolean
+async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Context, params: FlareTxParams, blind: boolean, derivationPath: string
 ): Promise<void> {
   logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
   capFeeAt(MAX_TRANSCTION_FEE, unsignedTxJson.usedFee, params.fee)
   logInfo("Please review and sign the transaction on your ledger device...")
-  const { signature } = await ledgerSign(unsignedTxJson, DERIVATION_PATH, blind)
+  const { signature } = await ledgerSign(unsignedTxJson, derivationPath, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
   logInfo("Sending transaction to the node...")
   const chainTxId = await sendSignedTxJson(context, signedTxJson)

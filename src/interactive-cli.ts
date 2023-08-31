@@ -39,12 +39,29 @@ export async function interactiveCli(baseargv: string[]) {
         if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
             const amount = await prompts.amount()
             const argsExport = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-a', `${amount.amount}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+            console.log("Please approve export transaction")
             await program.parseAsync(argsExport)
             const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+            console.log("Please approve import transaction")
             await program.parseAsync(argsImport)
         }
+        else if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
+            const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
+            if (ctxNetwork && ctxDerivationPath) {
+                const amount = await prompts.amount()
+                const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
+                console.log("Please approve export transaction")
+                await program.parseAsync(argsExport)
+                const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
+                console.log("Please approve import transaction")
+                await program.parseAsync(argsImport)
+            }
+            else {
+                console.log("Missing params in ctx file")
+            }
+        }
         else {
-            console.log("only pvt key supported for txns right now")
+            console.log("only pvt key and ledger supported for txns right now")
         }
     }
     else if (Object.keys(taskConstants)[7] == task.toString()) {
@@ -66,7 +83,7 @@ export async function interactiveCli(baseargv: string[]) {
 
 async function connectWallet(): Promise<ConnectWalletInterface> {
     const walletPrompt = await prompts.connectWallet()
-    const wallet = walletPrompt.wallet.split("\\")[0] //removing ANSI color code
+    const wallet = walletPrompt.wallet
     if (wallet == Object.keys(walletConstants)[2]) {
         console.log(`${colorCodes.redColor}Warning: You are connecting using your private key which is not recommended`)
         const pvtKeyPath = await prompts.pvtKeyPath()
@@ -109,7 +126,7 @@ async function connectWallet(): Promise<ConnectWalletInterface> {
             await initCtxJsonFromOptions(optionsObject, selectedDerivationPath)
         }
 
-        return { wallet, network, isCreateCtx: false }
+        return { wallet, isCreateCtx: false }
     }
     else {
         return { wallet }
@@ -152,8 +169,9 @@ function readInfoFromCtx(filePath: string): ContextFile {
     const publicKey = ctxData.publicKey
     const network = ctxData.network
     const ethAddress = ctxData.ethAddress || undefined
+    const derivationPath = ctxData.derivationPath || undefined
 
-    return { publicKey, network, ethAddress }
+    return { publicKey, network, ethAddress, derivationPath }
 
 }
 

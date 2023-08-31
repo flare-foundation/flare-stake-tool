@@ -30,6 +30,7 @@ export interface ContextFile {
   flareAddress?: string
   ethAddress?: string
   vaultId?: string
+  derivationPath?: string
 }
 
 export interface UnsignedTxJson {
@@ -105,7 +106,7 @@ export interface ConnectWalletInterface {
  */
 export interface DerivedAddress {
   ethAddress: string,
-  publicKey :string,
+  publicKey: string,
   balance?: string,
   derivationPath: string
 }

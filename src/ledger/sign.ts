@@ -14,7 +14,6 @@ export async function ledgerSign(tx: UnsignedTxJson, derivationPath: string, bli
 	const messageBuffer = Buffer.from(message, 'hex')
 	const transport = await TransportNodeHid.open(undefined)
 	const avalanche = new AvalancheApp(transport)
-
 	const { accountPath, signPath } = expandDerivationPath(derivationPath)
 	let pubk: Buffer
 	let addr: string
