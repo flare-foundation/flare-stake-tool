@@ -1,10 +1,10 @@
-import { TaskConstantsInterface, NetworkConstantsInterface } from './interfaces'
+import { ScreenConstantsInterface } from './interfaces'
 import { colorCodes } from './constants';
 
 /**
  * @description Object that constains list of tasks user can perform as its keys and their corresponding CLI commands as values.
  */
-export const taskConstants: TaskConstantsInterface = {
+export const taskConstants: ScreenConstantsInterface = {
     'View chain addresses': 'addresses',
     'Check on-chain balance': "balance",
     'Get network info': "network",
@@ -18,8 +18,17 @@ export const taskConstants: TaskConstantsInterface = {
 /**
  * @description Constant object which contains the supported networks and their corresponding formatted output names as key-value pairs.
  */
-export const networkConstants: NetworkConstantsInterface = {
+export const networkConstants: ScreenConstantsInterface = {
     "flare": `Flare ${colorCodes.greenColor}(Mainnet)${colorCodes.resetColor}`,
     "costwo": `Coston2 ${colorCodes.yellowColor}(Testnet)${colorCodes.resetColor}`,
     "localflare": `LocalHost ${colorCodes.redColor}(for development only)${colorCodes.resetColor}`
+}
+
+/**
+ * @description Constant object which contains the supported wallets and their corresponding formatted output names as key-value pairs.
+ */
+export const walletConstants: ScreenConstantsInterface = {
+    "ledger": 'Ledger',
+    "publicKey": 'Public Key',
+    "privateKey": `Private Key ${colorCodes.redColor}(not recommended)`
 }

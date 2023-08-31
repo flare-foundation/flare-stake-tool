@@ -79,21 +79,13 @@ interface WithdrawalTxData {
 }
 
 /**
- * Represents the tasks supported by the CLI
- * @interface TaskConstantsInterface
+ * Represents the various constants used by the CLI
+ * @interface ScreenConstantsInterface
  */
-export interface TaskConstantsInterface {
+export interface ScreenConstantsInterface {
   [key: string]: string;
 }
 
-
-/**
- * Represents the networks supported by the CLI
- * @interface NetworkConstantsInterface
- */
-export interface NetworkConstantsInterface {
-  [key: string]: string;
-}
 
 /**
  * Represents the properties returned from the "connectWallet" function
@@ -113,6 +105,7 @@ export interface ConnectWalletInterface {
  */
 export interface DerivedAddress {
   ethAddress: string,
+  publicKey :string,
   balance?: string,
   derivationPath: string
 }

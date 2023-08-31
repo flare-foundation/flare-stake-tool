@@ -1,6 +1,6 @@
 import inquirer from 'inquirer';
 import { colorCodes } from './constants';
-import { taskConstants, networkConstants } from './screenConstants';
+import { taskConstants, networkConstants, walletConstants } from './screenConstants';
 
 
 /**
@@ -13,9 +13,12 @@ export const prompts = {
                 type: 'list',
                 name: 'wallet',
                 message: `${colorCodes.magentaColor}How do you want to connect your wallet?${colorCodes.resetColor}`,
-                choices: ['Ledger', 'Public Key', `Private Key ${colorCodes.redColor}(not recommended)`],
-                filter: function (val: string) {
-                    return val.split("(")[0];
+                choices: [
+                    ...Object.values(walletConstants)
+                ],
+                filter: (val: string) => {
+                    const key = Object.keys(walletConstants).find(key => walletConstants[key] == val)
+                    return key
                 }
             },
         ];
@@ -127,7 +130,7 @@ export const prompts = {
         return inquirer.prompt(questions);
     },
 
-    selectAddress: async (choiceList:string[]) => {
+    selectAddress: async (choiceList: string[]) => {
         const questions = [
             {
                 type: 'list',
