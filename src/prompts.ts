@@ -148,5 +148,14 @@ export const prompts = {
         return inquirer.prompt(questions);
     },
 
-
-};
+    delegationFee: async () => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'fee',
+                message: `${colorCodes.magentaColor}Enter delegation fee${colorCodes.yellowColor}(E.g. 10)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    }
+}

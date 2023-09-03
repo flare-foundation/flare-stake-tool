@@ -3,7 +3,7 @@ import { taskConstants, walletConstants } from "./screenConstants"
 import { colorCodes } from "./constants"
 import { Command } from 'commander'
 import { cli, initCtxJsonFromOptions } from './cli'
-import { ConnectWalletInterface, ContextFile, DerivedAddress, ScreenConstantsInterface } from './interfaces'
+import { ConnectWalletInterface, ContextFile, DelegationDetailsInterface, DerivedAddress, ScreenConstantsInterface } from './interfaces'
 import { getPathsAndAddresses } from './ledger/utils'
 import fs from 'fs'
 
@@ -64,21 +64,37 @@ export async function interactiveCli(baseargv: string[]) {
             console.log("only pvt key and ledger supported for txns right now")
         }
     }
+    else if (Object.keys(taskConstants)[6] == task.toString()) {
+        if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+            const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
+            const argsExport = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
+            await program.parseAsync(argsExport)
+        }
+        else if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
+            const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
+            const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
+            if (ctxNetwork && ctxDerivationPath && delegationFee) {
+                const argsExport = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
+                await program.parseAsync(argsExport)
+            } else {
+                console.log("Missing values for certain params")
+            }
+        }
+        else {
+            console.log("only pvt key and ledger supported for staking right now")
+        }
+    }
     else if (Object.keys(taskConstants)[7] == task.toString()) {
         if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
-            const amount = await prompts.amount()
-            const nodeId = await prompts.nodeId()
-            const { startTime, endTime } = await getDuration()
-            const argsExport = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId.id}`, `--network=${walletProperties.network}`, '-a', `${amount.amount}`, '-s', `${startTime}`, '-e', `${endTime}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
+            const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
+            const argsExport = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
             await program.parseAsync(argsExport)
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
             const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
             if (ctxNetwork && ctxDerivationPath) {
-                const amount = await prompts.amount()
-                const nodeId = await prompts.nodeId()
-                const { startTime, endTime } = await getDuration()
-                const argsExport = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId.id}`, '-a', `${amount.amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
+                const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
+                const argsExport = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
                 await program.parseAsync(argsExport)
             } else {
                 console.log("Missing params in ctx file")
@@ -164,15 +180,6 @@ function fileExists(filePath: string): Boolean {
     }
 }
 
-async function getDuration(): Promise<{ startTime: string, endTime: string }> {
-    const startTime = await prompts.unixTime("start")
-    const endTime = await prompts.unixTime("end")
-    return {
-        startTime: startTime.time,
-        endTime: endTime.time
-    }
-}
-
 function readInfoFromCtx(filePath: string): ContextFile {
 
     const ctxContent = fs.readFileSync('ctx.json', 'utf-8')
@@ -226,4 +233,25 @@ async function getCtxStatus(): Promise<boolean> {
     }
 
     return isCreateCtx
+}
+
+async function getDetailsForDelegation(task: string): Promise<DelegationDetailsInterface> {
+    const amount = await prompts.amount()
+    const nodeId = await prompts.nodeId()
+    const startTime = await prompts.unixTime("start")
+    const endTime = await prompts.unixTime("end")
+    const delegationDetails = {
+        amount: amount.amount,
+        nodeId: nodeId.id,
+        startTime: startTime.time,
+        endTime: endTime.time
+    }
+    if (task == "stake") {
+        const fee = await prompts.delegationFee()
+        return {
+            ...delegationDetails,
+            delegationFee: fee.fee
+        }
+    }
+    return delegationDetails
 }
