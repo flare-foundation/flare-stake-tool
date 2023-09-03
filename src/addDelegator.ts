@@ -11,7 +11,7 @@ type AddDelegatorParams = [
 ]
 
 /**
- * Delegate funds to a given validator
+ * @description - Delegate funds to a given validator
  * @param ctx - context with constants initialized from user keys
  * @param nodeID - id of the node you are running (can get it via rpc call)
  * @param stakeAmount - the amount of funds to stake during the node's validation
@@ -34,7 +34,7 @@ export async function addDelegator(
 }
 
 /**
- * Generate an unisgned transaction for the add-delegator transaction
+ * @description - Generate an unisgned transaction for the add-delegator transaction
  * @param ctx - context with constants initialized from user keys
  * @param nodeID - id of the node you are running (can get it via rpc call)
  * @param stakeAmount - the amount of funds to stake during the node's validation
@@ -59,7 +59,16 @@ export async function getUnsignedAddDelegator(
   }
 }
 
-async function getAddDelegatorParams(
+
+/**
+ * @description - Generate the parameters for getUnsignedAddDelegator and addDelegator
+ * @param ctx - context with constants initialized from user keys
+ * @param nodeID - id of the node you are running (can get it via rpc call)
+ * @param stakeAmount - the amount of funds to stake during the node's validation
+ * @param startTime - start time of the node's validation
+ * @param endTime - end time of the node's validation
+ */
+export async function getAddDelegatorParams(
   ctx: Context,
   nodeID: string,
   stakeAmount: BN,

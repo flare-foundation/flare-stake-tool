@@ -13,7 +13,7 @@ type ExportCPParams = [BN, string, string, string, string, string[], number, BN,
 type ImportPCParams = [UTXOSet, string, string[], string, string[], BN]
 
 /**
- * Exports funds from C-chain to P-chain
+ * @description  Exports funds from C-chain to P-chain
  * @param ctx - context with constants initialized from user keys
  * @param amount - amount to export from C-chain to P-chain
  * @param fee - export transaction fee
@@ -31,7 +31,7 @@ export async function exportTxCP(
 }
 
 /**
- * Import funds exported from P-chain to C-chain.
+ * @description  Import funds exported from P-chain to C-chain.
  * @param ctx - context with constants initialized from user keys
  * @param fee - import transaction fee
  */
@@ -69,7 +69,7 @@ export async function getUnsignedExportTxCP(
 }
 
 /**
- * Generate unsigned import transaction from P-chain to C-chain.
+ * @description  Generate unsigned import transaction from P-chain to C-chain.
  * @param ctx - context with constants initialized from user keys
  * @param fee - import transaction fee
  */
@@ -88,7 +88,7 @@ export async function getUnsignedImportTxPC(
 }
 
 /**
- * Issue a transaction to export funds from C-chain to P-chain
+ * @description Issue a transaction to export funds from C-chain to P-chain
  * @param ctx - context with constants initialized from user keys
  * @param signedTxJson - signed transaction
  */
@@ -98,7 +98,7 @@ export async function issueSignedEvmTxCPExport(ctx: Context, signedTxJson: Signe
 }
 
 /**
- * Issue a transaction to import funds from P-chain
+ * @description Issue a transaction to import funds from P-chain
  * @param ctx - context with constants initialized from user keys
  * @param signedTxJson - signed transaction
  */
@@ -107,7 +107,14 @@ export async function issueSignedEvmTxPCImport(ctx: Context, signedTxJson: Signe
     ctx.cchain.buildImportTx(...deserializeImportPC_args(serialization)))
 }
 
-async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson,
+/**
+ * @description - issues signed transaction
+ * @param ctx - context file
+ * @param signedTxJson - signed json object
+ * @param txBuilder
+ * @returns - issues trx and returns the transactionid
+ */
+export async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson,
     txBuilder: (serialization: string) => Promise<UnsignedTx>): Promise<{ chainTxId: string }> {
   const signatures = Array(signedTxJson.signatureRequests.length).fill(signedTxJson.signature)
   const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
@@ -117,7 +124,16 @@ async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson,
   return { chainTxId: chainTxId }
 }
 
-async function getExportCPParams(ctx: Context, amount: BN, fee?: BN, nonce?: number, threshold: number = 1): Promise<ExportCPParams> {
+/**
+ * @description - generates params to export funds from C to P
+ * @param ctx - context file
+ * @param amount - amount to be exported
+ * @param fee - fees
+ * @param nonce - nonce if any
+ * @param threshold
+ * @returns returns the params need to export fund from C to P chain
+ */
+export async function getExportCPParams(ctx: Context, amount: BN, fee?: BN, nonce?: number, threshold: number = 1): Promise<ExportCPParams> {
   const txcount = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)
   const locktime: BN = new BN(0)
   const importFee: BN = ctx.pchain.getDefaultTxFee()
@@ -135,15 +151,21 @@ async function getExportCPParams(ctx: Context, amount: BN, fee?: BN, nonce?: num
     threshold,
     fee ?? baseFee
   ]
-  const unsignedTx: UnsignedTx = await ctx.cchain.buildExportTx(...params)
-  if (fee === undefined) {
+   if (!fee) {
+    const unsignedTx: UnsignedTx = await ctx.cchain.buildExportTx(...params)
     const exportCost: number = costExportTx(unsignedTx)
     params[9] = baseFee.mul(new BN(exportCost))
   }
   return params
 }
 
-async function getImportPCParams(ctx: Context, fee?: BN): Promise<ImportPCParams> {
+/**
+ * @description - generates params to imports funds from P to C
+ * @param ctx - context file
+ * @param fee - fee is any
+ * @returns - returns the params that will be needed to import funds from P to C chain
+ */
+export async function getImportPCParams(ctx: Context, fee?: BN): Promise<ImportPCParams> {
   const baseFeeResponse: string = await ctx.cchain.getBaseFee()
   const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
   const evmUTXOResponse: any = await ctx.cchain.getUTXOs(
@@ -159,8 +181,8 @@ async function getImportPCParams(ctx: Context, fee?: BN): Promise<ImportPCParams
     [ctx.cAddressBech32!],
     baseFee
   ]
-  const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
-  if (fee === undefined) {
+  if (!fee) {
+    const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
     const importCost: number = costImportTx(unsignedTx)
     params[5] = baseFee.mul(new BN(importCost))
   }

@@ -151,7 +151,12 @@ export async function cli(program: Command) {
     })
 }
 
-async function contextFromOptions(options: OptionValues, derivationPath: string = DERIVATION_PATH): Promise<Context> {
+/**
+ * @description - returns context from the options that are passed
+ * @param options - option to define whether its from ledger/env/ctx.file
+ * @returns Returns the context based the source passed in the options
+ */
+export async function contextFromOptions(options: OptionValues, derivationPath: string = DERIVATION_PATH): Promise<Context> {
   if (options.ledger) {
     logInfo("Fetching account from ledger...")
     const account = await ledgerGetAccount(derivationPath, options.network)
@@ -166,7 +171,12 @@ async function contextFromOptions(options: OptionValues, derivationPath: string 
 
 // Network is obtained from context file, if it exists, else from --network flag.
 // This is because ledger does not need a context file
-function networkFromOptions(options: OptionValues): string {
+/**
+ * @description Returns the network config from the options that were passed
+ * @param options - contains the options to derive the network
+ * @returns - network
+ */
+export function networkFromOptions(options: OptionValues): string {
   let network = options.network
   if (network == undefined) {
     try {
@@ -179,7 +189,12 @@ function networkFromOptions(options: OptionValues): string {
   return network
 }
 
-function getOptions(program: Command, options: OptionValues): OptionValues {
+/**
+ * @description - Returns the options for a command
+ * @param program - the command
+ * @param options - option available for the command
+ */
+export function getOptions(program: Command, options: OptionValues): OptionValues {
   const allOptions: OptionValues = { ...program.opts(), ...options }
   const network = networkFromOptions(allOptions)
   // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
@@ -191,8 +206,13 @@ function getOptions(program: Command, options: OptionValues): OptionValues {
   }
   return { ...allOptions, network }
 }
-
-function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
+/**
+ * @description - Returms the fee getting used
+ * @param cap - the max allowed free
+ * @param usedFee - fee that was used
+ * @param specifiedFee - fee specified by the user
+ */
+export function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
   if (usedFee !== specifiedFee) { // if usedFee was that specified by the user, we don't cap it
     const usedFeeNumber = Number(usedFee) // if one of the fees is defined, usedFee is defined
     if (usedFeeNumber > cap)
@@ -300,8 +320,12 @@ export async function initCtxJsonFromOptions(options: OptionValues, derivationPa
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Network info
-
-function logAddressInfo(ctx: Context) {
+/**
+ * @description Logs the address info
+ * @param ctx - the context file aka ctx.json
+ * @returns Returns the address info
+ */
+export function logAddressInfo(ctx: Context) {
   const [pubX, pubY] = ctx.publicKey!
   const compressedPubKey = compressPublicKey(pubX, pubY).toString('hex')
   logInfo(`Addresses on the network "${ctx.config.hrp}"`)
@@ -310,7 +334,11 @@ function logAddressInfo(ctx: Context) {
   log(`secp256k1 public key: 0x${compressedPubKey}`)
 }
 
-async function logBalanceInfo(ctx: Context) {
+/**
+ * @description Logs the balance info of the account
+ * @param ctx - the context file aka ctx.json
+ */
+export async function logBalanceInfo(ctx: Context) {
   let cbalance = (toBN(await ctx.web3.eth.getBalance(ctx.cAddressHex!)))!.toString()
   let pbalance = (toBN((await ctx.pchain.getBalance(ctx.pAddressBech32!)).balance))!.toString()
   cbalance = integerToDecimal(cbalance, 18)
@@ -320,7 +348,11 @@ async function logBalanceInfo(ctx: Context) {
   log(`P-chain ${ctx.pAddressBech32}: ${pbalance} FLR`)
 }
 
-function logNetworkInfo(ctx: Context) {
+/**
+ * @description Logs info aboout P,C and asset id
+ * @param ctx - the context file
+ */
+export function logNetworkInfo(ctx: Context) {
   const pchainId = ctx.pchain.getBlockchainID()
   const cchainId = ctx.cchain.getBlockchainID()
   logInfo(`Information about the network "${ctx.config.hrp}"`)
@@ -329,7 +361,11 @@ function logNetworkInfo(ctx: Context) {
   log(`assetId: ${ctx.avaxAssetID}`)
 }
 
-async function logValidatorInfo(ctx: Context) {
+/**
+ * @description Logs the validator information regrading current and pending validators
+ * @param ctx - the context file
+ */
+export async function logValidatorInfo(ctx: Context) {
   const pending = await ctx.pchain.getPendingValidators()
   const current = await ctx.pchain.getCurrentValidators()
   const fpending = JSON.stringify(pending, null, 2)

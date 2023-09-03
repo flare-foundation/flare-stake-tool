@@ -14,7 +14,7 @@ type ExportPCParams = [
 ]
 
 /**
- * Import funds exported from C-chain to P-chain to P-chain
+ * @description Import funds exported from C-chain to P-chain to P-chain
  * @param ctx - context with constants initialized from user keys
  */
 export async function importTxCP(ctx: Context, threshold?: number): Promise<{ txid: string }> {
@@ -26,7 +26,7 @@ export async function importTxCP(ctx: Context, threshold?: number): Promise<{ tx
 }
 
 /**
- * Export funds from P-chain to C-chain.
+ * @description Export funds from P-chain to C-chain.
  * @param ctx - context with constants initialized from user keys
  * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
@@ -39,7 +39,7 @@ export async function exportTxPC(ctx: Context, amount?: BN, threshold?: number):
 }
 
 /**
- * Get unsigned transaction for import from C-chain to P-chain.
+ * @description Get unsigned transaction for import from C-chain to P-chain.
  * @param ctx - context with constants initialized from user keys
  */
 export async function getUnsignedImportTxCP(ctx: Context, threshold?: number): Promise<UnsignedTxJson> {
@@ -54,7 +54,7 @@ export async function getUnsignedImportTxCP(ctx: Context, threshold?: number): P
 }
 
 /**
- * Get unsigned transaction for export from C-chain to P-chain.
+ * @description Get unsigned transaction for export from C-chain to P-chain.
  * @param ctx - context with constants initialized from user keys
  * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
@@ -70,7 +70,7 @@ export async function getUnsignedExportTxPC(ctx: Context, amount?: BN, threshold
 }
 
 /**
- * Issues a signed P-chain transation
+ * @description Issues a signed P-chain transation
  * @param ctx - context with constants initialized from user keys
  * @param id - id associated with the transaction
  */
@@ -83,7 +83,13 @@ export async function issueSignedPvmTx(ctx: Context, signedTxJson: SignedTxJson)
   return { chainTxId: chainTxId }
 }
 
-async function getImportCPParams(ctx: Context, threshold: number = 1): Promise<ImportCPParams> {
+/**
+ * @description Returns the parameters related to importing funds from C to P chain
+ * @param ctx - context file aka ctx.json
+ * @param threshold
+ * @returns the parameters
+ */
+export async function getImportCPParams(ctx: Context, threshold: number = 1): Promise<ImportCPParams> {
   const locktime: BN = new BN(0)
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(
@@ -105,7 +111,14 @@ async function getImportCPParams(ctx: Context, threshold: number = 1): Promise<I
   ]
 }
 
-async function getExportPCParams(ctx: Context, amount?: BN, threshold: number = 1): Promise<ExportPCParams> {
+/**
+ * @description - Returns the parameters that will be used by function to export funds from P to C chain
+ * @param ctx - the context file
+ * @param amount - the amount that needs to be exported from P to C
+ * @param threshold - threshold
+ * @returns
+ */
+export async function getExportPCParams(ctx: Context, amount?: BN, threshold: number = 1): Promise<ExportPCParams> {
   const locktime: BN = new BN(0)
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs([ctx.pAddressBech32!])

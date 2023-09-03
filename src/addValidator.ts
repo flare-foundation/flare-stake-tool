@@ -11,7 +11,7 @@ type AddValidatorParams = [
 ]
 
 /**
- * Stake by registring your node for validation
+ * @description - Stake by registring your node for validation
  * @param ctx - context with constants initialized from user keys
  * @param nodeID - id of the node you are running (can get it via rpc call)
  * @param stakeAmount - the amount of funds to stake during the node's validation
@@ -36,7 +36,7 @@ export async function addValidator(
 }
 
 /**
- * Get hashes that need to get signed for the addValidator transaction
+ * @description - Get hashes that need to get signed for the addValidator transaction
  * @param ctx - context with constants initialized from user keys
  * @param nodeID - id of the node you are running (can get it via rpc call)
  * @param stakeAmount - the amount of funds to stake during the node's validation
@@ -63,7 +63,17 @@ export async function getUnsignedAddValidator(
   }
 }
 
-async function getAddValidatorParams(
+
+/**
+ * @description - Get the parameters for getUnsignedAddValidator and addValidator
+ * @param ctx - context with constants initialized from user keys
+ * @param nodeID - id of the node you are running (can get it via rpc call)
+ * @param stakeAmount - the amount of funds to stake during the node's validation
+ * @param startTime - start time of the node's validation
+ * @param endTime - end time of the node's validation
+ * @param delegationFee - the fee you charge for delegating to your node
+ */
+export async function getAddValidatorParams(
   ctx: Context,
   nodeID: string,
   stakeAmount: BN,

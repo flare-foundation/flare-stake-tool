@@ -1,4 +1,3 @@
-
 const fetch = require('node-fetch')
 import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
@@ -7,17 +6,24 @@ import { SignedTxJson, SignedWithdrawalTxJson, UnsignedTxJson, UnsignedWithdrawa
 
 const gatewayHost = "api.fordefi.com"
 
-export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, withdrawal: boolean = false): Promise<string> {
+/**
+ * @description - Send signature to forDefi
+ * @param unsignedTxidFile - path to the file
+ * @param ctxFile - ctx file
+ * @param withdrawal - boolen if its a withdrawl trx or not
+ * @param _getVaultPublickey - for testcase mocking purpose, bydefault it calls getVaultPublickey
+ * @returns
+ */
+export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, withdrawal: boolean = false, _getVaultPublickey = getVaultPublickey): Promise<string> {
 
     const accessToken = readFileSync("../token", 'utf8');
-
     const file = readFileSync(ctxFile, 'utf8');
     const ctx = JSON.parse(file) as ContextFile;
 
     const vault_id = ctx.vaultId!;
 
     // vaultPublicKey should match public key in contex file
-    let vaultPublicKey = await getVaultPublickey(vault_id);
+    let vaultPublicKey = await _getVaultPublickey(vault_id);
     if (unPrefix0x(ctx.publicKey) != vaultPublicKey) {
         throw Error('public key does not match the vault')
     }
@@ -75,6 +81,12 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, w
     return txId;
 }
 
+/**
+ * @description - gets the signature from forDefi
+ * @param unsignedTxidFile - unsigned transaction file
+ * @param withdrawal - whether withdrawl is enabled or not
+ * @returns signature
+ */
 export async function getSignature(unsignedTxidFile: string, withdrawal: boolean = false): Promise<string> {
 
     const path = "/api/v1/transactions"
@@ -116,11 +128,15 @@ export async function getSignature(unsignedTxidFile: string, withdrawal: boolean
     return signatureHex;
 }
 
-async function getVaultPublickey(vaultId: string): Promise<string> {
+/**
+ * @description Gets the vault public key
+ * @param vaultId - the valultid
+ * @returns returns vault public key
+ */
+export async function getVaultPublickey(vaultId: string): Promise<string> {
 
     const path = "/api/v1/vaults"
     const accessToken = readFileSync("../token", 'utf8');
-
 
     let response = await fetch(`https://${gatewayHost}${path}/${vaultId}`, {
         method: 'GET',
