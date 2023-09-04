@@ -174,4 +174,21 @@ describe('pvmAtomicTx testcases', () => {
     });
   });
 
+  describe('issueSignedPvmTx', () => {
+    afterEach(() => {
+      jest.clearAllMocks(); // Clear mocks after each test case
+    });
+    test('Should issue transaction', () => {
+      let ctx = contextEnv('.env', 'localflare');
+      ctx.pchain.issueTx = jest.fn().mockReturnValue('dummy-tx-id');
+      jest.spyOn(require('../../src/utils'), 'deserializeUnsignedTx').mockReturnValue({
+        signWithRawSignatures: jest.fn().mockReturnValue('dummy-tx')
+      });
+      jest
+        .spyOn(require('../../src/utils'), 'expandSignature')
+        .mockReturnValue('expanded-signature');
+      //@ts-ignore
+      const result = issueSignedPvmTx(ctx, fixtures.issueSignedPvmTx.mock.signedTxJson);
+    });
+  });
 });

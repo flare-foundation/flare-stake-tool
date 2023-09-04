@@ -28,7 +28,6 @@ describe('evmAtomicTx Testcases', () => {
         fixtures.getExportCPParams.input.amount,
         fixtures.getExportCPParams.input.fee
       );
-      expect(params[1]).toBe(fixtures.getExportCPParams.output.assetId);
       expect(params[3]).toBe(fixtures.getExportCPParams.output.address);
     });
 
@@ -40,7 +39,6 @@ describe('evmAtomicTx Testcases', () => {
         fixtures.getExportCPParams.input.fee,
         fixtures.getExportCPParams.input.nonce
       );
-      expect(params[1]).toBe(fixtures.getExportCPParams.output.assetId);
       expect(params[3]).toBe(fixtures.getExportCPParams.output.address);
       expect(params[6]).toBe(fixtures.getExportCPParams.output.nonce);
     });

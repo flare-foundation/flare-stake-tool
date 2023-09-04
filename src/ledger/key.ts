@@ -1,7 +1,12 @@
 import AvalancheApp from '@avalabs/hw-app-avalanche'
 import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 
-
+/**
+ * 
+ * @param derivationPath - path to the accounts in ledger
+ * @param hrp - network hrp
+ * @returns returns the address and public key
+ */
 export async function ledgerGetAccount(derivationPath: string, hrp: string): Promise<{
     publicKey: string, address: string
 }> {

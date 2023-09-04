@@ -10,6 +10,10 @@
     "build": "rm -rf dist/ && yarn tsc -b",
     "test": "jest",
     "coverage": "jest --coverage",
+    "ledger-sign-testcase": "node \"./node_modules/.bin/jest\" './test/unit/ledger/sign.test.ts' -t 'ledger/sign testcases'",
+    "ledger-key-testcase": "node \"./node_modules/.bin/jest\" './test/unit/ledger/key.test.ts' -t 'ledger/key testcases'",
+    "ledger-utils-testcase": "node \"./node_modules/.bin/jest\" './test/unit/ledger/utils.test.ts' -t 'ledger/utils testcases'",
+    "cli-testcase": "node \"./node_modules/.bin/jest\" './test/unit/cli.test.ts' -t 'cli testcases'",
     "interactive": "bin/flare-stake-tool interactive"
   },
   "repository": {
