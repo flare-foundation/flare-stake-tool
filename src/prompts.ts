@@ -157,5 +157,60 @@ export const prompts = {
             },
         ];
         return inquirer.prompt(questions);
-    }
+    },
+
+    vaultId: async () => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'id',
+                message: `${colorCodes.magentaColor}Enter a ForDefi Vault Id${colorCodes.yellowColor}(E.g. 42989fc9-xxxx-xxxx-xxxx-xxxxxxxxxxxx)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
+    transactionId: async () => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'id',
+                message: `${colorCodes.magentaColor}Enter a Transaction Id${colorCodes.yellowColor}(E.g. abc-txn)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
+    forDefiTxn: async () => {
+        const questions = [
+            {
+                type: 'list',
+                name: 'txn',
+                message: `${colorCodes.magentaColor}Which transaction do you want to do?${colorCodes.resetColor}`,
+                choices: [
+                    "Export funds",
+                    "Import funds"
+                ],
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
+    forDefiContinue: async () => {
+        const questions = [
+            {
+                type: 'list',
+                name: 'isContinue',
+                message: `${colorCodes.magentaColor}Choose an option${colorCodes.resetColor}`,
+                choices: [
+                    "Start new transaction",
+                    "Continue existing transaction"
+                ],
+                filter: (val: string) => {
+                    return val.includes("existing") ? true : false
+                }
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
 }

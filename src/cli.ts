@@ -73,7 +73,7 @@ export async function cli(program: Command) {
     .option("--threshold <threshold>", "Threshold of the constructed transaction", "1")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
-      const ctx = await contextFromOptions(options,options.derivationPath)
+      const ctx = await contextFromOptions(options, options.derivationPath)
       if (options.getHacked) {
         // this is more of a concept for future development, by now private key was already exposed to dependencies
         const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
@@ -311,6 +311,12 @@ export async function initCtxJsonFromOptions(options: OptionValues, derivationPa
   } else if (options.publicKey) {
     if (!validatePublicKey(options.publicKey)) return logError('Invalid public key')
     contextFile = { publicKey: options.publicKey, network: options.network }
+    if (options.vaultId) {
+      contextFile = {
+        ...contextFile,
+        vaultId: options.vaultId
+      }
+    }
   } else {
     throw new Error('Either --ledger or --public-key must be specified')
   }

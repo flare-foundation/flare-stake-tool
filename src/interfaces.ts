@@ -95,9 +95,7 @@ export interface ScreenConstantsInterface {
 export interface ConnectWalletInterface {
   wallet: string;
   path?: string;
-  publicKey?: string;
   network?: string;
-  isCreateCtx?: boolean;
 }
 
 /**
