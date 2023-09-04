@@ -277,7 +277,7 @@ export function addFlagForSentSignedTx(id: string) {
 export function isAlreadySentToChain(id: string): boolean {
   const fname = `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
   if (!fs.existsSync(fname)) {
-    throw new Error(`signedTx file ${fname} does not exist`)
+      return false
   }
   const serialization = fs.readFileSync(fname).toString()
   const txObj = JSON.parse(serialization) as SignedTxJson
