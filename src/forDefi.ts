@@ -1,8 +1,9 @@
 const fetch = require('node-fetch')
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import crypto from "crypto"
 import { unPrefix0x, readUnsignedTxJson, readUnsignedWithdrawalTx } from "../src/utils"
 import { SignedTxJson, SignedWithdrawalTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, ContextFile } from './interfaces'
+import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from './constants'
 
 const gatewayHost = "api.fordefi.com"
 
@@ -77,7 +78,7 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, w
 
     // write tx id (to later fetch the signature)
     txidObj.forDefiTxId = txId;
-    writeFileSync(`${unsignedTxidFile}.unsignedTx.json`, JSON.stringify(txidObj), "utf8");
+    writeFileSync(`${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${unsignedTxidFile}.unsignedTx.json`, JSON.stringify(txidObj), "utf8");
     return txId;
 }
 
@@ -123,7 +124,8 @@ export async function getSignature(unsignedTxidFile: string, withdrawal: boolean
 
     signedTxObj.signature = signatureHex;
 
-    writeFileSync(`${unsignedTxidFile}.signedTx.json`, JSON.stringify(signedTxObj), "utf8");
+    mkdirSync(`${forDefiDirectory}/${forDefiSignedTxnDirectory}`, { recursive: true });
+    writeFileSync(`${forDefiDirectory}/${forDefiSignedTxnDirectory}/${unsignedTxidFile}.signedTx.json`, JSON.stringify(signedTxObj), "utf8");
 
     return signatureHex;
 }

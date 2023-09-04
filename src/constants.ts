@@ -213,3 +213,10 @@ export function context(
     config: config
   }
 }
+
+/**
+ * Directory names for storing txn files for ForDefi
+ */
+export const forDefiDirectory = "ForDefiTxnFiles"
+export const forDefiUnsignedTxnDirectory = "UnsignedTxns"
+export const forDefiSignedTxnDirectory = "SignedTxns"
