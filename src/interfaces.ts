@@ -45,7 +45,8 @@ export interface UnsignedTxJson {
 }
 
 export interface SignedTxJson extends UnsignedTxJson {
-  signature: string
+  signature: string,
+  isSentToChain?: boolean
 }
 
 export interface UnsignedWithdrawalTxJson {

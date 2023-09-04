@@ -253,6 +253,38 @@ export function readSignedTxJson(id: string): SignedTxJson {
   return resp
 }
 
+/**
+ * @description Adds a flag to the signed txn to indicate it has been submitted to the blockchain
+ * @param {string} id Transaction Id used to create the transaction file
+ */
+export function addFlagForSentSignedTx(id: string) {
+  const fname = `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
+  if (!fs.existsSync(fname)) {
+    throw new Error(`signedTx file ${fname} does not exist`)
+  }
+  const serialization = fs.readFileSync(fname).toString()
+  const txObj = JSON.parse(serialization) as SignedTxJson
+  txObj.isSentToChain = true
+
+  fs.writeFileSync(`${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`, JSON.stringify(txObj), "utf8")
+}
+
+/**
+ * @description Checks whether the transaction has already been submitted to the blockchain
+ * @param {string} id Transaction Id used to create the transaction file
+ * @returns {boolean}
+ */
+export function isAlreadySentToChain(id: string): boolean {
+  const fname = `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
+  if (!fs.existsSync(fname)) {
+    throw new Error(`signedTx file ${fname} does not exist`)
+  }
+  const serialization = fs.readFileSync(fname).toString()
+  const txObj = JSON.parse(serialization) as SignedTxJson
+
+  return txObj.isSentToChain ? true : false
+}
+
 // withdrawal
 export function saveUnsignedWithdrawalTx(unsignedTx: UnsignedWithdrawalTxJson, id: string): void {
   const fname = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedTx.json`

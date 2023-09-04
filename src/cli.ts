@@ -4,7 +4,7 @@ import { contextEnv, contextFile, getContext, networkFromContextFile } from './c
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
-  getUserInput, validatePublicKey
+  getUserInput, validatePublicKey, addFlagForSentSignedTx, isAlreadySentToChain
 } from './utils'
 import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './evmAtomicTx'
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './pvmAtomicTx'
@@ -405,7 +405,11 @@ async function cliBuildUnsignedTxJson(transactionType: string, ctx: Context, id:
 }
 
 async function cliSendSignedTxJson(ctx: Context, id: string) {
+  if (isAlreadySentToChain(id)) {
+    throw new Error("Tx already sent to chain")
+  }
   const chainTxId = await sendSignedTxJson(ctx, readSignedTxJson(id))
+  addFlagForSentSignedTx(id)
   logSuccess(`Signed transaction ${id} with id ${chainTxId} sent to the node`)
 }
 
@@ -424,6 +428,9 @@ async function signForDefi(transaction: string, ctx: string, withdrawal: boolean
 }
 
 async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) {
+  if (isAlreadySentToChain(transaction)) {
+    throw new Error("Tx already sent to chain")
+  }
   const signature = await getSignature(transaction, withdrawal)
   logSuccess(`Success! Signature: ${signature}`)
 }
