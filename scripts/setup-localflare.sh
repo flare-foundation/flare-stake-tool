@@ -1,0 +1,1 @@
+cd go-localflare/avalanchego && rm -rf db && ./scripts/build.sh && ./local.sh
