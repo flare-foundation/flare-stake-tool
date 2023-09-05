@@ -2,8 +2,8 @@ import { EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
 import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist//utils'
-import { SignedTxJson, UnsignedTxJson, Context } from '../interfaces'
-import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx } from '../utils'
+import { SignedTxJson, UnsignedTxJson, Context } from './interfaces'
+import { deserializeUnsignedTx, expandSignature, serializeUnsignedTx } from './utils'
 
 
 type ImportCPParams = [

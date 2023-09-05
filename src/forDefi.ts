@@ -1,10 +1,9 @@
 
-import fetch from 'node-fetch'
+const fetch = require('node-fetch')
 import { readFileSync, writeFileSync } from 'fs'
 import crypto from "crypto"
-import { readUnsignedWithdrawalTx } from "./utils"
-import { unPrefix0x, readUnsignedTxJson } from "../utils"
-import { SignedTxJson, SignedWithdrawalTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, ContextFile } from '../interfaces'
+import { unPrefix0x, readUnsignedTxJson, readUnsignedWithdrawalTx } from "../src/utils"
+import { SignedTxJson, SignedWithdrawalTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, ContextFile } from './interfaces'
 
 const gatewayHost = "api.fordefi.com"
 
@@ -62,7 +61,7 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, w
         headers: {
             'Content-Type': 'application/json',
             "Authorization": `Bearer ${accessToken}`,
-            'X-Timestamp': timestamp.toString(),
+            'X-Timestamp': timestamp,
             'X-Signature': signature1,
         },
         body: requestBody,

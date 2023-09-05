@@ -6,20 +6,14 @@ import {
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
   getUserInput, validatePublicKey
 } from './utils'
-import {
-  exportTxCP, importTxPC, issueSignedEvmTxPCImport,
-  getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport
-} from './transaction/evmAtomicTx'
-import {
-  exportTxPC, importTxCP, issueSignedPvmTx,
-  getUnsignedImportTxCP, getUnsignedExportTxPC
-} from './transaction/pvmAtomicTx'
-import { addValidator, getUnsignedAddValidator } from './transaction/addValidator'
-import { addDelegator, getUnsignedAddDelegator } from './transaction/addDelegator'
+import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './evmAtomicTx'
+import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './pvmAtomicTx'
+import { addValidator, getUnsignedAddValidator } from './addValidator'
+import { addDelegator, getUnsignedAddDelegator } from './addDelegator'
 import { ledgerGetAccount } from './ledger/key'
 import { ledgerSign, signId } from './ledger/sign'
-import { getSignature, sendToForDefi } from './forDefi/forDefi'
-import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
+import { getSignature, sendToForDefi } from './forDefi'
+import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // derivation path for ledger
