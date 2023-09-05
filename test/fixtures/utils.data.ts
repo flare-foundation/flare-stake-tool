@@ -448,28 +448,25 @@ const fixtures = {
   },
   serializeImportPC_args: {
     input: ['stringValue', ['arrayValue'], 'string1', ['string2'], new BN(123)],
-    output:  {
-      "type": "Buffer",
-      "data": [
-        115,
-        101,
-        114,
-        105,
-        97,
-        108,
-        105,
-        122,
-        101,
-        100,
-        85,
-        84,
-        88,
-        79,
-        83,
-        101,
-        116
-      ]
+    output: {
+      type: 'Buffer',
+      data: [115, 101, 114, 105, 97, 108, 105, 122, 101, 100, 85, 84, 88, 79, 83, 101, 116]
     }
+  },
+  addFlagForSentSignedTx: {
+    mock: {
+      validId: 'validId',
+      serialisedData: '{"isSentToChain": false}',
+      invalidId: 'nonExistentId'
+    }
+  },
+  isAlreadySentToChain: {
+    mock: { validId: 'existingSentId',
+    sentSerialisedData: '{"isSentToChain": true}',
+    validUnsentId: "existingNotSentId",
+    unsentSerialisedData: '{"isSentToChain": false}',
+    invalidid: "nonExistentId"
+   }
   }
 };
 

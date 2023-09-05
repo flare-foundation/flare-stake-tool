@@ -29,17 +29,24 @@ import {
   saveUnsignedTxJson,
   readUnsignedTxJson,
   readSignedTxJson,
+  addFlagForSentSignedTx,
+  isAlreadySentToChain
 } from '../../src/utils';
 import {
   saveUnsignedWithdrawalTx,
   readUnsignedWithdrawalTx,
   readSignedWithdrawalTx,
   waitFinalize3Factory
-} from '../../src/forDefi/utils'
+} from '../../src/forDefi/utils';
 import { UnsignedTx as EvmUnsignedTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm';
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm';
 import fixtures from '../fixtures/utils.data';
 import { serialize, covertBNToSting, compareValues } from '../helper/testHelpers';
+import {
+  forDefiDirectory,
+  forDefiSignedTxnDirectory,
+  forDefiUnsignedTxnDirectory
+} from '../../src/constants';
 
 describe('Unit Test Cases for utils', () => {
   // public keys and bech32 addresses
@@ -614,8 +621,13 @@ describe('Unit Test Cases for utils', () => {
 
       saveUnsignedTxJson(fixtures.saveUnsignedTxJson.input, id);
 
-      expect(mockExistsSync).toHaveBeenCalledWith(`ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json`);
-      expect(mockWriteFileSync).toHaveBeenCalledWith(`ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json`, expect.any(String));
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json`
+      );
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        `ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json`,
+        expect.any(String)
+      );
     });
 
     test('should throw error when attempting to save unsignedTxJson with existing id', () => {
@@ -625,7 +637,9 @@ describe('Unit Test Cases for utils', () => {
       expect(() => saveUnsignedTxJson(fixtures.saveUnsignedTxJson.input, id)).toThrowError(
         `unsignedTx file ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json already exists`
       );
-      expect(mockExistsSync).toHaveBeenCalledWith(`ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json`);
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json`
+      );
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
   });
@@ -947,5 +961,110 @@ describe('Unit Test Cases for utils', () => {
 
       jest.useRealTimers();
     }, 1000000);
+  });
+
+  describe('addFlagForSentSignedTx', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should add a flag for a sent signed transaction', () => {
+      const fs = require('fs');
+      const id = fixtures.addFlagForSentSignedTx.mock.validId;
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockReturnValueOnce(true);
+      const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+      const mockWriteFileSync = jest.spyOn(fs, 'writeFileSync');
+      mockReadFileSync.mockReturnValueOnce(fixtures.addFlagForSentSignedTx.mock.serialisedData);
+      mockWriteFileSync.mockReturnValue({});
+      addFlagForSentSignedTx(id);
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
+      );
+
+      // Ensure that the flag was added
+      const expectedTxObj = { isSentToChain: true };
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`,
+        JSON.stringify(expectedTxObj),
+        'utf8'
+      );
+    });
+
+    test('should throw an error if the signedTx file does not exist', () => {
+      const fs = require('fs');
+      const id = fixtures.addFlagForSentSignedTx.mock.invalidId;
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockReturnValueOnce(false);
+
+      expect(() => addFlagForSentSignedTx(id)).toThrowError(
+        `signedTx file ${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json does not exist`
+      );
+
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
+      );
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isAlreadySentToChain', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test('should return true when the file exists and isSentToChain is true', () => {
+      const fs = require('fs');
+      const id = fixtures.isAlreadySentToChain.mock.validId;
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockReturnValueOnce(true);
+      const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+      mockReadFileSync.mockReturnValueOnce(fixtures.isAlreadySentToChain.mock.sentSerialisedData);
+      const result = isAlreadySentToChain(id);
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
+      );
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
+      );
+      expect(result).toBe(true);
+    });
+
+    test('should return false when the file exists and isSentToChain is false', () => {
+      const fs = require('fs');
+      const id = fixtures.isAlreadySentToChain.mock.validUnsentId;
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockReturnValueOnce(true);
+
+      const mockReadFileSync = jest.spyOn(fs, 'readFileSync');
+      const mockSerializedData = fixtures.isAlreadySentToChain.mock.unsentSerialisedData;
+      mockReadFileSync.mockReturnValueOnce(mockSerializedData);
+
+      const result = isAlreadySentToChain(id);
+
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
+      );
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
+      );
+
+      expect(result).toBe(false);
+    });
+
+    test('should return false when the file does not exist', () => {
+      const fs = require('fs');
+      const id = fixtures.isAlreadySentToChain.mock.invalidid;
+      const mockExistsSync = jest.spyOn(fs, 'existsSync');
+      mockExistsSync.mockReturnValueOnce(false);
+
+      const result = isAlreadySentToChain(id);
+
+      expect(mockExistsSync).toHaveBeenCalledWith(
+        `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
+      );
+
+      expect(result).toBe(false);
+    });
   });
 });
