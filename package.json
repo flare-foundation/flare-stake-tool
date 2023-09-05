@@ -69,7 +69,6 @@
     "figlet": "^1.6.0",
     "inquirer": "8.0",
     "jest-fetch-mock": "^3.0.3",
-    "rimraf": "^5.0.1",
     "web3": "^1.8.0"
   }
 }
