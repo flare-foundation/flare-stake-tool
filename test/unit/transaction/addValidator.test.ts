@@ -1,7 +1,7 @@
-import { addValidator, getAddValidatorParams, getUnsignedAddValidator } from '../../src/addValidator';
-import { contextEnv } from '../../src/constants';
-import { Context } from '../../src/interfaces';
-import fixtures from '../fixtures/addValidator.data';
+import { addValidator, getAddValidatorParams, getUnsignedAddValidator } from '../../../src/transaction/addValidator';
+import { contextEnv } from '../../../src/constants';
+import { Context } from '../../../src/interfaces';
+import fixtures from '../../fixtures/addValidator.data';
 
 describe('addValidator Testcases', () => {
   describe('getAddValidatorParams Testcases', () => {
@@ -81,7 +81,7 @@ describe('addValidator Testcases', () => {
     test('Should return unsigned trx', async () => {
       const inputObject = fixtures.getUnsignedAddValidator.insufficientBalance;
       let ctx: Context = contextEnv('.env', 'localflare');
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       const spy = jest.spyOn(utils, 'serializeUnsignedTx');
       spy.mockReturnValue('abcd');
       ctx.pchain.buildAddValidatorTx = jest.fn();

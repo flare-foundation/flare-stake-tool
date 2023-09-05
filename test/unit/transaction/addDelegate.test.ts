@@ -2,11 +2,11 @@ import {
   getAddDelegatorParams,
   getUnsignedAddDelegator,
   addDelegator
-} from '../../src/addDelegator';
-import { contextEnv } from '../../src/constants';
-import { Context } from '../../src/interfaces';
-import fixtures from '../fixtures/addDelegate.data';
-import { tranferFundsFromCtoP } from '../helper/testHelpers';
+} from '../../../src/transaction/addDelegator';
+import { contextEnv } from '../../../src/constants';
+import { Context } from '../../../src/interfaces';
+import fixtures from '../../fixtures/addDelegate.data';
+import { tranferFundsFromCtoP } from '../../helper/testHelpers';
 
 describe('addDelegate Testcases', () => {
   describe('getAddDelegatorParams Testcases [.env]', () => {
@@ -84,7 +84,7 @@ describe('addDelegate Testcases', () => {
     test('Should return unsigned trx', async () => {
       const inputObject = fixtures.getUnsignedAddDelegator.insufficientBalance;
       let ctx: Context = contextEnv('.env', 'localflare');
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       const spy = jest.spyOn(utils, 'serializeUnsignedTx');
       spy.mockReturnValue('abcd');
       ctx.pchain.buildAddDelegatorTx = jest.fn();

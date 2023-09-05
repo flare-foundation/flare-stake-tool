@@ -6,10 +6,10 @@ import {
   getUnsignedExportTxCP,
   importTxPC,
   exportTxCP
-} from '../../src/evmAtomicTx';
-import { contextEnv } from '../../src/constants';
-import { Context } from '../../src/interfaces';
-import fixtures from '../fixtures/evmAtomicTx.data';
+} from '../../../src/transaction/evmAtomicTx';
+import { contextEnv } from '../../../src/constants';
+import { Context } from '../../../src/interfaces';
+import fixtures from '../../fixtures/evmAtomicTx.data';
 
 describe('evmAtomicTx Testcases', () => {
   describe('getImportPCParams', () => {
@@ -48,7 +48,7 @@ describe('evmAtomicTx Testcases', () => {
     //@ts-ignore
     it('issues a signed EVM transaction', async () => {
       let ctx = contextEnv('.env', 'localflare');
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       const spy = jest.spyOn(utils, 'expandSignature');
       spy.mockReturnValue('0xabcd');
       const mockSignedTxJson = {
@@ -86,7 +86,7 @@ describe('evmAtomicTx Testcases', () => {
 
     test('Should return unsigned trx', async () => {
       let ctx: Context = contextEnv('.env', 'localflare');
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       const spy = jest.spyOn(utils, 'serializeImportPC_args');
       spy.mockReturnValue('abcd');
       ctx.cchain.buildImportTx = jest.fn();
@@ -113,7 +113,7 @@ describe('evmAtomicTx Testcases', () => {
 
     test('Should return unsigned trx without nonce', async () => {
       let ctx: Context = contextEnv('.env', 'localflare');
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       const spy = jest.spyOn(utils, 'serializeExportCP_args');
       spy.mockReturnValue('abcd');
       ctx.cchain.buildExportTx = jest.fn();
@@ -138,7 +138,7 @@ describe('evmAtomicTx Testcases', () => {
 
     test('Should return unsigned trx with nonce', async () => {
       let ctx: Context = contextEnv('.env', 'localflare');
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       const spy = jest.spyOn(utils, 'serializeExportCP_args');
       spy.mockReturnValue('abcd');
       ctx.cchain.buildExportTx = jest.fn();

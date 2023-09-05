@@ -2,12 +2,12 @@ import { BN } from '@flarenetwork/flarejs/dist'
 import { EcdsaSignature } from '@flarenetwork/flarejs/dist/common'
 import { UnsignedTx, Tx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { costImportTx, costExportTx } from "@flarenetwork/flarejs/dist/utils"
-import { SignedTxJson, UnsignedTxJson, Context } from './interfaces'
+import { SignedTxJson, UnsignedTxJson, Context } from '../interfaces'
 import {
   expandSignature,
   serializeExportCP_args, deserializeExportCP_args, deserializeImportPC_args,
   serializeImportPC_args
-} from './utils'
+} from '../utils'
 
 type ExportCPParams = [BN, string, string, string, string, string[], number, BN, number, BN]
 type ImportPCParams = [UTXOSet, string, string[], string, string[], BN]

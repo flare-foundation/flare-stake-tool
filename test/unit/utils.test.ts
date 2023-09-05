@@ -29,11 +29,13 @@ import {
   saveUnsignedTxJson,
   readUnsignedTxJson,
   readSignedTxJson,
+} from '../../src/utils';
+import {
   saveUnsignedWithdrawalTx,
   readUnsignedWithdrawalTx,
   readSignedWithdrawalTx,
   waitFinalize3Factory
-} from '../../src/utils';
+} from '../../src/forDefi/utils'
 import { UnsignedTx as EvmUnsignedTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm';
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm';
 import fixtures from '../fixtures/utils.data';

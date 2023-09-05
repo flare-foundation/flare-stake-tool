@@ -6,10 +6,10 @@ import {
   exportTxPC,
   importTxCP,
   issueSignedPvmTx
-} from '../../src/pvmAtomicTx';
-import { contextEnv } from '../../src/constants';
-import { Context } from '../../src/interfaces';
-import fixtures from '../fixtures/pvmAtomicTx.data';
+} from '../../../src/transaction/pvmAtomicTx';
+import { contextEnv } from '../../../src/constants';
+import { Context } from '../../../src/interfaces';
+import fixtures from '../../fixtures/pvmAtomicTx.data';
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm';
 
 describe('pvmAtomicTx testcases', () => {
@@ -56,7 +56,7 @@ describe('pvmAtomicTx testcases', () => {
     // mocked function to pass the
     test('Should return unsigned trx', async () => {
       let ctx: Context = contextEnv('.env', 'localflare');
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       const spy = jest.spyOn(utils, 'serializeUnsignedTx');
       spy.mockReturnValue('abcd');
       ctx.pchain.buildExportTx = jest.fn();
@@ -93,7 +93,7 @@ describe('pvmAtomicTx testcases', () => {
     // mocked function to pass the
     test('Should return unsigned trx', async () => {
       let ctx: Context = contextEnv('.env', 'localflare');
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       const spy = jest.spyOn(utils, 'serializeUnsignedTx');
       spy.mockReturnValue('abcd');
       ctx.pchain.buildImportTx = jest.fn();
@@ -181,11 +181,11 @@ describe('pvmAtomicTx testcases', () => {
     test('Should issue transaction', () => {
       let ctx = contextEnv('.env', 'localflare');
       ctx.pchain.issueTx = jest.fn().mockReturnValue('dummy-tx-id');
-      jest.spyOn(require('../../src/utils'), 'deserializeUnsignedTx').mockReturnValue({
+      jest.spyOn(require('../../../src/utils'), 'deserializeUnsignedTx').mockReturnValue({
         signWithRawSignatures: jest.fn().mockReturnValue('dummy-tx')
       });
       jest
-        .spyOn(require('../../src/utils'), 'expandSignature')
+        .spyOn(require('../../../src/utils'), 'expandSignature')
         .mockReturnValue('expanded-signature');
       //@ts-ignore
       const result = issueSignedPvmTx(ctx, fixtures.issueSignedPvmTx.mock.signedTxJson);

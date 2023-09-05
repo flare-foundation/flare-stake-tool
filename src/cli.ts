@@ -6,14 +6,14 @@ import {
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
   getUserInput, validatePublicKey, addFlagForSentSignedTx, isAlreadySentToChain
 } from './utils'
-import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './evmAtomicTx'
-import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './pvmAtomicTx'
-import { addValidator, getUnsignedAddValidator } from './addValidator'
-import { addDelegator, getUnsignedAddDelegator } from './addDelegator'
+import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './transaction/evmAtomicTx'
+import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './transaction/pvmAtomicTx'
+import { addValidator, getUnsignedAddValidator } from './transaction/addValidator'
+import { addDelegator, getUnsignedAddDelegator } from './transaction/addDelegator'
 import { ledgerGetAccount } from './ledger/key'
 import { ledgerSign, signId } from './ledger/sign'
-import { getSignature, sendToForDefi } from './forDefi'
-import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './withdrawal'
+import { getSignature, sendToForDefi } from './forDefi/forDefi'
+import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
 import { colorCodes } from "./constants"
 

@@ -1,12 +1,12 @@
-import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from '../../src/withdrawal';
-import { contextEnv } from '../../src/constants';
-import fixtures from '../fixtures/withdrawal.data';
+import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from '../../../src/forDefi/withdrawal';
+import { contextEnv } from '../../../src/constants';
+import fixtures from '../../fixtures/withdrawal.data';
 describe('withdrawal Testcases', () => {
   describe('createWithdrawalTransaction Testcases', () => {
     test('Should create the withdrawl trx with nonce', async () => {
       let ctx = contextEnv('.env', 'localflare');
       const inputData = fixtures.createWithdrawalTransaction.input;
-      jest.spyOn(require('../../src/utils'), 'saveUnsignedWithdrawalTx').mockReturnValue(true);
+      jest.spyOn(require('../../../src/forDefi/utils'), 'saveUnsignedWithdrawalTx').mockReturnValue(true);
       const result = await createWithdrawalTransaction(
         ctx,
         inputData.toAddress,
@@ -20,7 +20,7 @@ describe('withdrawal Testcases', () => {
     test('Should create the withdrawl trx without nonce', async () => {
       let ctx = contextEnv('.env', 'localflare');
       const inputData = fixtures.createWithdrawalTransaction.input;
-      jest.spyOn(require('../../src/utils'), 'saveUnsignedWithdrawalTx').mockReturnValue(true);
+      jest.spyOn(require('../../../src/forDefi/utils'), 'saveUnsignedWithdrawalTx').mockReturnValue(true);
       //@ts-ignore
       const result = await createWithdrawalTransaction(
         ctx,
@@ -47,13 +47,13 @@ describe('withdrawal Testcases', () => {
       jest.spyOn(ctx.web3.eth, 'getTransactionCount').mockResolvedValue(1);
 
       jest
-        .spyOn(require('../../src/utils'), 'waitFinalize3Factory')
+        .spyOn(require('../../../src/forDefi/utils'), 'waitFinalize3Factory')
         .mockReturnValue(mockWaitFinalize3);
       jest
-        .spyOn(require('../../src/utils'), 'readUnsignedWithdrawalTx')
+        .spyOn(require('../../../src/forDefi/utils'), 'readUnsignedWithdrawalTx')
         .mockReturnValue(fixtures.sendSignedWithdrawalTransaction.mock.readUnsignedWithdrawalTx);
       jest
-        .spyOn(require('../../src/utils'), 'readSignedWithdrawalTx')
+        .spyOn(require('../../../src/forDefi/utils'), 'readSignedWithdrawalTx')
         .mockReturnValue(fixtures.sendSignedWithdrawalTransaction.mock.readSignedWithdrawalTx);
 
       const result = await sendSignedWithdrawalTransaction(

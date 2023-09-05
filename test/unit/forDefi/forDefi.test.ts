@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 const fs = require('fs');
-import * as forDefi from '../../src/forDefi';
-import fixtures from '../fixtures/forDefi.data';
+import * as forDefi from '../../../src/forDefi/forDefi';
+import fixtures from '../../fixtures/forDefi.data';
 import crypto from 'crypto';
 
 jest.mock('node-fetch');
@@ -58,7 +58,7 @@ describe('forDefi Testcases', () => {
       jest.spyOn(fs, 'readFileSync').mockResolvedValueOnce(fixtures.getSignature.mock.accesstoken);
       // Mock readFileSync and other functions
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       jest
         .spyOn(utils, 'readUnsignedTxJson')
         .mockReturnValue(fixtures.getSignature.mock.unsignedtrx.txidObj);
@@ -87,7 +87,7 @@ describe('forDefi Testcases', () => {
       jest.spyOn(fs, 'readFileSync').mockResolvedValueOnce(fixtures.getSignature.mock.accesstoken);
       // Mock readFileSync and other functions
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/forDefi/utils');
       jest
         .spyOn(utils, 'readUnsignedWithdrawalTx')
         .mockReturnValue(fixtures.getSignature.mock.unsignedWithdrawlTrx.txidObj);
@@ -114,7 +114,7 @@ describe('forDefi Testcases', () => {
       jest.spyOn(fs, 'readFileSync').mockResolvedValueOnce(fixtures.getSignature.mock.accesstoken);
       // Mock readFileSync and other functions
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
-      const utils = require('../../src/utils');
+      const utils = require('../../../src/utils');
       jest
         .spyOn(utils, 'readUnsignedTxJson')
         .mockReturnValue(fixtures.getSignature.mock.unsignedtrx.txidObj);
@@ -132,7 +132,7 @@ describe('forDefi Testcases', () => {
       jest.clearAllMocks(); // Clear mocks after each test case
     });
     test('Should work for unsigned trx', async () => {
-      jest.mock('../../src/forDefi');
+      jest.mock('../../../src/forDefi/forDefi');
       jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(fixtures.sendToForDefi.mock.accessToken);
       jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(
         JSON.stringify({
@@ -151,7 +151,7 @@ describe('forDefi Testcases', () => {
       //@ts-ignore
       jest.spyOn(crypto, 'createSign').mockReturnValue(signMock);
       jest
-        .spyOn(require('../../src/utils'), 'readUnsignedTxJson')
+        .spyOn(require('../../../src/utils'), 'readUnsignedTxJson')
         .mockReturnValue(fixtures.sendToForDefi.mock.unsignedtrx.txidObj);
 
       jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
@@ -182,7 +182,7 @@ describe('forDefi Testcases', () => {
       jest.clearAllMocks();
     });
     test('Should work for unsigned  withdrawl trx', async () => {
-      jest.mock('../../src/forDefi');
+      jest.mock('../../../src/forDefi/forDefi');
       jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(fixtures.sendToForDefi.mock.accessToken);
       jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(
         JSON.stringify({
@@ -201,7 +201,7 @@ describe('forDefi Testcases', () => {
       //@ts-ignore
       jest.spyOn(crypto, 'createSign').mockReturnValue(signMock);
       jest
-        .spyOn(require('../../src/utils'), 'readUnsignedWithdrawalTx')
+        .spyOn(require('../../../src/forDefi/utils'), 'readUnsignedWithdrawalTx')
         .mockReturnValue(fixtures.sendToForDefi.mock.unsignedWithdrawlTrx.txidObj);
 
       jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
@@ -233,7 +233,7 @@ describe('forDefi Testcases', () => {
     });
 
     test('Should throw error for public key mismatch', async () => {
-      jest.mock('../../src/forDefi');
+      jest.mock('../../../src/forDefi/forDefi');
       jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(fixtures.sendToForDefi.mock.accessToken);
       jest.spyOn(fs, 'readFileSync').mockReturnValueOnce(
         JSON.stringify({
@@ -252,7 +252,7 @@ describe('forDefi Testcases', () => {
       //@ts-ignore
       jest.spyOn(crypto, 'createSign').mockReturnValue(signMock);
       jest
-        .spyOn(require('../../src/utils'), 'readUnsignedTxJson')
+        .spyOn(require('../../../src/utils'), 'readUnsignedTxJson')
         .mockReturnValue(fixtures.sendToForDefi.mock.unsignedtrx.txidObj);
 
       jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
