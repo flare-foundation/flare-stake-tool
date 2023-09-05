@@ -1,0 +1,16 @@
+{
+  "transactionType": "dummyTransactionType",
+  "serialization": "dummySerialisation",
+  "signatureRequests": [
+    {
+      "message": "dummyrequest1",
+      "signer": "signer1"
+    },
+    {
+      "message": "dummyrequest2",
+      "signer": "signer2"
+    }
+  ],
+  "unsignedTransactionBuffer": "dummybuffer",
+  "signature": "dummySignature"
+}

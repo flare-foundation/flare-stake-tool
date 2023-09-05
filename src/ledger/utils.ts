@@ -1,6 +1,8 @@
 import * as ethutil from 'ethereumjs-util'
 import * as elliptic from "elliptic"
 import { bech32 } from 'bech32'
+import { ledgerGetAccount } from './key'
+import { DerivedAddress } from '../interfaces'
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // public keys and bech32 addresses
@@ -42,12 +44,12 @@ export function compressPublicKey(x: Buffer, y: Buffer): Buffer {
       x: x.toString('hex'),
       y: y.toString('hex')
     }).getPublic().encode("hex", true),
-  "hex")
+    "hex")
 }
 
 export function standardizePublicKey(pubk: string) {
-	const [x, y] = decodePublicKey(pubk)
-	return compressPublicKey(x, y).toString('hex')
+  const [x, y] = decodePublicKey(pubk)
+  return compressPublicKey(x, y).toString('hex')
 }
 
 function publicKeyToBech32AddressBuffer(x: Buffer, y: Buffer) {
@@ -72,15 +74,15 @@ export function publicKeyToEthereumAddressString(publicKey: string) {
 // signatures
 
 export function recoverMessageSigner(message: Buffer, signature: string) {
-    const messageHash = ethutil.hashPersonalMessage(message)
-    return recoverTransactionSigner(messageHash, signature)
+  const messageHash = ethutil.hashPersonalMessage(message)
+  return recoverTransactionSigner(messageHash, signature)
 }
 
 export function recoverTransactionSigner(message: Buffer, signature: string) {
-    let split = ethutil.fromRpcSig(signature);
-    let publicKey = ethutil.ecrecover(message, split.v, split.r, split.s);
-    let signer = ethutil.pubToAddress(publicKey).toString("hex");
-    return signer;
+  let split = ethutil.fromRpcSig(signature);
+  let publicKey = ethutil.ecrecover(message, split.v, split.r, split.s);
+  let signer = ethutil.pubToAddress(publicKey).toString("hex");
+  return signer;
 }
 
 export function recoverTransactionPublicKey(message: Buffer, signature: string): Buffer {
@@ -114,7 +116,7 @@ export function decimalToInteger(dec: string, n: number): string {
   let ret = dec
   if (ret.includes('.')) {
     const split = ret.split('.')
-    ret = split[0] + split[1].slice(0,n).padEnd(n,'0')
+    ret = split[0] + split[1].slice(0, n).padEnd(n, '0')
   } else {
     ret = ret + '0'.repeat(n)
   }
@@ -123,13 +125,42 @@ export function decimalToInteger(dec: string, n: number): string {
 
 export function integerToDecimal(int: string, n: number): string {
   int = int.padStart(n, '0')
-  const part1 = int.slice(0,-n)
+  const part1 = int.slice(0, -n)
   const part2 = int.slice(-n)
   return part1 + '.' + part2
 }
 
 export function expandDerivationPath(derivationPath: string) {
-	const accountPath = derivationPath.substring(0, derivationPath.length - 4)
-	const signPath = derivationPath.substring(derivationPath.length - 3)
-	return { accountPath: accountPath, signPath: signPath }
+  const accountPath = derivationPath.substring(0, derivationPath.length - 4)
+  const signPath = derivationPath.substring(derivationPath.length - 3)
+  return { accountPath: accountPath, signPath: signPath }
+}
+
+/**
+ * @description Provides a list of addresses for various derivations paths for the connected ledger wallet
+ * @param {string} network The network for which addresses need to be derived
+ * @returns {DerivedAddress[]} Retuns a list of objects where every object contains an ethAddress and the corresponsing derivation path
+ */
+export async function getPathsAndAddresses(network: string): Promise<DerivedAddress[]> {
+  const BASE_PATH = "m/44'/60'/0'/0/"
+  const PATH_LIST = []
+
+  for (let i = 0; i < 10; i++) {
+    PATH_LIST.push(BASE_PATH + i.toString())
+  }
+
+  const results: DerivedAddress[] = [];
+
+  for (const path of PATH_LIST) {
+    const { publicKey,address } = await ledgerGetAccount(path, network)
+    const ethAddress = publicKeyToEthereumAddressString(publicKey)
+    const derivedAddress: DerivedAddress = {
+      ethAddress : ethAddress,
+      derivationPath : path,
+      publicKey : publicKey
+    }
+    results.push(derivedAddress)
+  }
+
+  return results
 }

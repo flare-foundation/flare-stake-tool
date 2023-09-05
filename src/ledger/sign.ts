@@ -6,7 +6,13 @@ import { recoverTransactionPublicKey, recoverTransactionSigner, prefix0x, standa
 import { logInfo } from '../output'
 import { SignedTxJson, UnsignedTxJson } from '../interfaces'
 
-
+/**
+ * Used to generate signature using ledger
+ * @param tx - unsigned transaction json file
+ * @param derivationPath - path to the coount
+ * @param blind - default true
+ * @returns - returns the signature from ledger
+ */
 export async function ledgerSign(tx: UnsignedTxJson, derivationPath: string, blind: boolean = true): Promise<{
 	signature: string, address: string, publicKey: string
 }> {
@@ -14,7 +20,6 @@ export async function ledgerSign(tx: UnsignedTxJson, derivationPath: string, bli
 	const messageBuffer = Buffer.from(message, 'hex')
 	const transport = await TransportNodeHid.open(undefined)
 	const avalanche = new AvalancheApp(transport)
-
 	const { accountPath, signPath } = expandDerivationPath(derivationPath)
 	let pubk: Buffer
 	let addr: string
@@ -51,16 +56,30 @@ export async function ledgerSign(tx: UnsignedTxJson, derivationPath: string, bli
 	}
 }
 
+/**
+ *
+ * @param id - file id
+ * @param derivationPath - path to the accounts in ledger
+ * @param blind - default true
+ *
+ */
 export async function signId(id: string, derivationPath: string, blind: boolean = true) {
 	return sign(`${id}.unsignedTx.json`, derivationPath, blind)
 }
 
-export async function sign(file: string, derivationPath: string, blind: boolean = true) {
+/**
+ *
+ * @param file - file name
+ * @param derivationPath - path to the accounts in ledger
+ * @param blind - default true
+ * @param _ledgerSign - for testcase implementation, need to pass ledgerSign
+ */
+export async function sign(file: string, derivationPath: string, blind: boolean = true, _ledgerSign = ledgerSign) {
 	logInfo(`Please sign the transaction on your ledger device...`)
     const json = fs.readFileSync(file, 'utf8')
     const tx: SignedTxJson = JSON.parse(json)
     if (tx && tx.signatureRequests && tx.signatureRequests.length > 0) {
-        const { signature } = await ledgerSign(tx, derivationPath, blind)
+        const { signature } = await _ledgerSign(tx, derivationPath, blind)
         tx.signature = signature
         let outFile = file.replace('unsignedTx.json', 'signedTx.json')
         if (outFile === file) {

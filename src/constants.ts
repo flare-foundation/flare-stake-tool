@@ -12,13 +12,24 @@ import {
   decodePublicKey
 } from './utils'
 
-function readContextFile(ctxFile: string): ContextFile {
+/**
+ * @description - parses the file and returns the context of ctx.json
+ * @param ctxFile - path to the context file
+ * @returns - context
+ */
+export function readContextFile(ctxFile: string): ContextFile {
   const file = fs.readFileSync(ctxFile, 'utf8')
   return JSON.parse(file) as ContextFile
 }
 
+/**
+ * @description Returns the context from .env file
+ * @param path - path to the .env file
+ * @param network - network info. can be localflare, costwo, flare
+ * @returns - returns the context from .env file
+ */
 export function contextEnv(path: string, network: string): Context {
-  require('dotenv').config({path: path})
+  require('dotenv').config({ path: path })
   return getContext(
     network,
     process.env.PUBLIC_KEY,
@@ -26,21 +37,65 @@ export function contextEnv(path: string, network: string): Context {
     process.env.PRIVATE_KEY_CB58)
 }
 
+/**
+ * @description - returns context from the file
+ * @param ctxFile - path to the context file
+ * @returns returns the context
+ */
 export function contextFile(ctxFile: string): Context {
   const ctx = readContextFile(ctxFile)
   return getContext(ctx.network, ctx.publicKey)
 }
 
+/**
+ * @description - returns the network from the context file
+ * @param ctxFile - context file
+ * @returns returns the network from the context
+ */
 export function networkFromContextFile(ctxFile: string): string {
   const ctx = readContextFile(ctxFile)
   return ctx.network
 }
 
+/** @description ANSI escape codes for colors */
+export const colorCodes = {
+  redColor: '\x1b[31m',
+  greenColor: '\x1b[32m',
+  yellowColor: '\x1b[33m',
+  resetColor: '\x1b[0m',
+  magentaColor: '\x1b[35m',
+  orangeColor: '\x1b[38;5;208m'
+}
+
+/** @description emoji contants */
+export const emojis = {
+  happy: '😀',
+}
+
+/** @description mapping of network name with network code */
+export const networkMapping = {
+  "Flare": "flare",
+  "Coston2": "costwo"
+}
+
+/**
+ * @description returns the context
+ * @param network - network name: flare/localflare/costwo
+ * @param publicKey - public key
+ * @param privateKeyHex - private key in hex format
+ * @param privateKeyCB58 - private key in cb58 format
+ * @returns context
+ */
 export function getContext(network: string, publicKey?: string, privateKeyHex?: string, privateKeyCB58?: string): Context {
   return context(getConfig(network), publicKey, privateKeyHex, privateKeyCB58)
 }
 
-function getConfig(network: string): NetworkConfig {
+/**
+ * @description - returns the network config based on network that was passed
+ * @param network - network name: flare/localflare/costwo
+ * @returns the network configuration
+ */
+export function getConfig(network: string | undefined): NetworkConfig {
   let networkConfig
   if (network == 'flare' || network === undefined) {
     networkConfig = flare
@@ -52,12 +107,19 @@ function getConfig(network: string): NetworkConfig {
   return networkConfig
 }
 
-function context(
+/**
+ * The main function that returns the cotext
+ * @param config - network configuration
+ * @param publicKey - public key
+ * @param privkHex - private key in hex format
+ * @param privkCB58 - private key in cb58 format
+ * @returns the context object
+ */
+export function context(
   config: NetworkConfig,
   publicKey?: string, privkHex?: string, privkCB58?: string,
 ): Context {
   const { protocol, ip, port, networkID, hrp } = config
-
   // those two addresses should be derived for most cli applications
   let cAddressHex: string | undefined
   let addressBech32: string | undefined
@@ -82,7 +144,7 @@ function context(
   }
   if (privkHex) {
     const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(privkHex, 'hex'))
-    if (publicKey && (!publicKeyPair![0].equals(pubX) || !publicKeyPair![0].equals(pubY))) {
+    if (publicKey && (!publicKeyPair![0].equals(pubX) || !publicKeyPair![1].equals(pubY))) {
       throw Error("provided private key does not match the public key")
     }
     publicKeyPair = [pubX, pubY]
@@ -151,3 +213,10 @@ function context(
     config: config
   }
 }
+
+/**
+ * Directory names for storing txn files for ForDefi
+ */
+export const forDefiDirectory = "ForDefiTxnFiles"
+export const forDefiUnsignedTxnDirectory = "UnsignedTxns"
+export const forDefiSignedTxnDirectory = "SignedTxns"
