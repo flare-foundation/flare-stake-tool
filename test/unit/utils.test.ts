@@ -614,8 +614,8 @@ describe('Unit Test Cases for utils', () => {
 
       saveUnsignedTxJson(fixtures.saveUnsignedTxJson.input, id);
 
-      expect(mockExistsSync).toHaveBeenCalledWith(`${id}.unsignedTx.json`);
-      expect(mockWriteFileSync).toHaveBeenCalledWith(`${id}.unsignedTx.json`, expect.any(String));
+      expect(mockExistsSync).toHaveBeenCalledWith(`ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json`);
+      expect(mockWriteFileSync).toHaveBeenCalledWith(`ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json`, expect.any(String));
     });
 
     test('should throw error when attempting to save unsignedTxJson with existing id', () => {
@@ -623,9 +623,9 @@ describe('Unit Test Cases for utils', () => {
       mockExistsSync.mockReturnValueOnce(true); // Simulate file already exists
 
       expect(() => saveUnsignedTxJson(fixtures.saveUnsignedTxJson.input, id)).toThrowError(
-        `unsignedTx file ${id}.unsignedTx.json already exists`
+        `unsignedTx file ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json already exists`
       );
-      expect(mockExistsSync).toHaveBeenCalledWith(`${id}.unsignedTx.json`);
+      expect(mockExistsSync).toHaveBeenCalledWith(`ForDefiTxnFiles/UnsignedTxns/${id}.unsignedTx.json`);
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
   });
@@ -644,7 +644,7 @@ describe('Unit Test Cases for utils', () => {
 
       expect(result).toEqual(fixtures.readUnsignedTxJson.output);
       expect(mockReadFileSync).toHaveBeenCalledWith(
-        `${fixtures.readUnsignedTxJson.input}.unsignedTx.json`
+        `ForDefiTxnFiles/UnsignedTxns/${fixtures.readUnsignedTxJson.input}.unsignedTx.json`
       );
     });
 
@@ -657,7 +657,7 @@ describe('Unit Test Cases for utils', () => {
         `File not found`
       );
       expect(mockReadFileSync).toHaveBeenCalledWith(
-        `${fixtures.readUnsignedTxJson.input}.unsignedTx.json`
+        `ForDefiTxnFiles/UnsignedTxns/${fixtures.readUnsignedTxJson.input}.unsignedTx.json`
       );
     });
   });
@@ -679,7 +679,7 @@ describe('Unit Test Cases for utils', () => {
 
       expect(result).toEqual(fixtures.readSignedTxJson.valid.output);
       expect(mockReadFileSync).toHaveBeenCalledWith(
-        `${fixtures.readSignedTxJson.valid.input}.signedTx.json`
+        `ForDefiTxnFiles/SignedTxns/${fixtures.readSignedTxJson.valid.input}.signedTx.json`
       );
     });
 
@@ -691,12 +691,12 @@ describe('Unit Test Cases for utils', () => {
         fail('Expected an error to be thrown');
       } catch (error: any) {
         expect(error.message).toBe(
-          `signedTx file ${fixtures.readSignedTxJson.valid.input}.signedTx.json does not exist`
+          `signedTx file ForDefiTxnFiles/SignedTxns/${fixtures.readSignedTxJson.valid.input}.signedTx.json does not exist`
         );
       }
 
       expect(mockExistsSync).toHaveBeenCalledWith(
-        `${fixtures.readSignedTxJson.valid.input}.signedTx.json`
+        `ForDefiTxnFiles/SignedTxns/${fixtures.readSignedTxJson.valid.input}.signedTx.json`
       );
     });
 
@@ -706,10 +706,10 @@ describe('Unit Test Cases for utils', () => {
       mockExistsSync.mockReturnValueOnce(true);
 
       expect(() => readSignedTxJson(fixtures.readSignedTxJson.invalid.input)).toThrowError(
-        `unsignedTx file ${fixtures.readSignedTxJson.invalid.input}.signedTx.json does not contain signature`
+        `unsignedTx file ForDefiTxnFiles/SignedTxns/${fixtures.readSignedTxJson.invalid.input}.signedTx.json does not contain signature`
       );
       expect(mockExistsSync).toHaveBeenCalledWith(
-        `${fixtures.readSignedTxJson.invalid.input}.signedTx.json`
+        `ForDefiTxnFiles/SignedTxns/${fixtures.readSignedTxJson.invalid.input}.signedTx.json`
       );
     });
   });
@@ -734,10 +734,10 @@ describe('Unit Test Cases for utils', () => {
       );
 
       expect(mockExistsSync).toHaveBeenCalledWith(
-        `${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json`
+        `ForDefiTxnFiles/UnsignedTxns/${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json`
       );
       expect(mockWriteFileSync).toHaveBeenCalledWith(
-        `${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json`,
+        `ForDefiTxnFiles/UnsignedTxns/${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json`,
         JSON.stringify(fixtures.saveUnsignedWithdrawalTx.input.unsignedTx, null, 2)
       );
     });
@@ -751,10 +751,10 @@ describe('Unit Test Cases for utils', () => {
           fixtures.saveUnsignedWithdrawalTx.input.id
         )
       ).toThrowError(
-        `unsignedTx file ${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json already exists`
+        `unsignedTx file ForDefiTxnFiles/UnsignedTxns/${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json already exists`
       );
       expect(mockExistsSync).toHaveBeenCalledWith(
-        `${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json`
+        `ForDefiTxnFiles/UnsignedTxns/${fixtures.saveUnsignedWithdrawalTx.input.id}.unsignedTx.json`
       );
       expect(mockWriteFileSync).not.toHaveBeenCalled();
     });
@@ -779,20 +779,20 @@ describe('Unit Test Cases for utils', () => {
 
       expect(result).toEqual(fixtures.readUnsignedWithdrawalTx.output);
       expect(mockExistsSync).toHaveBeenCalledWith(
-        `${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json`
+        `ForDefiTxnFiles/UnsignedTxns/${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json`
       );
       expect(mockReadFileSync).toHaveBeenCalledWith(
-        `${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json`
+        `ForDefiTxnFiles/UnsignedTxns/${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json`
       );
     });
     test('should throw error when attempting to read non-existing unsignedWithdrawalTx file', () => {
       mockExistsSync.mockReturnValueOnce(false);
 
       expect(() => readUnsignedWithdrawalTx(fixtures.readUnsignedWithdrawalTx.input)).toThrowError(
-        `unsignedTx file ${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json does not exist`
+        `unsignedTx file ForDefiTxnFiles/UnsignedTxns/${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json does not exist`
       );
       expect(mockExistsSync).toHaveBeenCalledWith(
-        `${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json`
+        `ForDefiTxnFiles/UnsignedTxns/${fixtures.readUnsignedWithdrawalTx.input}.unsignedTx.json`
       );
     });
   });
@@ -816,10 +816,10 @@ describe('Unit Test Cases for utils', () => {
 
       expect(result).toEqual(fixtures.readSignedWithdrawalTx.validOutput);
       expect(mockExistsSync).toHaveBeenCalledWith(
-        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+        `ForDefiTxnFiles/SignedTxns/${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
       );
       expect(mockReadFileSync).toHaveBeenCalledWith(
-        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+        `ForDefiTxnFiles/SignedTxns/${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
       );
     });
 
@@ -827,10 +827,10 @@ describe('Unit Test Cases for utils', () => {
       mockExistsSync.mockReturnValueOnce(false);
 
       expect(() => readSignedWithdrawalTx(fixtures.readSignedWithdrawalTx.input)).toThrowError(
-        `signedTx file ${fixtures.readSignedWithdrawalTx.input}.signedTx.json does not exist`
+        `signedTx file ForDefiTxnFiles/SignedTxns/${fixtures.readSignedWithdrawalTx.input}.signedTx.json does not exist`
       );
       expect(mockExistsSync).toHaveBeenCalledWith(
-        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+        `ForDefiTxnFiles/SignedTxns/${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
       );
     });
 
@@ -840,13 +840,13 @@ describe('Unit Test Cases for utils', () => {
       mockReadFileSync.mockReturnValueOnce(mockSerializedData);
 
       expect(() => readSignedWithdrawalTx(fixtures.readSignedWithdrawalTx.input)).toThrowError(
-        `unsignedTx file ${fixtures.readSignedWithdrawalTx.input}.signedTx.json does not contain signature`
+        `unsignedTx file ForDefiTxnFiles/SignedTxns/${fixtures.readSignedWithdrawalTx.input}.signedTx.json does not contain signature`
       );
       expect(mockExistsSync).toHaveBeenCalledWith(
-        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+        `ForDefiTxnFiles/SignedTxns/${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
       );
       expect(mockReadFileSync).toHaveBeenCalledWith(
-        `${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
+        `ForDefiTxnFiles/SignedTxns/${fixtures.readSignedWithdrawalTx.input}.signedTx.json`
       );
     });
   });

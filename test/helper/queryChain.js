@@ -1,13 +1,10 @@
 const request = require('request')
 
-<<<<<<< HEAD
 // the asset id and C/P/X-chain blockchain ids are hardcoded in the flarejs code,
 // but they can differ (especially on localflare), so use this code to fetch the
 // real blockchain ids from the node rpc
 
 // const rpcurl = 'https://coston2-api.flare.network'
-=======
->>>>>>> parent of d46c9e3 (refactor)
 const rpcurl = 'http://localhost:9650'
 
 const chains = ['X', 'C', 'P']
