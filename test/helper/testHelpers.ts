@@ -1,5 +1,5 @@
 import { BN } from '@flarenetwork/flarejs/dist';
-import { exportTxCP } from '../../src/evmAtomicTx';
+import { exportTxCP } from '../../src/transaction/evmAtomicTx';
 import { contextEnv } from '../../src/constants';
 
 /**
