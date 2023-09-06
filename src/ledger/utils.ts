@@ -148,16 +148,15 @@ export async function getPathsAndAddresses(network: string): Promise<DerivedAddr
   for (let i = 0; i < 10; i++) {
     PATH_LIST.push(BASE_PATH + i.toString())
   }
-
   const results: DerivedAddress[] = [];
 
   for (const path of PATH_LIST) {
-    const { publicKey,address } = await ledgerGetAccount(path, network)
+    const { publicKey } = await ledgerGetAccount(path, network)
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
     const derivedAddress: DerivedAddress = {
-      ethAddress : ethAddress,
-      derivationPath : path,
-      publicKey : publicKey
+      ethAddress: ethAddress,
+      derivationPath: path,
+      publicKey: publicKey,
     }
     results.push(derivedAddress)
   }

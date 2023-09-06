@@ -1,10 +1,10 @@
 import fs from 'fs'
-import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import AvalancheApp from '@avalabs/hw-app-avalanche'
 import { sha256 } from 'ethereumjs-util'
 import { recoverTransactionPublicKey, recoverTransactionSigner, prefix0x, standardizePublicKey, expandDerivationPath } from './utils'
 import { logInfo } from '../output'
 import { SignedTxJson, UnsignedTxJson } from '../interfaces'
+import { getTransportPath } from './key'
 
 /**
  * Used to generate signature using ledger
@@ -18,7 +18,7 @@ export async function ledgerSign(tx: UnsignedTxJson, derivationPath: string, bli
 }> {
 	const message = blind ? tx.signatureRequests[0].message : tx.unsignedTransactionBuffer
 	const messageBuffer = Buffer.from(message, 'hex')
-	const transport = await TransportNodeHid.open(undefined)
+	const transport = await getTransportPath()
 	const avalanche = new AvalancheApp(transport)
 	const { accountPath, signPath } = expandDerivationPath(derivationPath)
 	let pubk: Buffer
