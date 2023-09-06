@@ -157,7 +157,8 @@ export async function getPathsAndAddresses(network: string): Promise<DerivedAddr
     const derivedAddress: DerivedAddress = {
       ethAddress: ethAddress,
       derivationPath: path,
-      publicKey: publicKey
+      publicKey: publicKey,
+      address : address
     }
     results.push(derivedAddress)
   }

@@ -108,6 +108,7 @@ export interface DerivedAddress {
   publicKey: string,
   balance?: string,
   derivationPath: string
+  address: string
 }
 
 /**

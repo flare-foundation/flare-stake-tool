@@ -5,6 +5,8 @@ import { Command } from 'commander'
 import { cli, initCtxJsonFromOptions } from './cli'
 import { ConnectWalletInterface, ContextFile, DelegationDetailsInterface, DerivedAddress, ScreenConstantsInterface } from './interfaces'
 import { getPathsAndAddresses } from './ledger/utils'
+import { initCtxJson } from "./utils"
+import { logSuccess } from "./output"
 import fs from 'fs'
 
 /***
@@ -239,15 +241,19 @@ async function connectWallet(): Promise<ConnectWalletInterface> {
             const selectedAddress = await prompts.selectAddress(choiceList)
 
             const selectedDerivedAddress = pathList.find(item => item.ethAddress == selectedAddress.address)
-            const selectedDerivationPath = selectedDerivedAddress?.derivationPath
 
-            const optionsObject = {
-                network,
-                blind: false,
-                ctxFile: 'ctx.json',
-                ledger: true
+            if (!selectedDerivedAddress){
+                throw new Error("Invalid address selected")
             }
-            await initCtxJsonFromOptions(optionsObject, selectedDerivationPath)
+            const contextFile = {
+                publicKey:selectedDerivedAddress.publicKey,
+                ethAddress : selectedDerivedAddress.ethAddress,
+                flareAddress: selectedDerivedAddress.address,
+                network,
+                derivationPath:selectedDerivedAddress.derivationPath
+            }
+            initCtxJson(contextFile)
+            logSuccess("Context file created")
         }
 
         return { wallet }
