@@ -4,8 +4,6 @@ import { logError } from './output'
 import figlet from 'figlet'
 import chalk from 'chalk'
 import clear from 'clear'
-import { interactiveCli } from "./interactive-cli"
-import { emojis } from './constants'
 
 clear();
 console.log(
@@ -38,18 +36,12 @@ function getArgv() {
         return baseArgv
     }
 }
+const program = new Command("Flare Stake Tool")
 
-if (command == 'interactive' || command == "-i") {
-    interactiveCli(baseArgv).then(() => { console.log(`Finished execution${emojis.happy}${emojis.happy}`) })
-}
-else {
-    const program = new Command("Flare Stake Tool")
-
-    cli(program).then(() => {
-        program.parseAsync(getArgv()).catch(err => {
-            if (err instanceof Error) {
-                logError(`Error: ${err.message}`)
-            }
-        })
+cli(program).then(() => {
+    program.parseAsync(getArgv()).catch(err => {
+        if (err instanceof Error) {
+            logError(`Error: ${err.message}`)
+        }
     })
-}
+})

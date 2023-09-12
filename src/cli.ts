@@ -15,7 +15,8 @@ import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi/forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
-import { colorCodes } from "./constants"
+import { colorCodes, emojis } from "./constants"
+import { interactiveCli } from './interactive-cli'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -148,6 +149,13 @@ export async function cli(program: Command) {
     .action(async (options: OptionValues) => {
       await signId(options.transactionId, DERIVATION_PATH, false)
       logSuccess("Transaction signed")
+    })
+  program
+    .command("interactive").description("Interactive mode")
+    .action(async (options: OptionValues) => {
+      interactiveCli(process.argv).then(() => {
+        console.log(`Finished execution${emojis.happy}${emojis.happy}`)
+      })
     })
 }
 
