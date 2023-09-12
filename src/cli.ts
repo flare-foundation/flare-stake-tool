@@ -42,7 +42,7 @@ export async function cli(program: Command) {
   // information about the network
   program
     .command("info").description("Relevant information")
-    .argument("<type>", "Type of information")
+    .argument("<addresses|balance|network|validators>", "Type of information")
     .action(async (type: string) => {
       const options = getOptions(program, program.opts())
       const ctx = await contextFromOptions(options)
@@ -60,8 +60,8 @@ export async function cli(program: Command) {
     })
   // transaction construction and sending
   program
-    .command("transaction").description("Move funds from one chain to another")
-    .argument("<type>", "Type of a crosschain transaction")
+    .command("transaction").description("Move funds from one chain to another, stake, and delegate")
+    .argument("<importCP|exportCP|importPC|exportPC|delegate|stake>", "Type of a crosschain transaction")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Transaction fee")
@@ -99,7 +99,7 @@ export async function cli(program: Command) {
   // forDefi signing
   program
     .command("forDefi").description("Sign with ForDefi")
-    .argument("<type>", "Type of a forDefi transaction")
+    .argument("<sign|fetch>", "Type of a forDefi transaction")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("--withdrawal", "Withdrawing funds from c-chain")
     .action(async (type: string, options: OptionValues) => {
