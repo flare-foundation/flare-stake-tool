@@ -15,12 +15,18 @@ import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi/forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
-import { colorCodes, emojis } from "./constants"
-import { interactiveCli } from './interactive-cli'
+import { colorCodes } from "./constants"
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
 const MAX_TRANSCTION_FEE = FLR
+
+// mapping from network to symbol
+const networkTokenSymbol: { [index: string]: string } = {
+  "flare": "FLR",
+  "costwo": "CFLR",
+  "localflare": "LFLR"
+}
 
 export async function cli(program: Command) {
   // global configurations
@@ -154,9 +160,7 @@ export async function cli(program: Command) {
   program
     .command("interactive").description("Interactive mode")
     .action(async (options: OptionValues) => {
-      interactiveCli(process.argv).then(() => {
-        console.log(`Finished execution${emojis.happy}${emojis.happy}`)
-      })
+      // this will never run
     })
 }
 
@@ -358,9 +362,10 @@ export async function logBalanceInfo(ctx: Context) {
   let pbalance = (toBN((await ctx.pchain.getBalance(ctx.pAddressBech32!)).balance))!.toString()
   cbalance = integerToDecimal(cbalance, 18)
   pbalance = integerToDecimal(pbalance, 9)
+  const symbol = networkTokenSymbol[ctx.config.hrp]
   logInfo(`Balances on the network "${ctx.config.hrp}"`)
-  log(`C-chain ${ctx.cAddressHex}: ${cbalance} FLR`)
-  log(`P-chain ${ctx.pAddressBech32}: ${pbalance} FLR`)
+  log(`C-chain ${ctx.cAddressHex}: ${cbalance} ${symbol}`)
+  log(`P-chain ${ctx.pAddressBech32}: ${pbalance} ${symbol}`)
 }
 
 /**
@@ -424,7 +429,8 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
 
 async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
   const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
-  if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} FLR`)
+  const symbol = networkTokenSymbol[ctx.config.hrp]
+  if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} ${symbol}`)
   logSuccess(`Transaction with id ${txid} built and sent to the network`)
 }
 

@@ -150,16 +150,17 @@ export function context(
     publicKeyPair = [pubX, pubY]
   }
 
-  // derive addresses from public key if provided (bech32 is later derived again)
-  if (publicKey) {
-    cAddressHex = publicKeyToEthereumAddressString(publicKey)
-    addressBech32 = publicKeyToBech32AddressString(publicKey, config.hrp)
-  }
-
   const path = '/ext/bc/C/rpc'
   const iport = port ? `${ip}:${port}` : `${ip}`
   const rpcurl = `${protocol}://${iport}`
   const web3 = new Web3(`${rpcurl}${path}`)
+
+  // derive addresses from public key if provided (bech32 is later derived again)
+  if (publicKey) {
+    cAddressHex = publicKeyToEthereumAddressString(publicKey)
+    cAddressHex = web3.utils.toChecksumAddress(cAddressHex) // add checksum
+    addressBech32 = publicKeyToBech32AddressString(publicKey, config.hrp)
+  }
 
   const avalanche = new Avalanche(ip, port, protocol, networkID)
   const cchain: EVMAPI = avalanche.CChain()
