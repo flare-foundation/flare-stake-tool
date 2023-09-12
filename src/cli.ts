@@ -150,6 +150,7 @@ export async function cli(program: Command) {
       await signId(options.transactionId, DERIVATION_PATH, false)
       logSuccess("Transaction signed")
     })
+  // interactive mode
   program
     .command("interactive").description("Interactive mode")
     .action(async (options: OptionValues) => {

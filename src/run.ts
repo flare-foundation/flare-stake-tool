@@ -4,6 +4,7 @@ import { logError } from './output'
 import figlet from 'figlet'
 import chalk from 'chalk'
 import clear from 'clear'
+import { version } from '../package.json'
 
 clear();
 console.log(
@@ -11,6 +12,7 @@ console.log(
         figlet.textSync('Flare Stake CLI')
     )
 );
+console.log(chalk.green(`Version: ${version}`))
 
 const baseArgv = process.argv
 const command = baseArgv[2]
