@@ -37,6 +37,12 @@ export async function cli(program: Command) {
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
     .option("--env-path <path>", "Path to the .env file")
+  // interactive mode
+  program
+    .command("interactive").description("Interactive mode")
+    .action(async () => {
+      // this will never run, here just for --help display
+    })
   // context setup
   program
     .command("init-ctx").description("Initialize context file")
@@ -155,12 +161,6 @@ export async function cli(program: Command) {
     .action(async (options: OptionValues) => {
       await signId(options.transactionId, DERIVATION_PATH, false)
       logSuccess("Transaction signed")
-    })
-  // interactive mode
-  program
-    .command("interactive").description("Interactive mode")
-    .action(async (options: OptionValues) => {
-      // this will never run
     })
 }
 
@@ -415,7 +415,7 @@ async function cliBuildUnsignedTxJson(transactionType: string, ctx: Context, id:
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
   capFeeAt(MAX_TRANSCTION_FEE, unsignedTxJson.usedFee, params.fee)
   saveUnsignedTxJson(unsignedTxJson, id)
-  logSuccess(`Unsigned transaction with id ${id} constructed`)
+  logSuccess(`Unsigned transaction with hash ${id} constructed`)
 }
 
 async function cliSendSignedTxJson(ctx: Context, id: string) {
@@ -424,14 +424,14 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
   }
   const chainTxId = await sendSignedTxJson(ctx, readSignedTxJson(id))
   addFlagForSentSignedTx(id)
-  logSuccess(`Signed transaction ${id} with id ${chainTxId} sent to the node`)
+  logSuccess(`Signed transaction ${id} with hash ${chainTxId} sent to the node`)
 }
 
 async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
   const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
   const symbol = networkTokenSymbol[ctx.config.hrp]
   if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} ${symbol}`)
-  logSuccess(`Transaction with id ${txid} built and sent to the network`)
+  logSuccess(`Transaction with hash ${txid} built and sent to the network`)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -439,7 +439,7 @@ async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Co
 
 async function signForDefi(transaction: string, ctx: string, withdrawal: boolean = false) {
   const txid = await sendToForDefi(transaction, ctx, withdrawal)
-  logSuccess(`Transaction with id ${txid} sent to the node`)
+  logSuccess(`Transaction with hash ${txid} sent to the node`)
 }
 
 async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) {
