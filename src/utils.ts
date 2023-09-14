@@ -8,7 +8,7 @@ import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common"
 import { UnsignedTx as EvmUnsignedTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm'
-import { SignedTxJson, UnsignedTxJson, ContextFile } from './interfaces'
+import { SignedTxJson, UnsignedTxJson, ContextFile, Context } from './interfaces'
 import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from './constants'
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -277,10 +277,35 @@ export function addFlagForSentSignedTx(id: string) {
 export function isAlreadySentToChain(id: string): boolean {
   const fname = `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
   if (!fs.existsSync(fname)) {
-      return false
+    return false
   }
   const serialization = fs.readFileSync(fname).toString()
   const txObj = JSON.parse(serialization) as SignedTxJson
 
   return txObj.isSentToChain ? true : false
+}
+
+
+function countpAddressInDelegation(validators: any[], pAddressBech32: string): number {
+  let count = 0;
+  for (const item of validators) {
+    if (item.delegators) {
+      for (const delegator of item.delegators) {
+        count += delegator.rewardOwner.addresses.filter((addr: string) => addr === pAddressBech32).length;
+      }
+    }
+  }
+  return count;
+}
+
+/**
+ * @description Count number of p-chain address used for delegation
+ * @param {Context} ctx context file
+ * @returns number of times p address used in current validators delegation list
+ */
+export async function delegationAddressCount(ctx: Context) {
+  const current = await ctx.pchain.getCurrentValidators();
+  const pCurrent = JSON.parse(JSON.stringify(current));
+  const count = countpAddressInDelegation(pCurrent.validators, ctx.pAddressBech32!);
+  return count;
 }

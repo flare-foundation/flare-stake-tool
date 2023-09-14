@@ -220,3 +220,9 @@ export function context(
 export const forDefiDirectory = "ForDefiTxnFiles"
 export const forDefiUnsignedTxnDirectory = "UnsignedTxns"
 export const forDefiSignedTxnDirectory = "SignedTxns"
+
+/**
+ * max allowed delegation
+ */
+
+export const maxAllowedDelegation = 3
