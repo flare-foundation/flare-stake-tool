@@ -267,7 +267,7 @@ async function selectTask(): Promise<keyof ScreenConstantsInterface> {
     return task.task
 }
 
-function fileExists(filePath: string): Boolean {
+function fileExists(filePath: string): boolean {
     try {
         fs.accessSync(filePath, fs.constants.F_OK);
         return true;
@@ -304,7 +304,7 @@ async function createChoicesFromAddress(pathList: DerivedAddress[]) {
 
 async function getCtxStatus(): Promise<boolean> {
     let isCreateCtx = true
-    const isFileExist: Boolean = fileExists("ctx.json");
+    const isFileExist: boolean = fileExists("ctx.json");
 
     if (isFileExist) {
         console.log(`${colorCodes.magentaColor}You already have an existing Ctx file with the following parameters - ${colorCodes.resetColor}`)
@@ -318,7 +318,7 @@ async function getCtxStatus(): Promise<boolean> {
             console.log(`${colorCodes.orangeColor}Vault Id:${colorCodes.resetColor} ${ctxVaultId}`)
         }
         const getUserChoice = await prompts.ctxFile();
-        const isContinue: Boolean = getUserChoice.isContinue
+        const isContinue: boolean = getUserChoice.isContinue
 
         if (isContinue) {
             isCreateCtx = false
