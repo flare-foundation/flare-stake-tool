@@ -106,22 +106,7 @@ export async function interactiveCli(baseargv: string[]) {
             const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress,
                 publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
             if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
-                console.log("Checking Address Registration...")
-                const isRegistered = await isAddressRegistered(ctxCAddress, ctxNetwork)
-                if (!isRegistered) {
-                    console.log("Note: You need to register your wallet address before you can delegate your funds")
-                    console.log("Please complete this registration transaction to proceed")
-                    const registerAddressParams = {
-                        publicKey: ctxPublicKey,
-                        pAddress: ctxPAddress,
-                        cAddress: ctxCAddress,
-                        network: ctxNetwork,
-                        wallet: "Ledger",
-                        derivationPath: ctxDerivationPath
-                    };
-                    await registerAddress(registerAddressParams)
-                    console.log(`${colorCodes.greenColor} Address successfully registered${colorCodes.resetColor}`)
-                }
+                await registerAddressLedger(ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
                 const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
                 if (ctxNetwork && ctxDerivationPath && delegationFee) {
                     const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
@@ -173,22 +158,7 @@ export async function interactiveCli(baseargv: string[]) {
             const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress,
                 publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
             if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
-                console.log("Checking Address Registration...")
-                const isRegistered = await isAddressRegistered(ctxCAddress, ctxNetwork)
-                if (!isRegistered) {
-                    console.log("Note: You need to register your wallet address before you can delegate your funds")
-                    console.log("Please complete this registration transaction to proceed")
-                    const registerAddressParams = {
-                        publicKey: ctxPublicKey,
-                        pAddress: ctxPAddress,
-                        cAddress: ctxCAddress,
-                        network: ctxNetwork,
-                        wallet: "Ledger",
-                        derivationPath: ctxDerivationPath
-                    };
-                    await registerAddress(registerAddressParams)
-                    console.log(`${colorCodes.greenColor} Address successfully registered${colorCodes.resetColor}`)
-                }
+                await registerAddressLedger(ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
                 const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
                 const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
                 await program.parseAsync(argsDelegate)
@@ -408,4 +378,23 @@ function makeForDefiArguments(txnType: string, baseargv: string[], txnId: string
         return argsSign
     }
     return []
+}
+
+async function registerAddressLedger(ctxNetwork: string, ctxDerivationPath: string, ctxCAddress: string, ctxPublicKey: string, ctxPAddress: string) {
+    console.log("Checking Address Registration...")
+    const isRegistered = await isAddressRegistered(ctxCAddress, ctxNetwork)
+    if (!isRegistered) {
+        console.log("Note: You need to register your wallet address before you can delegate your funds")
+        console.log("Please complete this registration transaction to proceed")
+        const registerAddressParams = {
+            publicKey: ctxPublicKey,
+            pAddress: ctxPAddress,
+            cAddress: ctxCAddress,
+            network: ctxNetwork,
+            wallet: "Ledger",
+            derivationPath: ctxDerivationPath
+        };
+        await registerAddress(registerAddressParams)
+        console.log(`${colorCodes.greenColor}Address successfully registered${colorCodes.resetColor}`)
+    }
 }
