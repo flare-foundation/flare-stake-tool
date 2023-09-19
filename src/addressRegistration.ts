@@ -8,6 +8,21 @@ import { ledgerSign } from "./ledger/sign";
 import { colorCodes, getConfig } from "./constants"
 import { NetworkConfig } from "./config";
 
+const FLARE_CONTRACT_REGISTRY = "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019"
+const defaultContractAddresses = {
+  "AddressBinder":
+  {
+    flare: "0xCc8f7C3d04C7f60BC89fA4DCDC77D668183aa2ac",
+    costwo: "0xCc8f7C3d04C7f60BC89fA4DCDC77D668183aa2ac"
+  },
+  "ValidatorRewardManager":
+  {
+    flare: "0xc0cf3aaf93bd978c5bc662564aa73e331f2ec0b5",
+    costwo: "0x33913AcE907F682E305f36d7538D3cCd37E2cA5B"
+  }
+}
+
+
 type contractAbi = [
   {
     type: "function",
@@ -35,7 +50,7 @@ export async function isAddressRegistered(ethAddressToCheck: string, network: st
   const rpcUrl = getRpcUrl(network)
   const addressBinderContractAddress = getContractAddress(network)
   const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
-  const abi = JSON.parse(fs.readFileSync("./addressBinderAbi.json", "utf-8")) as contractAbi
+  const abi = JSON.parse(fs.readFileSync("./ABI/addressBinderAbi.json", "utf-8")) as contractAbi
   const contract = new web3.eth.Contract(abi, addressBinderContractAddress)
 
   const result = await contract.methods.cAddressToPAddress(ethAddressToCheck).call();
@@ -49,8 +64,6 @@ export async function isAddressRegistered(ethAddressToCheck: string, network: st
   }
 }
 
-// const privateKey = "0xa0d4304993bff4b3952bf2a6afedfd3a04dfc7803e7ef46bf8d7937d78916b8a"
-
 //registerAddresses("0x03a0bfbf41b05f074b232aef045aa77a9272ebfb1cd5dd93ad7a5a6567197c382c","P-costwo18atl0e95w5ym6t8u5yrjpz35vqqzxfzrrsnq8u","0x81779a06ead1afafe3e3e361cfe10e7119f68f61","costwo")
 
 function getRpcUrl(network: string): string {
@@ -63,13 +76,13 @@ function getContractAddress(network: string): string {
 }
 
 export async function registerAddress(addressParams: RegisterAddressInterface) {
-  const { publicKey, pAddress, cAddress, network, wallet, derivationPath } = addressParams
+  const { publicKey, pAddress, cAddress, network, wallet, derivationPath, pvtKey } = addressParams
 
   const rpcUrl = getRpcUrl(network)
   const addressBinderContractAddress = getContractAddress(network)
   const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
 
-  const abi = JSON.parse(fs.readFileSync("./addressBinderAbi.json", "utf-8")) as contractAbi
+  const abi = JSON.parse(fs.readFileSync("./ABI/addressBinderAbi.json", "utf-8")) as contractAbi
   const contract = new ethers.Contract(addressBinderContractAddress, abi, provider);
 
   const checksumAddress = ethers.utils.getAddress(cAddress);
@@ -100,20 +113,13 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
     const serializedSignedTx = ethers.utils.serializeTransaction(unsignedTx, "0x" + sign.signature)
     await contract.provider.sendTransaction(serializedSignedTx)
   }
+  else if (wallet == "Private Key") {
+    if (!pvtKey) throw new Error("No private key passed")
+    const wallet = new ethers.Wallet(pvtKey);
+    const signedTx = await wallet.signTransaction(unsignedTx)
+    await contract.provider.sendTransaction(signedTx)
+  }
 }
-
-// const config = getContext("costwo", "0x03a0bfbf41b05f074b232aef045aa77a9272ebfb1cd5dd93ad7a5a6567197c382c")
-
-// if (config.pAddressBech32 && config.cAddressHex) {
-//   const myObject = {
-//     publicKey: "0x03a0bfbf41b05f074b232aef045aa77a9272ebfb1cd5dd93ad7a5a6567197c382c",
-//     pAddress: config.pAddressBech32,
-//     cAddress: config.cAddressHex,
-//     network: "costwo",
-//   };
-
-
-// }
 
 function createUnsignedJsonObject(txHash: string): UnsignedTxJson {
 

@@ -131,6 +131,7 @@ export interface RegisterAddressInterface {
   pAddress: string,
   cAddress: string,
   network: string,
-  wallet:string,
-  derivationPath?:string
+  wallet: string,
+  derivationPath?: string
+  pvtKey?: string
 }
