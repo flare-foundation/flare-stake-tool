@@ -3,8 +3,10 @@ import { taskConstants, walletConstants } from "./screenConstants"
 import { colorCodes } from "./constants"
 import { Command } from 'commander'
 import { cli, initCtxJsonFromOptions } from './cli'
+import { isAddressRegistered, registerAddress } from "./addressRegistration"
 import { ConnectWalletInterface, ContextFile, DelegationDetailsInterface, DerivedAddress, ScreenConstantsInterface } from './interfaces'
 import { getPathsAndAddresses } from './ledger/utils'
+import { ledgerSign } from "./ledger/sign"
 import fs from 'fs'
 
 /***
@@ -100,15 +102,33 @@ export async function interactiveCli(baseargv: string[]) {
 
     // Adding a validator
     else if (Object.keys(taskConstants)[6] == task.toString()) {
-
         if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
-            const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
-            const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
-            if (ctxNetwork && ctxDerivationPath && delegationFee) {
-                const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
-                await program.parseAsync(argsValidator)
-            } else {
-                console.log("Missing values for certain params")
+            const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress,
+                publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
+            if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
+                console.log("Checking Address Registration...")
+                const isRegistered = await isAddressRegistered(ctxCAddress, ctxNetwork)
+                if (!isRegistered) {
+                    console.log("Note: You need to register your wallet address before you can delegate your funds")
+                    console.log("Please complete this registration transaction to proceed")
+                    const registerAddressParams = {
+                        publicKey: ctxPublicKey,
+                        pAddress: ctxPAddress,
+                        cAddress: ctxCAddress,
+                        network: ctxNetwork,
+                        wallet: "Ledger",
+                        derivationPath: ctxDerivationPath
+                    };
+                    await registerAddress(registerAddressParams)
+                    console.log(`${colorCodes.greenColor} Address successfully registered${colorCodes.resetColor}`)
+                }
+                const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
+                if (ctxNetwork && ctxDerivationPath && delegationFee) {
+                    const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
+                    await program.parseAsync(argsValidator)
+                } else {
+                    console.log("Missing values for certain params")
+                }
             }
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[1] && fileExists("ctx.json")) {
@@ -150,8 +170,25 @@ export async function interactiveCli(baseargv: string[]) {
     else if (Object.keys(taskConstants)[7] == task.toString()) {
 
         if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
-            const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
-            if (ctxNetwork && ctxDerivationPath) {
+            const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress,
+                publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
+            if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
+                console.log("Checking Address Registration...")
+                const isRegistered = await isAddressRegistered(ctxCAddress, ctxNetwork)
+                if (!isRegistered) {
+                    console.log("Note: You need to register your wallet address before you can delegate your funds")
+                    console.log("Please complete this registration transaction to proceed")
+                    const registerAddressParams = {
+                        publicKey: ctxPublicKey,
+                        pAddress: ctxPAddress,
+                        cAddress: ctxCAddress,
+                        network: ctxNetwork,
+                        wallet: "Ledger",
+                        derivationPath: ctxDerivationPath
+                    };
+                    await registerAddress(registerAddressParams)
+                    console.log(`${colorCodes.greenColor} Address successfully registered${colorCodes.resetColor}`)
+                }
                 const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
                 const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
                 await program.parseAsync(argsDelegate)
@@ -284,10 +321,11 @@ function readInfoFromCtx(filePath: string): ContextFile {
     const publicKey = ctxData.publicKey
     const network = ctxData.network
     const ethAddress = ctxData.ethAddress || undefined
+    const flareAddress = ctxData.flareAddress
     const derivationPath = ctxData.derivationPath || undefined
     const vaultId = ctxData.vaultId || undefined
 
-    return { publicKey, network, ethAddress, derivationPath, vaultId }
+    return { publicKey, network, ethAddress, flareAddress, derivationPath, vaultId }
 
 }
 
