@@ -84,6 +84,12 @@ In the latter case the signing is done within the app. Again, this is not a secu
 
 Below we describe the functionality offered by the app, when you have your ledger device connected to the computer, with avalanche app running.
 
+**IMPORTANT**
+
+The following commands assume you have the correct (development) version of ledger where applications not signed by ledger themselves can be run. In that case you need to install an unofficial Avalance app that allows you to clear sign transactions.
+Otherwise, you will need to blindly sign transactions as the ledger won't correctly display the transaction details.
+To do this, add `--blind` to the end of each command.
+
 ### Address conversion
 
 This describes how to view the P- and C-chain addresses. Those addresses are derived from your public key, which in turn can be derived from your private key.
@@ -138,6 +144,8 @@ Where:
 > **Note:**
 > Methods affecting the P-chain (`importCP` and `exportPC`) always use a fixed gas fee of 0.001FLR, while methods affecting the C-chain (`exportCP` and `importPC`) have variable gas fees and can thus be either set or calculated automatically.
 If you get the `errInsufficientFunds` error, try specifying a higher gas fee when exporting funds.
+The fee is not deducted from the exported amount, but from the C-chain account.
+The final amount on the P-chain is therefore exactly the `amount` specified.
 
 Sample response:
 ```bash
@@ -174,7 +182,7 @@ flare-stake-tool stake -n <nodeId> -s <start-time> -e <end-time> -a <amount> --d
 
 Where:
 - `nodeId` is the ID of the node being deployed as a validator.
-- `start-time` is the unix time of the start of the staking process.
+- `start-time` is the unix time of the start of the staking process. We suggest you put this time a bit in the future (not use the current time), as the transaction must be confirmed before the staking process starts, otherwise it will revert.
 - `end-time` is the unix time of the end of the staking process.
 - `amount` is the amount to lock and stake in FLR. The minimum is 2000 FLR and the maximum is 10000 FLR.
 - `delegation-fee` is the fee in percent that the validator charges for delegating to it. The minimum is 0 and the maximum is 100.
@@ -276,6 +284,21 @@ To use the interactive CLI use the following command:
 
 ```bash
 flare-stake-tool interactive
+```
+
+## Validation and misc operations
+
+### Getting your node ID:
+
+```bash
+curl -s -X POST --data '{ "jsonrpc":"2.0", "id" :1, "method" :"info.getNodeID" }' -H 'content-type:application/json;' RPC-URL:PORT/ext/info
+```
+
+### Check the pending validators (To see if the stake or delegation was successful):
+
+```bash
+curl -s --location --request POST 'RPC-URL:PORT/ext/bc/P' --header 'Content-Type: application/json' --data-raw '{ "jsonrpc": "2.0",     "method": "platform.getPendingValidators",     "params": {         "subnetID": null,         "nodeIDs": []     },     "id": 1 }' | jq .
+
 ```
 
 ## Versions
