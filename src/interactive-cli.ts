@@ -230,6 +230,20 @@ export async function interactiveCli(baseargv: string[]) {
             console.log("only pvt key and ledger supported for delegation right now")
         }
     }
+    else if (Object.keys(taskConstants)[8] == (task.toString())) {
+
+        if (walletProperties.wallet == Object.keys(walletConstants)[0] || walletProperties.wallet == Object.keys(walletConstants)[1]) {
+            const argsInfo = [...baseargv.slice(0, 2), "info", taskConstants[task], `--ctx-file=ctx.json`]
+            await program.parseAsync(argsInfo)
+        }
+        else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.path && walletProperties.network) {
+            const argsInfo = [...baseargv.slice(0, 2), "info", taskConstants[task], `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+            await program.parseAsync(argsInfo)
+        }
+        else {
+            console.log("Incorrect arguments passed!")
+        }
+    }
     else {
         console.log("Task not supported")
     }
