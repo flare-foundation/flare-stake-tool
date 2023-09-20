@@ -6,8 +6,9 @@ import { ledgerSign } from "./ledger/sign";
 import fs from 'fs'
 import { colorCodes, getConfig, forDefiDirectory, forDefiUnsignedTxnDirectory } from "./constants"
 import { NetworkConfig } from "./config";
-import { getAddressBinderABI, getFlareContractRegistryABI, defaultContractAddresses, addressBinderContractName, validatorRewardManagerContractName } from "./flareContractConstants";
+import { getAddressBinderABI, getFlareContractRegistryABI, defaultContractAddresses, addressBinderContractName, validatorRewardManagerContractName, registerAddressName } from "./flareContractConstants";
 import { prefix0x, saveUnsignedTxJson } from "./utils";
+import { walletConstants } from "./screenConstants";
 
 /**
  * @description checks if the address is registered with the addressBinder contract
@@ -70,18 +71,18 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
   const txHash = ethers.utils.keccak256(serializedUnsignedTx);
   const unsignedTxObj = createUnsignedJsonObject(txHash)
 
-  if (wallet == "Ledger") {
+  if (wallet === Object.keys(walletConstants)[0]) {
     if (!derivationPath) throw new Error("No derivation path passed")
     const sign = await ledgerSign(unsignedTxObj, derivationPath)
     const serializedSignedTx = ethers.utils.serializeTransaction(unsignedTx, prefix0x(sign.signature))
     await contract.provider.sendTransaction(serializedSignedTx)
   }
-  else if (wallet == "ForDefi") {
+  else if (wallet === Object.keys(walletConstants)[1]) {
     if (!transactionId) throw new Error("No transaction Id passed")
     saveUnsignedTxJson(unsignedTxObj, transactionId)
     saveUnsignedEVMObject(unsignedTx, transactionId)
   }
-  else if (wallet == "Private Key") {
+  else if (wallet === Object.keys(walletConstants)[2]) {
     if (!pvtKey) throw new Error("No private key passed")
     const wallet = new ethers.Wallet(pvtKey);
     const signedTx = await wallet.signTransaction(unsignedTx)
@@ -111,7 +112,7 @@ function createUnsignedJsonObject(txHash: string): UnsignedTxJson {
   };
 
   const unsignedTxJson: UnsignedTxJson = {
-    transactionType: "RegisterAddress",
+    transactionType: registerAddressName,
     serialization: "",
     signatureRequests: [signatureRequest],
     unsignedTransactionBuffer: "",

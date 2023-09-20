@@ -23,6 +23,7 @@ export const defaultContractAddresses: ContractAddressesInterface = {
 
 export const addressBinderContractName = "AddressBinder"
 export const validatorRewardManagerContractName = "ValidatorRewardManager"
+export const registerAddressName = "RegisterAddress"
 
 /**
  * @description returns the AddressBinder contract ABI

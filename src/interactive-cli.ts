@@ -107,7 +107,7 @@ export async function interactiveCli(baseargv: string[]) {
                 publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
             if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
 
-                await checkAddressRegistrationLedger(ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
+                await checkAddressRegistrationLedger(walletProperties.wallet, ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
 
                 const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
                 if (ctxNetwork && ctxDerivationPath && delegationFee) {
@@ -135,7 +135,7 @@ export async function interactiveCli(baseargv: string[]) {
                         await program.parseAsync(argsValidator)
                     }
                     else {
-                        txnId = await registerAddressForDefi(ctxNetwork, ctxPublicKey)
+                        txnId = await registerAddressForDefi(walletProperties.wallet, ctxNetwork, ctxPublicKey)
                     }
 
                     const argsSign = makeForDefiArguments("sign", baseargv, txnId)
@@ -155,7 +155,7 @@ export async function interactiveCli(baseargv: string[]) {
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
 
-            await checkAddressRegistrationPrivateKey(walletProperties.network!, walletProperties.path!)
+            await checkAddressRegistrationPrivateKey(walletProperties.wallet, walletProperties.network!, walletProperties.path!)
 
             const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
             const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
@@ -174,7 +174,7 @@ export async function interactiveCli(baseargv: string[]) {
                 publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
             if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
 
-                await checkAddressRegistrationLedger(ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
+                await checkAddressRegistrationLedger(walletProperties.wallet, ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
 
                 const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
                 const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
@@ -200,7 +200,7 @@ export async function interactiveCli(baseargv: string[]) {
                         await program.parseAsync(argsDelegate)
                     }
                     else {
-                        txnId = await registerAddressForDefi(ctxNetwork, ctxPublicKey)
+                        txnId = await registerAddressForDefi(walletProperties.wallet, ctxNetwork, ctxPublicKey)
                     }
 
                     const argsSign = makeForDefiArguments("sign", baseargv, txnId)
@@ -220,7 +220,7 @@ export async function interactiveCli(baseargv: string[]) {
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
 
-            await checkAddressRegistrationPrivateKey(walletProperties.network!, walletProperties.path!)
+            await checkAddressRegistrationPrivateKey(walletProperties.wallet, walletProperties.network!, walletProperties.path!)
 
             const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
             const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
@@ -410,7 +410,8 @@ function makeForDefiArguments(txnType: string, baseargv: string[], txnId: string
     return []
 }
 
-async function checkAddressRegistrationLedger(ctxNetwork: string, ctxDerivationPath: string, ctxCAddress: string, ctxPublicKey: string, ctxPAddress: string) {
+async function checkAddressRegistrationLedger(wallet: string, ctxNetwork: string, ctxDerivationPath: string,
+    ctxCAddress: string, ctxPublicKey: string, ctxPAddress: string) {
     console.log("Checking Address Registration...")
     const isRegistered = await isAddressRegistered(ctxCAddress, ctxNetwork)
     if (!isRegistered) {
@@ -421,7 +422,7 @@ async function checkAddressRegistrationLedger(ctxNetwork: string, ctxDerivationP
             pAddress: ctxPAddress,
             cAddress: ctxCAddress,
             network: ctxNetwork,
-            wallet: "Ledger",
+            wallet: wallet,
             derivationPath: ctxDerivationPath
         };
         await registerAddress(registerAddressParams)
@@ -429,7 +430,7 @@ async function checkAddressRegistrationLedger(ctxNetwork: string, ctxDerivationP
     }
 }
 
-async function checkAddressRegistrationPrivateKey(ctxNetwork: string, pvtKeyPath: string) {
+async function checkAddressRegistrationPrivateKey(wallet: string, ctxNetwork: string, pvtKeyPath: string) {
 
     const context: Context = contextEnv(pvtKeyPath, ctxNetwork)
     console.log("Checking Address Registration...")
@@ -445,7 +446,7 @@ async function checkAddressRegistrationPrivateKey(ctxNetwork: string, pvtKeyPath
             pAddress: context.pAddressBech32!,
             cAddress: context.cAddressHex!,
             network: ctxNetwork,
-            wallet: "Private Key",
+            wallet: wallet,
             pvtKey: context.privkHex
         };
         const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
@@ -457,7 +458,7 @@ async function checkAddressRegistrationPrivateKey(ctxNetwork: string, pvtKeyPath
     }
 }
 
-async function registerAddressForDefi(ctxNetwork: string, ctxPublicKey: string): Promise<string> {
+async function registerAddressForDefi(wallet: string, ctxNetwork: string, ctxPublicKey: string): Promise<string> {
 
     console.log("Note: You need to register your wallet address before you can delegate your funds")
     console.log("Please complete this registration transaction to proceed")
@@ -468,7 +469,7 @@ async function registerAddressForDefi(ctxNetwork: string, ctxPublicKey: string):
         pAddress: context.pAddressBech32!,
         cAddress: context.cAddressHex!,
         network: ctxNetwork,
-        wallet: "ForDefi",
+        wallet: wallet,
         transactionId: txnId.id
     };
     await registerAddress(registerAddressParams)

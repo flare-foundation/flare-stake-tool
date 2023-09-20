@@ -17,6 +17,7 @@ import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './
 import { log, logError, logInfo, logSuccess } from './output'
 import { colorCodes } from "./constants"
 import { submitForDefiTxn } from './flareContract'
+import { registerAddressName } from './flareContractConstants'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -411,7 +412,7 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
   }
   const signedTxnJson = readSignedTxJson(id)
   let chainTxId
-  if (signedTxnJson.transactionType === "RegisterAddress") {
+  if (signedTxnJson.transactionType === registerAddressName) {
     chainTxId = await submitForDefiTxn(id, signedTxnJson.signature, ctx.config.hrp)
   } else {
     chainTxId = await sendSignedTxJson(ctx, signedTxnJson)
