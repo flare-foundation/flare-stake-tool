@@ -1,12 +1,13 @@
 import { RegisterAddressInterface, UnsignedTxJson } from "./interfaces";
 import { SignatureRequest } from "@flarenetwork/flarejs/dist/common"
 import { bech32 } from "bech32";
-import { ethers } from "ethersV5";
+import { BigNumber, ethers } from "ethersV5";
 import { ledgerSign } from "./ledger/sign";
-import { colorCodes, getConfig } from "./constants"
+import fs from 'fs'
+import { colorCodes, getConfig, forDefiDirectory, forDefiUnsignedTxnDirectory } from "./constants"
 import { NetworkConfig } from "./config";
-import { getAddressBinderABI, getFlareContractRegistryABI, defaultContractAddresses, addressBinderContractName, validatorRewardManagerContractName } from "./addressConstants";
-import { prefix0x } from "./utils";
+import { getAddressBinderABI, getFlareContractRegistryABI, defaultContractAddresses, addressBinderContractName, validatorRewardManagerContractName } from "./flareContractConstants";
+import { prefix0x, saveUnsignedTxJson } from "./utils";
 
 export async function isAddressRegistered(ethAddressToCheck: string, network: string): Promise<boolean> {
 
@@ -29,7 +30,7 @@ export async function isAddressRegistered(ethAddressToCheck: string, network: st
 }
 
 export async function registerAddress(addressParams: RegisterAddressInterface) {
-  const { publicKey, pAddress, cAddress, network, wallet, derivationPath, pvtKey } = addressParams
+  const { publicKey, pAddress, cAddress, network, wallet, derivationPath, pvtKey, transactionId } = addressParams
 
   const rpcUrl = getRpcUrl(network)
   const addressBinderContractAddress = await getContractAddress(network, addressBinderContractName)
@@ -67,7 +68,9 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
     await contract.provider.sendTransaction(serializedSignedTx)
   }
   else if (wallet == "ForDefi") {
-
+    if (!transactionId) throw new Error("No transaction Id passed")
+    saveUnsignedTxJson(unsignedTxObj, transactionId)
+    saveUnsignedEVMObject(unsignedTx, transactionId)
   }
   else if (wallet == "Private Key") {
     if (!pvtKey) throw new Error("No private key passed")
@@ -75,6 +78,13 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
     const signedTx = await wallet.signTransaction(unsignedTx)
     await contract.provider.sendTransaction(signedTx)
   }
+}
+
+export async function submitForDefiTxn(id: string, signature: string, network: string): Promise<string> {
+  const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
+  const serializedSignedTx = ethers.utils.serializeTransaction(readUnsignedEVMObject(id), prefix0x(signature))
+  const chainId = await provider.sendTransaction(serializedSignedTx)
+  return chainId.hash
 }
 
 function createUnsignedJsonObject(txHash: string): UnsignedTxJson {
@@ -85,14 +95,12 @@ function createUnsignedJsonObject(txHash: string): UnsignedTxJson {
   };
 
   const unsignedTxJson: UnsignedTxJson = {
-    transactionType: "",
+    transactionType: "RegisterAddress",
     serialization: "",
     signatureRequests: [signatureRequest],
     unsignedTransactionBuffer: "",
     usedFee: "",
     txDetails: "",
-    forDefiTxId: "",
-    forDefiHash: "",
   };
 
   return unsignedTxJson;
@@ -120,4 +128,26 @@ async function getContractAddress(network: string, contractName: string): Promis
 
   throw new Error("Contract Address not found")
 
+}
+
+function readUnsignedEVMObject(id: string): ethers.utils.UnsignedTransaction {
+  const fname = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedEVMObject.json`
+  if (!fs.existsSync(fname)) {
+    throw new Error(`unsigned EVM Object file ${fname} does not exist`)
+  }
+  const serialization = fs.readFileSync(fname).toString()
+  let file = JSON.parse(serialization)
+  file.gasPrice = BigNumber.from(file.gasPrice.hex)
+  file.gasLimit = BigNumber.from(file.gasLimit.hex)
+  return file as ethers.utils.UnsignedTransaction
+}
+
+function saveUnsignedEVMObject(unsignedTx: Object, id: string): void {
+  const fname = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedEVMObject.json`
+  if (fs.existsSync(fname)) {
+    throw new Error(`unsignedTx file ${fname} already exists`)
+  }
+  const serialization = JSON.stringify(unsignedTx, null, 2)
+  fs.mkdirSync(`${forDefiDirectory}/${forDefiUnsignedTxnDirectory}`, { recursive: true })
+  fs.writeFileSync(fname, serialization)
 }

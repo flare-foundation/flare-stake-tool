@@ -1,9 +1,9 @@
 import { prompts } from "./prompts"
 import { taskConstants, walletConstants } from "./screenConstants"
-import { colorCodes, contextEnv, getContext } from "./constants"
+import { colorCodes, contextEnv, contextFile } from "./constants"
 import { Command } from 'commander'
 import { cli, initCtxJsonFromOptions } from './cli'
-import { isAddressRegistered, registerAddress } from "./addressRegistration"
+import { isAddressRegistered, registerAddress } from "./flareContract"
 import { ConnectWalletInterface, Context, ContextFile, DelegationDetailsInterface, DerivedAddress, RegisterAddressInterface, ScreenConstantsInterface } from './interfaces'
 import { getPathsAndAddresses } from './ledger/utils'
 import { compressPublicKey, getUserInput } from "./utils"
@@ -123,12 +123,22 @@ export async function interactiveCli(baseargv: string[]) {
             if (ctxNetwork && ctxVaultId && ctxPublicKey) {
                 const isContinue = await prompts.forDefiContinue()
                 if (!isContinue.isContinue) {
-                    const txnId = await prompts.transactionId()
-                    const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
-                    const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "-i", `${txnId.id}`]
-                    await program.parseAsync(argsValidator)
 
-                    const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
+                    const isRegistered: boolean = await checkAddressRegistrationForDefi(ctxNetwork)
+
+                    let txnId
+                    if (isRegistered) {
+                        txnId = await prompts.transactionId()
+                        txnId = txnId.id
+                        const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
+                        const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "-i", `${txnId}`]
+                        await program.parseAsync(argsValidator)
+                    }
+                    else {
+                        txnId = await registerAddressForDefi(ctxNetwork, ctxPublicKey)
+                    }
+
+                    const argsSign = makeForDefiArguments("sign", baseargv, txnId)
                     await program.parseAsync(argsSign)
                 }
                 else {
@@ -178,12 +188,22 @@ export async function interactiveCli(baseargv: string[]) {
             if (ctxNetwork && ctxVaultId && ctxPublicKey) {
                 const isContinue = await prompts.forDefiContinue()
                 if (!isContinue.isContinue) {
-                    const txnId = await prompts.transactionId()
-                    const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
-                    const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "-i", `${txnId.id}`]
-                    await program.parseAsync(argsDelegate)
 
-                    const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
+                    const isRegistered: boolean = await checkAddressRegistrationForDefi(ctxNetwork)
+
+                    let txnId
+                    if (isRegistered) {
+                        txnId = await prompts.transactionId()
+                        txnId = txnId.id
+                        const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
+                        const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "-i", `${txnId}`]
+                        await program.parseAsync(argsDelegate)
+                    }
+                    else {
+                        txnId = await registerAddressForDefi(ctxNetwork, ctxPublicKey)
+                    }
+
+                    const argsSign = makeForDefiArguments("sign", baseargv, txnId)
                     await program.parseAsync(argsSign)
                 }
                 else {
@@ -411,7 +431,7 @@ async function checkAddressRegistrationLedger(ctxNetwork: string, ctxDerivationP
 
 async function checkAddressRegistrationPrivateKey(ctxNetwork: string, pvtKeyPath: string) {
 
-    let context: Context = contextEnv(pvtKeyPath, ctxNetwork)
+    const context: Context = contextEnv(pvtKeyPath, ctxNetwork)
     console.log("Checking Address Registration...")
     const isRegistered = await isAddressRegistered(context.cAddressHex!, ctxNetwork)
     if (!isRegistered) {
@@ -435,4 +455,29 @@ async function checkAddressRegistrationPrivateKey(ctxNetwork: string, pvtKeyPath
 
         console.log(`${colorCodes.greenColor}Address successfully registered${colorCodes.resetColor}`)
     }
+}
+
+async function registerAddressForDefi(ctxNetwork: string, ctxPublicKey: string): Promise<string> {
+
+    console.log("Note: You need to register your wallet address before you can delegate your funds")
+    console.log("Please complete this registration transaction to proceed")
+    const txnId = await prompts.transactionId()
+    const context: Context = contextFile("ctx.json")
+    const registerAddressParams: RegisterAddressInterface = {
+        publicKey: ctxPublicKey,
+        pAddress: context.pAddressBech32!,
+        cAddress: context.cAddressHex!,
+        network: ctxNetwork,
+        wallet: "ForDefi",
+        transactionId: txnId.id
+    };
+    await registerAddress(registerAddressParams)
+    return txnId.id
+}
+
+async function checkAddressRegistrationForDefi(ctxNetwork: string): Promise<boolean> {
+    const context: Context = contextFile("ctx.json")
+    console.log("Checking Address Registration...")
+    const isRegistered = await isAddressRegistered(context.cAddressHex!, ctxNetwork)
+    return isRegistered
 }

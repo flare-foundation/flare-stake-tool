@@ -134,6 +134,7 @@ export interface RegisterAddressInterface {
   wallet: string,
   derivationPath?: string
   pvtKey?: string
+  transactionId?: string
 }
 
 /**

@@ -57,7 +57,7 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, w
     const timestamp = new Date().getTime();
     const payload = `${path}|${timestamp}|${requestBody}`;
 
-    const privateKeyFile = "../private.pem"
+    const privateKeyFile = "./private.pem"
     const secretPem = readFileSync(privateKeyFile, 'utf8');
     const privateKey = crypto.createPrivateKey(secretPem);
     const sign = crypto.createSign('SHA256').update(payload, 'utf8').end();
