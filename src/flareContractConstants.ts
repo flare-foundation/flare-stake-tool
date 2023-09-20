@@ -1,5 +1,8 @@
 import { ContractAddressesInterface } from "./interfaces"
 
+/**
+ * @description Stores the default chain-wise addresses for contracts
+ */
 export const defaultContractAddresses: ContractAddressesInterface = {
     AddressBinder:
     {
@@ -21,14 +24,23 @@ export const defaultContractAddresses: ContractAddressesInterface = {
 export const addressBinderContractName = "AddressBinder"
 export const validatorRewardManagerContractName = "ValidatorRewardManager"
 
+/**
+ * @description returns the AddressBinder contract ABI
+ */
 export function getAddressBinderABI() {
     return addressBinderABI
 }
 
+/**
+ * @description returns the ValidatorRewardManager contract ABI
+ */
 export function getValidatorRewardManagerABI() {
     return validatorRewardManagerABI
 }
 
+/**
+ * @description returns the FlareContractRegistry contract ABI
+ */
 export function getFlareContractRegistryABI() {
     return flareContractRegistryABI
 }

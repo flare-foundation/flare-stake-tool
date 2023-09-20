@@ -9,6 +9,11 @@ import { NetworkConfig } from "./config";
 import { getAddressBinderABI, getFlareContractRegistryABI, defaultContractAddresses, addressBinderContractName, validatorRewardManagerContractName } from "./flareContractConstants";
 import { prefix0x, saveUnsignedTxJson } from "./utils";
 
+/**
+ * @description checks if the address is registered with the addressBinder contract
+ * @param ethAddressToCheck
+ * @param network
+ */
 export async function isAddressRegistered(ethAddressToCheck: string, network: string): Promise<boolean> {
 
   const rpcUrl = getRpcUrl(network)
@@ -29,6 +34,10 @@ export async function isAddressRegistered(ethAddressToCheck: string, network: st
   }
 }
 
+/**
+ * @description cregisters address  with the addressBinder contract
+ * @param {RegisterAddressInterface} addressParams
+ */
 export async function registerAddress(addressParams: RegisterAddressInterface) {
   const { publicKey, pAddress, cAddress, network, wallet, derivationPath, pvtKey, transactionId } = addressParams
 
@@ -80,6 +89,13 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
   }
 }
 
+/**
+ * @description submits signed ForDefi txn to the chain
+ * @param id Id of the txn to submit
+ * @param signature signature of the signed txn from ForDefi
+ * @param network
+ * @returns TxnHash
+ */
 export async function submitForDefiTxn(id: string, signature: string, network: string): Promise<string> {
   const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
   const serializedSignedTx = ethers.utils.serializeTransaction(readUnsignedEVMObject(id), prefix0x(signature))
