@@ -1,10 +1,12 @@
 import { prompts } from "./prompts"
 import { taskConstants, walletConstants } from "./screenConstants"
-import { colorCodes } from "./constants"
+import { colorCodes, contextEnv, contextFile } from "./constants"
 import { Command } from 'commander'
 import { cli, initCtxJsonFromOptions } from './cli'
-import { ConnectWalletInterface, ContextFile, DelegationDetailsInterface, DerivedAddress, ScreenConstantsInterface } from './interfaces'
+import { isAddressRegistered, registerAddress } from "./flareContract"
+import { ConnectWalletInterface, Context, ContextFile, DelegationDetailsInterface, DerivedAddress, RegisterAddressInterface, ScreenConstantsInterface } from './interfaces'
 import { getPathsAndAddresses } from './ledger/utils'
+import { compressPublicKey, getUserInput } from "./utils"
 import fs from 'fs'
 
 /***
@@ -100,15 +102,20 @@ export async function interactiveCli(baseargv: string[]) {
 
     // Adding a validator
     else if (Object.keys(taskConstants)[6] == task.toString()) {
-
         if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
-            const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
-            const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
-            if (ctxNetwork && ctxDerivationPath && delegationFee) {
-                const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
-                await program.parseAsync(argsValidator)
-            } else {
-                console.log("Missing values for certain params")
+            const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress,
+                publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
+            if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
+
+                await checkAddressRegistrationLedger(walletProperties.wallet, ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
+
+                const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
+                if (ctxNetwork && ctxDerivationPath && delegationFee) {
+                    const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
+                    await program.parseAsync(argsValidator)
+                } else {
+                    console.log("Missing values for certain params")
+                }
             }
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[1] && fileExists("ctx.json")) {
@@ -116,12 +123,22 @@ export async function interactiveCli(baseargv: string[]) {
             if (ctxNetwork && ctxVaultId && ctxPublicKey) {
                 const isContinue = await prompts.forDefiContinue()
                 if (!isContinue.isContinue) {
-                    const txnId = await prompts.transactionId()
-                    const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
-                    const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "-i", `${txnId.id}`]
-                    await program.parseAsync(argsValidator)
 
-                    const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
+                    const isRegistered: boolean = await checkAddressRegistrationForDefi(ctxNetwork)
+
+                    let txnId
+                    if (isRegistered) {
+                        txnId = await prompts.transactionId()
+                        txnId = txnId.id
+                        const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
+                        const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "-i", `${txnId}`]
+                        await program.parseAsync(argsValidator)
+                    }
+                    else {
+                        txnId = await registerAddressForDefi(walletProperties.wallet, ctxNetwork, ctxPublicKey)
+                    }
+
+                    const argsSign = makeForDefiArguments("sign", baseargv, txnId)
                     await program.parseAsync(argsSign)
                 }
                 else {
@@ -137,6 +154,9 @@ export async function interactiveCli(baseargv: string[]) {
             }
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+
+            await checkAddressRegistrationPrivateKey(walletProperties.wallet, walletProperties.network!, walletProperties.path!)
+
             const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
             const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
             await program.parseAsync(argsValidator)
@@ -150,8 +170,12 @@ export async function interactiveCli(baseargv: string[]) {
     else if (Object.keys(taskConstants)[7] == task.toString()) {
 
         if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
-            const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
-            if (ctxNetwork && ctxDerivationPath) {
+            const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress,
+                publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
+            if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
+
+                await checkAddressRegistrationLedger(walletProperties.wallet, ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
+
                 const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
                 const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
                 await program.parseAsync(argsDelegate)
@@ -164,12 +188,22 @@ export async function interactiveCli(baseargv: string[]) {
             if (ctxNetwork && ctxVaultId && ctxPublicKey) {
                 const isContinue = await prompts.forDefiContinue()
                 if (!isContinue.isContinue) {
-                    const txnId = await prompts.transactionId()
-                    const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
-                    const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "-i", `${txnId.id}`]
-                    await program.parseAsync(argsDelegate)
 
-                    const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
+                    const isRegistered: boolean = await checkAddressRegistrationForDefi(ctxNetwork)
+
+                    let txnId
+                    if (isRegistered) {
+                        txnId = await prompts.transactionId()
+                        txnId = txnId.id
+                        const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
+                        const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "-i", `${txnId}`]
+                        await program.parseAsync(argsDelegate)
+                    }
+                    else {
+                        txnId = await registerAddressForDefi(walletProperties.wallet, ctxNetwork, ctxPublicKey)
+                    }
+
+                    const argsSign = makeForDefiArguments("sign", baseargv, txnId)
                     await program.parseAsync(argsSign)
                 }
                 else {
@@ -185,6 +219,9 @@ export async function interactiveCli(baseargv: string[]) {
             }
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+
+            await checkAddressRegistrationPrivateKey(walletProperties.wallet, walletProperties.network!, walletProperties.path!)
+
             const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
             const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
             await program.parseAsync(argsDelegate)
@@ -281,7 +318,7 @@ async function selectTask(): Promise<keyof ScreenConstantsInterface> {
     return task.task
 }
 
-function fileExists(filePath: string): Boolean {
+function fileExists(filePath: string): boolean {
     try {
         fs.accessSync(filePath, fs.constants.F_OK);
         return true;
@@ -298,10 +335,11 @@ function readInfoFromCtx(filePath: string): ContextFile {
     const publicKey = ctxData.publicKey
     const network = ctxData.network
     const ethAddress = ctxData.ethAddress || undefined
+    const flareAddress = ctxData.flareAddress
     const derivationPath = ctxData.derivationPath || undefined
     const vaultId = ctxData.vaultId || undefined
 
-    return { publicKey, network, ethAddress, derivationPath, vaultId }
+    return { publicKey, network, ethAddress, flareAddress, derivationPath, vaultId }
 
 }
 
@@ -318,7 +356,7 @@ async function createChoicesFromAddress(pathList: DerivedAddress[]) {
 
 async function getCtxStatus(): Promise<boolean> {
     let isCreateCtx = true
-    const isFileExist: Boolean = fileExists("ctx.json");
+    const isFileExist: boolean = fileExists("ctx.json");
 
     if (isFileExist) {
         console.log(`${colorCodes.magentaColor}You already have an existing Ctx file with the following parameters - ${colorCodes.resetColor}`)
@@ -332,7 +370,7 @@ async function getCtxStatus(): Promise<boolean> {
             console.log(`${colorCodes.orangeColor}Vault Id:${colorCodes.resetColor} ${ctxVaultId}`)
         }
         const getUserChoice = await prompts.ctxFile();
-        const isContinue: Boolean = getUserChoice.isContinue
+        const isContinue: boolean = getUserChoice.isContinue
 
         if (isContinue) {
             isCreateCtx = false
@@ -384,4 +422,77 @@ function makeForDefiArguments(txnType: string, baseargv: string[], txnId: string
         return argsSign
     }
     return []
+}
+
+async function checkAddressRegistrationLedger(wallet: string, ctxNetwork: string, ctxDerivationPath: string,
+    ctxCAddress: string, ctxPublicKey: string, ctxPAddress: string) {
+    console.log("Checking Address Registration...")
+    const isRegistered = await isAddressRegistered(ctxCAddress, ctxNetwork)
+    if (!isRegistered) {
+        console.log("Note: You need to register your wallet address before you can delegate your funds")
+        console.log("Please complete this registration transaction to proceed")
+        const registerAddressParams: RegisterAddressInterface = {
+            publicKey: ctxPublicKey,
+            pAddress: ctxPAddress,
+            cAddress: ctxCAddress,
+            network: ctxNetwork,
+            wallet: wallet,
+            derivationPath: ctxDerivationPath
+        };
+        await registerAddress(registerAddressParams)
+        console.log(`${colorCodes.greenColor}Address successfully registered${colorCodes.resetColor}`)
+    }
+}
+
+async function checkAddressRegistrationPrivateKey(wallet: string, ctxNetwork: string, pvtKeyPath: string) {
+
+    const context: Context = contextEnv(pvtKeyPath, ctxNetwork)
+    console.log("Checking Address Registration...")
+    const isRegistered = await isAddressRegistered(context.cAddressHex!, ctxNetwork)
+    if (!isRegistered) {
+        console.log("Note: You need to register your wallet address before you can delegate your funds")
+        console.log("Please complete this registration transaction to proceed")
+
+        const [pubX, pubY] = context.publicKey!
+        const compressedPubKey = compressPublicKey(pubX, pubY).toString('hex')
+        const registerAddressParams: RegisterAddressInterface = {
+            publicKey: compressedPubKey,
+            pAddress: context.pAddressBech32!,
+            cAddress: context.cAddressHex!,
+            network: ctxNetwork,
+            wallet: wallet,
+            pvtKey: context.privkHex
+        };
+        const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
+        if (response == 'Y' || response == 'y') {
+            await registerAddress(registerAddressParams)
+        }
+
+        console.log(`${colorCodes.greenColor}Address successfully registered${colorCodes.resetColor}`)
+    }
+}
+
+async function registerAddressForDefi(wallet: string, ctxNetwork: string, ctxPublicKey: string): Promise<string> {
+
+    console.log("Note: You need to register your wallet address before you can delegate your funds")
+    console.log("Please complete this registration transaction to proceed")
+    const txnId = await prompts.transactionId()
+    const context: Context = contextFile("ctx.json")
+    const registerAddressParams: RegisterAddressInterface = {
+        publicKey: ctxPublicKey,
+        pAddress: context.pAddressBech32!,
+        cAddress: context.cAddressHex!,
+        network: ctxNetwork,
+        wallet: wallet,
+        transactionId: txnId.id
+    };
+    await registerAddress(registerAddressParams)
+    return txnId.id
+}
+
+async function checkAddressRegistrationForDefi(ctxNetwork: string): Promise<boolean> {
+    const context: Context = contextFile("ctx.json")
+    console.log("Checking Address Registration...")
+    const isRegistered = await isAddressRegistered(context.cAddressHex!, ctxNetwork)
+    return isRegistered
 }

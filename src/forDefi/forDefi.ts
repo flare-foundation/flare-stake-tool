@@ -18,7 +18,7 @@ const gatewayHost = "api.fordefi.com"
  */
 export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, withdrawal: boolean = false, _getVaultPublickey = getVaultPublickey): Promise<string> {
 
-    const accessToken = readFileSync("../token", 'utf8');
+    const accessToken = readFileSync("./token", 'utf8');
     const file = readFileSync(ctxFile, 'utf8');
     const ctx = JSON.parse(file) as ContextFile;
 
@@ -57,7 +57,7 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, w
     const timestamp = new Date().getTime();
     const payload = `${path}|${timestamp}|${requestBody}`;
 
-    const privateKeyFile = "../private.pem"
+    const privateKeyFile = "./private.pem"
     const secretPem = readFileSync(privateKeyFile, 'utf8');
     const privateKey = crypto.createPrivateKey(secretPem);
     const sign = crypto.createSign('SHA256').update(payload, 'utf8').end();
@@ -92,7 +92,7 @@ export async function sendToForDefi(unsignedTxidFile: string, ctxFile: string, w
 export async function getSignature(unsignedTxidFile: string, withdrawal: boolean = false): Promise<string> {
 
     const path = "/api/v1/transactions"
-    const accessToken = readFileSync("../token", 'utf8');
+    const accessToken = readFileSync("./token", 'utf8');
 
     let txidObj: UnsignedTxJson | UnsignedWithdrawalTxJson;
     let signedTxObj: SignedTxJson | SignedWithdrawalTxJson;
@@ -139,7 +139,7 @@ export async function getSignature(unsignedTxidFile: string, withdrawal: boolean
 export async function getVaultPublickey(vaultId: string): Promise<string> {
 
     const path = "/api/v1/vaults"
-    const accessToken = readFileSync("../token", 'utf8');
+    const accessToken = readFileSync("./token", 'utf8');
 
     let response = await fetch(`https://${gatewayHost}${path}/${vaultId}`, {
         method: 'GET',
