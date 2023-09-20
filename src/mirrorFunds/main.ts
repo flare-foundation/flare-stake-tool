@@ -1,8 +1,8 @@
 import { ethers } from 'ethers';
 import { Context } from '../interfaces';
-import { rpcFromNetwork, pChainStakeMirrorContractFromNetwork, DelegatedAmount } from './constants';
+import { rpcFromNetwork, pChainStakeMirrorContractFromNetwork, DelegatedAmount, pChainStakeMirrorABI } from './constants';
 import { integerToDecimal } from '../utils';
-import  abi from "./pChainStakeMirrorABI.json"
+
 
 // creates contract instance
 const getContractInstance = async (
@@ -19,14 +19,14 @@ const getContractInstance = async (
 const getPChainMirrorContractInstance = async (ctx: Context): Promise<ethers.Contract> => {
   const rpcUrl = rpcFromNetwork(ctx.config.hrp);
   const mirrorContractAddress = pChainStakeMirrorContractFromNetwork(ctx.config.hrp);
-  const contractInstance = await getContractInstance(mirrorContractAddress, abi, rpcUrl);
+  const contractInstance = await getContractInstance(mirrorContractAddress, pChainStakeMirrorABI, rpcUrl);
   return contractInstance;
 };
 
 // fetches staked amount from the mirror contract
 const fetchStakedAmount = async (ctx: Context) => {
   const pMirrorContract = await getPChainMirrorContractInstance(ctx);
-  const stakedAmount = await pMirrorContract.stakesOf('0x220D9Fd0eD124daC000FA4fa6F05C83965d4B600');
+  const stakedAmount = await pMirrorContract.stakesOf(ctx.cAddressHex);
   return stakedAmount[1].length == 0 ? 0 : parseInt(stakedAmount[1]);
 };
 
