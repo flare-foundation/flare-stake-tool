@@ -97,10 +97,10 @@ dist
 **/*/*unsignedTx.json
 **/*/*signedTx.json
 ctx*.json
-forDefiTxnFiles/
 
 # fordefi
 private.pem
 token
+ForDefiTxnFiles/
 
 --get-hacked

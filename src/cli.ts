@@ -16,6 +16,8 @@ import { getSignature, sendToForDefi } from './forDefi/forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
 import { colorCodes } from "./constants"
+import { submitForDefiTxn } from './flareContract'
+import { registerAddressName } from './flareContractConstants'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -408,7 +410,13 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
   if (isAlreadySentToChain(id)) {
     throw new Error("Tx already sent to chain")
   }
-  const chainTxId = await sendSignedTxJson(ctx, readSignedTxJson(id))
+  const signedTxnJson = readSignedTxJson(id)
+  let chainTxId
+  if (signedTxnJson.transactionType === registerAddressName) {
+    chainTxId = await submitForDefiTxn(id, signedTxnJson.signature, ctx.config.hrp)
+  } else {
+    chainTxId = await sendSignedTxJson(ctx, signedTxnJson)
+  }
   addFlagForSentSignedTx(id)
   logSuccess(`Signed transaction ${id} with id ${chainTxId} sent to the node`)
 }
