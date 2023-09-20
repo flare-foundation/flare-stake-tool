@@ -16,6 +16,7 @@ import { getSignature, sendToForDefi } from './forDefi/forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
 import { colorCodes } from "./constants"
+import {fetchMirrorFunds} from "./mirrorFunds/main"
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -53,6 +54,8 @@ export async function cli(program: Command) {
         logNetworkInfo(ctx)
       } else if (type == 'validators') {
         await logValidatorInfo(ctx)
+      } else if (type == 'mirror'){
+        await logMirrorFundInfo(ctx)
       } else {
         logError(`Unknown information type ${type}`)
       }
@@ -379,6 +382,16 @@ export async function logValidatorInfo(ctx: Context) {
   logInfo(`Validators on the network "${ctx.config.hrp}"`)
   log(`pending: ${fpending}`)
   log(`current: ${fcurrent}`)
+}
+
+/**
+ * @description Logs mirror fund details
+ * @param ctx - context
+ */
+export async function logMirrorFundInfo(ctx: Context) {
+  const mirroFundDetails  = await fetchMirrorFunds(ctx)
+  logInfo(`Mirror fund details on the network "${ctx.config.hrp}"`)
+  log(`${JSON.stringify(mirroFundDetails, null, 2)}`)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

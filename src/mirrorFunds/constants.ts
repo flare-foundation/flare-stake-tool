@@ -31,6 +31,8 @@ export const rpcFromNetwork = (network: string) => {
   }
 };
 
-export const stakeOfABI = [
-  'function stakesOf(address _owner) external view returns (bytes20[] memory _nodeIds, uint256[] memory _amounts)'
-];
+export type DelegatedAmount = {
+  stakeAmount: number,
+  startTime: number,
+  endTime: number
+}
