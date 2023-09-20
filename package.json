@@ -59,7 +59,6 @@
     "@avalabs/hw-app-avalanche": "^0.10.1",
     "@flarenetwork/flarejs": "1.2.1",
     "@ledgerhq/hw-transport-node-hid": "^6.0.0",
-    "avalanche": "^3.16.0",
     "bech32": "^2.0.0",
     "chalk": "4.1.2",
     "clear": "^0.1.0",
