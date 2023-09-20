@@ -20,6 +20,7 @@ import { walletConstants } from "./screenConstants";
  */
 export async function isAddressRegistered(ethAddressToCheck: string, network: string): Promise<boolean> {
 
+  console.log("Checking Address Registration...")
   const rpcUrl = getRpcUrl(network)
   const addressBinderContractAddress = await getContractAddress(network, addressBinderContractName)
   const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
@@ -45,6 +46,7 @@ export async function isAddressRegistered(ethAddressToCheck: string, network: st
  */
 export async function isUnclaimedReward(ethAddressToCheck: string, network: string): Promise<boolean> {
 
+  console.log("Checking your Rewards status...")
   const rpcUrl = getRpcUrl(network)
   const validatorRewardManagerContractAddress = await getContractAddress(network, validatorRewardManagerContractName)
   const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
@@ -200,4 +202,4 @@ function saveUnsignedEVMObject(unsignedTx: Object, id: string): void {
   fs.writeFileSync(fname, serialization)
 }
 
-isUnclaimedReward("0x81779A06EAd1AFAfe3e3E361cfE10e7119f68F61", "costwo")
+// isUnclaimedReward("0x81779A06EAd1AFAfe3e3E361cfE10e7119f68F61", "costwo")
