@@ -3,7 +3,7 @@ import {
   getUnsignedAddDelegator,
   addDelegator
 } from '../../../src/transaction/addDelegator';
-import { contextEnv } from '../../../src/constants';
+import { contextEnv, maxAllowedDelegation } from '../../../src/constants';
 import { Context } from '../../../src/interfaces';
 import fixtures from '../../fixtures/addDelegate.data';
 import { tranferFundsFromCtoP } from '../../helper/testHelpers';
@@ -132,6 +132,24 @@ describe('addDelegate Testcases', () => {
         inputObject.endTime
       );
       expect(result).toEqual({ txid: 'mockedTxId' });
+      jest.clearAllMocks();
+    });
+
+    test('Should throw error for delegating more than 3 times', async () => {
+      const inputObject = fixtures.getUnsignedAddDelegator.insufficientBalance;
+      let ctx: Context = contextEnv('.env', 'localflare');
+      const utils = require('../../../src/utils');
+      const spy = jest.spyOn(utils, 'delegationAddressCount');
+      spy.mockReturnValue(maxAllowedDelegation + 1);
+      await expect(
+        addDelegator(
+          ctx,
+          inputObject.nodeID,
+          inputObject.stakeAmount,
+          inputObject.startTime,
+          inputObject.endTime
+        )
+      ).rejects.toThrowError(`Exceeded maximum allowed delegation of ${maxAllowedDelegation}`);
       jest.clearAllMocks();
     });
   });

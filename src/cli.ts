@@ -4,7 +4,7 @@ import { contextEnv, contextFile, getContext, networkFromContextFile } from './c
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
-  getUserInput, validatePublicKey, addFlagForSentSignedTx, isAlreadySentToChain
+  getUserInput, validatePublicKey, addFlagForSentSignedTx, isAlreadySentToChain, delegationAddressCount
 } from './utils'
 import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './transaction/evmAtomicTx'
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './transaction/pvmAtomicTx'
@@ -421,10 +421,15 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
   logSuccess(`Signed transaction ${id} with id ${chainTxId} sent to the node`)
 }
 
-async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
-  const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
-  if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} FLR`)
-  logSuccess(`Transaction with id ${txid} built and sent to the network`)
+async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams): Promise<void> {
+  try{
+    const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
+    if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} FLR`)
+    logSuccess(`Transaction with id ${txid} built and sent to the network`)
+  }
+  catch(error: any){
+    logError(error.message as string)
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
