@@ -6,7 +6,10 @@ import { ledgerSign } from "./ledger/sign";
 import fs from 'fs'
 import { colorCodes, getConfig, forDefiDirectory, forDefiUnsignedTxnDirectory } from "./constants"
 import { NetworkConfig } from "./config";
-import { getAddressBinderABI, getFlareContractRegistryABI, defaultContractAddresses, addressBinderContractName, validatorRewardManagerContractName, registerAddressName } from "./flareContractConstants";
+import {
+  getAddressBinderABI, getFlareContractRegistryABI, defaultContractAddresses, addressBinderContractName,
+  validatorRewardManagerContractName, registerAddressName, getValidatorRewardManagerABI
+} from "./flareContractConstants";
 import { prefix0x, saveUnsignedTxJson } from "./utils";
 import { walletConstants } from "./screenConstants";
 
@@ -31,6 +34,34 @@ export async function isAddressRegistered(ethAddressToCheck: string, network: st
     return true;
   } else {
     console.log(`${colorCodes.redColor}No address found for key ${ethAddressToCheck}${colorCodes.resetColor}`);
+    return false;
+  }
+}
+
+/**
+ * @description checks if there are any unclaimed rewards with the validatorRewardManager contract
+ * @param ethAddressToCheck
+ * @param network
+ */
+export async function isUnclaimedReward(ethAddressToCheck: string, network: string): Promise<boolean> {
+
+  const rpcUrl = getRpcUrl(network)
+  const validatorRewardManagerContractAddress = await getContractAddress(network, validatorRewardManagerContractName)
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+
+  const abi = getValidatorRewardManagerABI() as ethers.ContractInterface
+  const contract = new ethers.Contract(validatorRewardManagerContractAddress, abi, provider);
+
+  const rewards = await contract.getStateOfRewards(ethAddressToCheck);
+
+  const totalRewardNumber: BigNumber = rewards[0]
+  const claimedRewardNumber: BigNumber = rewards[1]
+
+  if (totalRewardNumber.gt(claimedRewardNumber)) {
+    console.log(`${colorCodes.greenColor}You have unclaimed rewards worth ${totalRewardNumber.sub(claimedRewardNumber)}${colorCodes.resetColor}`);
+    return true;
+  } else {
+    console.log(`${colorCodes.redColor}No unclaimed rewards found ${colorCodes.resetColor}`);
     return false;
   }
 }
@@ -168,3 +199,5 @@ function saveUnsignedEVMObject(unsignedTx: Object, id: string): void {
   fs.mkdirSync(`${forDefiDirectory}/${forDefiUnsignedTxnDirectory}`, { recursive: true })
   fs.writeFileSync(fname, serialization)
 }
+
+isUnclaimedReward("0x81779A06EAd1AFAfe3e3E361cfE10e7119f68F61", "costwo")
