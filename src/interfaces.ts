@@ -135,3 +135,14 @@ export interface RegisterAddressInterface {
   derivationPath?: string
   pvtKey?: string
 }
+
+/**
+ * Represents constant used to store values for contract addresses
+ * @interface ContractAddressesInterface
+ */
+export interface ContractAddressesInterface {
+  [contractName: string]: {
+    flare: string;
+    costwo: string;
+  }
+}

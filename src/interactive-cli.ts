@@ -106,7 +106,9 @@ export async function interactiveCli(baseargv: string[]) {
             const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress,
                 publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
             if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
+
                 await checkAddressRegistrationLedger(ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
+
                 const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
                 if (ctxNetwork && ctxDerivationPath && delegationFee) {
                     const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
@@ -142,6 +144,9 @@ export async function interactiveCli(baseargv: string[]) {
             }
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+
+            await checkAddressRegistrationPrivateKey(walletProperties.network!, walletProperties.path!)
+
             const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(taskConstants[task])
             const argsValidator = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, '--delegation-fee', `${delegationFee}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
             await program.parseAsync(argsValidator)
@@ -158,7 +163,9 @@ export async function interactiveCli(baseargv: string[]) {
             const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress,
                 publicKey: ctxPublicKey, flareAddress: ctxPAddress } = readInfoFromCtx("ctx.json")
             if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
+
                 await checkAddressRegistrationLedger(ctxNetwork, ctxDerivationPath, ctxCAddress, ctxPublicKey, ctxPAddress)
+
                 const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
                 const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
                 await program.parseAsync(argsDelegate)
@@ -192,7 +199,9 @@ export async function interactiveCli(baseargv: string[]) {
             }
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+
             await checkAddressRegistrationPrivateKey(walletProperties.network!, walletProperties.path!)
+
             const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(taskConstants[task])
             const argsDelegate = [...baseargv.slice(0, 2), "transaction", taskConstants[task], '-n', `${nodeId}`, `--network=${walletProperties.network}`, '-a', `${amount}`, '-s', `${startTime}`, '-e', `${endTime}`, `--env-path=${walletProperties.path}`, "--get-hacked"]
             await program.parseAsync(argsDelegate)
