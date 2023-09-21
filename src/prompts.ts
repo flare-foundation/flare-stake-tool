@@ -47,12 +47,12 @@ export const prompts = {
         return inquirer.prompt(questions);
     },
 
-    amount: async () => {
+    amount: async (amountPurpose: string = "") => {
         const questions = [
             {
                 type: 'input',
                 name: 'amount',
-                message: `${colorCodes.magentaColor}Enter amount ${colorCodes.yellowColor}(in FLR)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+                message: `${colorCodes.magentaColor}Enter amount ${amountPurpose}${colorCodes.yellowColor}(in FLR)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
             },
         ];
         return inquirer.prompt(questions);

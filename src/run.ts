@@ -4,8 +4,10 @@ import { logError } from './output'
 import figlet from 'figlet'
 import chalk from 'chalk'
 import clear from 'clear'
-import { interactiveCli } from "./interactive-cli"
-import { emojis } from './constants'
+import { interactiveCli } from './interactive-cli'
+import { emojis } from "./constants"
+import { version } from '../package.json'
+
 
 clear();
 console.log(
@@ -13,6 +15,7 @@ console.log(
         figlet.textSync('Flare Stake CLI')
     )
 );
+console.log(chalk.green(`Version: ${version}`))
 
 const baseArgv = process.argv
 const command = baseArgv[2]
@@ -40,11 +43,12 @@ function getArgv() {
 }
 
 if (command == 'interactive' || command == "-i") {
-    interactiveCli(baseArgv).then(() => { console.log(`Finished execution${emojis.happy}${emojis.happy}`) })
+    interactiveCli(baseArgv).then(() => {
+        console.log(`Finished execution${emojis.happy}${emojis.happy}`)
+    })
 }
 else {
     const program = new Command("Flare Stake Tool")
-
     cli(program).then(() => {
         program.parseAsync(getArgv()).catch(err => {
             if (err instanceof Error) {
