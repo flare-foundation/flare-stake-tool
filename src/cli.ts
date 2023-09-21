@@ -24,6 +24,13 @@ const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
 const MAX_TRANSCTION_FEE = FLR
 
+// mapping from network to symbol
+const networkTokenSymbol: { [index: string]: string } = {
+  "flare": "FLR",
+  "costwo": "CFLR",
+  "localflare": "LFLR"
+}
+
 export async function cli(program: Command) {
   // global configurations
   program
@@ -33,6 +40,12 @@ export async function cli(program: Command) {
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
     .option("--env-path <path>", "Path to the .env file")
+  // interactive mode
+  program
+    .command("interactive").description("Interactive mode")
+    .action(async () => {
+      // this will never run, here just for --help display
+    })
   // context setup
   program
     .command("init-ctx").description("Initialize context file")
@@ -44,7 +57,7 @@ export async function cli(program: Command) {
   // information about the network
   program
     .command("info").description("Relevant information")
-    .argument("<type>", "Type of information")
+    .argument("<addresses|balance|network|validators>", "Type of information")
     .action(async (type: string) => {
       const options = getOptions(program, program.opts())
       const ctx = await contextFromOptions(options)
@@ -64,8 +77,8 @@ export async function cli(program: Command) {
     })
   // transaction construction and sending
   program
-    .command("transaction").description("Move funds from one chain to another")
-    .argument("<type>", "Type of a crosschain transaction")
+    .command("transaction").description("Move funds from one chain to another, stake, and delegate")
+    .argument("<importCP|exportCP|importPC|exportPC|delegate|stake>", "Type of a crosschain transaction")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-a, --amount <amount>", "Amount to transfer")
     .option("-f, --fee <fee>", "Transaction fee")
@@ -103,7 +116,7 @@ export async function cli(program: Command) {
   // forDefi signing
   program
     .command("forDefi").description("Sign with ForDefi")
-    .argument("<type>", "Type of a forDefi transaction")
+    .argument("<sign|fetch>", "Type of a forDefi transaction")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("--withdrawal", "Withdrawing funds from c-chain")
     .action(async (type: string, options: OptionValues) => {
@@ -354,9 +367,10 @@ export async function logBalanceInfo(ctx: Context) {
   let pbalance = (toBN((await ctx.pchain.getBalance(ctx.pAddressBech32!)).balance))!.toString()
   cbalance = integerToDecimal(cbalance, 18)
   pbalance = integerToDecimal(pbalance, 9)
+  const symbol = networkTokenSymbol[ctx.config.hrp]
   logInfo(`Balances on the network "${ctx.config.hrp}"`)
-  log(`C-chain ${ctx.cAddressHex}: ${cbalance} FLR`)
-  log(`P-chain ${ctx.pAddressBech32}: ${pbalance} FLR`)
+  log(`C-chain ${ctx.cAddressHex}: ${cbalance} ${symbol}`)
+  log(`P-chain ${ctx.pAddressBech32}: ${pbalance} ${symbol}`)
 }
 
 /**
@@ -416,7 +430,7 @@ async function cliBuildUnsignedTxJson(transactionType: string, ctx: Context, id:
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
   capFeeAt(MAX_TRANSCTION_FEE, unsignedTxJson.usedFee, params.fee)
   saveUnsignedTxJson(unsignedTxJson, id)
-  logSuccess(`Unsigned transaction with id ${id} constructed`)
+  logSuccess(`Unsigned transaction with hash ${id} constructed`)
 }
 
 async function cliSendSignedTxJson(ctx: Context, id: string) {
@@ -431,18 +445,14 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
     chainTxId = await sendSignedTxJson(ctx, signedTxnJson)
   }
   addFlagForSentSignedTx(id)
-  logSuccess(`Signed transaction ${id} with id ${chainTxId} sent to the node`)
+  logSuccess(`Signed transaction ${id} with hash ${chainTxId} sent to the node`)
 }
 
-async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams): Promise<void> {
-  try {
-    const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
-    if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} FLR`)
-    logSuccess(`Transaction with id ${txid} built and sent to the network`)
-  }
-  catch (error: any) {
-    logError(error.message as string)
-  }
+async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
+  const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
+  const symbol = networkTokenSymbol[ctx.config.hrp]
+  if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} ${symbol}`)
+  logSuccess(`Transaction with hash ${txid} built and sent to the network`)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -450,7 +460,7 @@ async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Co
 
 async function signForDefi(transaction: string, ctx: string, withdrawal: boolean = false) {
   const txid = await sendToForDefi(transaction, ctx, withdrawal)
-  logSuccess(`Transaction with id ${txid} sent to the node`)
+  logSuccess(`Transaction with hash ${txid} sent to the node`)
 }
 
 async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) {
