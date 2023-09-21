@@ -450,8 +450,9 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
 
 async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
   const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
-  if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} FLR`)
-  logSuccess(`Transaction with id ${txid} built and sent to the network`)
+  const symbol = networkTokenSymbol[ctx.config.hrp]
+  if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} ${symbol}`)
+  logSuccess(`Transaction with hash ${txid} built and sent to the network`)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
