@@ -18,7 +18,7 @@ import { log, logError, logInfo, logSuccess } from './output'
 import { colorCodes } from "./constants"
 import {fetchMirrorFunds} from "./mirrorFunds/main"
 import { submitForDefiTxn } from './flareContract'
-import { registerAddressName } from './flareContractConstants'
+import { contractTransactionName } from './flareContractConstants'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -425,7 +425,7 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
   }
   const signedTxnJson = readSignedTxJson(id)
   let chainTxId
-  if (signedTxnJson.transactionType === registerAddressName) {
+  if (signedTxnJson.transactionType === contractTransactionName) {
     chainTxId = await submitForDefiTxn(id, signedTxnJson.signature, ctx.config.hrp)
   } else {
     chainTxId = await sendSignedTxJson(ctx, signedTxnJson)
@@ -435,12 +435,12 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
 }
 
 async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams): Promise<void> {
-  try{
+  try {
     const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
     if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} FLR`)
     logSuccess(`Transaction with id ${txid} built and sent to the network`)
   }
-  catch(error: any){
+  catch (error: any) {
     logError(error.message as string)
   }
 }

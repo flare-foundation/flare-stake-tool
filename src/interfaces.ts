@@ -123,12 +123,26 @@ export interface DelegationDetailsInterface {
 }
 
 /**
- * Represents the wallet params sent to the registerAddressFunction
+ * Represents the wallet params sent to the registerAddress Function
  * @interface RegisterAddressInterface
  */
 export interface RegisterAddressInterface {
   publicKey: string,
   pAddress: string,
+  cAddress: string,
+  network: string,
+  wallet: string,
+  derivationPath?: string
+  pvtKey?: string
+  transactionId?: string
+}
+
+/**
+ * Represents the wallet params sent to the claimRewards Function
+ * @interface ClaimRewardsInterface
+ */
+export interface ClaimRewardsInterface {
+  claimAmount:string,
   cAddress: string,
   network: string,
   wallet: string,
