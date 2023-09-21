@@ -235,8 +235,24 @@ export async function interactiveCli(baseargv: string[]) {
         }
     }
 
+    // Mirror funds
+    else if (Object.keys(taskConstants)[8] == (task.toString())) {
+
+        if (walletProperties.wallet == Object.keys(walletConstants)[0] || walletProperties.wallet == Object.keys(walletConstants)[1]) {
+            const argsInfo = [...baseargv.slice(0, 2), "info", taskConstants[task], `--ctx-file=ctx.json`]
+            await program.parseAsync(argsInfo)
+        }
+        else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.path && walletProperties.network) {
+            const argsInfo = [...baseargv.slice(0, 2), "info", taskConstants[task], `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+            await program.parseAsync(argsInfo)
+        }
+        else {
+            console.log("Incorrect arguments passed!")
+        }
+    }
+
     // Claim Rewards
-    else if (Object.keys(taskConstants)[8] == task.toString()) {
+    else if (Object.keys(taskConstants)[9] == task.toString()) {
         if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
             const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress } = readInfoFromCtx("ctx.json")
             const isUnclaimed = await isUnclaimedReward(ctxCAddress!, ctxNetwork)
