@@ -182,7 +182,7 @@ export function context(
   if (privkHex) {
     const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
     const _cAddressHex = cAccount.address.toLowerCase()
-    if (cAddressHex && cAddressHex !== _cAddressHex) {
+    if (cAddressHex && cAddressHex.toLowerCase() !== _cAddressHex) {
       throw Error('c-chain address does not match private key')
     }
     cAddressHex = _cAddressHex

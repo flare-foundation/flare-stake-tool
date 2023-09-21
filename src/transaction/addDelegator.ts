@@ -9,6 +9,13 @@ type AddDelegatorParams = [
   string[], BN, number, Buffer | undefined, BN
 ]
 
+
+async function checkMaximumAllowedDelegation(ctx: Context){
+  const numberOfDelegation = await delegationAddressCount(ctx);
+  if(numberOfDelegation > maxAllowedDelegation){
+    throw new Error(`Exceeded maximum allowed delegation of ${maxAllowedDelegation}`)
+  }
+}
 /**
  * @description - Delegate funds to a given validator
  * @param ctx - context with constants initialized from user keys
@@ -25,10 +32,7 @@ export async function addDelegator(
   endTime: BN,
   threshold?: number
 ) {
-  const numberOfDelegation = await delegationAddressCount(ctx);
-  if(numberOfDelegation > maxAllowedDelegation){
-    throw new Error(`Exceeded maximum allowed delegation of ${maxAllowedDelegation}`)
-  }
+  await checkMaximumAllowedDelegation(ctx)
   const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddDelegatorTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
@@ -52,6 +56,7 @@ export async function getUnsignedAddDelegator(
   endTime: BN,
   threshold?: number
 ): Promise<UnsignedTxJson> {
+  await checkMaximumAllowedDelegation(ctx)
   const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddDelegatorTx(...params)
   return {
@@ -79,6 +84,7 @@ export async function getAddDelegatorParams(
   endTime: BN,
   threshold: number = 1
 ): Promise<AddDelegatorParams> {
+  await checkMaximumAllowedDelegation(ctx)
   const locktime: BN = new BN(0)
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32!)
