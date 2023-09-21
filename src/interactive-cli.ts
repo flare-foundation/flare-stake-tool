@@ -13,7 +13,7 @@ import { getPathsAndAddresses } from './ledger/utils'
 import { compressPublicKey, getUserInput } from "./utils"
 import fs from 'fs'
 import { BN } from '@flarenetwork/flarejs/dist'
-import exp from "constants"
+
 
 /***
  * @description Handles all operations pertaining to the interactive CLL. Creates a list of arguments and internally calls the comamnder based CLI after taking the relevant inputs from the user.
