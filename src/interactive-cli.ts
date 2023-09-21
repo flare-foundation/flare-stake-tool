@@ -8,7 +8,9 @@ import { ConnectWalletInterface, Context, ContextFile, DelegationDetailsInterfac
 import { getPathsAndAddresses } from './ledger/utils'
 import { compressPublicKey, getUserInput } from "./utils"
 import fs from 'fs'
-
+import { BN } from '@flarenetwork/flarejs/dist'
+import { UnsignedTx, Tx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
+import { costImportTx, costExportTx } from "@flarenetwork/flarejs/dist/utils"
 /***
  * @description Handles all operations pertaining to the interactive CLL. Creates a list of arguments and internally calls the comamnder based CLI after taking the relevant inputs from the user.
  * @param baseargv List of base arguments passed to the application to invoke the interactive CLI
@@ -17,7 +19,6 @@ import fs from 'fs'
 export async function interactiveCli(baseargv: string[]) {
     const walletProperties: ConnectWalletInterface = await connectWallet()
     const task = await selectTask()
-
     const program = new Command("Flare Stake Tool")
     await cli(program)
 
@@ -44,7 +45,8 @@ export async function interactiveCli(baseargv: string[]) {
             const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
             if (ctxNetwork && ctxDerivationPath) {
                 const amount = await prompts.amount()
-                const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
+                const fees = await prompts.fees();
+                const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, '-f', `${fees.fees}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
                 console.log("Please approve export transaction")
                 await program.parseAsync(argsExport)
                 const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
@@ -64,7 +66,8 @@ export async function interactiveCli(baseargv: string[]) {
                     const txnId = await prompts.transactionId()
                     if (txnType.txn.includes("Export")) {
                         const amount = await prompts.amount()
-                        const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "-i", `${txnId.id}`]
+                        const fees = await prompts.fees();
+                        const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, '-f', `${fees.fees}`, "-i", `${txnId.id}`]
                         await program.parseAsync(argsExport)
                     }
                     else if (txnType.txn.includes("Import")) {
@@ -87,7 +90,9 @@ export async function interactiveCli(baseargv: string[]) {
             }
         }
         else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
-            const amount = await prompts.amount()
+            const amount = await prompts.amount();
+            const baseFees = await getBaseFeesForImportPCPrivateKey()
+            const fees = await prompts.fees(baseFees);
             const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
             console.log("Please approve export transaction")
             await program.parseAsync(argsExport)
@@ -495,4 +500,27 @@ async function checkAddressRegistrationForDefi(ctxNetwork: string): Promise<bool
     console.log("Checking Address Registration...")
     const isRegistered = await isAddressRegistered(context.cAddressHex!, ctxNetwork)
     return isRegistered
+}
+
+async function getBaseFeesForImportPCPrivateKey() {
+    type ImportPCParams = [UTXOSet, string, string[], string, string[], BN]
+    const ctx: Context = contextFile("ctx.json")
+    const baseFeeResponse: string = await ctx.cchain.getBaseFee()
+    const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
+    const evmUTXOResponse: any = await ctx.cchain.getUTXOs(
+        [ctx.cAddressBech32!],
+        ctx.pChainBlockchainID
+    )
+    const utxoSet: UTXOSet = evmUTXOResponse.utxos
+    const params: ImportPCParams = [
+        utxoSet,
+        ctx.cAddressHex!,
+        [ctx.cAddressBech32!],
+        ctx.pChainBlockchainID,
+        [ctx.cAddressBech32!],
+        baseFee
+    ]
+    const unsignedTx = await ctx.cchain.buildImportTx(...params)
+    const importCost = costImportTx(unsignedTx)
+    return importCost.toString()
 }

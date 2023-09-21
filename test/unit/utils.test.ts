@@ -30,7 +30,7 @@ import {
   readUnsignedTxJson,
   readSignedTxJson,
   addFlagForSentSignedTx,
-  isAlreadySentToChain
+  isAlreadySentToChain,
 } from '../../src/utils';
 import {
   saveUnsignedWithdrawalTx,

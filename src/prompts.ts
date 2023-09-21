@@ -58,6 +58,17 @@ export const prompts = {
         return inquirer.prompt(questions);
     },
 
+    fees: async (baseFees?: unknown) => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'fees',
+                message: `${colorCodes.magentaColor}Enter fees ${colorCodes.yellowColor}(Current fees in FLR: ${(baseFees)})${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
     nodeId: async () => {
         const questions = [
             {
