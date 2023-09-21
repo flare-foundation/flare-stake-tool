@@ -1,4 +1,4 @@
-import { RegisterAddressInterface, UnsignedTxJson } from "./interfaces";
+import { ClaimRewardsInterface, RegisterAddressInterface, UnsignedTxJson } from "./interfaces";
 import { SignatureRequest } from "@flarenetwork/flarejs/dist/common"
 import { bech32 } from "bech32";
 import { BigNumber, ethers } from "ethersV5";
@@ -8,7 +8,7 @@ import { colorCodes, getConfig, forDefiDirectory, forDefiUnsignedTxnDirectory } 
 import { NetworkConfig } from "./config";
 import {
   getAddressBinderABI, getFlareContractRegistryABI, defaultContractAddresses, addressBinderContractName,
-  validatorRewardManagerContractName, registerAddressName, getValidatorRewardManagerABI
+  validatorRewardManagerContractName, contractTransactionName, getValidatorRewardManagerABI
 } from "./flareContractConstants";
 import { prefix0x, saveUnsignedTxJson } from "./utils";
 import { walletConstants } from "./screenConstants";
@@ -88,7 +88,7 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
 
   const pAddr = prefix0x(Buffer.from(bech32.fromWords(bech32.decode(pAddress.slice(2)).words)).toString('hex'));
   const publicKeyPrefixed = prefix0x(publicKey)
-  const gasEstimate = await contract.estimateGas.registerAddresses(publicKeyPrefixed, pAddr, cAddress);
+  const gasEstimate = await contract.estimateGas.registerAddresses(publicKeyPrefixed, pAddr, cAddress, { from: cAddress });
   const gasPrice = await provider.getGasPrice();
 
   const populatedTx = await contract.populateTransaction.registerAddresses(publicKeyPrefixed, pAddr, cAddress);
@@ -108,6 +108,7 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
     if (!derivationPath) throw new Error("No derivation path passed")
     const sign = await ledgerSign(unsignedTxObj, derivationPath)
     const serializedSignedTx = ethers.utils.serializeTransaction(unsignedTx, prefix0x(sign.signature))
+    console.log("Submitting txn to the chain")
     await contract.provider.sendTransaction(serializedSignedTx)
   }
   else if (wallet === Object.keys(walletConstants)[1]) {
@@ -122,6 +123,62 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
     await contract.provider.sendTransaction(signedTx)
   }
 }
+
+/**
+ * @description claims rewards from the ValidatorRewardManager Contract
+ * @param {ClaimRewardsInterface} rewardsParams
+ */
+export async function claimRewards(rewardsParams: ClaimRewardsInterface) {
+  const { claimAmount, cAddress, network, wallet, derivationPath, pvtKey, transactionId } = rewardsParams
+
+  const rpcUrl = getRpcUrl(network)
+  const validatorRewardManagerContractAddress = await getContractAddress(network, validatorRewardManagerContractName)
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+
+  const abi = getValidatorRewardManagerABI() as ethers.ContractInterface
+  const contract = new ethers.Contract(validatorRewardManagerContractAddress, abi, provider);
+
+  const checksumAddress = ethers.utils.getAddress(cAddress);
+  const nonce = await provider.getTransactionCount(checksumAddress);
+  const config: NetworkConfig = getConfig(network)
+  const rewardAmount: BigNumber = BigNumber.from(claimAmount).mul(ethers.constants.WeiPerEther)
+
+  const gasEstimate = await contract.estimateGas.claim(cAddress, cAddress, rewardAmount, false, { from: cAddress })
+  const gasPrice = await provider.getGasPrice();
+
+  const populatedTx = await contract.populateTransaction.claim(cAddress, cAddress, rewardAmount, false)
+  const unsignedTx = {
+    ...populatedTx,
+    nonce,
+    chainId: config.networkID,
+    gasPrice,
+    gasLimit: gasEstimate
+  }
+
+  const serializedUnsignedTx = ethers.utils.serializeTransaction(unsignedTx);
+  const txHash = ethers.utils.keccak256(serializedUnsignedTx);
+  const unsignedTxObj = createUnsignedJsonObject(txHash)
+
+  if (wallet === Object.keys(walletConstants)[0]) {
+    if (!derivationPath) throw new Error("No derivation path passed")
+    const sign = await ledgerSign(unsignedTxObj, derivationPath)
+    const serializedSignedTx = ethers.utils.serializeTransaction(unsignedTx, prefix0x(sign.signature))
+    console.log("Submitting txn to the chain")
+    await contract.provider.sendTransaction(serializedSignedTx)
+  }
+  else if (wallet === Object.keys(walletConstants)[1]) {
+    if (!transactionId) throw new Error("No transaction Id passed")
+    saveUnsignedTxJson(unsignedTxObj, transactionId)
+    saveUnsignedEVMObject(unsignedTx, transactionId)
+  }
+  else if (wallet === Object.keys(walletConstants)[2]) {
+    if (!pvtKey) throw new Error("No private key passed")
+    const wallet = new ethers.Wallet(pvtKey);
+    const signedTx = await wallet.signTransaction(unsignedTx)
+    await contract.provider.sendTransaction(signedTx)
+  }
+}
+
 
 /**
  * @description submits signed ForDefi txn to the chain
@@ -145,7 +202,7 @@ function createUnsignedJsonObject(txHash: string): UnsignedTxJson {
   };
 
   const unsignedTxJson: UnsignedTxJson = {
-    transactionType: registerAddressName,
+    transactionType: contractTransactionName,
     serialization: "",
     signatureRequests: [signatureRequest],
     unsignedTransactionBuffer: "",

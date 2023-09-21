@@ -3,8 +3,9 @@ import { taskConstants, walletConstants } from "./screenConstants"
 import { colorCodes, contextEnv, contextFile } from "./constants"
 import { Command } from 'commander'
 import { cli, initCtxJsonFromOptions } from './cli'
-import { isAddressRegistered, isUnclaimedReward, registerAddress } from "./flareContract"
+import { claimRewards, isAddressRegistered, isUnclaimedReward, registerAddress } from "./flareContract"
 import {
+    ClaimRewardsInterface,
     ConnectWalletInterface, Context, ContextFile, DelegationDetailsInterface, DerivedAddress,
     RegisterAddressInterface, ScreenConstantsInterface
 } from './interfaces'
@@ -237,10 +238,9 @@ export async function interactiveCli(baseargv: string[]) {
     // Claim Rewards
     else if (Object.keys(taskConstants)[8] == task.toString()) {
         if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
-            const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress,
-                publicKey: ctxPublicKey } = readInfoFromCtx("ctx.json")
-            const isUnclaimed = await isUnclaimedReward(ctxCAddress!,ctxNetwork)
-            if (isUnclaimed) await claimRewardsLedger()
+            const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress } = readInfoFromCtx("ctx.json")
+            const isUnclaimed = await isUnclaimedReward(ctxCAddress!, ctxNetwork)
+            if (isUnclaimed) await claimRewardsLedger(walletProperties.wallet, ctxCAddress!, ctxDerivationPath!, ctxNetwork)
         }
 
         else if (walletProperties.wallet == Object.keys(walletConstants)[1] && fileExists("ctx.json")) {
@@ -250,7 +250,7 @@ export async function interactiveCli(baseargv: string[]) {
                 const isContinue = await prompts.forDefiContinue()
                 const txnId = await prompts.transactionId()
                 if (!isContinue.isContinue) {
-                    await claimRewardsForDefi()
+                    await claimRewardsForDefi(walletProperties.wallet, txnId.id)
                     const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
                     await program.parseAsync(argsSign)
                 }
@@ -266,7 +266,7 @@ export async function interactiveCli(baseargv: string[]) {
         else if (walletProperties.wallet == Object.keys(walletConstants)[2]) {
             const context: Context = contextEnv(walletProperties.path!, walletProperties.network!)
             const isUnclaimed = await isUnclaimedReward(context.cAddressHex!, context.config.hrp)
-            if (isUnclaimed) await claimRewardsPrivateKey
+            if (isUnclaimed) await claimRewardsPrivateKey(walletProperties.wallet, context)
         }
     }
 
@@ -521,14 +521,45 @@ async function checkAddressRegistrationForDefi(ctxNetwork: string): Promise<bool
 }
 
 
-async function claimRewardsPrivateKey(){
-
+async function claimRewardsPrivateKey(wallet: string, ctx: Context) {
+    const claimAmount = await prompts.amount("to claim ")
+    const claimRewardsParams: ClaimRewardsInterface = {
+        claimAmount: claimAmount.amount,
+        cAddress: ctx.cAddressHex!,
+        network: ctx.config.hrp,
+        wallet: wallet,
+        pvtKey: ctx.privkHex
+    };
+    const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
+    if (response == 'Y' || response == 'y') {
+        await claimRewards(claimRewardsParams)
+    }
+    console.log(`${colorCodes.greenColor}Rewards successfully claimed${colorCodes.resetColor}`)
 }
 
-async function claimRewardsLedger(){
-
+async function claimRewardsLedger(wallet: string, ctxCAddress: string, ctxDerivationPath: string, ctxNetwork: string) {
+    const claimAmount = await prompts.amount("to claim ")
+    const claimRewardsParams: ClaimRewardsInterface = {
+        claimAmount: claimAmount.amount,
+        cAddress: ctxCAddress,
+        network: ctxNetwork,
+        wallet: wallet,
+        derivationPath: ctxDerivationPath
+    };
+    console.log("Please sign the transaction on your ledger")
+    await claimRewards(claimRewardsParams)
+    console.log(`${colorCodes.greenColor}Rewards successfully claimed${colorCodes.resetColor}`)
 }
 
-async function claimRewardsForDefi(){
-
+async function claimRewardsForDefi(wallet: string, transactionId: string) {
+    const claimAmount = await prompts.amount("to claim ")
+    const context: Context = contextFile("ctx.json")
+    const claimRewardsParams: ClaimRewardsInterface = {
+        claimAmount: claimAmount.amount,
+        cAddress: context.cAddressHex!,
+        network: context.config.hrp,
+        wallet: wallet,
+        transactionId: transactionId
+    };
+    await claimRewards(claimRewardsParams)
 }
