@@ -12,6 +12,7 @@ import {
 } from "./flareContractConstants";
 import { prefix0x, saveUnsignedTxJson } from "./utils";
 import { walletConstants } from "./screenConstants";
+import { exit } from "process";
 
 /**
  * @description checks if the address is registered with the addressBinder contract
@@ -58,9 +59,10 @@ export async function isUnclaimedReward(ethAddressToCheck: string, network: stri
 
   const totalRewardNumber: BigNumber = rewards[0]
   const claimedRewardNumber: BigNumber = rewards[1]
+  const unclaimedRewards: BigNumber = totalRewardNumber.sub(claimedRewardNumber)
 
-  if (totalRewardNumber.gt(claimedRewardNumber)) {
-    console.log(`${colorCodes.greenColor}You have unclaimed rewards worth ${totalRewardNumber.sub(claimedRewardNumber)}${colorCodes.resetColor}`);
+  if (unclaimedRewards.gt(BigNumber.from("0"))) {
+    console.log(`${colorCodes.greenColor}You have unclaimed rewards worth ${unclaimedRewards}${colorCodes.resetColor}`);
     return true;
   } else {
     console.log(`${colorCodes.redColor}No unclaimed rewards found ${colorCodes.resetColor}`);
@@ -100,28 +102,8 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
     gasLimit: gasEstimate
   }
 
-  const serializedUnsignedTx = ethers.utils.serializeTransaction(unsignedTx);
-  const txHash = ethers.utils.keccak256(serializedUnsignedTx);
-  const unsignedTxObj = createUnsignedJsonObject(txHash)
+  await signContractTransaction(wallet, unsignedTx, contract, derivationPath, transactionId, pvtKey)
 
-  if (wallet === Object.keys(walletConstants)[0]) {
-    if (!derivationPath) throw new Error("No derivation path passed")
-    const sign = await ledgerSign(unsignedTxObj, derivationPath)
-    const serializedSignedTx = ethers.utils.serializeTransaction(unsignedTx, prefix0x(sign.signature))
-    console.log("Submitting txn to the chain")
-    await contract.provider.sendTransaction(serializedSignedTx)
-  }
-  else if (wallet === Object.keys(walletConstants)[1]) {
-    if (!transactionId) throw new Error("No transaction Id passed")
-    saveUnsignedTxJson(unsignedTxObj, transactionId)
-    saveUnsignedEVMObject(unsignedTx, transactionId)
-  }
-  else if (wallet === Object.keys(walletConstants)[2]) {
-    if (!pvtKey) throw new Error("No private key passed")
-    const wallet = new ethers.Wallet(pvtKey);
-    const signedTx = await wallet.signTransaction(unsignedTx)
-    await contract.provider.sendTransaction(signedTx)
-  }
 }
 
 /**
@@ -130,6 +112,11 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
  */
 export async function claimRewards(rewardsParams: ClaimRewardsInterface) {
   const { claimAmount, cAddress, network, wallet, derivationPath, pvtKey, transactionId } = rewardsParams
+
+  const rewardAmount: BigNumber = BigNumber.from(claimAmount).mul(ethers.constants.WeiPerEther)
+  if (rewardAmount.gt(await getUnclaimedRewards(cAddress, network)) || !rewardAmount.gt(BigNumber.from("0"))) {
+    throw new Error("Incorrect amount to claim")
+  }
 
   const rpcUrl = getRpcUrl(network)
   const validatorRewardManagerContractAddress = await getContractAddress(network, validatorRewardManagerContractName)
@@ -141,9 +128,15 @@ export async function claimRewards(rewardsParams: ClaimRewardsInterface) {
   const checksumAddress = ethers.utils.getAddress(cAddress);
   const nonce = await provider.getTransactionCount(checksumAddress);
   const config: NetworkConfig = getConfig(network)
-  const rewardAmount: BigNumber = BigNumber.from(claimAmount).mul(ethers.constants.WeiPerEther)
 
-  const gasEstimate = await contract.estimateGas.claim(cAddress, cAddress, rewardAmount, false, { from: cAddress })
+  let gasEstimate
+  try {
+    gasEstimate = await contract.estimateGas.claim(cAddress, cAddress, rewardAmount, false, { from: cAddress })
+  } catch {
+    console.log(`${colorCodes.redColor}Incorrect arguments passed${colorCodes.resetColor}`)
+    exit()
+  }
+
   const gasPrice = await provider.getGasPrice();
 
   const populatedTx = await contract.populateTransaction.claim(cAddress, cAddress, rewardAmount, false)
@@ -155,28 +148,7 @@ export async function claimRewards(rewardsParams: ClaimRewardsInterface) {
     gasLimit: gasEstimate
   }
 
-  const serializedUnsignedTx = ethers.utils.serializeTransaction(unsignedTx);
-  const txHash = ethers.utils.keccak256(serializedUnsignedTx);
-  const unsignedTxObj = createUnsignedJsonObject(txHash)
-
-  if (wallet === Object.keys(walletConstants)[0]) {
-    if (!derivationPath) throw new Error("No derivation path passed")
-    const sign = await ledgerSign(unsignedTxObj, derivationPath)
-    const serializedSignedTx = ethers.utils.serializeTransaction(unsignedTx, prefix0x(sign.signature))
-    console.log("Submitting txn to the chain")
-    await contract.provider.sendTransaction(serializedSignedTx)
-  }
-  else if (wallet === Object.keys(walletConstants)[1]) {
-    if (!transactionId) throw new Error("No transaction Id passed")
-    saveUnsignedTxJson(unsignedTxObj, transactionId)
-    saveUnsignedEVMObject(unsignedTx, transactionId)
-  }
-  else if (wallet === Object.keys(walletConstants)[2]) {
-    if (!pvtKey) throw new Error("No private key passed")
-    const wallet = new ethers.Wallet(pvtKey);
-    const signedTx = await wallet.signTransaction(unsignedTx)
-    await contract.provider.sendTransaction(signedTx)
-  }
+  await signContractTransaction(wallet, unsignedTx, contract, derivationPath, transactionId, pvtKey)
 }
 
 
@@ -259,4 +231,44 @@ function saveUnsignedEVMObject(unsignedTx: Object, id: string): void {
   fs.writeFileSync(fname, serialization)
 }
 
-// isUnclaimedReward("0x81779A06EAd1AFAfe3e3E361cfE10e7119f68F61", "costwo")
+async function getUnclaimedRewards(ethAddress: string, network: string): Promise<BigNumber> {
+  const rpcUrl = getRpcUrl(network)
+  const validatorRewardManagerContractAddress = await getContractAddress(network, validatorRewardManagerContractName)
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+
+  const abi = getValidatorRewardManagerABI() as ethers.ContractInterface
+  const contract = new ethers.Contract(validatorRewardManagerContractAddress, abi, provider);
+
+  const rewards = await contract.getStateOfRewards(ethAddress);
+
+  const totalRewardNumber: BigNumber = rewards[0]
+  const claimedRewardNumber: BigNumber = rewards[1]
+  const unclaimedRewards: BigNumber = totalRewardNumber.sub(claimedRewardNumber)
+  return unclaimedRewards
+}
+
+async function signContractTransaction(wallet: string, unsignedTx: Object, contract: ethers.Contract, derivationPath?: string,
+  transactionId?: string, pvtKey?: string) {
+  const serializedUnsignedTx = ethers.utils.serializeTransaction(unsignedTx);
+  const txHash = ethers.utils.keccak256(serializedUnsignedTx);
+  const unsignedTxObj = createUnsignedJsonObject(txHash)
+
+  if (wallet === Object.keys(walletConstants)[0]) {
+    if (!derivationPath) throw new Error("No derivation path passed")
+    const sign = await ledgerSign(unsignedTxObj, derivationPath)
+    const serializedSignedTx = ethers.utils.serializeTransaction(unsignedTx, prefix0x(sign.signature))
+    console.log("Submitting txn to the chain")
+    await contract.provider.sendTransaction(serializedSignedTx)
+  }
+  else if (wallet === Object.keys(walletConstants)[1]) {
+    if (!transactionId) throw new Error("No transaction Id passed")
+    saveUnsignedTxJson(unsignedTxObj, transactionId)
+    saveUnsignedEVMObject(unsignedTx, transactionId)
+  }
+  else if (wallet === Object.keys(walletConstants)[2]) {
+    if (!pvtKey) throw new Error("No private key passed")
+    const wallet = new ethers.Wallet(pvtKey);
+    const signedTx = await wallet.signTransaction(unsignedTx)
+    await contract.provider.sendTransaction(signedTx)
+  }
+}
