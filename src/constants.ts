@@ -67,11 +67,6 @@ export const colorCodes = {
   orangeColor: '\x1b[38;5;208m'
 }
 
-/** @description emoji contants */
-export const emojis = {
-  happy: '😀',
-}
-
 /** @description mapping of network name with network code */
 export const networkMapping = {
   "Flare": "flare",
