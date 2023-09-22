@@ -6,6 +6,7 @@ import chalk from 'chalk'
 import clear from 'clear'
 import { interactiveCli } from './interactive-cli'
 import { version } from '../package.json'
+import { colorCodes } from './constants'
 
 
 clear();
@@ -46,7 +47,7 @@ if (command == 'interactive' || command == "-i") {
     console.log(`Finished execution`)
   })
     .catch((error) => {
-      console.log(error)
+      console.log(`${colorCodes.redColor}E: ${colorCodes.resetColor}${error}`)
     }
     )
 }
