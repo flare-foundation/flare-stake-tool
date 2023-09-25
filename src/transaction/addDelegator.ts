@@ -3,12 +3,13 @@ import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platfor
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { UnsignedTxJson, Context } from '../interfaces'
 import { serializeUnsignedTx, delegationAddressCount } from '../utils'
-import {maxAllowedDelegation} from "../constants"
+import { maxAllowedDelegation } from "../constants"
+
+
 type AddDelegatorParams = [
   UTXOSet, string[], string[], string[], string, BN, BN, BN,
   string[], BN, number, Buffer | undefined, BN
 ]
-
 
 async function checkMaximumAllowedDelegation(ctx: Context){
   const numberOfDelegation = await delegationAddressCount(ctx);
@@ -84,7 +85,6 @@ export async function getAddDelegatorParams(
   endTime: BN,
   threshold: number = 1
 ): Promise<AddDelegatorParams> {
-  await checkMaximumAllowedDelegation(ctx)
   const locktime: BN = new BN(0)
   const asOf: BN = UnixNow()
   const platformVMUTXOResponse: any = await ctx.pchain.getUTXOs(ctx.pAddressBech32!)
