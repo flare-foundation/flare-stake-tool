@@ -305,8 +305,9 @@ function countpAddressInDelegation(validators: any[], pAddressBech32: string): n
  */
 export async function delegationAddressCount(ctx: Context) {
   const current = await ctx.pchain.getCurrentValidators();
+  const pending = await ctx.pchain.getPendingValidators()
+  const pendingValidtaor = JSON.parse(JSON.stringify(pending))
   const pCurrent = JSON.parse(JSON.stringify(current));
-  console.log(ctx.pAddressBech32)
-  const count = countpAddressInDelegation(pCurrent.validators, ctx.pAddressBech32!);
+  const count = countpAddressInDelegation(pCurrent.validators, ctx.pAddressBech32!) + countpAddressInDelegation(pendingValidtaor.validators, ctx.pAddressBech32!);
   return count;
 }

@@ -12,7 +12,7 @@ type AddDelegatorParams = [
 
 async function checkMaximumAllowedDelegation(ctx: Context){
   const numberOfDelegation = await delegationAddressCount(ctx);
-  if(numberOfDelegation > maxAllowedDelegation){
+  if(numberOfDelegation >= maxAllowedDelegation){
     throw new Error(`Exceeded maximum allowed delegation of ${maxAllowedDelegation}`)
   }
 }
