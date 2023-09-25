@@ -57,7 +57,8 @@ To use this app in a less-secure manner, you can set your private key as an envi
    PRIVATE_KEY_HEX="private key"
    ```
 
-> **WARNING:** While easier (as signing is done within the app), we discourage the usage of this app with the private key exposed in the file. This is because the private key is exposed to 800+ dependencies, and there is no way to audit them all.
+> **WARNING:**
+While easier (as signing is done within the app), we discourage the usage of this app with the private key exposed in the file. This is because the private key is exposed to 800+ dependencies, and there is no way to audit them all.
 
 ## App usage with ledger
 
@@ -117,7 +118,7 @@ Where:
 - `fee` is optional. It specifies a gas fee for a transaction in FLR.
 
 > **Note:**
-> Methods affecting the P-chain (`importCP` and `exportPC`) always use a fixed gas fee of 0.001FLR, while methods affecting the C-chain (`exportCP` and `importPC`) have variable gas fees and can thus be either set or calculated automatically.
+Methods affecting the P-chain (`importCP` and `exportPC`) always use a fixed gas fee of 0.001FLR, while methods affecting the C-chain (`exportCP` and `importPC`) have variable gas fees and can thus be either set or calculated automatically.
 If you get the `errInsufficientFunds` error, try specifying a higher gas fee when exporting funds.
 The fee is not deducted from the exported amount, but from the C-chain account.
 The final amount on the P-chain is therefore exactly the `amount` specified.
@@ -130,7 +131,7 @@ Transaction with hash 2Ch7Tp3mBxW4QZ57Lr26bddXf7QqNGrukRVbBgwSbrPWisuxYV sent to
 #### Move assets from the P-chain back to the C-chain
 
 > **IMPORTANT:**
-> These commands are similar to exporting and importing assets from the C-chain to the P-chain, but they are not the same.
+These commands are similar to exporting and importing assets from the C-chain to the P-chain, but they are not the same.
 Note the reversed P and C.
 
 ```bash
