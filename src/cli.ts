@@ -16,7 +16,7 @@ import { getSignature, sendToForDefi } from './forDefi/forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
 import { colorCodes } from "./constants"
-import {fetchMirrorFunds} from "./mirrorFunds/main"
+import { fetchMirrorFunds } from "./mirrorFunds/main"
 import { submitForDefiTxn } from './flareContract'
 import { contractTransactionName } from './flareContractConstants'
 
@@ -69,7 +69,7 @@ export async function cli(program: Command) {
         logNetworkInfo(ctx)
       } else if (type == 'validators') {
         await logValidatorInfo(ctx)
-      } else if (type == 'mirror'){
+      } else if (type == 'mirror') {
         await logMirrorFundInfo(ctx)
       } else {
         logError(`Unknown information type ${type}`)
@@ -155,16 +155,18 @@ export async function cli(program: Command) {
   // ledger two-step manual signing
   program
     .command("sign-hash").description("Sign a transaction hash (blind signing)")
+    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .action(async (options: OptionValues) => {
-      await signId(options.transactionId, DERIVATION_PATH, true)
+      await signId(options.transactionId, options.derivationPath, true)
       logSuccess("Transaction signed")
     })
   program
     .command("sign").description("Sign a transaction (non-blind signing)")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
     .action(async (options: OptionValues) => {
-      await signId(options.transactionId, DERIVATION_PATH, false)
+      await signId(options.transactionId, options.derivationPath, false)
       logSuccess("Transaction signed")
     })
 }
@@ -405,7 +407,7 @@ export async function logValidatorInfo(ctx: Context) {
  * @param ctx - context
  */
 export async function logMirrorFundInfo(ctx: Context) {
-  const mirroFundDetails  = await fetchMirrorFunds(ctx)
+  const mirroFundDetails = await fetchMirrorFunds(ctx)
   logInfo(`Mirror fund details on the network "${ctx.config.hrp}"`)
   log(`${JSON.stringify(mirroFundDetails, null, 2)}`)
 }

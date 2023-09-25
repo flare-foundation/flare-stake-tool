@@ -286,6 +286,48 @@ export async function interactiveCli(baseargv: string[]) {
     }
   }
 
+  // Withdraw funds
+  else if (Object.keys(taskConstants)[10] == task.toString()) {
+    if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
+      const { derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
+      const txnId = await prompts.transactionId()
+      const amount = await prompts.amount()
+      const withdrawAddress = await prompts.withdrawAddress()
+      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`, "-i", `${txnId.id}`]
+      await program.parseAsync(argsWithdraw)
+
+      const argsSign = [...baseargv.slice(0, 2), "sign-hash", "-i", `${txnId.id}`, "--derivation-path", ctxDerivationPath!]
+      await program.parseAsync(argsSign)
+
+      const argsSend = [...baseargv.slice(0, 2), taskConstants[task], "-i", `${txnId.id}`, "--send-signed-tx"]
+      await program.parseAsync(argsSend)
+
+    }
+
+    else if (walletProperties.wallet == Object.keys(walletConstants)[1] && fileExists("ctx.json")) {
+      const isContinue = await prompts.forDefiContinue()
+      const txnId = await prompts.transactionId()
+      if (!isContinue.isContinue) {
+        const amount = await prompts.amount()
+        const withdrawAddress = await prompts.withdrawAddress()
+        const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`, "-i", `${txnId.id}`]
+        await program.parseAsync(argsWithdraw)
+        const argsSign = [...makeForDefiArguments("sign", baseargv, txnId.id), "--withdrawal"]
+        await program.parseAsync(argsSign)
+      }
+      else {
+        const argsFetch = [...makeForDefiArguments("fetch", baseargv, txnId.id), "--withdrawal"]
+        await program.parseAsync(argsFetch)
+        const argsSend = [...baseargv.slice(0, 2), taskConstants[task], "-i", `${txnId.id}`, "--send-signed-tx"]
+        await program.parseAsync(argsSend)
+      }
+    }
+
+    else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+
+    }
+  }
+
   else {
     console.log("Task not supported")
   }
@@ -471,7 +513,7 @@ async function checkAddressRegistrationLedger(wallet: string, ctxNetwork: string
   const isRegistered = await isAddressRegistered(ctxCAddress, ctxNetwork)
   if (!isRegistered) {
     console.log("Note: You need to register your wallet address before you can delegate your funds")
-    console.log("Please complete this registration transaction to proceed")
+    console.log("Please sign this transaction on your ledger")
     const registerAddressParams: RegisterAddressInterface = {
       publicKey: ctxPublicKey,
       pAddress: ctxPAddress,

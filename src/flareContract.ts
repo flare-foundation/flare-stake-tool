@@ -247,7 +247,7 @@ async function getUnclaimedRewards(ethAddress: string, network: string): Promise
   return unclaimedRewards
 }
 
-async function signContractTransaction(wallet: string, unsignedTx: Object, contract: ethers.Contract, derivationPath?: string,
+async function signContractTransaction(wallet: keyof typeof walletConstants, unsignedTx: Object, contract: ethers.Contract, derivationPath?: string,
   transactionId?: string, pvtKey?: string) {
   const serializedUnsignedTx = ethers.utils.serializeTransaction(unsignedTx);
   const txHash = ethers.utils.keccak256(serializedUnsignedTx);
