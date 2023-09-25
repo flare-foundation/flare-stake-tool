@@ -57,15 +57,15 @@ To use this app in a less-secure manner, you can set your private key as an envi
    PRIVATE_KEY_HEX="private key"
    ```
 
-> **WARNING:**
-While easier (as signing is done within the app), we discourage the usage of this app with the private key exposed in the file. This is because the private key is exposed to 800+ dependencies, and there is no way to audit them all.
+> **WARNING**
+> While easier (as signing is done within the app), we discourage the usage of this app with the private key exposed in the file. This is because the private key is exposed to 800+ dependencies, and there is no way to audit them all.
 
 ## App usage with ledger
 
 Below we describe the functionality offered by the app, when you have your ledger device connected to the computer, with avalanche app running.
 
 > **IMPORTANT**
-The following commands assume you have the correct (development) version of ledger where applications not validated by ledger themselves can be run. In that case you need to install an unofficial Avalance app that allows you to clear-sign transactions.
+> The following commands assume you have the correct (development) version of ledger where applications not validated by ledger themselves can be run. In that case you need to install an unofficial Avalance app that allows you to clear-sign transactions.
 Otherwise, you will need to blindly sign transactions as the ledger won't correctly parse the transaction details. To do this, add `--blind` to the end of each command.
 
 ### Address conversion
@@ -117,8 +117,8 @@ Where:
 - `amount` is the amount to export, in FLR.
 - `fee` is optional. It specifies a gas fee for a transaction in FLR.
 
-> **Note:**
-Methods affecting the P-chain (`importCP` and `exportPC`) always use a fixed gas fee of 0.001FLR, while methods affecting the C-chain (`exportCP` and `importPC`) have variable gas fees and can thus be either set or calculated automatically.
+> **Note**
+> Methods affecting the P-chain (`importCP` and `exportPC`) always use a fixed gas fee of 0.001FLR, while methods affecting the C-chain (`exportCP` and `importPC`) have variable gas fees and can thus be either set or calculated automatically.
 If you get the `errInsufficientFunds` error, try specifying a higher gas fee when exporting funds.
 The fee is not deducted from the exported amount, but from the C-chain account.
 The final amount on the P-chain is therefore exactly the `amount` specified.
@@ -130,8 +130,8 @@ Transaction with hash 2Ch7Tp3mBxW4QZ57Lr26bddXf7QqNGrukRVbBgwSbrPWisuxYV sent to
 
 #### Move assets from the P-chain back to the C-chain
 
-> **IMPORTANT:**
-These commands are similar to exporting and importing assets from the C-chain to the P-chain, but they are not the same.
+> **IMPORTANT**
+> These commands are similar to exporting and importing assets from the C-chain to the P-chain, but they are not the same.
 Note the reversed P and C.
 
 ```bash
@@ -203,7 +203,8 @@ The app-generated unsigned transaction json file respects the below format:
 }
 ```
 
-> **NOTE:** The messages and signers inside `signatureRequests` should all be the same, so only one signature is required.
+> **Note**
+> The messages and signers inside `signatureRequests` should all be the same, so only one signature is required.
 
 The signed transaction json file that you should generate via raw signing is the same as unsigned, but with appended raw `message` signature. So, it respects the below format:
 
