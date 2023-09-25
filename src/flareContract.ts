@@ -111,10 +111,10 @@ export async function registerAddress(addressParams: RegisterAddressInterface) {
  * @param {ClaimRewardsInterface} rewardsParams
  */
 export async function claimRewards(rewardsParams: ClaimRewardsInterface) {
-  const { claimAmount, cAddress, network, wallet, derivationPath, pvtKey, transactionId } = rewardsParams
+  const { claimAmount, ownerAddress, receiverAddress, network, wallet, derivationPath, pvtKey, transactionId } = rewardsParams
 
   const rewardAmount: BigNumber = BigNumber.from(claimAmount).mul(ethers.constants.WeiPerEther)
-  if (rewardAmount.gt(await getUnclaimedRewards(cAddress, network)) || !rewardAmount.gt(BigNumber.from("0"))) {
+  if (rewardAmount.gt(await getUnclaimedRewards(ownerAddress, network)) || !rewardAmount.gt(BigNumber.from("0"))) {
     throw new Error("Incorrect amount to claim")
   }
 
@@ -125,13 +125,13 @@ export async function claimRewards(rewardsParams: ClaimRewardsInterface) {
   const abi = getValidatorRewardManagerABI() as ethers.ContractInterface
   const contract = new ethers.Contract(validatorRewardManagerContractAddress, abi, provider);
 
-  const checksumAddress = ethers.utils.getAddress(cAddress);
+  const checksumAddress = ethers.utils.getAddress(ownerAddress);
   const nonce = await provider.getTransactionCount(checksumAddress);
   const config: NetworkConfig = getConfig(network)
 
   let gasEstimate
   try {
-    gasEstimate = await contract.estimateGas.claim(cAddress, cAddress, rewardAmount, false, { from: cAddress })
+    gasEstimate = await contract.estimateGas.claim(ownerAddress, prefix0x(receiverAddress), rewardAmount, false, { from: ownerAddress })
   } catch {
     console.log(`${colorCodes.redColor}Incorrect arguments passed${colorCodes.resetColor}`)
     exit()
@@ -139,7 +139,7 @@ export async function claimRewards(rewardsParams: ClaimRewardsInterface) {
 
   const gasPrice = await provider.getGasPrice();
 
-  const populatedTx = await contract.populateTransaction.claim(cAddress, cAddress, rewardAmount, false)
+  const populatedTx = await contract.populateTransaction.claim(ownerAddress, prefix0x(receiverAddress), rewardAmount, false)
   const unsignedTx = {
     ...populatedTx,
     nonce,

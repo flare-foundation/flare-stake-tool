@@ -142,8 +142,9 @@ export interface RegisterAddressInterface {
  * @interface ClaimRewardsInterface
  */
 export interface ClaimRewardsInterface {
-  claimAmount:string,
-  cAddress: string,
+  claimAmount: string,
+  ownerAddress: string,
+  receiverAddress: string,
   network: string,
   wallet: string,
   derivationPath?: string
