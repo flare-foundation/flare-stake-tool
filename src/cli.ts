@@ -498,7 +498,7 @@ async function withdraw_useSignature(ctx: Context, id: string) {
 //////////////////////////////////////////////////////////////////////////////////////////
 // Transaction signing
 
-export async function signAndSend(network: string, envPath: string, id: string) {
+async function signAndSend(network: string, envPath: string, id: string) {
   const ctx: Context = contextEnv(envPath, network)
   const path = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedTx.json`
   const json = fs.readFileSync(path, 'utf8')
@@ -506,7 +506,7 @@ export async function signAndSend(network: string, envPath: string, id: string) 
 
   if (!tx) throw new Error("Invalid txn file")
   const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
-  if (response == 'Y' || response == 'y') {
+  if (response.toLowerCase() == 'y') {
     const wallet = new ethers.Wallet(ctx.privkHex!);
 
     const valueStr = tx.rawTx.value
