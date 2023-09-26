@@ -3,6 +3,7 @@ import { Avalanche } from '@flarenetwork/flarejs'
 import { EVMAPI, KeyChain as EVMKeyChain, } from '@flarenetwork/flarejs/dist/apis/evm'
 import { PlatformVMAPI as PVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { NetworkConfig } from './config'
+import { walletConstants } from "./screenConstants"
 
 export interface Context {
   privkHex?: string
@@ -131,7 +132,7 @@ export interface RegisterAddressInterface {
   pAddress: string,
   cAddress: string,
   network: string,
-  wallet: string,
+  wallet: keyof typeof walletConstants,
   derivationPath?: string
   pvtKey?: string
   transactionId?: string
@@ -146,7 +147,7 @@ export interface ClaimRewardsInterface {
   ownerAddress: string,
   receiverAddress: string,
   network: string,
-  wallet: string,
+  wallet: keyof typeof walletConstants,
   derivationPath?: string
   pvtKey?: string
   transactionId?: string

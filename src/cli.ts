@@ -4,7 +4,7 @@ import { contextEnv, contextFile, getContext, networkFromContextFile } from './c
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
-  getUserInput, validatePublicKey, addFlagForSentSignedTx, isAlreadySentToChain, delegationAddressCount
+  getUserInput, validatePublicKey, addFlagForSentSignedTx, isAlreadySentToChain, delegationAddressCount,
 } from './utils'
 import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './transaction/evmAtomicTx'
 import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './transaction/pvmAtomicTx'
@@ -16,9 +16,12 @@ import { getSignature, sendToForDefi } from './forDefi/forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
 import { colorCodes } from "./constants"
-import {fetchMirrorFunds} from "./mirrorFunds/main"
-import { submitForDefiTxn } from './flareContract'
+import { fetchMirrorFunds } from "./mirrorFunds/main"
+import { getRpcUrl, submitForDefiTxn } from './flareContract'
 import { contractTransactionName } from './flareContractConstants'
+import fs from 'fs'
+import { forDefiDirectory, forDefiUnsignedTxnDirectory } from './constants'
+import { BigNumber, ethers } from 'ethersV5'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -69,7 +72,7 @@ export async function cli(program: Command) {
         logNetworkInfo(ctx)
       } else if (type == 'validators') {
         await logValidatorInfo(ctx)
-      } else if (type == 'mirror'){
+      } else if (type == 'mirror') {
         await logMirrorFundInfo(ctx)
       } else {
         logError(`Unknown information type ${type}`)
@@ -155,17 +158,27 @@ export async function cli(program: Command) {
   // ledger two-step manual signing
   program
     .command("sign-hash").description("Sign a transaction hash (blind signing)")
+    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .action(async (options: OptionValues) => {
-      await signId(options.transactionId, DERIVATION_PATH, true)
+      await signId(options.transactionId, options.derivationPath, true)
       logSuccess("Transaction signed")
     })
   program
     .command("sign").description("Sign a transaction (non-blind signing)")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
     .action(async (options: OptionValues) => {
-      await signId(options.transactionId, DERIVATION_PATH, false)
+      await signId(options.transactionId, options.derivationPath, false)
       logSuccess("Transaction signed")
+    })
+
+  program
+    .command("signAndSubmit").description("Sign a transaction using private key and submit to chain")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      await signAndSend(options.network, options.envPath, options.transactionId)
     })
 }
 
@@ -405,7 +418,7 @@ export async function logValidatorInfo(ctx: Context) {
  * @param ctx - context
  */
 export async function logMirrorFundInfo(ctx: Context) {
-  const mirroFundDetails  = await fetchMirrorFunds(ctx)
+  const mirroFundDetails = await fetchMirrorFunds(ctx)
   logInfo(`Mirror fund details on the network "${ctx.config.hrp}"`)
   log(`${JSON.stringify(mirroFundDetails, null, 2)}`)
 }
@@ -479,4 +492,30 @@ async function withdraw_getHash(ctx: Context, to: string, amount: number, id: st
 async function withdraw_useSignature(ctx: Context, id: string) {
   const txId = await sendSignedWithdrawalTransaction(ctx, id)
   logSuccess(`Transaction with id ${txId} sent to the node`)
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// Transaction signing
+
+async function signAndSend(network: string, envPath: string, id: string) {
+  const ctx: Context = contextEnv(envPath, network)
+  const path = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedTx.json`
+  const json = fs.readFileSync(path, 'utf8')
+  const tx = JSON.parse(json)
+
+  if (!tx) throw new Error("Invalid txn file")
+  const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
+  if (response.toLowerCase() == 'y') {
+    const wallet = new ethers.Wallet(ctx.privkHex!);
+
+    const valueStr = tx.rawTx.value
+    const valueBN = BigNumber.from(valueStr)
+    tx.rawTx.value = valueBN
+    const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
+
+    const signedTx = await wallet.signTransaction(tx.rawTx)
+    const chainId = await provider.sendTransaction(signedTx)
+    logSuccess(`Signed transaction ${id} with hash ${chainId.hash} sent to the node`)
+  }
 }

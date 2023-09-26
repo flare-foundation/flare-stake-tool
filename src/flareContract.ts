@@ -185,7 +185,11 @@ function createUnsignedJsonObject(txHash: string): UnsignedTxJson {
   return unsignedTxJson;
 }
 
-function getRpcUrl(network: string): string {
+/**
+ * @param network
+ * @returns {string} The RPC url of the given network
+ */
+export function getRpcUrl(network: string): string {
   const config: NetworkConfig = getConfig(network)
   return `${config.protocol}://${config.ip}/ext/bc/C/rpc`
 }
@@ -247,7 +251,7 @@ async function getUnclaimedRewards(ethAddress: string, network: string): Promise
   return unclaimedRewards
 }
 
-async function signContractTransaction(wallet: string, unsignedTx: Object, contract: ethers.Contract, derivationPath?: string,
+async function signContractTransaction(wallet: keyof typeof walletConstants, unsignedTx: Object, contract: ethers.Contract, derivationPath?: string,
   transactionId?: string, pvtKey?: string) {
   const serializedUnsignedTx = ethers.utils.serializeTransaction(unsignedTx);
   const txHash = ethers.utils.keccak256(serializedUnsignedTx);

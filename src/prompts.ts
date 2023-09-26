@@ -252,5 +252,16 @@ export const prompts = {
       },
     ];
     return inquirer.prompt(questions);
+  },
+
+  withdrawAddress: async () => {
+    const questions = [
+      {
+        type: 'input',
+        name: 'address',
+        message: `${colorCodes.magentaColor}Please enter the C-address where you want to withdraw your funds:${colorCodes.resetColor}`,
+      },
+    ];
+    return inquirer.prompt(questions);
   }
 }
