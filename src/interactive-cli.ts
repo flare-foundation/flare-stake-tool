@@ -279,8 +279,8 @@ export async function interactiveCli(baseargv: string[]) {
       }
     }
 
-    else if (walletProperties.wallet == Object.keys(walletConstants)[2]) {
-      const context: Context = contextEnv(walletProperties.path!, walletProperties.network!)
+    else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+      const context: Context = contextEnv(walletProperties.path, walletProperties.network)
       const isUnclaimed = await isUnclaimedReward(context.cAddressHex!, context.config.hrp)
       if (isUnclaimed) await claimRewardsPrivateKey(walletProperties.wallet, context)
     }
@@ -324,6 +324,16 @@ export async function interactiveCli(baseargv: string[]) {
     }
 
     else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+      const context: Context = contextEnv(walletProperties.path, walletProperties.network)
+      const txnId = await prompts.transactionId()
+      const amount = await prompts.amount()
+      const withdrawAddress = await prompts.withdrawAddress()
+      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`, "-i", `${txnId.id}`,
+      `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+      await program.parseAsync(argsWithdraw)
+
+      const argsSignSend = [...baseargv.slice(0, 2), "signAndSubmit", "-i", `${txnId.id}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+      await program.parseAsync(argsSignSend)
 
     }
   }

@@ -185,7 +185,11 @@ function createUnsignedJsonObject(txHash: string): UnsignedTxJson {
   return unsignedTxJson;
 }
 
-function getRpcUrl(network: string): string {
+/**
+ * @param network
+ * @returns {string} The RPC url of the given network
+ */
+export function getRpcUrl(network: string): string {
   const config: NetworkConfig = getConfig(network)
   return `${config.protocol}://${config.ip}/ext/bc/C/rpc`
 }
