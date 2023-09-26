@@ -322,8 +322,8 @@ curl -s --location --request POST 'RPC-URL:PORT/ext/bc/P' --header 'Content-Type
 
 To publish a new version to npm:
 
+1. Check that lib can be created `npm pack`
+1. Bump to next version `npm version [<newversion> | major | minor | patch | premajor | preminor | prepatch | prerelease | from-git]`
 1. Build the project with `yarn build`
-2. Check that lib can be created `npm pack`
-3. Bump to next version `npm version [<newversion> | major | minor | patch | premajor | preminor | prepatch | prerelease | from-git]`
-4. Publish with `npm publish --access=public`
-5. Make sure to push to git with `git push`
+1. Publish with `npm publish --access=public`
+1. Make sure to push to git with `git push`
