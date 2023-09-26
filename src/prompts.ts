@@ -58,16 +58,27 @@ export const prompts = {
     return inquirer.prompt(questions);
   },
 
-  nodeId: async () => {
-    const questions = [
-      {
-        type: 'input',
-        name: 'id',
-        message: `${colorCodes.magentaColor}Enter Node NodeId ${colorCodes.yellowColor}(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
-      },
-    ];
-    return inquirer.prompt(questions);
-  },
+    fees: async (baseFees?: unknown) => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'fees',
+                message: `${colorCodes.magentaColor}Enter fees ${colorCodes.yellowColor}(Current fees in FLR: ${(baseFees)})${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
+
+    nodeId: async () => {
+        const questions = [
+            {
+                type: 'input',
+                name: 'id',
+                message: `${colorCodes.magentaColor}Enter Node NodeId ${colorCodes.yellowColor}(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+            },
+        ];
+        return inquirer.prompt(questions);
+    },
 
   unixTime: async (timeType: string) => {
     const questions = [

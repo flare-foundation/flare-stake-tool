@@ -151,10 +151,15 @@ export async function getExportCPParams(ctx: Context, amount: BN, fee?: BN, nonc
     threshold,
     fee ?? baseFee
   ]
+  const unsignedTx: UnsignedTx = await ctx.cchain.buildExportTx(...params)
+  const exportCost: number = costExportTx(unsignedTx)
+  // if fee not passed -> use the default
    if (!fee) {
-    const unsignedTx: UnsignedTx = await ctx.cchain.buildExportTx(...params)
-    const exportCost: number = costExportTx(unsignedTx)
     params[9] = baseFee.mul(new BN(exportCost))
+  }
+  // else use the custom fees passed by the user
+    else {
+    params[9] = fee.mul(new BN(exportCost)).div(new BN(1e9))
   }
   return params
 }
@@ -181,10 +186,12 @@ export async function getImportPCParams(ctx: Context, fee?: BN): Promise<ImportP
     [ctx.cAddressBech32!],
     baseFee
   ]
+  const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
+  const importCost: number = costImportTx(unsignedTx)
   if (!fee) {
-    const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
-    const importCost: number = costImportTx(unsignedTx)
     params[5] = baseFee.mul(new BN(importCost))
+  } else {
+    params[5] = fee.mul(new BN(importCost)).div(new BN(1e9))
   }
   return params
 }
