@@ -1,6 +1,6 @@
 {
   "name": "@flarenetwork/flare-stake-tool",
-  "version": "2.6.0",
+  "version": "3.0.2",
   "description": "Utilities for staking on the Flare network",
   "bin": {
     "flare-stake-tool": "bin/flare-stake-tool"
@@ -66,7 +66,7 @@
     "dotenv": "^16.0.1",
     "ethereumjs-tx": "^2.1.2",
     "ethers": "6.5.1",
-    "ethersV5": "yarn:ethers@5.7",
+    "ethersV5": "npm:ethers@5.7",
     "figlet": "^1.6.0",
     "inquirer": "8.0",
     "jest-fetch-mock": "^3.0.3",

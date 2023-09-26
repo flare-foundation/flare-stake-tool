@@ -30,8 +30,8 @@ const MAX_TRANSCTION_FEE = FLR
 // mapping from network to symbol
 const networkTokenSymbol: { [index: string]: string } = {
   "flare": "FLR",
-  "costwo": "CFLR",
-  "localflare": "LFLR"
+  "costwo": "C2FLR",
+  "localflare": "PHT"
 }
 
 export async function cli(program: Command) {
@@ -243,12 +243,13 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
  * @param usedFee - fee that was used
  * @param specifiedFee - fee specified by the user
  */
-export function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
+export function capFeeAt(cap: number, network: string, usedFee?: string, specifiedFee?: string): void {
   if (usedFee !== specifiedFee) { // if usedFee was that specified by the user, we don't cap it
     const usedFeeNumber = Number(usedFee) // if one of the fees is defined, usedFee is defined
+    const symbol = networkTokenSymbol[network]
     if (usedFeeNumber > cap)
-      throw new Error(`Used fee of ${usedFeeNumber / FLR} FLR is higher than the maximum allowed fee of ${cap / FLR} FLR`)
-    logInfo(`Using fee of ${usedFeeNumber / FLR} FLR`)
+      throw new Error(`Used fee of ${usedFeeNumber / FLR} ${symbol} is higher than the maximum allowed fee of ${cap / FLR} ${symbol}`)
+    logInfo(`Using fee of ${usedFeeNumber / FLR} ${symbol}`)
   }
 }
 
@@ -430,7 +431,7 @@ async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Co
 ): Promise<void> {
   logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
-  capFeeAt(MAX_TRANSCTION_FEE, unsignedTxJson.usedFee, params.fee)
+  capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
   logInfo("Please review and sign the transaction on your ledger device...")
   const { signature } = await ledgerSign(unsignedTxJson, derivationPath, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
@@ -439,9 +440,9 @@ async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Co
   logSuccess(`Transaction with id ${chainTxId} sent to the node`)
 }
 
-async function cliBuildUnsignedTxJson(transactionType: string, ctx: Context, id: string, params: FlareTxParams) {
-  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
-  capFeeAt(MAX_TRANSCTION_FEE, unsignedTxJson.usedFee, params.fee)
+async function cliBuildUnsignedTxJson(transactionType: string, context: Context, id: string, params: FlareTxParams) {
+  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
+  capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
   saveUnsignedTxJson(unsignedTxJson, id)
   logSuccess(`Unsigned transaction with hash ${id} constructed`)
 }

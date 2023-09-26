@@ -13,7 +13,6 @@
   "exclude": [
     "node_modules",
     "scripts",
-    "cli",
     "test",
     "dist",
     "go-localflare"
