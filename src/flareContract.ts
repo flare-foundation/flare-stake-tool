@@ -30,9 +30,10 @@ export async function isAddressRegistered(ethAddressToCheck: string, network: st
   const contract = new ethers.Contract(addressBinderContractAddress, abi, provider);
 
   const result = await contract.cAddressToPAddress(ethAddressToCheck);
+  const pChainAddress = bech32.encode(network, bech32.toWords(Buffer.from(result.slice(2), 'hex')))
 
   if (result !== '0x0000000000000000000000000000000000000000') {
-    console.log(`${colorCodes.greenColor}Address associated with key ${ethAddressToCheck}: ${result}${colorCodes.resetColor}`);
+    console.log(`${colorCodes.greenColor}Address associated with key ${ethAddressToCheck}: ${pChainAddress}${colorCodes.resetColor}`);
     return true;
   } else {
     console.log(`${colorCodes.redColor}No address found for key ${ethAddressToCheck}${colorCodes.resetColor}`);
