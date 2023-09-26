@@ -244,7 +244,7 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
  * @param specifiedFee - fee specified by the user
  */
 export function capFeeAt(cap: number, network: string, usedFee?: string, specifiedFee?: string): void {
-  if (usedFee !== specifiedFee) { // if usedFee was that specified by the user, we don't cap it
+  if (usedFee !== undefined && usedFee !== specifiedFee) { // if usedFee was specified by the user, we don't cap it
     const usedFeeNumber = Number(usedFee) // if one of the fees is defined, usedFee is defined
     const symbol = networkTokenSymbol[network]
     if (usedFeeNumber > cap)
