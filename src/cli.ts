@@ -40,6 +40,7 @@ export async function cli(program: Command) {
     .option("--network <network>", "Network name (flare or costwo)")
     .option("--ledger", "Use ledger to sign transactions")
     .option("--blind", "Blind signing (used for ledger)", true)
+    .option("--derivation-path <derivation-path>", "Ledger address derivation path", DERIVATION_PATH)
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
     .option("--env-path <path>", "Path to the .env file")
@@ -88,13 +89,12 @@ export async function cli(program: Command) {
     .option("-n, --node-id <nodeId>", "The id of the node to stake/delegate to")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
-    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
     .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator", "10")
     .option("--threshold <threshold>", "Threshold of the constructed transaction", "1")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
-      const ctx = await contextFromOptions(options, options.derivationPath)
+      const ctx = await contextFromOptions(options)
       if (options.getHacked) {
         // this is more of a concept for future development, by now private key was already exposed to dependencies
         const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
@@ -169,10 +169,10 @@ export async function cli(program: Command) {
  * @param options - option to define whether its from ledger/env/ctx.file
  * @returns Returns the context based the source passed in the options
  */
-export async function contextFromOptions(options: OptionValues, derivationPath: string = DERIVATION_PATH): Promise<Context> {
+export async function contextFromOptions(options: OptionValues): Promise<Context> {
   if (options.ledger) {
     logInfo("Fetching account from ledger...")
-    const account = await ledgerGetAccount(derivationPath, options.network)
+    const account = await ledgerGetAccount(options.derivationPath, options.network)
     const context = getContext(options.network, account.publicKey)
     return context
   } else if (options.envPath) {
@@ -424,14 +424,14 @@ async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Co
   const signedTxJson = { ...unsignedTxJson, signature }
   logInfo("Sending transaction to the node...")
   const chainTxId = await sendSignedTxJson(context, signedTxJson)
-  logSuccess(`Transaction with id ${chainTxId} sent to the node`)
+  logSuccess(`Transaction with hash ${chainTxId} sent to the node`)
 }
 
 async function cliBuildUnsignedTxJson(transactionType: string, context: Context, id: string, params: FlareTxParams) {
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
   capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
   saveUnsignedTxJson(unsignedTxJson, id)
-  logSuccess(`Unsigned transaction with hash ${id} constructed`)
+  logSuccess(`Unsigned transaction with id ${id} constructed`)
 }
 
 async function cliSendSignedTxJson(ctx: Context, id: string) {
