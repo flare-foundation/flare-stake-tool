@@ -14,7 +14,7 @@ import { ledgerGetAccount } from './ledger/key'
 import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi/forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
-import { log, logError, logInfo, logSuccess } from './output'
+import { log, logError, logInfo, logSuccess, logWarning } from './output'
 import { colorCodes } from "./constants"
 import { fetchMirrorFunds } from "./mirrorFunds/main"
 import { getRpcUrl, submitForDefiTxn } from './flareContract'
@@ -39,7 +39,7 @@ export async function cli(program: Command) {
   program
     .option("--network <network>", "Network name (flare or costwo)")
     .option("--ledger", "Use ledger to sign transactions")
-    .option("--blind", "Blind signing (used for ledger)", false)
+    .option("--blind", "Blind signing (used for ledger)", true)
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
     .option("--env-path <path>", "Path to the .env file")
@@ -155,24 +155,6 @@ export async function cli(program: Command) {
         await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
       }
     })
-  // ledger two-step manual signing
-  program
-    .command("sign-hash").description("Sign a transaction hash (blind signing)")
-    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
-    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .action(async (options: OptionValues) => {
-      await signId(options.transactionId, options.derivationPath, true)
-      logSuccess("Transaction signed")
-    })
-  program
-    .command("sign").description("Sign a transaction (non-blind signing)")
-    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
-    .action(async (options: OptionValues) => {
-      await signId(options.transactionId, options.derivationPath, false)
-      logSuccess("Transaction signed")
-    })
-
   program
     .command("signAndSubmit").description("Sign a transaction using private key and submit to chain")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
@@ -432,7 +414,12 @@ async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Co
   logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
   capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
-  logInfo("Please review and sign the transaction on your ledger device...")
+  if (blind) {
+    const filename = unsignedTxJson.signatureRequests[0].message.slice(0, 6)
+    saveUnsignedTxJson(unsignedTxJson, filename, 'proofs')
+    logWarning(`Blind signing! Validate generated proofs/${filename}.unsignedTx.json file.`)
+  }
+  logInfo(`Please review and sign transaction on your ledger device...`)
   const { signature } = await ledgerSign(unsignedTxJson, derivationPath, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
   logInfo("Sending transaction to the node...")

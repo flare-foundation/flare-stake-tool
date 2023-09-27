@@ -93,14 +93,13 @@ build/*
 # app-specific
 build
 dist
+proofs
 *.lnk
-**/*/*unsignedTx.json
-**/*/*signedTx.json
+*unsignedTx.json
+*signedTx.json
 ctx*.json
 
 # fordefi
 private.pem
 token
 ForDefiTxnFiles/
-
---get-hacked
