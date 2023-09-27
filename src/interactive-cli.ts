@@ -628,11 +628,11 @@ async function checkAddressRegistrationForDefi(ctxNetwork: string): Promise<bool
 async function claimRewardsPrivateKey(wallet: string, ctx: Context) {
   const claimAmount = await prompts.amount("to claim ")
   const isOwnerReceiver = await prompts.isOwnerReceiver()
-  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? ctx.cAddressHex! : await prompts.receiverAddress()
+  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? ctx.cAddressHex! : await getPromptsAddress()
   const claimRewardsParams: ClaimRewardsInterface = {
     claimAmount: claimAmount.amount,
     ownerAddress: ctx.cAddressHex!,
-    receiverAddress: receiverAddress.address,
+    receiverAddress: receiverAddress,
     network: ctx.config.hrp,
     wallet: wallet,
     pvtKey: ctx.privkHex
@@ -647,11 +647,11 @@ async function claimRewardsPrivateKey(wallet: string, ctx: Context) {
 async function claimRewardsLedger(wallet: string, ctxCAddress: string, ctxDerivationPath: string, ctxNetwork: string) {
   const claimAmount = await prompts.amount("to claim ")
   const isOwnerReceiver = await prompts.isOwnerReceiver()
-  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? ctxCAddress : await prompts.receiverAddress()
+  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? ctxCAddress : await getPromptsAddress()
   const claimRewardsParams: ClaimRewardsInterface = {
     claimAmount: claimAmount.amount,
     ownerAddress: ctxCAddress,
-    receiverAddress: receiverAddress.address,
+    receiverAddress: receiverAddress,
     network: ctxNetwork,
     wallet: wallet,
     derivationPath: ctxDerivationPath
@@ -665,11 +665,11 @@ async function claimRewardsForDefi(wallet: string, transactionId: string) {
   const claimAmount = await prompts.amount("to claim ")
   const context: Context = contextFile("ctx.json")
   const isOwnerReceiver = await prompts.isOwnerReceiver()
-  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? context.cAddressHex! : await prompts.receiverAddress()
+  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? context.cAddressHex! : await getPromptsAddress();
   const claimRewardsParams: ClaimRewardsInterface = {
     claimAmount: claimAmount.amount,
     ownerAddress: context.cAddressHex!,
-    receiverAddress: receiverAddress.address,
+    receiverAddress: receiverAddress,
     network: context.config.hrp,
     wallet: wallet,
     transactionId: transactionId
@@ -707,4 +707,13 @@ async function getFeesBasedOnChain(chain: string) {
       fees = await getBaseFeesForCChain()
   }
   return fees;
+}
+
+
+/**
+ * @description - Get the prompts address
+ * @returns - prompts address
+ */
+async function getPromptsAddress() {
+  return (await prompts.receiverAddress()).address;
 }
