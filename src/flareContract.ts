@@ -63,7 +63,8 @@ export async function isUnclaimedReward(ethAddressToCheck: string, network: stri
   const unclaimedRewards: BigNumber = totalRewardNumber.sub(claimedRewardNumber)
 
   if (unclaimedRewards.gt(BigNumber.from("0"))) {
-    console.log(`${colorCodes.greenColor}You have unclaimed rewards worth ${unclaimedRewards}${colorCodes.resetColor}`);
+    const unclaimedRewardsInFLR: BigNumber = unclaimedRewards.div(ethers.constants.WeiPerEther) // div by 1e18
+    console.log(`${colorCodes.greenColor}You have unclaimed rewards worth ${unclaimedRewardsInFLR}${colorCodes.resetColor}`);
     return true;
   } else {
     console.log(`${colorCodes.redColor}No unclaimed rewards found ${colorCodes.resetColor}`);
@@ -132,7 +133,7 @@ export async function claimRewards(rewardsParams: ClaimRewardsInterface) {
 
   let gasEstimate
   try {
-    gasEstimate = await contract.estimateGas.claim(ownerAddress, prefix0x(receiverAddress), rewardAmount, false, { from: ownerAddress })
+        gasEstimate = await contract.estimateGas.claim(ownerAddress, prefix0x(receiverAddress), rewardAmount, false, { from: ownerAddress })
   } catch {
     console.log(`${colorCodes.redColor}Incorrect arguments passed${colorCodes.resetColor}`)
     exit()
