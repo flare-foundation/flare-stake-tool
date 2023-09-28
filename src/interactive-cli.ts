@@ -116,6 +116,11 @@ export async function interactiveCli(baseargv: string[]) {
       }
     }
     else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+      // explicitly throw error when ctx.json doesn't exist
+      if(!fileExists("ctx.json")){
+        console.error("ctx.json does not exist")
+        return;
+      }
       const amount = await prompts.amount()
       const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
       // ask for fees if its exportCP transaction
