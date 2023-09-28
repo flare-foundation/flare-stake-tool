@@ -55,7 +55,7 @@ export async function importTxPC(
  * @param nonce - export transaction nonce
  */
 export async function getUnsignedExportTxCP(
-  ctx: Context, amount: BN, fee?: BN, nonce?: number, threshold?: number
+  ctx: Context, amount?: BN, fee?: BN, nonce?: number, threshold?: number
 ): Promise<UnsignedTxJson> {
   const params = await getExportCPParams(ctx, amount, fee, nonce, threshold)
   const unsignedTx = await ctx.cchain.buildExportTx(...params)
