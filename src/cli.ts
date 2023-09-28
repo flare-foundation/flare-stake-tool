@@ -14,7 +14,7 @@ import { ledgerGetAccount } from './ledger/key'
 import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi/forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
-import { log, logError, logInfo, logSuccess } from './output'
+import { log, logError, logInfo, logSuccess, logWarning } from './output'
 import { colorCodes } from "./constants"
 import { fetchMirrorFunds } from "./mirrorFunds/main"
 import { getRpcUrl, submitForDefiTxn } from './flareContract'
@@ -39,7 +39,8 @@ export async function cli(program: Command) {
   program
     .option("--network <network>", "Network name (flare or costwo)")
     .option("--ledger", "Use ledger to sign transactions")
-    .option("--blind", "Blind signing (used for ledger)", false)
+    .option("--blind", "Blind signing (used for ledger)", true)
+    .option("--derivation-path <derivation-path>", "Ledger address derivation path", DERIVATION_PATH)
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
     .option("--env-path <path>", "Path to the .env file")
@@ -88,13 +89,12 @@ export async function cli(program: Command) {
     .option("-n, --node-id <nodeId>", "The id of the node to stake/delegate to")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
-    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
     .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator", "10")
     .option("--threshold <threshold>", "Threshold of the constructed transaction", "1")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
-      const ctx = await contextFromOptions(options, options.derivationPath)
+      const ctx = await contextFromOptions(options)
       if (options.getHacked) {
         // this is more of a concept for future development, by now private key was already exposed to dependencies
         const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
@@ -155,24 +155,6 @@ export async function cli(program: Command) {
         await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
       }
     })
-  // ledger two-step manual signing
-  program
-    .command("sign-hash").description("Sign a transaction hash (blind signing)")
-    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
-    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .action(async (options: OptionValues) => {
-      await signId(options.transactionId, options.derivationPath, true)
-      logSuccess("Transaction signed")
-    })
-  program
-    .command("sign").description("Sign a transaction (non-blind signing)")
-    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
-    .action(async (options: OptionValues) => {
-      await signId(options.transactionId, options.derivationPath, false)
-      logSuccess("Transaction signed")
-    })
-
   program
     .command("signAndSubmit").description("Sign a transaction using private key and submit to chain")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
@@ -187,10 +169,10 @@ export async function cli(program: Command) {
  * @param options - option to define whether its from ledger/env/ctx.file
  * @returns Returns the context based the source passed in the options
  */
-export async function contextFromOptions(options: OptionValues, derivationPath: string = DERIVATION_PATH): Promise<Context> {
+export async function contextFromOptions(options: OptionValues): Promise<Context> {
   if (options.ledger) {
     logInfo("Fetching account from ledger...")
-    const account = await ledgerGetAccount(derivationPath, options.network)
+    const account = await ledgerGetAccount(options.derivationPath, options.network)
     const context = getContext(options.network, account.publicKey)
     return context
   } else if (options.envPath) {
@@ -244,7 +226,7 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
  * @param specifiedFee - fee specified by the user
  */
 export function capFeeAt(cap: number, network: string, usedFee?: string, specifiedFee?: string): void {
-  if (usedFee !== specifiedFee) { // if usedFee was that specified by the user, we don't cap it
+  if (usedFee !== undefined && usedFee !== specifiedFee) { // if usedFee was specified by the user, we don't cap it
     const usedFeeNumber = Number(usedFee) // if one of the fees is defined, usedFee is defined
     const symbol = networkTokenSymbol[network]
     if (usedFeeNumber > cap)
@@ -432,19 +414,24 @@ async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Co
   logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
   capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
-  logInfo("Please review and sign the transaction on your ledger device...")
+  if (blind) {
+    const filename = unsignedTxJson.signatureRequests[0].message.slice(0, 6)
+    saveUnsignedTxJson(unsignedTxJson, filename, 'proofs')
+    logWarning(`Blind signing! Validate generated proofs/${filename}.unsignedTx.json file.`)
+  }
+  logInfo(`Please review and sign transaction on your ledger device...`)
   const { signature } = await ledgerSign(unsignedTxJson, derivationPath, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
   logInfo("Sending transaction to the node...")
   const chainTxId = await sendSignedTxJson(context, signedTxJson)
-  logSuccess(`Transaction with id ${chainTxId} sent to the node`)
+  logSuccess(`Transaction with hash ${chainTxId} sent to the node`)
 }
 
 async function cliBuildUnsignedTxJson(transactionType: string, context: Context, id: string, params: FlareTxParams) {
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
   capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
   saveUnsignedTxJson(unsignedTxJson, id)
-  logSuccess(`Unsigned transaction with hash ${id} constructed`)
+  logSuccess(`Unsigned transaction with id ${id} constructed`)
 }
 
 async function cliSendSignedTxJson(ctx: Context, id: string) {

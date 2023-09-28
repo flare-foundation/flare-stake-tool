@@ -219,15 +219,16 @@ export function initCtxJson(contextFile: ContextFile) {
   fs.writeFileSync('ctx.json', JSON.stringify(contextFile, null, 2))
 }
 
-export function saveUnsignedTxJson(unsignedTxJson: UnsignedTxJson, id: string): void {
-  const fname = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedTx.json`
+export function saveUnsignedTxJson(unsignedTxJson: UnsignedTxJson, id: string, dir?: string): void {
+  if (dir === undefined) dir = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}`
+  fs.mkdirSync(dir, { recursive: true })
+  const fname = `${dir}/${id}.unsignedTx.json`
   if (fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} already exists`)
   }
   const forDefiHash = Buffer.from(unsignedTxJson.signatureRequests[0].message, 'hex').toString('base64')
   const unsignedTxJsonForDefi: UnsignedTxJson = { ...unsignedTxJson, forDefiHash: forDefiHash }
   const serialization = JSON.stringify(unsignedTxJsonForDefi, null, 2)
-  fs.mkdirSync(`${forDefiDirectory}/${forDefiUnsignedTxnDirectory}`, { recursive: true })
   fs.writeFileSync(fname, serialization)
 }
 
