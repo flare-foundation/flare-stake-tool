@@ -154,6 +154,26 @@ export async function cli(program: Command) {
         await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
       }
     })
+
+  // ledger two-step manual signing
+  program
+    .command("sign-hash").description("Sign a transaction hash (blind signing)")
+    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .action(async (options: OptionValues) => {
+      await signId(options.transactionId, options.derivationPath, true)
+      logSuccess("Transaction signed")
+    })
+
+  program
+    .command("sign").description("Sign a transaction (non-blind signing)")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
+    .action(async (options: OptionValues) => {
+      await signId(options.transactionId, options.derivationPath, false)
+      logSuccess("Transaction signed")
+    })
+
   program
     .command("signAndSubmit").description("Sign a transaction using private key and submit to chain")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
