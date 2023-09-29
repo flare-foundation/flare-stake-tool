@@ -21,10 +21,10 @@ import { BN } from '@flarenetwork/flarejs/dist'
  * @returns {void}
  */
 export async function interactiveCli(baseargv: string[]) {
-    const walletProperties: ConnectWalletInterface = await connectWallet()
-    const task = await selectTask()
-    const program = new Command("Flare Stake Tool")
-    await cli(program)
+  const walletProperties: ConnectWalletInterface = await connectWallet()
+  const task = await selectTask()
+  const program = new Command("Flare Stake Tool")
+  await cli(program)
 
   // First 4 info functions
   if (Object.keys(taskConstants).slice(0, 4).includes(task.toString())) {
@@ -51,19 +51,19 @@ export async function interactiveCli(baseargv: string[]) {
         const amount = await prompts.amount()
         const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
         // ask for fees if its exportCP transaction
-        if(taskConstants[task].slice(0, 1) == 'C'){
+        if (taskConstants[task].slice(0, 1) == 'C') {
           const exportBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(0, 1))
           const exportFees = await prompts.fees(exportBaseFee);
-          argsExport.push( '-f', `${exportFees.fees}`)
+          argsExport.push('-f', `${exportFees.fees}`)
         }
         console.log("Please approve export transaction")
         await program.parseAsync(argsExport)
         const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
         // ask for fees if its importTxPC
-        if(taskConstants[task].slice(0, 1) == 'P'){
+        if (taskConstants[task].slice(0, 1) == 'P') {
           const importBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(1, 2))
           const exportFees = await prompts.fees(importBaseFee);
-          argsImport.push( '-f', `${exportFees.fees}`)
+          argsImport.push('-f', `${exportFees.fees}`)
         }
         console.log("Please approve import transaction")
         await program.parseAsync(argsImport)
@@ -83,20 +83,20 @@ export async function interactiveCli(baseargv: string[]) {
             const amount = await prompts.amount()
             const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "-i", `${txnId.id}`]
             // ask for fees if its exportCP transaction
-            if(taskConstants[task].slice(0, 1) == 'C'){
+            if (taskConstants[task].slice(0, 1) == 'C') {
               const exportBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(0, 1))
               const exportFees = await prompts.fees(exportBaseFee);
-              argsExport.push( '-f', `${exportFees.fees}`)
+              argsExport.push('-f', `${exportFees.fees}`)
             }
             await program.parseAsync(argsExport)
           }
           else if (txnType.txn.includes("Import")) {
             const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "-i", `${txnId.id}`]
             // ask for fees if its importTxPC
-            if(taskConstants[task].slice(0, 1) == 'P'){
+            if (taskConstants[task].slice(0, 1) == 'P') {
               const importBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(1, 2))
               const exportFees = await prompts.fees(importBaseFee);
-              argsImport.push( '-f', `${exportFees.fees}`)
+              argsImport.push('-f', `${exportFees.fees}`)
             }
             await program.parseAsync(argsImport)
           }
@@ -116,27 +116,23 @@ export async function interactiveCli(baseargv: string[]) {
       }
     }
     else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
-      // explicitly throw error when ctx.json doesn't exist
-      if(!fileExists("ctx.json")){
-        console.error("ctx.json does not exist")
-        return;
-      }
+      // // explicitly throw error when ctx.json doesn't exist
       const amount = await prompts.amount()
       const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
       // ask for fees if its exportCP transaction
-      if(taskConstants[task].slice(0, 1) == 'C'){
-        const exportBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(0, 1))
+      if (taskConstants[task].slice(0, 1) == 'C') {
+        const exportBaseFee = await getFeesBasedOnChainForPrivateKey(taskConstants[task].slice(0, 1), walletProperties.path, walletProperties.network)
         const exportFees = await prompts.fees(exportBaseFee);
-        argsExport.push( '-f', `${exportFees.fees}`)
+        argsExport.push('-f', `${exportFees.fees}`)
       }
       console.log("Please approve export transaction")
       await program.parseAsync(argsExport)
       const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
       // ask for fees if its importTxPC
-      if(taskConstants[task].slice(0, 1) == 'P'){
-        const importBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(1, 2))
+      if (taskConstants[task].slice(0, 1) == 'P') {
+        const importBaseFee = await getFeesBasedOnChainForPrivateKey(taskConstants[task].slice(1, 2), walletProperties.path, walletProperties.network)
         const exportFees = await prompts.fees(importBaseFee);
-        argsImport.push( '-f', `${exportFees.fees}`)
+        argsImport.push('-f', `${exportFees.fees}`)
       }
       console.log("Please approve import transaction")
       await program.parseAsync(argsImport)
@@ -692,6 +688,14 @@ async function getBaseFeesForCChain() {
   return baseFee
 }
 
+// fetches the base fees for C-Chain via private key
+async function getBaseFeesForCChainViaPrivateKey(path: string, network: string) {
+  const ctx = contextEnv(path, network);
+  const baseFeeResponse: string = await ctx.cchain.getBaseFee()
+  const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
+  return baseFee
+}
+
 // fetches the base fees for P-Chain
 async function getBaseFeesForPChain() {
   const ctx: Context = contextFile("ctx.json")
@@ -699,6 +703,12 @@ async function getBaseFeesForPChain() {
   return defaultFee
 }
 
+// fetches the base fees for P-Chain via private key
+async function getBaseFeesForPChainViaPrivateKey(path: string, network: string) {
+  const ctx = contextEnv(path, network);
+  const defaultFee = await ctx.pchain.getDefaultTxFee()
+  return defaultFee
+}
 /**
 * @description - fetches the default fees based on the P or C
 * @param chain - P for P-chain and C for C-chain
@@ -706,13 +716,24 @@ async function getBaseFeesForPChain() {
 */
 async function getFeesBasedOnChain(chain: string) {
   let fees;
-  if(chain == 'P'){
-      fees = await getBaseFeesForPChain()
-  } else{
-      fees = await getBaseFeesForCChain()
+  if (chain == 'P') {
+    fees = await getBaseFeesForPChain()
+  } else {
+    fees = await getBaseFeesForCChain()
   }
   return fees;
 }
+
+async function getFeesBasedOnChainForPrivateKey(chain: string, path: string, network: string) {
+  let fees;
+  if (chain == 'P') {
+    fees = await getBaseFeesForPChainViaPrivateKey(path, network)
+  } else {
+    fees = await getBaseFeesForCChainViaPrivateKey(path, network)
+  }
+  return fees;
+}
+
 
 
 /**
