@@ -62,8 +62,9 @@ export const prompts = {
         const questions = [
             {
                 type: 'input',
+                default: baseFees,
                 name: 'fees',
-                message: `${colorCodes.magentaColor}Enter fees ${colorCodes.yellowColor}(Current fees in FLR: ${(baseFees)})${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+                message: `${colorCodes.magentaColor}Enter fees ${colorCodes.yellowColor}(Default Gas fees in WEI: ${(baseFees)})${colorCodes.magentaColor}:${colorCodes.resetColor}`,
             },
         ];
         return inquirer.prompt(questions);

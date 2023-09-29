@@ -430,7 +430,13 @@ export async function logMirrorFundInfo(ctx: Context) {
 
 async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Context, params: FlareTxParams, blind: boolean, derivationPath: string
 ): Promise<void> {
-  logInfo("Creating export transaction...")
+  if(transactionType.includes("export")){
+    logInfo("Creating export transaction...")
+  }
+
+  if(transactionType.includes("import")){
+    logInfo("Creating import transaction...")
+  }
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
   capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
   if (blind) {
