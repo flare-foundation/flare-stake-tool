@@ -328,16 +328,15 @@ export async function interactiveCli(baseargv: string[]) {
   else if (Object.keys(taskConstants)[10] == task.toString()) {
     if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
       const { derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
-      const txnId = await prompts.transactionId()
       const amount = await prompts.amount()
       const withdrawAddress = await prompts.withdrawAddress()
-      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`, "-i", `${txnId.id}`]
+      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`,]
       await program.parseAsync(argsWithdraw)
 
-      const argsSign = [...baseargv.slice(0, 2), "sign-hash", "-i", `${txnId.id}`, "--derivation-path", ctxDerivationPath!]
+      const argsSign = [...baseargv.slice(0, 2), "sign-hash", "--derivation-path", ctxDerivationPath!]
       await program.parseAsync(argsSign)
 
-      const argsSend = [...baseargv.slice(0, 2), taskConstants[task], "-i", `${txnId.id}`, "--send-signed-tx"]
+      const argsSend = [...baseargv.slice(0, 2), taskConstants[task],  "--send-signed-tx"]
       await program.parseAsync(argsSend)
 
     }
@@ -363,14 +362,13 @@ export async function interactiveCli(baseargv: string[]) {
 
     else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
       const context: Context = contextEnv(walletProperties.path, walletProperties.network)
-      const txnId = await prompts.transactionId()
       const amount = await prompts.amount()
       const withdrawAddress = await prompts.withdrawAddress()
-      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`, "-i", `${txnId.id}`,
+      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`,
       `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
       await program.parseAsync(argsWithdraw)
 
-      const argsSignSend = [...baseargv.slice(0, 2), "signAndSubmit", "-i", `${txnId.id}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+      const argsSignSend = [...baseargv.slice(0, 2), "signAndSubmit", `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
       await program.parseAsync(argsSignSend)
 
     }
