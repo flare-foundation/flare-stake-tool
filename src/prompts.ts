@@ -1,6 +1,6 @@
 import inquirer from 'inquirer';
 import { colorCodes } from './constants';
-import { taskConstants, networkConstants, walletConstants } from './screenConstants';
+import { taskConstants, networkConstants, walletConstants, derivationModeConstants } from './screenConstants';
 
 
 /**
@@ -18,6 +18,18 @@ export const prompts = {
         ],
         filter: (val: string) => {
           const key = Object.keys(walletConstants).find(key => walletConstants[key] == val)
+          return key
+        }
+      },
+      {
+        type: 'list',
+        name: 'derivation',
+        message: `${colorCodes.magentaColor}Choose derivation path...${colorCodes.resetColor}`,
+        choices: [
+          ...Object.values(derivationModeConstants)
+        ],
+        filter: (val: string) => {
+          const key = Object.keys(derivationModeConstants).find(key => derivationModeConstants[key] == val)
           return key
         }
       },
