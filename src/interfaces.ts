@@ -1,6 +1,6 @@
 import { SignatureRequest } from "@flarenetwork/flarejs/dist/common"
 import { Avalanche } from '@flarenetwork/flarejs'
-import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
+import { EVMAPI, KeyChain as EVMKeyChain, } from '@flarenetwork/flarejs/dist/apis/evm'
 import { PlatformVMAPI as PVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { NetworkConfig } from './config'
 
@@ -120,4 +120,45 @@ export interface DelegationDetailsInterface {
   startTime: string,
   endTime: string
   delegationFee?: string
+}
+
+/**
+ * Represents the wallet params sent to the registerAddress Function
+ * @interface RegisterAddressInterface
+ */
+export interface RegisterAddressInterface {
+  publicKey: string,
+  pAddress: string,
+  cAddress: string,
+  network: string,
+  wallet: string,
+  derivationPath?: string
+  pvtKey?: string
+  transactionId?: string
+}
+
+/**
+ * Represents the wallet params sent to the claimRewards Function
+ * @interface ClaimRewardsInterface
+ */
+export interface ClaimRewardsInterface {
+  claimAmount: string,
+  ownerAddress: string,
+  receiverAddress: string,
+  network: string,
+  wallet: string,
+  derivationPath?: string
+  pvtKey?: string
+  transactionId?: string
+}
+
+/**
+ * Represents constant used to store values for contract addresses
+ * @interface ContractAddressesInterface
+ */
+export interface ContractAddressesInterface {
+  [contractName: string]: {
+    flare: string;
+    costwo: string;
+  }
 }

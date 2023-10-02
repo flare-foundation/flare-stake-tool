@@ -67,11 +67,6 @@ export const colorCodes = {
   orangeColor: '\x1b[38;5;208m'
 }
 
-/** @description emoji contants */
-export const emojis = {
-  happy: '😀',
-}
-
 /** @description mapping of network name with network code */
 export const networkMapping = {
   "Flare": "flare",
@@ -181,8 +176,8 @@ export function context(
 
   if (privkHex) {
     const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
-    const _cAddressHex = cAccount.address.toLowerCase()
-    if (cAddressHex && cAddressHex !== _cAddressHex) {
+    const _cAddressHex = cAccount.address
+    if (cAddressHex && cAddressHex.toLowerCase() !== _cAddressHex.toLowerCase()) {
       throw Error('c-chain address does not match private key')
     }
     cAddressHex = _cAddressHex
@@ -221,3 +216,9 @@ export function context(
 export const forDefiDirectory = "ForDefiTxnFiles"
 export const forDefiUnsignedTxnDirectory = "UnsignedTxns"
 export const forDefiSignedTxnDirectory = "SignedTxns"
+
+/**
+ * max allowed delegation
+ */
+
+export const maxAllowedDelegation = 3

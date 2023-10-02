@@ -12,7 +12,9 @@ export const taskConstants: ScreenConstantsInterface = {
     'Move assets from C-chain to P-chain': 'CP',
     'Move assets from P-chain to C-chain': "PC",
     'Add a validator node': "stake",
-    'Delegate to a validator node': "delegate"
+    'Delegate to a validator node': "delegate",
+    'Get Mirror fund details': 'mirror',
+    'Claim Rewards':"rewards"
 }
 
 /**

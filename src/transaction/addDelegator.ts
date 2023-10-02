@@ -2,7 +2,8 @@ import { BN, Buffer } from '@flarenetwork/flarejs/dist'
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { UnsignedTxJson, Context } from '../interfaces'
-import { serializeUnsignedTx } from '../utils'
+import { serializeUnsignedTx, delegationAddressCount } from '../utils'
+import { maxAllowedDelegation } from "../constants"
 
 
 type AddDelegatorParams = [
@@ -10,6 +11,12 @@ type AddDelegatorParams = [
   string[], BN, number, Buffer | undefined, BN
 ]
 
+async function checkMaximumAllowedDelegation(ctx: Context){
+  const numberOfDelegation = await delegationAddressCount(ctx);
+  if(numberOfDelegation > maxAllowedDelegation){
+    throw new Error(`Exceeded maximum allowed delegation of ${maxAllowedDelegation}`)
+  }
+}
 /**
  * @description - Delegate funds to a given validator
  * @param ctx - context with constants initialized from user keys
@@ -26,6 +33,7 @@ export async function addDelegator(
   endTime: BN,
   threshold?: number
 ) {
+  await checkMaximumAllowedDelegation(ctx)
   const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddDelegatorTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
@@ -49,6 +57,7 @@ export async function getUnsignedAddDelegator(
   endTime: BN,
   threshold?: number
 ): Promise<UnsignedTxJson> {
+  await checkMaximumAllowedDelegation(ctx)
   const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddDelegatorTx(...params)
   return {

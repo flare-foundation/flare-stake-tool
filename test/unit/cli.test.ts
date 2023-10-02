@@ -102,7 +102,7 @@ describe('cli testcases', () => {
       const usedFee = '50';
       const specifiedFee = '50000000';
 
-      expect(() => capFeeAt(cap, usedFee, specifiedFee)).not.toThrow();
+      expect(() => capFeeAt(cap, "flare", usedFee, specifiedFee)).not.toThrow();
       expect(logInfo).toHaveBeenCalledWith(`Using fee of 5e-8 FLR`);
     });
 
@@ -111,7 +111,7 @@ describe('cli testcases', () => {
       const usedFee = '50000000';
       const specifiedFee = '50000000';
 
-      capFeeAt(cap, usedFee, specifiedFee);
+      capFeeAt(cap, "flare", usedFee, specifiedFee);
       expect(logInfo).not.toHaveBeenCalled();
     });
 
@@ -120,7 +120,7 @@ describe('cli testcases', () => {
       const usedFee = '15000000'; // 150 FLR in nanoFLR
       const specifiedFee = '150000000'; // 150 FLR in nanoFLR
 
-      expect(() => capFeeAt(cap, usedFee, specifiedFee)).toThrowError(
+      expect(() => capFeeAt(cap, "flare", usedFee, specifiedFee)).toThrowError(
         `Used fee of 0.015 FLR is higher than the maximum allowed fee of 1e-7 FLR`
       );
       expect(logInfo).not.toHaveBeenCalled();

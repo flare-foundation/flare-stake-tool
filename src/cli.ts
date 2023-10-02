@@ -16,6 +16,9 @@ import { getSignature, sendToForDefi } from './forDefi/forDefi'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess } from './output'
 import { colorCodes } from "./constants"
+import { fetchMirrorFunds } from "./mirrorFunds/main"
+import { submitForDefiTxn } from './flareContract'
+import { contractTransactionName } from './flareContractConstants'
 
 const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -24,8 +27,8 @@ const MAX_TRANSCTION_FEE = FLR
 // mapping from network to symbol
 const networkTokenSymbol: { [index: string]: string } = {
   "flare": "FLR",
-  "costwo": "CFLR",
-  "localflare": "LFLR"
+  "costwo": "C2FLR",
+  "localflare": "PHT"
 }
 
 export async function cli(program: Command) {
@@ -66,6 +69,8 @@ export async function cli(program: Command) {
         logNetworkInfo(ctx)
       } else if (type == 'validators') {
         await logValidatorInfo(ctx)
+      } else if (type == 'mirror'){
+        await logMirrorFundInfo(ctx)
       } else {
         logError(`Unknown information type ${type}`)
       }
@@ -147,21 +152,6 @@ export async function cli(program: Command) {
         await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
       }
     })
-  // ledger two-step manual signing
-  program
-    .command("sign-hash").description("Sign a transaction hash (blind signing)")
-    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .action(async (options: OptionValues) => {
-      await signId(options.transactionId, DERIVATION_PATH, true)
-      logSuccess("Transaction signed")
-    })
-  program
-    .command("sign").description("Sign a transaction (non-blind signing)")
-    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .action(async (options: OptionValues) => {
-      await signId(options.transactionId, DERIVATION_PATH, false)
-      logSuccess("Transaction signed")
-    })
 }
 
 /**
@@ -225,12 +215,13 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
  * @param usedFee - fee that was used
  * @param specifiedFee - fee specified by the user
  */
-export function capFeeAt(cap: number, usedFee?: string, specifiedFee?: string): void {
+export function capFeeAt(cap: number, network: string, usedFee?: string, specifiedFee?: string): void {
   if (usedFee !== specifiedFee) { // if usedFee was that specified by the user, we don't cap it
     const usedFeeNumber = Number(usedFee) // if one of the fees is defined, usedFee is defined
+    const symbol = networkTokenSymbol[network]
     if (usedFeeNumber > cap)
-      throw new Error(`Used fee of ${usedFeeNumber / FLR} FLR is higher than the maximum allowed fee of ${cap / FLR} FLR`)
-    logInfo(`Using fee of ${usedFeeNumber / FLR} FLR`)
+      throw new Error(`Used fee of ${usedFeeNumber / FLR} ${symbol} is higher than the maximum allowed fee of ${cap / FLR} ${symbol}`)
+    logInfo(`Using fee of ${usedFeeNumber / FLR} ${symbol}`)
   }
 }
 
@@ -395,6 +386,16 @@ export async function logValidatorInfo(ctx: Context) {
   log(`current: ${fcurrent}`)
 }
 
+/**
+ * @description Logs mirror fund details
+ * @param ctx - context
+ */
+export async function logMirrorFundInfo(ctx: Context) {
+  const mirroFundDetails  = await fetchMirrorFunds(ctx)
+  logInfo(`Mirror fund details on the network "${ctx.config.hrp}"`)
+  log(`${JSON.stringify(mirroFundDetails, null, 2)}`)
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // Transaction building and execution
 
@@ -402,7 +403,7 @@ async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Co
 ): Promise<void> {
   logInfo("Creating export transaction...")
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
-  capFeeAt(MAX_TRANSCTION_FEE, unsignedTxJson.usedFee, params.fee)
+  capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
   logInfo("Please review and sign the transaction on your ledger device...")
   const { signature } = await ledgerSign(unsignedTxJson, derivationPath, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
@@ -411,9 +412,9 @@ async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Co
   logSuccess(`Transaction with id ${chainTxId} sent to the node`)
 }
 
-async function cliBuildUnsignedTxJson(transactionType: string, ctx: Context, id: string, params: FlareTxParams) {
-  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
-  capFeeAt(MAX_TRANSCTION_FEE, unsignedTxJson.usedFee, params.fee)
+async function cliBuildUnsignedTxJson(transactionType: string, context: Context, id: string, params: FlareTxParams) {
+  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
+  capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
   saveUnsignedTxJson(unsignedTxJson, id)
   logSuccess(`Unsigned transaction with hash ${id} constructed`)
 }
@@ -422,7 +423,13 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
   if (isAlreadySentToChain(id)) {
     throw new Error("Tx already sent to chain")
   }
-  const chainTxId = await sendSignedTxJson(ctx, readSignedTxJson(id))
+  const signedTxnJson = readSignedTxJson(id)
+  let chainTxId
+  if (signedTxnJson.transactionType === contractTransactionName) {
+    chainTxId = await submitForDefiTxn(id, signedTxnJson.signature, ctx.config.hrp)
+  } else {
+    chainTxId = await sendSignedTxJson(ctx, signedTxnJson)
+  }
   addFlagForSentSignedTx(id)
   logSuccess(`Signed transaction ${id} with hash ${chainTxId} sent to the node`)
 }
