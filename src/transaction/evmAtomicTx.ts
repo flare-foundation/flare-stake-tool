@@ -179,7 +179,7 @@ export async function getExportCPParams(ctx: Context, amount?: BN, fee?: BN, non
   }
   // else use the custom fees passed by the user
   else {
-    params[9] = fee
+    params[9] = fee.mul(new BN(exportCost)).div(new BN(1e9))
   }
   return params
 }
@@ -211,7 +211,7 @@ export async function getImportPCParams(ctx: Context, fee?: BN): Promise<ImportP
   if (!fee) {
     params[5] = baseFee.mul(new BN(importCost))
   } else {
-    params[5] = fee
+    params[5] = fee.mul(new BN(importCost)).div(new BN(1e9))
   }
   return params
 }

@@ -156,6 +156,9 @@ export function decimalToInteger(dec: string, offset: number): string {
 }
 
 export function integerToDecimal(int: string, offset: number): string {
+  if (int === '0') {
+    return '0';
+  }
   int = int.padStart(offset, '0')
   const part1 = int.slice(0, -offset)
   const part2 = int.slice(-offset)
