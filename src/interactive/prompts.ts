@@ -1,6 +1,6 @@
 import chalk from 'chalk'
 import inquirer from 'inquirer';
-import { taskConstants, networkConstants, walletConstants } from '../constants/screen';
+import { taskConstants, networkConstants, walletConstants, derivationModeConstants } from '../constants/screen';
 
 
 /**
@@ -18,6 +18,18 @@ export const prompts = {
         ],
         filter: (val: string) => {
           const key = Object.keys(walletConstants).find(key => walletConstants[key] == val)
+          return key
+        }
+      },
+      {
+        type: 'list',
+        name: 'derivation',
+        message: chalk.magenta("Choose derivation path..."),
+        choices: [
+          ...Object.values(derivationModeConstants)
+        ],
+        filter: (val: string) => {
+          const key = Object.keys(derivationModeConstants).find(key => derivationModeConstants[key] == val)
           return key
         }
       },

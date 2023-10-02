@@ -383,6 +383,8 @@ export async function interactiveCli(baseargv: string[]) {
 async function connectWallet(): Promise<ConnectWalletInterface> {
   const walletPrompt = await prompts.connectWallet()
   const wallet = walletPrompt.wallet
+  const derivation = walletPrompt.derivation
+
   if (wallet == Object.keys(walletConstants)[2]) {
     const pvtKeyPath = await prompts.pvtKeyPath()
     const path = pvtKeyPath.pvtKeyPath
@@ -415,7 +417,7 @@ async function connectWallet(): Promise<ConnectWalletInterface> {
       network = await selectNetwork()
 
       console.log("Fetching Addresses...")
-      const pathList: DerivedAddress[] = await getPathsAndAddresses(network)
+      const pathList: DerivedAddress[] = await getPathsAndAddresses(network, derivation)
       const choiceList = await createChoicesFromAddress(pathList)
       const selectedAddress = await prompts.selectAddress(choiceList)
 

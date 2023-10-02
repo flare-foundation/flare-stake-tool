@@ -36,3 +36,11 @@ export const walletConstants: ScreenConstantsInterface = {
   "publicKey": 'Public Key',
   "privateKey": "Private Key " + chalk.red("(not recommended!)")
 }
+
+/**
+ * @description Constant object which contains the supported wallet derivation path modes and their corresponding formatted output names as key-value pairs.
+ */
+export const derivationModeConstants: ScreenConstantsInterface = {
+  "bip44": 'BIP44 (Default)',
+  "ledger_live": 'Ledger Live',
+}
