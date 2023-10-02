@@ -108,8 +108,8 @@ This describes how to move assets from the C-chain to the P-chain.
 Funds typically reside on the C-chain account, so they have to be exported from it. Exported funds must then be imported to the corresponding P-chain account. This requires one transaction on each chain, so you need to issue two commands.
 
 ```bash
-flare-stake-tool exportCP -a <amount> -f <fee> --ledger
-flare-stake-tool importCP --ledger
+flare-stake-tool exportCP -a <amount> -f <fee> --ledger --blind
+flare-stake-tool importCP --ledger --blind
 ```
 
 Where:
@@ -135,8 +135,8 @@ Transaction with hash 2Ch7Tp3mBxW4QZ57Lr26bddXf7QqNGrukRVbBgwSbrPWisuxYV sent to
 Note the reversed P and C.
 
 ```bash
-flare-stake-tool exportPC -a <amount> --ledger
-flare-stake-tool importPC -f <fee> --ledger
+flare-stake-tool exportPC -a <amount> --ledger --blind
+flare-stake-tool importPC -f <fee> --ledger --blind
 ```
 
 where `amount` and `fee` are optional. If amount after `exportPC` is not specified, all funds are exported.
@@ -146,7 +146,7 @@ where `amount` and `fee` are optional. If amount after `exportPC` is not specifi
 To add a validator node to the flare network, run the following command:
 
 ```bash
-flare-stake-tool stake -n <nodeId> -s <start-time> -e <end-time> -a <amount> --delegation-fee <delegation-fee> --ledger
+flare-stake-tool stake -n <nodeId> -s <start-time> -e <end-time> -a <amount> --delegation-fee <delegation-fee> --ledger --blind
 ```
 
 Where:
@@ -169,7 +169,7 @@ flare-stake-tool info validators
 To delegate to a validator node, run the following command:
 
 ```bash
-flare-stake-tool delegate -n <nodeId> -s <start-time> -e <end-time> -a <amount> --ledger
+flare-stake-tool delegate -n <nodeId> -s <start-time> -e <end-time> -a <amount> --ledger --blind
 ```
 
 Where:
@@ -233,14 +233,14 @@ flare-stake-tool send -i <transaction-id>
 
 ### Move assets from the C-chain to the P-chain
 
-Commands for obtaining unsigned transactions are the same as for the ledger in previous section, except that you ommit the `--ledger` flag and additionally have to specify transaction id `-i <transaction-id>`. For example:
+Commands for obtaining unsigned transactions are the same as for the ledger in previous section, except that you ommit the `--ledger` and `--blind` flags and additionally have to specify transaction id `-i <transaction-id>`. For example:
 ```bash
 flare-stake-tool exportCP -a <amount> -i <transaction-id>
 ```
 
 ## Operations with private key
 
-To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` flag with `--get-hacked` and add an additional argument `--env-path <path to your private key file>`. For example:
+To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` and `--blind` flags with `--get-hacked` and add an additional argument `--env-path <path to your private key file>`. For example:
 
 ```bash
 flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file> --get-hacked
