@@ -3,7 +3,7 @@ import * as jq from 'node-jq'
 import { sha256 } from "ethers"
 import { UnsignedTx } from '@flarenetwork/flarejs/dist/apis/evm'
 import { Buffer as FlrBuffer } from '@flarenetwork/flarejs'
-import { UnsignedTxJson } from "../interfaces"
+import { UnsignedTxJson } from "../src/interfaces"
 
 const filename = "./proofs/45c112.unsignedTx.json" // change to yours
 

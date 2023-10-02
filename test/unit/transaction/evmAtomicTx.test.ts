@@ -7,7 +7,7 @@ import {
   importTxPC,
   exportTxCP
 } from '../../../src/transaction/evmAtomicTx';
-import { contextEnv } from '../../../src/constants';
+import { contextEnv } from '../../../src/context';
 import { Context } from '../../../src/interfaces';
 import fixtures from '../../fixtures/evmAtomicTx.data';
 

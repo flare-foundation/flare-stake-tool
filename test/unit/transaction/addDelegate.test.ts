@@ -3,7 +3,8 @@ import {
   getUnsignedAddDelegator,
   addDelegator
 } from '../../../src/transaction/addDelegator';
-import { contextEnv, maxAllowedDelegation } from '../../../src/constants';
+import { contextEnv } from '../../../src/context';
+import { maxAllowedDelegation } from '../../../src/constants/contracts';
 import { Context } from '../../../src/interfaces';
 import fixtures from '../../fixtures/addDelegate.data';
 import { tranferFundsFromCtoP } from '../../helper/testHelpers';

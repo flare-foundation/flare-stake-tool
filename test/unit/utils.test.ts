@@ -12,18 +12,15 @@ import {
   recoverPublicKey,
   expandSignature,
   sleepms,
-  getUserInput,
   unPrefix0x,
   prefix0x,
   decimalToInteger,
   integerToDecimal,
-  parseRelativeTime,
   toBN,
   serializeExportCP_args,
   deserializeExportCP_args,
   initCtxJson,
   serializeImportPC_args,
-  deserializeImportPC_args,
   serializeUnsignedTx,
   deserializeUnsignedTx,
   saveUnsignedTxJson,
@@ -41,12 +38,13 @@ import {
 import { UnsignedTx as EvmUnsignedTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm';
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm';
 import fixtures from '../fixtures/utils.data';
-import { serialize, covertBNToSting, compareValues } from '../helper/testHelpers';
+import { getUserInput, serialize, covertBNToSting, compareValues } from '../helper/testHelpers';
 import {
   forDefiDirectory,
   forDefiSignedTxnDirectory,
   forDefiUnsignedTxnDirectory
-} from '../../src/constants';
+} from '../../src/constants/forDefi';
+
 
 describe('Unit Test Cases for utils', () => {
   // public keys and bech32 addresses

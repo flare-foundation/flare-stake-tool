@@ -1,4 +1,10 @@
-import { ContractAddressesInterface } from "./interfaces"
+import { ContractAddressesInterface } from "../interfaces"
+
+/**
+ * @description max delegation allowed per address
+ */
+export const maxAllowedDelegation = 3
+
 
 /**
  * @description Stores the default chain-wise addresses for contracts

@@ -1,7 +1,6 @@
+import fs from 'fs'
 import * as ethutil from 'ethereumjs-util'
 import * as elliptic from "elliptic"
-import fs from 'fs'
-import readline from 'readline'
 import { bech32 } from 'bech32'
 import { BN } from '@flarenetwork/flarejs/dist'
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
@@ -9,13 +8,12 @@ import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common"
 import { UnsignedTx as EvmUnsignedTx, UTXOSet } from '@flarenetwork/flarejs/dist/apis/evm'
 import { UnsignedTx as PvmUnsignedTx } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { SignedTxJson, UnsignedTxJson, ContextFile, Context } from './interfaces'
-import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from './constants'
+import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from './constants/forDefi'
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // public keys and bech32 addresses
 
-const EC: typeof elliptic.ec = elliptic.ec
-const ec: elliptic.ec = new EC("secp256k1")
+const ec: elliptic.ec = new elliptic.ec("secp256k1")
 
 export function privateKeyToEncodedPublicKey(privateKey: string, compress: boolean = true): string {
   const keyPair = ec.keyFromPrivate(privateKey)
@@ -85,10 +83,10 @@ export function recoverMessageSigner(message: Buffer, signature: string) {
 }
 
 export function recoverTransactionSigner(message: Buffer, signature: string) {
-  let split = ethutil.fromRpcSig(signature);
-  let publicKey = ethutil.ecrecover(message, split.v, split.r, split.s);
-  let signer = ethutil.pubToAddress(publicKey).toString("hex");
-  return signer;
+  let split = ethutil.fromRpcSig(signature)
+  let publicKey = ethutil.ecrecover(message, split.v, split.r, split.s)
+  let signer = ethutil.pubToAddress(publicKey).toString("hex")
+  return signer
 }
 
 export function recoverPublicKey(message: Buffer, signature: string): Buffer {
@@ -114,19 +112,6 @@ export async function sleepms(milliseconds: number) {
     setTimeout(() => {
       resolve()
     }, milliseconds)
-  })
-}
-
-export function getUserInput(prompt: string): Promise<string> {
-  const reader = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  })
-  return new Promise((resolve) => {
-    reader.question(prompt, (answer) => {
-      reader.close();
-      resolve(answer);
-    })
   })
 }
 
@@ -157,7 +142,7 @@ export function decimalToInteger(dec: string, offset: number): string {
 
 export function integerToDecimal(int: string, offset: number): string {
   if (int === '0') {
-    return '0';
+    return '0'
   }
   int = int.padStart(offset, '0')
   const part1 = int.slice(0, -offset)
@@ -182,8 +167,8 @@ export function serializeExportCP_args(args: [BN, string, string, string, string
 }
 
 export function deserializeExportCP_args(serargs: string): [BN, string, string, string, string, string[], number, BN, number, BN?] {
-  const args = JSON.parse(serargs);
-  [0, 7, 9].map(i => args[i] = new BN(args[i], 16))
+  const args = JSON.parse(serargs)
+  ;[0, 7, 9].map(i => args[i] = new BN(args[i], 16))
   return args
 }
 
@@ -192,7 +177,7 @@ export function serializeImportPC_args(args: [UTXOSet, string, string[], string,
 }
 
 export function deserializeImportPC_args(serargs: string): [UTXOSet, string, string[], string, string[], BN] {
-  const args = JSON.parse(serargs);
+  const args = JSON.parse(serargs)
   const utxoSet = new UTXOSet()
   utxoSet.deserialize(args[0])
   args[0] = utxoSet
@@ -240,7 +225,7 @@ export function readUnsignedTxJson(id: string): UnsignedTxJson {
   if (!fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} does not exist`)
   }
-  const serialization = fs.readFileSync(fname).toString()
+  const serialization = fs.readFileSync(fname, 'utf-8').toString()
   return JSON.parse(serialization) as UnsignedTxJson
 }
 
@@ -291,15 +276,17 @@ export function isAlreadySentToChain(id: string): boolean {
 
 
 function countpAddressInDelegation(validators: any[], pAddressBech32: string): number {
-  let count = 0;
+  let count = 0
   for (const item of validators) {
     if (item.delegators) {
       for (const delegator of item.delegators) {
-        count += delegator.rewardOwner.addresses.filter((addr: string) => addr.toLowerCase() === pAddressBech32.toLowerCase()).length;
+        count += delegator.rewardOwner.addresses.filter((addr: string) => {
+          addr.toLowerCase() === pAddressBech32.toLowerCase()
+        }).length
       }
     }
   }
-  return count;
+  return count
 }
 
 /**
@@ -308,10 +295,12 @@ function countpAddressInDelegation(validators: any[], pAddressBech32: string): n
  * @returns number of times p address used in current validators delegation list
  */
 export async function delegationAddressCount(ctx: Context) {
-  const current = await ctx.pchain.getCurrentValidators();
+  const current = await ctx.pchain.getCurrentValidators()
   const pending = await ctx.pchain.getPendingValidators()
   const pendingValidtaor = JSON.parse(JSON.stringify(pending))
-  const pCurrent = JSON.parse(JSON.stringify(current));
-  const count = countpAddressInDelegation(pCurrent.validators, ctx.pAddressBech32!) + countpAddressInDelegation(pendingValidtaor.validators, ctx.pAddressBech32!);
-  return count;
+  const pCurrent = JSON.parse(JSON.stringify(current))
+  const count =
+    countpAddressInDelegation(pCurrent.validators, ctx.pAddressBech32!) +
+    countpAddressInDelegation(pendingValidtaor.validators, ctx.pAddressBech32!)
+  return count
 }

@@ -1,18 +1,19 @@
-import { prompts } from "./prompts"
-import { taskConstants, walletConstants } from "./screenConstants"
-import { colorCodes, contextEnv, contextFile } from "./constants"
+import fs from 'fs'
+import chalk from 'chalk'
 import { Command } from 'commander'
-import { cli, initCtxJsonFromOptions } from './cli'
-import { claimRewards, isAddressRegistered, isUnclaimedReward, registerAddress } from "./flareContract"
+import { BN } from '@flarenetwork/flarejs/dist'
 import {
   ClaimRewardsInterface,
   ConnectWalletInterface, Context, ContextFile, DelegationDetailsInterface, DerivedAddress,
   RegisterAddressInterface, ScreenConstantsInterface
-} from './interfaces'
-import { getPathsAndAddresses } from './ledger/utils'
-import { compressPublicKey, getUserInput } from "./utils"
-import fs from 'fs'
-import { BN } from '@flarenetwork/flarejs/dist'
+} from '../interfaces'
+import { taskConstants, walletConstants } from "../constants/screen"
+import { contextEnv, contextFile } from "../context"
+import { prompts } from "./prompts"
+import { claimRewards, isAddressRegistered, isUnclaimedReward, registerAddress } from "../contracts"
+import { getPathsAndAddresses } from '../ledger/utils'
+import { compressPublicKey } from "../utils"
+import { cli, initCtxJsonFromOptions } from '../cli'
 
 
 /***
@@ -383,7 +384,6 @@ async function connectWallet(): Promise<ConnectWalletInterface> {
   const walletPrompt = await prompts.connectWallet()
   const wallet = walletPrompt.wallet
   if (wallet == Object.keys(walletConstants)[2]) {
-    console.log(`${colorCodes.redColor}Warning: You are connecting using your private key which is not recommended`)
     const pvtKeyPath = await prompts.pvtKeyPath()
     const path = pvtKeyPath.pvtKeyPath
     const network = await selectNetwork()
@@ -489,15 +489,15 @@ async function getCtxStatus(): Promise<boolean> {
   const isFileExist: boolean = fileExists("ctx.json");
 
   if (isFileExist) {
-    console.log(`${colorCodes.magentaColor}You already have an existing Ctx file with the following parameters - ${colorCodes.resetColor}`)
+    console.log(chalk.magenta("You already have an existing Ctx file with the following parameters - "))
     const { network: ctxNetwork, publicKey: ctxPublicKey, ethAddress: ctxEthAddress, vaultId: ctxVaultId } = readInfoFromCtx("ctx.json")
-    console.log(`${colorCodes.orangeColor}Public Key:${colorCodes.resetColor} ${ctxPublicKey}`)
-    console.log(`${colorCodes.orangeColor}Network:${colorCodes.resetColor} ${ctxNetwork}`)
+    console.log(chalk.hex('#FFA500')("Public Key:"), ctxPublicKey)
+    console.log(chalk.hex('#FFA500')("Network:"), ctxNetwork)
     if (ctxEthAddress) {
-      console.log(`${colorCodes.orangeColor}Eth Address:${colorCodes.resetColor} ${ctxEthAddress}`)
+      console.log(chalk.hex('#FFA500')("Eth Address:"), ctxEthAddress)
     }
     if (ctxVaultId) {
-      console.log(`${colorCodes.orangeColor}Vault Id:${colorCodes.resetColor} ${ctxVaultId}`)
+      console.log(chalk.hex('#FFA500')("Vault Id:"), ctxVaultId)
     }
     const getUserChoice = await prompts.ctxFile();
     const isContinue: boolean = getUserChoice.isContinue
@@ -569,7 +569,7 @@ async function checkAddressRegistrationLedger(wallet: string, ctxNetwork: string
       derivationPath: ctxDerivationPath
     };
     await registerAddress(registerAddressParams)
-    console.log(`${colorCodes.greenColor}Address successfully registered${colorCodes.resetColor}`)
+    console.log(chalk.green("Address successfully registered"))
   }
 }
 
@@ -591,12 +591,8 @@ async function checkAddressRegistrationPrivateKey(wallet: string, ctxNetwork: st
       wallet: wallet,
       pvtKey: context.privkHex
     };
-    const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
-    if (response == 'Y' || response == 'y') {
-      await registerAddress(registerAddressParams)
-    }
-
-    console.log(`${colorCodes.greenColor}Address successfully registered${colorCodes.resetColor}`)
+    await registerAddress(registerAddressParams)
+    console.log(chalk.green("Address successfully registered"))
   }
 }
 
@@ -636,11 +632,8 @@ async function claimRewardsPrivateKey(wallet: string, ctx: Context) {
     wallet: wallet,
     pvtKey: ctx.privkHex
   };
-  const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
-  if (response == 'Y' || response == 'y') {
-    await claimRewards(claimRewardsParams)
-  }
-  console.log(`${colorCodes.greenColor}Rewards successfully claimed${colorCodes.resetColor}`)
+  await claimRewards(claimRewardsParams)
+  console.log(chalk.green("Rwards successfully claimed"))
 }
 
 async function claimRewardsLedger(wallet: string, ctxCAddress: string, ctxDerivationPath: string, ctxNetwork: string) {
@@ -657,7 +650,7 @@ async function claimRewardsLedger(wallet: string, ctxCAddress: string, ctxDeriva
   };
   console.log("Please sign the transaction on your ledger")
   await claimRewards(claimRewardsParams)
-  console.log(`${colorCodes.greenColor}Rewards successfully claimed${colorCodes.resetColor}`)
+  console.log(chalk.green("Rwards successfully claimed"))
 }
 
 async function claimRewardsForDefi(wallet: string, transactionId: string) {
@@ -731,8 +724,6 @@ async function getFeesBasedOnChainForPrivateKey(chain: string, path: string, net
   }
   return fees;
 }
-
-
 
 /**
  * @description - Get the prompts address

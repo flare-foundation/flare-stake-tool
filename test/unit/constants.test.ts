@@ -4,8 +4,8 @@ import {
   contextEnv,
   contextFile,
   networkFromContextFile,
-  getConfig
-} from '../../src/constants';
+  getNetworkConfig
+} from '../../src/context';
 import fs from 'fs';
 import fixtures from '../fixtures/constants.data';
 describe('constants Testcases', () => {
@@ -129,28 +129,28 @@ describe('constants Testcases', () => {
   describe('getConfig Testcases', () => {
     test('should return flare config if network is flare or undefined', () => {
       const network = 'flare';
-      const flareConfig = getConfig(network);
+      const flareConfig = getNetworkConfig(network);
       expect(flareConfig).not.toBeNull;
       expect(flareConfig.hrp).toBe(network);
-      expect(getConfig(undefined)).not.toBeNull;
+      expect(getNetworkConfig(undefined)).not.toBeNull;
     });
 
     test('should return costwo config if network is costwo', () => {
         const network = 'costwo';
-        const costwo = getConfig(network);
+        const costwo = getNetworkConfig(network);
         expect(costwo).not.toBeNull;
         expect(costwo.hrp).toBe(network);
     });
 
     test('should return localflare config if network is localflare', () => {
         const network = 'localflare';
-        const localflare = getConfig(network);
+        const localflare = getNetworkConfig(network);
         expect(localflare).not.toBeNull;
         expect(localflare.hrp).toBe(network);
     });
 
     test('should throw an error for an invalid network', () => {
-      expect(() => getConfig('invalidnetwork')).toThrowError('Invalid network');
+      expect(() => getNetworkConfig('invalidnetwork')).toThrowError('Invalid network');
     });
   });
 });

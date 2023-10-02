@@ -7,7 +7,7 @@ import {
   importTxCP,
   issueSignedPvmTx
 } from '../../../src/transaction/pvmAtomicTx';
-import { contextEnv } from '../../../src/constants';
+import { contextEnv } from '../../../src/context';
 import { Context } from '../../../src/interfaces';
 import fixtures from '../../fixtures/pvmAtomicTx.data';
 import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platformvm';

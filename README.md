@@ -65,7 +65,7 @@ To use this app in a less-secure manner, you can set your private key as an envi
 Below we describe the functionality offered by the app, when you have your ledger device connected to the computer, with avalanche app running.
 
 > **IMPORTANT**
-> By default, the tool uses blind signing, as the ledger app for displaying the transaction details is in the development phase. This means that you will not see the transaction details on the ledger device, and instead only see the transaction hash. To mitigate this, before ledger-signing, a file is generated locally in a `proofs` folder, which contains the transaction details. Those can be verified via prototype script `src/examples/validateHash.ts`.
+> By default, the tool uses blind signing, as the ledger app for displaying the transaction details is in the development phase. This means that you will not see the transaction details on the ledger device, and instead only see the transaction hash. To mitigate this, before ledger-signing, a file is generated locally in a `proofs` folder, which contains the transaction details. Those can be verified via prototype script `scripts/validateHash.ts`.
 
 ### Address conversion
 

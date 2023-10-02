@@ -10,7 +10,7 @@ import {
   initCtxJsonFromOptions
 } from '../../src/cli';
 import { logInfo, log } from '../../src/output';
-import { contextEnv } from '../../src/constants';
+import { contextEnv } from '../../src/context';
 import { Context } from '../../src/interfaces';
 import fixtures from '../fixtures/cli.data';
 jest.mock('../../src/output', () => ({

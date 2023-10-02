@@ -1,28 +1,34 @@
 import { Command, OptionValues } from 'commander'
+import { BigNumber, ethers } from 'ethersV5'
 import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
-import { contextEnv, contextFile, getContext, networkFromContextFile } from './constants'
+import { rpcUrlFromNetworkConfig, contextEnv, contextFile, getContext, networkFromContextFile } from './context'
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
   saveUnsignedTxJson, toBN, initCtxJson, publicKeyToEthereumAddressString,
-  getUserInput, validatePublicKey, addFlagForSentSignedTx, isAlreadySentToChain, delegationAddressCount,
+  validatePublicKey, addFlagForSentSignedTx, isAlreadySentToChain, readUnsignedTxJson,
 } from './utils'
-import { exportTxCP, importTxPC, issueSignedEvmTxPCImport, getUnsignedExportTxCP, getUnsignedImportTxPC, issueSignedEvmTxCPExport } from './transaction/evmAtomicTx'
-import { exportTxPC, importTxCP, getUnsignedImportTxCP, issueSignedPvmTx, getUnsignedExportTxPC } from './transaction/pvmAtomicTx'
+import {
+  exportTxCP, importTxPC,
+  getUnsignedExportTxCP, getUnsignedImportTxPC,
+  issueSignedEvmTxPCImport, issueSignedEvmTxCPExport
+} from './transaction/evmAtomicTx'
+import {
+  exportTxPC, importTxCP,
+  getUnsignedImportTxCP, getUnsignedExportTxPC,
+  issueSignedPvmTx
+} from './transaction/pvmAtomicTx'
 import { addValidator, getUnsignedAddValidator } from './transaction/addValidator'
 import { addDelegator, getUnsignedAddDelegator } from './transaction/addDelegator'
 import { ledgerGetAccount } from './ledger/key'
 import { ledgerSign, signId } from './ledger/sign'
-import { getSignature, sendToForDefi } from './forDefi/forDefi'
+import { getSignature, sendToForDefi } from './forDefi/transaction'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess, logWarning } from './output'
-import { colorCodes } from "./constants"
-import { getRpcUrl, submitForDefiTxn, fetchMirrorFunds } from './flareContract'
-import { contractTransactionName } from './flareContractConstants'
-import fs from 'fs'
-import { forDefiDirectory, forDefiUnsignedTxnDirectory } from './constants'
-import { BigNumber, ethers } from 'ethersV5'
+import { submitForDefiTxn, fetchMirrorFunds } from './contracts'
+import { contractTransactionName } from './constants/contracts'
 
-const DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
+
+const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
 const MAX_TRANSCTION_FEE = FLR
 
@@ -39,7 +45,7 @@ export async function cli(program: Command) {
     .option("--network <network>", "Network name (flare or costwo)")
     .option("--ledger", "Use ledger to sign transactions")
     .option("--blind", "Blind signing (used for ledger)", true)
-    .option("--derivation-path <derivation-path>", "Ledger address derivation path", DERIVATION_PATH)
+    .option("--derivation-path <derivation-path>", "Ledger address derivation path", BASE_DERIVATION_PATH)
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
     .option("--env-path <path>", "Path to the .env file")
@@ -95,11 +101,8 @@ export async function cli(program: Command) {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
       if (options.getHacked) {
-        // this is more of a concept for future development, by now private key was already exposed to dependencies
-        const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
-        if (response == 'Y' || response == 'y') {
-          await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
-        }
+        // for future development: users should get notified before the program gets access to their private keys
+        await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
       } else if (options.ledger) {
         await cliBuildAndSendTxUsingLedger(type, ctx, options as FlareTxParams, options.blind, options.derivationPath)
       } else {
@@ -157,17 +160,16 @@ export async function cli(program: Command) {
   // ledger two-step manual signing
   program
     .command("sign-hash").description("Sign a transaction hash (blind signing)")
-    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
+    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", BASE_DERIVATION_PATH)
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .action(async (options: OptionValues) => {
       await signId(options.transactionId, options.derivationPath, true)
       logSuccess("Transaction signed")
     })
-
   program
     .command("sign").description("Sign a transaction (non-blind signing)")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", DERIVATION_PATH)
+    .option("--derivation-path <derivation-path>", "Derivation Path of the address that needs to be used", BASE_DERIVATION_PATH)
     .action(async (options: OptionValues) => {
       await signId(options.transactionId, options.derivationPath, false)
       logSuccess("Transaction signed")
@@ -178,7 +180,8 @@ export async function cli(program: Command) {
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
-      await signAndSend(options.network, options.envPath, options.transactionId)
+      const ctx: Context = await contextFromOptions(options)
+      await signAndSend(ctx, options.network, options.transactionId)
     })
 }
 
@@ -191,8 +194,8 @@ export async function contextFromOptions(options: OptionValues): Promise<Context
   if (options.ledger) {
     logInfo("Fetching account from ledger...")
     const account = await ledgerGetAccount(options.derivationPath, options.network)
-    const context = getContext(options.network, account.publicKey)
-    return context
+    const ctx = getContext(options.network, account.publicKey)
+    return ctx
   } else if (options.envPath) {
     return contextEnv(options.envPath, options.network)
   } else {
@@ -256,28 +259,26 @@ export function capFeeAt(cap: number, network: string, usedFee?: string, specifi
 //////////////////////////////////////////////////////////////////////////////////////////
 // transaction-type translators
 
-function buildUnsignedTxJson(
-  transactionType: string, context: Context, params: FlareTxParams
-): Promise<UnsignedTxJson> {
+function buildUnsignedTxJson(transactionType: string, ctx: Context, params: FlareTxParams): Promise<UnsignedTxJson> {
   switch (transactionType) {
     case 'exportCP': {
-      return getUnsignedExportTxCP(context, toBN(params.amount)!, toBN(params.fee),
+      return getUnsignedExportTxCP(ctx, toBN(params.amount)!, toBN(params.fee),
         (params.nonce === undefined) ? undefined : Number(params.nonce))
     }
     case 'importCP':
-      return getUnsignedImportTxCP(context, Number(params.threshold!))
+      return getUnsignedImportTxCP(ctx, Number(params.threshold!))
     case 'exportPC': {
-      return getUnsignedExportTxPC(context, toBN(params.amount)!, Number(params.threshold!))
+      return getUnsignedExportTxPC(ctx, toBN(params.amount)!, Number(params.threshold!))
     }
     case 'importPC': {
-      return getUnsignedImportTxPC(context, toBN(params.fee))
+      return getUnsignedImportTxPC(ctx, toBN(params.fee))
     }
     case 'stake': {
-      return getUnsignedAddValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!,
+      return getUnsignedAddValidator(ctx, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!,
         toBN(params.endTime)!, Number(params.delegationFee!), Number(params.threshold!))
     }
     case 'delegate': {
-      return getUnsignedAddDelegator(context, params.nodeId!, toBN(params.amount)!,
+      return getUnsignedAddDelegator(ctx, params.nodeId!, toBN(params.amount)!,
         toBN(params.startTime)!, toBN(params.endTime)!, Number(params.threshold!))
     }
     default:
@@ -285,23 +286,21 @@ function buildUnsignedTxJson(
   }
 }
 
-async function sendSignedTxJson(
-  context: Context, signedTxJson: SignedTxJson
-): Promise<string> {
+async function sendSignedTxJson(ctx: Context, signedTxJson: SignedTxJson): Promise<string> {
   switch (signedTxJson.transactionType) {
     case 'exportCP': {
-      const { chainTxId } = await issueSignedEvmTxCPExport(context, signedTxJson)
+      const { chainTxId } = await issueSignedEvmTxCPExport(ctx, signedTxJson)
       return chainTxId
     }
     case 'importPC': {
-      const { chainTxId } = await issueSignedEvmTxPCImport(context, signedTxJson)
+      const { chainTxId } = await issueSignedEvmTxPCImport(ctx, signedTxJson)
       return chainTxId
     }
     case 'exportPC':
     case 'importCP':
     case 'stake':
     case 'delegate': {
-      const { chainTxId } = await issueSignedPvmTx(context, signedTxJson)
+      const { chainTxId } = await issueSignedPvmTx(ctx, signedTxJson)
       return chainTxId
     }
     default:
@@ -309,22 +308,20 @@ async function sendSignedTxJson(
   }
 }
 
-async function buildAndSendTxUsingPrivateKey(
-  transactionType: string, context: Context, params: FlareTxParams
-): Promise<{ txid: string, usedFee?: string }> {
+async function buildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams): Promise<{ txid: string, usedFee?: string }> {
   if (transactionType === 'exportCP') {
-    return exportTxCP(context, toBN(params.amount)!, toBN(params.fee))
+    return exportTxCP(ctx, toBN(params.amount)!, toBN(params.fee))
   } else if (transactionType === 'importCP') {
-    return importTxCP(context, Number(params.threshold!))
+    return importTxCP(ctx, Number(params.threshold!))
   } else if (transactionType === 'exportPC') {
-    return exportTxPC(context, toBN(params.amount), Number(params.threshold!))
+    return exportTxPC(ctx, toBN(params.amount), Number(params.threshold!))
   } else if (transactionType === 'importPC') {
-    return importTxPC(context, toBN(params.fee))
+    return importTxPC(ctx, toBN(params.fee))
   } else if (transactionType === 'stake') {
-    return addValidator(context, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!,
+    return addValidator(ctx, params.nodeId!, toBN(params.amount)!, toBN(params.startTime)!,
       toBN(params.endTime)!, Number(params.delegationFee!), Number(params.threshold!))
   } else if (transactionType === 'delegate') {
-    return addDelegator(context, params.nodeId!, toBN(params.amount)!,
+    return addDelegator(ctx, params.nodeId!, toBN(params.amount)!,
       toBN(params.startTime)!, toBN(params.endTime)!, Number(params.threshold!))
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
@@ -334,25 +331,25 @@ async function buildAndSendTxUsingPrivateKey(
 //////////////////////////////////////////////////////////////////////////////////////////
 // initializing ctx.json
 
-export async function initCtxJsonFromOptions(options: OptionValues, derivationPath = DERIVATION_PATH): Promise<void> {
-  let contextFile: ContextFile
+export async function initCtxJsonFromOptions(options: OptionValues, derivationPath = BASE_DERIVATION_PATH): Promise<void> {
+  let ctxFile: ContextFile
   if (options.ledger) {
     const { publicKey, address } = await ledgerGetAccount(derivationPath, options.network)
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
-    contextFile = { publicKey, ethAddress, flareAddress: address, network: options.network, derivationPath }
+    ctxFile = { publicKey, ethAddress, flareAddress: address, network: options.network, derivationPath }
   } else if (options.publicKey) {
     if (!validatePublicKey(options.publicKey)) return logError('Invalid public key')
-    contextFile = { publicKey: options.publicKey, network: options.network }
+    ctxFile = { publicKey: options.publicKey, network: options.network }
     if (options.vaultId) {
-      contextFile = {
-        ...contextFile,
+      ctxFile = {
+        ...ctxFile,
         vaultId: options.vaultId
       }
     }
   } else {
     throw new Error('Either --ledger or --public-key must be specified')
   }
-  initCtxJson(contextFile)
+  initCtxJson(ctxFile)
   logSuccess("Context file created")
 }
 
@@ -363,7 +360,7 @@ export async function initCtxJsonFromOptions(options: OptionValues, derivationPa
  * @param ctx - the context file aka ctx.json
  * @returns Returns the address info
  */
-export function logAddressInfo(ctx: Context) {
+export function logAddressInfo(ctx: Context): void {
   const [pubX, pubY] = ctx.publicKey!
   const compressedPubKey = compressPublicKey(pubX, pubY).toString('hex')
   logInfo(`Addresses on the network "${ctx.config.hrp}"`)
@@ -376,7 +373,7 @@ export function logAddressInfo(ctx: Context) {
  * @description Logs the balance info of the account
  * @param ctx - the context file aka ctx.json
  */
-export async function logBalanceInfo(ctx: Context) {
+export async function logBalanceInfo(ctx: Context): Promise<void> {
   let cbalance = (toBN(await ctx.web3.eth.getBalance(ctx.cAddressHex!)))!.toString()
   let pbalance = (toBN((await ctx.pchain.getBalance(ctx.pAddressBech32!)).balance))!.toString()
   cbalance = integerToDecimal(cbalance, 18)
@@ -391,7 +388,7 @@ export async function logBalanceInfo(ctx: Context) {
  * @description Logs info aboout P,C and asset id
  * @param ctx - the context file
  */
-export function logNetworkInfo(ctx: Context) {
+export function logNetworkInfo(ctx: Context): void {
   const pchainId = ctx.pchain.getBlockchainID()
   const cchainId = ctx.cchain.getBlockchainID()
   logInfo(`Information about the network "${ctx.config.hrp}"`)
@@ -404,7 +401,7 @@ export function logNetworkInfo(ctx: Context) {
  * @description Logs the validator information regrading current and pending validators
  * @param ctx - the context file
  */
-export async function logValidatorInfo(ctx: Context) {
+export async function logValidatorInfo(ctx: Context): Promise<void> {
   const pending = await ctx.pchain.getPendingValidators()
   const current = await ctx.pchain.getCurrentValidators()
   const fpending = JSON.stringify(pending, null, 2)
@@ -418,26 +415,24 @@ export async function logValidatorInfo(ctx: Context) {
  * @description Logs mirror fund details
  * @param ctx - context
  */
-export async function logMirrorFundInfo(ctx: Context) {
+export async function logMirrorFundInfo(ctx: Context): Promise<void> {
   const mirroFundDetails = await fetchMirrorFunds(ctx)
   logInfo(`Mirror fund details on the network "${ctx.config.hrp}"`)
-  log(`${JSON.stringify(mirroFundDetails, null, 2)}`)
+  log(JSON.stringify(mirroFundDetails, null, 2))
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Transaction building and execution
 
-async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Context, params: FlareTxParams, blind: boolean, derivationPath: string
-): Promise<void> {
-  if(transactionType.includes("export")){
+async function cliBuildAndSendTxUsingLedger(transactionType: string, ctx: Context, params: FlareTxParams, blind: boolean, derivationPath: string): Promise<void> {
+  if(transactionType === "exportCP" || transactionType === "exportPC"){
     logInfo("Creating export transaction...")
   }
-
-  if(transactionType.includes("import")){
+  if(transactionType === "importCP" || transactionType === "importPC"){
     logInfo("Creating import transaction...")
   }
-  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
-  capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
+  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
+  capFeeAt(MAX_TRANSCTION_FEE, ctx.config.hrp, unsignedTxJson.usedFee, params.fee)
   if (blind) {
     const filename = unsignedTxJson.signatureRequests[0].message.slice(0, 6)
     saveUnsignedTxJson(unsignedTxJson, filename, 'proofs')
@@ -447,18 +442,18 @@ async function cliBuildAndSendTxUsingLedger(transactionType: string, context: Co
   const { signature } = await ledgerSign(unsignedTxJson, derivationPath, blind)
   const signedTxJson = { ...unsignedTxJson, signature }
   logInfo("Sending transaction to the node...")
-  const chainTxId = await sendSignedTxJson(context, signedTxJson)
+  const chainTxId = await sendSignedTxJson(ctx, signedTxJson)
   logSuccess(`Transaction with hash ${chainTxId} sent to the node`)
 }
 
-async function cliBuildUnsignedTxJson(transactionType: string, context: Context, id: string, params: FlareTxParams) {
-  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, context, params)
-  capFeeAt(MAX_TRANSCTION_FEE, context.config.hrp, unsignedTxJson.usedFee, params.fee)
+async function cliBuildUnsignedTxJson(transactionType: string, ctx: Context, id: string, params: FlareTxParams): Promise<void> {
+  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
+  capFeeAt(MAX_TRANSCTION_FEE, ctx.config.hrp, unsignedTxJson.usedFee, params.fee)
   saveUnsignedTxJson(unsignedTxJson, id)
-  logSuccess(`Unsigned transaction with id ${id} constructed`)
+  logSuccess(`Unsigned transaction${id} constructed`)
 }
 
-async function cliSendSignedTxJson(ctx: Context, id: string) {
+async function cliSendSignedTxJson(ctx: Context, id: string): Promise<void> {
   if (isAlreadySentToChain(id)) {
     throw new Error("Tx already sent to chain")
   }
@@ -473,7 +468,7 @@ async function cliSendSignedTxJson(ctx: Context, id: string) {
   logSuccess(`Signed transaction ${id} with hash ${chainTxId} sent to the node`)
 }
 
-async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams) {
+async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Context, params: FlareTxParams): Promise<void> {
   const { txid, usedFee } = await buildAndSendTxUsingPrivateKey(transactionType, ctx, params)
   const symbol = networkTokenSymbol[ctx.config.hrp]
   if (usedFee) logInfo(`Used fee of ${integerToDecimal(usedFee, 9)} ${symbol}`)
@@ -483,12 +478,12 @@ async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Co
 //////////////////////////////////////////////////////////////////////////////////////////
 // Transaction execution using ForDefi api
 
-async function signForDefi(transaction: string, ctx: string, withdrawal: boolean = false) {
+async function signForDefi(transaction: string, ctx: string, withdrawal: boolean = false): Promise<void> {
   const txid = await sendToForDefi(transaction, ctx, withdrawal)
   logSuccess(`Transaction with hash ${txid} sent to the node`)
 }
 
-async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) {
+async function fetchForDefiTx(transaction: string, withdrawal: boolean = false): Promise<void> {
   if (isAlreadySentToChain(transaction)) {
     throw new Error("Tx already sent to chain")
   }
@@ -496,38 +491,30 @@ async function fetchForDefiTx(transaction: string, withdrawal: boolean = false) 
   logSuccess(`Success! Signature: ${signature}`)
 }
 
-async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string, nonce: number) {
+async function withdraw_getHash(ctx: Context, to: string, amount: number, id: string, nonce: number): Promise<void> {
   const fileId = await createWithdrawalTransaction(ctx, to, amount, id, nonce)
-  logSuccess(`Transaction with id ${fileId} constructed`)
+  logSuccess(`Transaction ${fileId} constructed`)
 }
 
-async function withdraw_useSignature(ctx: Context, id: string) {
+async function withdraw_useSignature(ctx: Context, id: string): Promise<void> {
   const txId = await sendSignedWithdrawalTransaction(ctx, id)
-  logSuccess(`Transaction with id ${txId} sent to the node`)
+  logSuccess(`Transaction ${txId} sent to the node`)
 }
-
 
 //////////////////////////////////////////////////////////////////////////////////////////
-// Transaction signing
+// smart contract transaction signing
 
-async function signAndSend(network: string, envPath: string, id: string) {
-  const ctx: Context = contextEnv(envPath, network)
-  const path = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedTx.json`
-  const json = fs.readFileSync(path, 'utf8')
-  const tx = JSON.parse(json)
-
+async function signAndSend(ctx: Context, network: string, id: string): Promise<void> {
+  const tx = readUnsignedTxJson(id) as any
   if (!tx) throw new Error("Invalid txn file")
-  const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
-  if (response.toLowerCase() == 'y') {
-    const wallet = new ethers.Wallet(ctx.privkHex!);
 
-    const valueStr = tx.rawTx.value
-    const valueBN = BigNumber.from(valueStr)
-    tx.rawTx.value = valueBN
-    const provider = new ethers.providers.JsonRpcProvider(getRpcUrl(network));
+  const valueStr = tx.rawTx.value
+  const valueBN = BigNumber.from(valueStr)
+  tx.rawTx.value = valueBN
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrlFromNetworkConfig(network));
 
-    const signedTx = await wallet.signTransaction(tx.rawTx)
-    const chainId = await provider.sendTransaction(signedTx)
-    logSuccess(`Signed transaction ${id} with hash ${chainId.hash} sent to the node`)
-  }
+  const wallet = new ethers.Wallet(ctx.privkHex!);
+  const signedTx = await wallet.signTransaction(tx.rawTx)
+  const chainId = await provider.sendTransaction(signedTx)
+  logSuccess(`Signed transaction ${id} with hash ${chainId.hash} sent to the node`)
 }

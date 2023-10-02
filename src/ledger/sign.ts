@@ -5,7 +5,7 @@ import { recoverTransactionPublicKey, recoverTransactionSigner, prefix0x, standa
 import { logInfo } from '../output'
 import { SignedTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson } from '../interfaces'
 import { getTransportPath } from './key'
-import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from '../constants'
+import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from '../constants/forDefi'
 import { SignatureRequest } from '@flarenetwork/flarejs/dist/common'
 
 /**

@@ -3,7 +3,7 @@ import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platfor
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { UnsignedTxJson, Context } from '../interfaces'
 import { serializeUnsignedTx, delegationAddressCount } from '../utils'
-import { maxAllowedDelegation } from "../constants"
+import { maxAllowedDelegation } from '../constants/contracts'
 
 
 type AddDelegatorParams = [

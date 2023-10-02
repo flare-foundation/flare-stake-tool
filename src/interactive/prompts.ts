@@ -1,6 +1,6 @@
+import chalk from 'chalk'
 import inquirer from 'inquirer';
-import { colorCodes } from './constants';
-import { taskConstants, networkConstants, walletConstants } from './screenConstants';
+import { taskConstants, networkConstants, walletConstants } from '../constants/screen';
 
 
 /**
@@ -12,7 +12,7 @@ export const prompts = {
       {
         type: 'list',
         name: 'wallet',
-        message: `${colorCodes.magentaColor}How do you want to connect your wallet?${colorCodes.resetColor}`,
+        message: chalk.magenta("How do you want to connect your wallet?"),
         choices: [
           ...Object.values(walletConstants)
         ],
@@ -30,7 +30,10 @@ export const prompts = {
       {
         type: 'input',
         name: 'pvtKeyPath',
-        message: `${colorCodes.magentaColor}Enter Path to Private Key file ${colorCodes.yellowColor}(E.g. /home/wallet/pvtKeyFile)${colorCodes.resetColor}:`,
+        message:
+          chalk.magenta("Enter Path to Private Key file") + " " +
+          chalk.yellow("(E.g. /home/wallet/pvtKeyFile)") +
+          chalk.magenta(":"),
       },
     ];
     return inquirer.prompt(questions);
@@ -41,7 +44,10 @@ export const prompts = {
       {
         type: 'input',
         name: 'publicKey',
-        message: `${colorCodes.magentaColor}Enter your secp256k1 curve public key ${colorCodes.yellowColor}(E.g. 0x02efe41c5d213089cb7a9e808505e9084bb9eb2bf3aa8050ea92a5ae9e20e5a692)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+        message:
+          chalk.magenta("Enter your secp256k1 curve public key") + " " +
+          chalk.yellow("(E.g. 0x02efe41c5d213089cb7a9e808505e9084bb9eb2bf3aa8050ea92a5ae9e20e5a692)") +
+          chalk.magenta(":"),
       },
     ];
     return inquirer.prompt(questions);
@@ -52,7 +58,9 @@ export const prompts = {
       {
         type: 'input',
         name: 'amount',
-        message: `${colorCodes.magentaColor}Enter amount ${amountPurpose}${colorCodes.yellowColor}(in FLR)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+        message:
+          chalk.magenta(`Enter amount ${amountPurpose}`) + " " +
+          chalk.magenta(`(in FLR)`)
       },
     ];
     return inquirer.prompt(questions);
@@ -64,7 +72,10 @@ export const prompts = {
                 type: 'input',
                 default: baseFees,
                 name: 'fees',
-                message: `${colorCodes.magentaColor}Enter fees ${colorCodes.yellowColor}(Default Gas fees in WEI: ${(baseFees)})${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+                message:
+                  chalk.magenta("Enter fees") + " " +
+                  chalk.yellow(`Default Gas fees in WEI: ${baseFees}`) +
+                  chalk.magenta(":")
             },
         ];
         return inquirer.prompt(questions);
@@ -75,7 +86,10 @@ export const prompts = {
             {
                 type: 'input',
                 name: 'id',
-                message: `${colorCodes.magentaColor}Enter Node NodeId ${colorCodes.yellowColor}(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+                message:
+                  chalk.magenta("Enter NodeId") + " " +
+                  chalk.yellow("(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)") +
+                  chalk.magenta(":")
             },
         ];
         return inquirer.prompt(questions);
@@ -86,7 +100,10 @@ export const prompts = {
       {
         type: 'input',
         name: 'time',
-        message: `${colorCodes.magentaColor}Enter ${timeType} time${colorCodes.yellowColor}(E.g. 1693185095)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+        message:
+          chalk.magenta(`Enter ${timeType} time`) + " " +
+          chalk.yellow("(E.g. 1693185095") +
+          chalk.magenta(":")
       },
     ];
     return inquirer.prompt(questions);
@@ -97,7 +114,7 @@ export const prompts = {
       {
         type: 'list',
         name: 'isContinue',
-        message: `${colorCodes.magentaColor}Do you wish to continue with this?${colorCodes.resetColor}`,
+        message: chalk.magenta("Do you wish to continue with this?"),
         choices: [
           "yes",
           "no"
@@ -115,7 +132,7 @@ export const prompts = {
       {
         type: 'list',
         name: 'network',
-        message: `${colorCodes.magentaColor}Which network do you want to connect to?${colorCodes.resetColor}`,
+        message: chalk.magenta("Which network do you want to connect to?"),
         choices: [
           ...Object.values(networkConstants)
         ],
@@ -133,7 +150,7 @@ export const prompts = {
       {
         type: 'list',
         name: 'task',
-        message: `${colorCodes.magentaColor}What do you want to do?${colorCodes.resetColor}`,
+        message: chalk.magenta("What do you want to do?"),
         choices: [
           ...Object.keys(taskConstants)
         ],
@@ -147,7 +164,7 @@ export const prompts = {
       {
         type: 'list',
         name: 'address',
-        message: `${colorCodes.magentaColor}Which address do you want to use?${colorCodes.resetColor}`,
+        message: chalk.magenta("Which address do you want to use?"),
         choices: [
           ...choiceList
         ],
@@ -165,7 +182,10 @@ export const prompts = {
       {
         type: 'input',
         name: 'fee',
-        message: `${colorCodes.magentaColor}Enter delegation fee${colorCodes.yellowColor}(E.g. 10)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+        message:
+          chalk.magenta("Enter delegation fee") + " " +
+          chalk.yellow("(E.g. 10)") +
+          chalk.magenta(":")
       },
     ];
     return inquirer.prompt(questions);
@@ -176,7 +196,10 @@ export const prompts = {
       {
         type: 'input',
         name: 'id',
-        message: `${colorCodes.magentaColor}Enter a ForDefi Vault Id${colorCodes.yellowColor}(E.g. 42989fc9-xxxx-xxxx-xxxx-xxxxxxxxxxxx)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+        message:
+          chalk.magenta("Enter a ForDefi VauldId") + " " +
+          chalk.yellow("(E.g. 42989fc9-xxxx-xxxx-xxxx-xxxxxxxxxxxx)") +
+          chalk.magenta(":")
       },
     ];
     return inquirer.prompt(questions);
@@ -187,7 +210,10 @@ export const prompts = {
       {
         type: 'input',
         name: 'id',
-        message: `${colorCodes.magentaColor}Enter a Transaction Id${colorCodes.yellowColor}(E.g. abc-txn)${colorCodes.magentaColor}:${colorCodes.resetColor}`,
+        message:
+          chalk.magenta("Enter Transaction Id") + " " +
+          chalk.yellow("(E.g. abc-txn)") +
+          chalk.magenta(":"),
       },
     ];
     return inquirer.prompt(questions);
@@ -198,7 +224,7 @@ export const prompts = {
       {
         type: 'list',
         name: 'txn',
-        message: `${colorCodes.magentaColor}Which transaction do you want to do?${colorCodes.resetColor}`,
+        message: chalk.magenta("Which transaction do you want to do?"),
         choices: [
           "Export funds",
           "Import funds"
@@ -213,7 +239,7 @@ export const prompts = {
       {
         type: 'list',
         name: 'isContinue',
-        message: `${colorCodes.magentaColor}Choose an option${colorCodes.resetColor}`,
+        message: chalk.magenta("Choose an option"),
         choices: [
           "Start new transaction",
           "Continue existing transaction"
@@ -231,7 +257,7 @@ export const prompts = {
       {
         type: 'list',
         name: 'isOwnerReceiver',
-        message: `${colorCodes.magentaColor}Where do you want to receive your rewards?${colorCodes.resetColor}`,
+        message: chalk.magenta("Where do you want to receive your rewards?"),
         choices: [
           "Send to my wallet",
           "Receive with another wallet"
@@ -249,7 +275,7 @@ export const prompts = {
       {
         type: 'input',
         name: 'address',
-        message: `${colorCodes.magentaColor}Please enter the C-address where you want to receive your rewards:${colorCodes.resetColor}`,
+        message: chalk.magenta("Please enter the C-address where you want to receive your rewards:"),
       },
     ];
     return inquirer.prompt(questions);
@@ -260,7 +286,7 @@ export const prompts = {
       {
         type: 'input',
         name: 'address',
-        message: `${colorCodes.magentaColor}Please enter the C-address where you want to withdraw your funds:${colorCodes.resetColor}`,
+        message: chalk.magenta("Please enter the C-address where you want to withdraw your funds:"),
       },
     ];
     return inquirer.prompt(questions);
