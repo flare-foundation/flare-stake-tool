@@ -1,7 +1,7 @@
 import fs from 'fs'
 import AvalancheApp from '@avalabs/hw-app-avalanche'
 import { sha256 } from 'ethereumjs-util'
-import { recoverTransactionPublicKey, recoverTransactionSigner, prefix0x, standardizePublicKey, expandDerivationPath } from './utils'
+import { recoverTransactionPublicKey, recoverTransactionSigner, prefix0x, standardizePublicKey, parseDerivationPath } from './utils'
 import { logInfo } from '../output'
 import { SignedTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson } from '../interfaces'
 import { getTransportPath } from './key'
@@ -22,7 +22,7 @@ export async function ledgerSign(tx: UnsignedTxJson, derivationPath: string, bli
   const messageBuffer = Buffer.from(message, 'hex')
   const transport = await getTransportPath()
   const avalanche = new AvalancheApp(transport)
-  const { accountPath, signPath } = expandDerivationPath(derivationPath)
+  const { accountPath, signPath } = parseDerivationPath(derivationPath)
   let pubk: Buffer
   let addr: string
   let signature: string

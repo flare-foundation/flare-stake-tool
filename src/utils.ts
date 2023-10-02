@@ -281,7 +281,7 @@ function countpAddressInDelegation(validators: any[], pAddressBech32: string): n
     if (item.delegators) {
       for (const delegator of item.delegators) {
         count += delegator.rewardOwner.addresses.filter((addr: string) => {
-          addr.toLowerCase() === pAddressBech32.toLowerCase()
+          return addr.toLowerCase() === pAddressBech32.toLowerCase()
         }).length
       }
     }

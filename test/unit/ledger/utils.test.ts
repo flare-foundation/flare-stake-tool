@@ -3,7 +3,7 @@ import {
   privateKeyToPublicKeyEncoding,
   standardizePublicKey,
   recoverTransactionPublicKey,
-  expandDerivationPath
+  parseDerivationPath
 } from '../../../src/ledger/utils';
 import fixtures from '../../fixtures/ledger/utils.data';
 
@@ -44,10 +44,10 @@ describe('ledger/utils testcases', () => {
     });
   });
 
-  describe('expandDerivationPath', () => {
+  describe('parseDerivationPath', () => {
     test('should expand a valid derivation path', () => {
       const derivationPath = "m/44'/60'/0'/0/0";
-      const result = expandDerivationPath(derivationPath);
+      const result = parseDerivationPath(derivationPath);
       expect(result).toEqual({
         accountPath: "m/44'/60'/0'",
         signPath: '0/0'
@@ -56,7 +56,7 @@ describe('ledger/utils testcases', () => {
 
     test('should handle an empty derivation path', () => {
       const derivationPath = '';
-      const result = expandDerivationPath(derivationPath);
+      const result = parseDerivationPath(derivationPath);
       expect(result).toEqual({
         accountPath: '',
         signPath: ''
@@ -65,7 +65,7 @@ describe('ledger/utils testcases', () => {
 
     test('should handle a derivation path with only one component', () => {
       const derivationPath = 'm';
-      const result = expandDerivationPath(derivationPath);
+      const result = parseDerivationPath(derivationPath);
       expect(result).toEqual({
         accountPath: '',
         signPath: 'm'
@@ -74,7 +74,7 @@ describe('ledger/utils testcases', () => {
 
     test('should handle a derivation path with multiple components', () => {
       const derivationPath = "m/44'/60'/0'/0/0/1/2";
-      const result = expandDerivationPath(derivationPath);
+      const result = parseDerivationPath(derivationPath);
       expect(result).toEqual({
         accountPath: "m/44'/60'/0'/0/0",
         signPath: '1/2'
