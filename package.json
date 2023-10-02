@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "@avalabs/hw-app-avalanche": "^0.10.1",
+    "@flarenetwork/flare-stake-tool": "^2.6.0",
     "@flarenetwork/flarejs": "1.2.1",
     "@ledgerhq/hw-transport-node-hid": "^6.0.0",
     "bech32": "^2.0.0",
@@ -67,6 +68,7 @@
     "ethereumjs-tx": "^2.1.2",
     "ethers": "6.5.1",
     "figlet": "^1.6.0",
+    "global": "^4.4.0",
     "inquirer": "8.0",
     "jest-fetch-mock": "^3.0.3",
     "web3": "^1.8.0"
