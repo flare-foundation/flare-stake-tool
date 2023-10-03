@@ -1,5 +1,5 @@
 import { addValidator, getAddValidatorParams, getUnsignedAddValidator } from '../../../src/transaction/addValidator';
-import { contextEnv } from '../../../src/constants';
+import { contextEnv } from '../../../src/context';
 import { Context } from '../../../src/interfaces';
 import fixtures from '../../fixtures/addValidator.data';
 

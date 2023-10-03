@@ -3,7 +3,7 @@ import { UTXOSet, UnsignedTx, Tx } from '@flarenetwork/flarejs/dist/apis/platfor
 import { UnixNow } from '@flarenetwork/flarejs/dist/utils'
 import { UnsignedTxJson, Context } from '../interfaces'
 import { serializeUnsignedTx, delegationAddressCount } from '../utils'
-import { maxAllowedDelegation } from "../constants"
+import { maxAllowedDelegation } from '../constants/contracts'
 
 
 type AddDelegatorParams = [
@@ -13,7 +13,7 @@ type AddDelegatorParams = [
 
 async function checkMaximumAllowedDelegation(ctx: Context){
   const numberOfDelegation = await delegationAddressCount(ctx);
-  if(numberOfDelegation > maxAllowedDelegation){
+  if(numberOfDelegation >= maxAllowedDelegation){
     throw new Error(`Exceeded maximum allowed delegation of ${maxAllowedDelegation}`)
   }
 }

@@ -1,6 +1,6 @@
 import fs from 'fs'
 import { UnsignedWithdrawalTxJson, SignedWithdrawalTxJson } from '../interfaces'
-import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from '../constants'
+import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from '../constants/forDefi'
 
 
 export function saveUnsignedWithdrawalTx(unsignedTx: UnsignedWithdrawalTxJson, id: string): void {

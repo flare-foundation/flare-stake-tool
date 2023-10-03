@@ -1,5 +1,5 @@
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from '../../../src/forDefi/withdrawal';
-import { contextEnv } from '../../../src/constants';
+import { contextEnv } from '../../../src/context';
 import fixtures from '../../fixtures/withdrawal.data';
 describe('withdrawal Testcases', () => {
   describe('createWithdrawalTransaction Testcases', () => {

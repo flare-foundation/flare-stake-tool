@@ -1,6 +1,21 @@
+import readline from 'readline';
 import { BN } from '@flarenetwork/flarejs/dist';
 import { exportTxCP } from '../../src/transaction/evmAtomicTx';
-import { contextEnv } from '../../src/constants';
+import { contextEnv } from '../../src/context';
+
+
+export function getUserInput(prompt: string): Promise<string> {
+  const reader = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  return new Promise((resolve) => {
+    reader.question(prompt, (answer) => {
+      reader.close();
+      resolve(answer);
+    });
+  });
+}
 
 /**
  * @description - serializes the buffer data

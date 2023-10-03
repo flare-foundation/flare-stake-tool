@@ -6,7 +6,7 @@ import { SignedTxJson, UnsignedTxJson, Context } from '../interfaces'
 import {
   expandSignature,
   serializeExportCP_args, deserializeExportCP_args, deserializeImportPC_args,
-  serializeImportPC_args
+  serializeImportPC_args, toBN, integerToDecimal
 } from '../utils'
 
 type ExportCPParams = [BN, string, string, string, string, string[], number, BN, number, BN]
@@ -55,7 +55,7 @@ export async function importTxPC(
  * @param nonce - export transaction nonce
  */
 export async function getUnsignedExportTxCP(
-  ctx: Context, amount: BN, fee?: BN, nonce?: number, threshold?: number
+  ctx: Context, amount?: BN, fee?: BN, nonce?: number, threshold?: number
 ): Promise<UnsignedTxJson> {
   const params = await getExportCPParams(ctx, amount, fee, nonce, threshold)
   const unsignedTx = await ctx.cchain.buildExportTx(...params)
@@ -115,7 +115,7 @@ export async function issueSignedEvmTxPCImport(ctx: Context, signedTxJson: Signe
  * @returns - issues trx and returns the transactionid
  */
 export async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson,
-    txBuilder: (serialization: string) => Promise<UnsignedTx>): Promise<{ chainTxId: string }> {
+  txBuilder: (serialization: string) => Promise<UnsignedTx>): Promise<{ chainTxId: string }> {
   const signatures = Array(signedTxJson.signatureRequests.length).fill(signedTxJson.signature)
   const ecdsaSignatures: EcdsaSignature[] = signatures.map((signature: string) => expandSignature(signature))
   const unsignedTx = await txBuilder(signedTxJson.serialization)
@@ -133,14 +133,34 @@ export async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson,
  * @param threshold
  * @returns returns the params need to export fund from C to P chain
  */
-export async function getExportCPParams(ctx: Context, amount: BN, fee?: BN, nonce?: number, threshold: number = 1): Promise<ExportCPParams> {
+export async function getExportCPParams(ctx: Context, amount?: BN, fee?: BN, nonce?: number, threshold: number = 1): Promise<ExportCPParams> {
   const txcount = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)
   const locktime: BN = new BN(0)
   const importFee: BN = ctx.pchain.getDefaultTxFee()
   const baseFeeResponse: string = await ctx.cchain.getBaseFee()
   const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
+  if (amount == undefined) {
+    // fetch cchain balance
+    let balance: any = (toBN(await ctx.web3.eth.getBalance(ctx.cAddressHex!)))!.toString();
+    // if balance is zero, throw error
+    if (parseInt(balance) == 0) {
+      throw new Error("Account balance is zero")
+    }
+    // if balance is there, convert it to integer. Since toBN throws error for number with decimal, take the first digits
+    balance = integerToDecimal(balance, 9).split(".")[0]
+    // convert it o big number
+    balance = toBN(balance)
+    // buffer amount for gas fees
+    const bufferAmount = toBN(11230)
+    // based on whether fees
+    const exportFees = fee ? bufferAmount?.mul(fee) : bufferAmount?.mul(baseFee)
+    // add it to total expenditure
+    const totalExpenditure = importFee.add(exportFees!)
+    // since it will need to execute substract it from the balance
+    amount = balance.sub(totalExpenditure);
+  }
   const params: ExportCPParams = [
-    amount.add(importFee),
+    amount!.add(importFee),
     ctx.avaxAssetID,
     ctx.pChainBlockchainID,
     ctx.cAddressHex!,
@@ -151,10 +171,15 @@ export async function getExportCPParams(ctx: Context, amount: BN, fee?: BN, nonc
     threshold,
     fee ?? baseFee
   ]
-   if (!fee) {
-    const unsignedTx: UnsignedTx = await ctx.cchain.buildExportTx(...params)
-    const exportCost: number = costExportTx(unsignedTx)
+  const unsignedTx: UnsignedTx = await ctx.cchain.buildExportTx(...params)
+  const exportCost: number = costExportTx(unsignedTx)
+  // if fee not passed -> use the default
+  if (!fee) {
     params[9] = baseFee.mul(new BN(exportCost))
+  }
+  // else use the custom fees passed by the user
+  else {
+    params[9] = fee.mul(new BN(exportCost)).div(new BN(1e9))
   }
   return params
 }
@@ -181,10 +206,12 @@ export async function getImportPCParams(ctx: Context, fee?: BN): Promise<ImportP
     [ctx.cAddressBech32!],
     baseFee
   ]
+  const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
+  const importCost: number = costImportTx(unsignedTx)
   if (!fee) {
-    const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
-    const importCost: number = costImportTx(unsignedTx)
     params[5] = baseFee.mul(new BN(importCost))
+  } else {
+    params[5] = fee.mul(new BN(importCost)).div(new BN(1e9))
   }
   return params
 }

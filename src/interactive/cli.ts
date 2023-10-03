@@ -1,17 +1,20 @@
-import { prompts } from "./prompts"
-import { taskConstants, walletConstants } from "./screenConstants"
-import { colorCodes, contextEnv, contextFile } from "./constants"
+import fs from 'fs'
+import chalk from 'chalk'
 import { Command } from 'commander'
-import { cli, initCtxJsonFromOptions } from './cli'
-import { claimRewards, isAddressRegistered, isUnclaimedReward, registerAddress } from "./flareContract"
+import { BN } from '@flarenetwork/flarejs/dist'
 import {
   ClaimRewardsInterface,
   ConnectWalletInterface, Context, ContextFile, DelegationDetailsInterface, DerivedAddress,
   RegisterAddressInterface, ScreenConstantsInterface
-} from './interfaces'
-import { getPathsAndAddresses } from './ledger/utils'
-import { compressPublicKey, getUserInput } from "./utils"
-import fs from 'fs'
+} from '../interfaces'
+import { taskConstants, walletConstants } from "../constants/screen"
+import { contextEnv, contextFile } from "../context"
+import { prompts } from "./prompts"
+import { claimRewards, isAddressRegistered, isUnclaimedReward, registerAddress } from "../contracts"
+import { getPathsAndAddresses } from '../ledger/utils'
+import { compressPublicKey } from "../utils"
+import { cli, initCtxJsonFromOptions } from '../cli'
+
 
 /***
  * @description Handles all operations pertaining to the interactive CLL. Creates a list of arguments and internally calls the comamnder based CLI after taking the relevant inputs from the user.
@@ -21,7 +24,6 @@ import fs from 'fs'
 export async function interactiveCli(baseargv: string[]) {
   const walletProperties: ConnectWalletInterface = await connectWallet()
   const task = await selectTask()
-
   const program = new Command("Flare Stake Tool")
   await cli(program)
 
@@ -49,9 +51,21 @@ export async function interactiveCli(baseargv: string[]) {
       if (ctxNetwork && ctxDerivationPath) {
         const amount = await prompts.amount()
         const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
+        // ask for fees if its exportCP transaction
+        if (taskConstants[task].slice(0, 1) == 'C') {
+          const exportBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(0, 1))
+          const exportFees = await prompts.fees(exportBaseFee);
+          argsExport.push('-f', `${exportFees.fees}`)
+        }
         console.log("Please approve export transaction")
         await program.parseAsync(argsExport)
         const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
+        // ask for fees if its importTxPC
+        if (taskConstants[task].slice(0, 1) == 'P') {
+          const importBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(1, 2))
+          const exportFees = await prompts.fees(importBaseFee);
+          argsImport.push('-f', `${exportFees.fees}`)
+        }
         console.log("Please approve import transaction")
         await program.parseAsync(argsImport)
       }
@@ -69,10 +83,22 @@ export async function interactiveCli(baseargv: string[]) {
           if (txnType.txn.includes("Export")) {
             const amount = await prompts.amount()
             const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "-i", `${txnId.id}`]
+            // ask for fees if its exportCP transaction
+            if (taskConstants[task].slice(0, 1) == 'C') {
+              const exportBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(0, 1))
+              const exportFees = await prompts.fees(exportBaseFee);
+              argsExport.push('-f', `${exportFees.fees}`)
+            }
             await program.parseAsync(argsExport)
           }
           else if (txnType.txn.includes("Import")) {
             const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "-i", `${txnId.id}`]
+            // ask for fees if its importTxPC
+            if (taskConstants[task].slice(0, 1) == 'P') {
+              const importBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(1, 2))
+              const exportFees = await prompts.fees(importBaseFee);
+              argsImport.push('-f', `${exportFees.fees}`)
+            }
             await program.parseAsync(argsImport)
           }
           const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
@@ -91,11 +117,24 @@ export async function interactiveCli(baseargv: string[]) {
       }
     }
     else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+      // // explicitly throw error when ctx.json doesn't exist
       const amount = await prompts.amount()
       const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+      // ask for fees if its exportCP transaction
+      if (taskConstants[task].slice(0, 1) == 'C') {
+        const exportBaseFee = await getFeesBasedOnChainForPrivateKey(taskConstants[task].slice(0, 1), walletProperties.path, walletProperties.network)
+        const exportFees = await prompts.fees(exportBaseFee);
+        argsExport.push('-f', `${exportFees.fees}`)
+      }
       console.log("Please approve export transaction")
       await program.parseAsync(argsExport)
       const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+      // ask for fees if its importTxPC
+      if (taskConstants[task].slice(0, 1) == 'P') {
+        const importBaseFee = await getFeesBasedOnChainForPrivateKey(taskConstants[task].slice(1, 2), walletProperties.path, walletProperties.network)
+        const exportFees = await prompts.fees(importBaseFee);
+        argsImport.push('-f', `${exportFees.fees}`)
+      }
       console.log("Please approve import transaction")
       await program.parseAsync(argsImport)
     }
@@ -279,10 +318,60 @@ export async function interactiveCli(baseargv: string[]) {
       }
     }
 
-    else if (walletProperties.wallet == Object.keys(walletConstants)[2]) {
-      const context: Context = contextEnv(walletProperties.path!, walletProperties.network!)
+    else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+      const context: Context = contextEnv(walletProperties.path, walletProperties.network)
       const isUnclaimed = await isUnclaimedReward(context.cAddressHex!, context.config.hrp)
       if (isUnclaimed) await claimRewardsPrivateKey(walletProperties.wallet, context)
+    }
+  }
+
+  // Withdraw funds
+  else if (Object.keys(taskConstants)[10] == task.toString()) {
+    if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
+      const { derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
+      const amount = await prompts.amount()
+      const withdrawAddress = await prompts.withdrawAddress()
+      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`,]
+      await program.parseAsync(argsWithdraw)
+
+      const argsSign = [...baseargv.slice(0, 2), "sign-hash", "--derivation-path", ctxDerivationPath!]
+      await program.parseAsync(argsSign)
+
+      const argsSend = [...baseargv.slice(0, 2), taskConstants[task],  "--send-signed-tx"]
+      await program.parseAsync(argsSend)
+
+    }
+
+    else if (walletProperties.wallet == Object.keys(walletConstants)[1] && fileExists("ctx.json")) {
+      const isContinue = await prompts.forDefiContinue()
+      const txnId = await prompts.transactionId()
+      if (!isContinue.isContinue) {
+        const amount = await prompts.amount()
+        const withdrawAddress = await prompts.withdrawAddress()
+        const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`, "-i", `${txnId.id}`]
+        await program.parseAsync(argsWithdraw)
+        const argsSign = [...makeForDefiArguments("sign", baseargv, txnId.id), "--withdrawal"]
+        await program.parseAsync(argsSign)
+      }
+      else {
+        const argsFetch = [...makeForDefiArguments("fetch", baseargv, txnId.id), "--withdrawal"]
+        await program.parseAsync(argsFetch)
+        const argsSend = [...baseargv.slice(0, 2), taskConstants[task], "-i", `${txnId.id}`, "--send-signed-tx"]
+        await program.parseAsync(argsSend)
+      }
+    }
+
+    else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+      const context: Context = contextEnv(walletProperties.path, walletProperties.network)
+      const amount = await prompts.amount()
+      const withdrawAddress = await prompts.withdrawAddress()
+      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`,
+      `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+      await program.parseAsync(argsWithdraw)
+
+      const argsSignSend = [...baseargv.slice(0, 2), "signAndSubmit", `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
+      await program.parseAsync(argsSignSend)
+
     }
   }
 
@@ -294,8 +383,8 @@ export async function interactiveCli(baseargv: string[]) {
 async function connectWallet(): Promise<ConnectWalletInterface> {
   const walletPrompt = await prompts.connectWallet()
   const wallet = walletPrompt.wallet
+
   if (wallet == Object.keys(walletConstants)[2]) {
-    console.log(`${colorCodes.redColor}Warning: You are connecting using your private key which is not recommended`)
     const pvtKeyPath = await prompts.pvtKeyPath()
     const path = pvtKeyPath.pvtKeyPath
     const network = await selectNetwork()
@@ -326,8 +415,10 @@ async function connectWallet(): Promise<ConnectWalletInterface> {
     if (isCreateCtx) {
       network = await selectNetwork()
 
+      const derivationTypePrompt = await prompts.derivationType()
+      const derivation = derivationTypePrompt.derivation
       console.log("Fetching Addresses...")
-      const pathList: DerivedAddress[] = await getPathsAndAddresses(network)
+      const pathList: DerivedAddress[] = await getPathsAndAddresses(network, derivation)
       const choiceList = await createChoicesFromAddress(pathList)
       const selectedAddress = await prompts.selectAddress(choiceList)
 
@@ -401,15 +492,15 @@ async function getCtxStatus(): Promise<boolean> {
   const isFileExist: boolean = fileExists("ctx.json");
 
   if (isFileExist) {
-    console.log(`${colorCodes.magentaColor}You already have an existing Ctx file with the following parameters - ${colorCodes.resetColor}`)
+    console.log(chalk.magenta("You already have an existing Ctx file with the following parameters - "))
     const { network: ctxNetwork, publicKey: ctxPublicKey, ethAddress: ctxEthAddress, vaultId: ctxVaultId } = readInfoFromCtx("ctx.json")
-    console.log(`${colorCodes.orangeColor}Public Key:${colorCodes.resetColor} ${ctxPublicKey}`)
-    console.log(`${colorCodes.orangeColor}Network:${colorCodes.resetColor} ${ctxNetwork}`)
+    console.log(chalk.hex('#FFA500')("Public Key:"), ctxPublicKey)
+    console.log(chalk.hex('#FFA500')("Network:"), ctxNetwork)
     if (ctxEthAddress) {
-      console.log(`${colorCodes.orangeColor}Eth Address:${colorCodes.resetColor} ${ctxEthAddress}`)
+      console.log(chalk.hex('#FFA500')("Eth Address:"), ctxEthAddress)
     }
     if (ctxVaultId) {
-      console.log(`${colorCodes.orangeColor}Vault Id:${colorCodes.resetColor} ${ctxVaultId}`)
+      console.log(chalk.hex('#FFA500')("Vault Id:"), ctxVaultId)
     }
     const getUserChoice = await prompts.ctxFile();
     const isContinue: boolean = getUserChoice.isContinue
@@ -471,7 +562,7 @@ async function checkAddressRegistrationLedger(wallet: string, ctxNetwork: string
   const isRegistered = await isAddressRegistered(ctxCAddress, ctxNetwork)
   if (!isRegistered) {
     console.log("Note: You need to register your wallet address before you can delegate your funds")
-    console.log("Please complete this registration transaction to proceed")
+    console.log("Please sign this transaction on your ledger")
     const registerAddressParams: RegisterAddressInterface = {
       publicKey: ctxPublicKey,
       pAddress: ctxPAddress,
@@ -481,7 +572,7 @@ async function checkAddressRegistrationLedger(wallet: string, ctxNetwork: string
       derivationPath: ctxDerivationPath
     };
     await registerAddress(registerAddressParams)
-    console.log(`${colorCodes.greenColor}Address successfully registered${colorCodes.resetColor}`)
+    console.log(chalk.green("Address successfully registered"))
   }
 }
 
@@ -503,12 +594,8 @@ async function checkAddressRegistrationPrivateKey(wallet: string, ctxNetwork: st
       wallet: wallet,
       pvtKey: context.privkHex
     };
-    const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
-    if (response == 'Y' || response == 'y') {
-      await registerAddress(registerAddressParams)
-    }
-
-    console.log(`${colorCodes.greenColor}Address successfully registered${colorCodes.resetColor}`)
+    await registerAddress(registerAddressParams)
+    console.log(chalk.green("Address successfully registered"))
   }
 }
 
@@ -536,55 +623,115 @@ async function checkAddressRegistrationForDefi(ctxNetwork: string): Promise<bool
   return isRegistered
 }
 
-
 async function claimRewardsPrivateKey(wallet: string, ctx: Context) {
   const claimAmount = await prompts.amount("to claim ")
   const isOwnerReceiver = await prompts.isOwnerReceiver()
-  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? ctx.cAddressHex! : await prompts.receiverAddress()
+  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? ctx.cAddressHex! : await getPromptsAddress()
   const claimRewardsParams: ClaimRewardsInterface = {
     claimAmount: claimAmount.amount,
     ownerAddress: ctx.cAddressHex!,
-    receiverAddress: receiverAddress.address,
+    receiverAddress: receiverAddress,
     network: ctx.config.hrp,
     wallet: wallet,
     pvtKey: ctx.privkHex
   };
-  const response = await getUserInput(`${colorCodes.redColor}Warning: You are about to expose your private key to 800+ dependencies, and we cannot guarantee one of them is not malicious! \nThis command is not meant to be used in production, but for testing only!${colorCodes.resetColor} \nProceed? (Y/N) `)
-  if (response == 'Y' || response == 'y') {
-    await claimRewards(claimRewardsParams)
-  }
-  console.log(`${colorCodes.greenColor}Rewards successfully claimed${colorCodes.resetColor}`)
+  await claimRewards(claimRewardsParams)
+  console.log(chalk.green("Rwards successfully claimed"))
 }
 
 async function claimRewardsLedger(wallet: string, ctxCAddress: string, ctxDerivationPath: string, ctxNetwork: string) {
   const claimAmount = await prompts.amount("to claim ")
   const isOwnerReceiver = await prompts.isOwnerReceiver()
-  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? ctxCAddress : await prompts.receiverAddress()
+  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? ctxCAddress : await getPromptsAddress()
   const claimRewardsParams: ClaimRewardsInterface = {
     claimAmount: claimAmount.amount,
     ownerAddress: ctxCAddress,
-    receiverAddress: receiverAddress.address,
+    receiverAddress: receiverAddress,
     network: ctxNetwork,
     wallet: wallet,
     derivationPath: ctxDerivationPath
   };
   console.log("Please sign the transaction on your ledger")
   await claimRewards(claimRewardsParams)
-  console.log(`${colorCodes.greenColor}Rewards successfully claimed${colorCodes.resetColor}`)
+  console.log(chalk.green("Rwards successfully claimed"))
 }
 
 async function claimRewardsForDefi(wallet: string, transactionId: string) {
   const claimAmount = await prompts.amount("to claim ")
   const context: Context = contextFile("ctx.json")
   const isOwnerReceiver = await prompts.isOwnerReceiver()
-  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? context.cAddressHex! : await prompts.receiverAddress()
+  const receiverAddress = isOwnerReceiver.isOwnerReceiver ? context.cAddressHex! : await getPromptsAddress();
   const claimRewardsParams: ClaimRewardsInterface = {
     claimAmount: claimAmount.amount,
     ownerAddress: context.cAddressHex!,
-    receiverAddress: receiverAddress.address,
+    receiverAddress: receiverAddress,
     network: context.config.hrp,
     wallet: wallet,
     transactionId: transactionId
   };
   await claimRewards(claimRewardsParams)
+
+}
+
+
+// fetches the base fees for C-Chain
+async function getBaseFeesForCChain() {
+  const ctx: Context = contextFile("ctx.json")
+  const baseFeeResponse: string = await ctx.cchain.getBaseFee()
+  const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
+  return baseFee
+}
+
+// fetches the base fees for C-Chain via private key
+async function getBaseFeesForCChainViaPrivateKey(path: string, network: string) {
+  const ctx = contextEnv(path, network);
+  const baseFeeResponse: string = await ctx.cchain.getBaseFee()
+  const baseFee = new BN(parseInt(baseFeeResponse, 16) / 1e9)
+  return baseFee
+}
+
+// fetches the base fees for P-Chain
+async function getBaseFeesForPChain() {
+  const ctx: Context = contextFile("ctx.json")
+  const defaultFee = await ctx.pchain.getDefaultTxFee()
+  return defaultFee
+}
+
+// fetches the base fees for P-Chain via private key
+async function getBaseFeesForPChainViaPrivateKey(path: string, network: string) {
+  const ctx = contextEnv(path, network);
+  const defaultFee = await ctx.pchain.getDefaultTxFee()
+  return defaultFee
+}
+/**
+* @description - fetches the default fees based on the P or C
+* @param chain - P for P-chain and C for C-chain
+* @returns BN
+*/
+async function getFeesBasedOnChain(chain: string) {
+  let fees;
+  if (chain == 'P') {
+    fees = await getBaseFeesForPChain()
+  } else {
+    fees = await getBaseFeesForCChain()
+  }
+  return fees;
+}
+
+async function getFeesBasedOnChainForPrivateKey(chain: string, path: string, network: string) {
+  let fees;
+  if (chain == 'P') {
+    fees = await getBaseFeesForPChainViaPrivateKey(path, network)
+  } else {
+    fees = await getBaseFeesForCChainViaPrivateKey(path, network)
+  }
+  return fees;
+}
+
+/**
+ * @description - Get the prompts address
+ * @returns - prompts address
+ */
+async function getPromptsAddress() {
+  return (await prompts.receiverAddress()).address;
 }

@@ -1,6 +1,6 @@
 const fetch = require('node-fetch');
 const fs = require('fs');
-import * as forDefi from '../../../src/forDefi/forDefi';
+import * as forDefi from '../../../src/forDefi/transaction';
 import fixtures from '../../fixtures/forDefi.data';
 import crypto from 'crypto';
 

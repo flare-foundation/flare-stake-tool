@@ -73,6 +73,7 @@
     "global": "^4.4.0",
     "inquirer": "8.0",
     "jest-fetch-mock": "^3.0.3",
+    "node-jq": "^4.0.1",
     "web3": "^1.8.0"
   }
 }

@@ -130,7 +130,7 @@ export function integerToDecimal(int: string, n: number): string {
   return part1 + '.' + part2
 }
 
-export function expandDerivationPath(derivationPath: string) {
+export function parseDerivationPath(derivationPath: string) {
   const accountPath = derivationPath.substring(0, derivationPath.length - 4)
   const signPath = derivationPath.substring(derivationPath.length - 3)
   return { accountPath: accountPath, signPath: signPath }
@@ -141,13 +141,19 @@ export function expandDerivationPath(derivationPath: string) {
  * @param {string} network The network for which addresses need to be derived
  * @returns {DerivedAddress[]} Retuns a list of objects where every object contains an ethAddress and the corresponsing derivation path
  */
-export async function getPathsAndAddresses(network: string): Promise<DerivedAddress[]> {
-  const BASE_PATH = "m/44'/60'/0'/0/"
+export async function getPathsAndAddresses(network: string, derivationMode: string = "default"): Promise<DerivedAddress[]> {
+  const LEDGER_LIVE_BASE_PATH = "m/44'/60'/" // Full: m/44'/60'/*'/0/0
+  const BIP44_BASE_PATH = "m/44'/60'/0'/0/" // Full: m/44'/60'/0'/0/*
   const PATH_LIST = []
 
   for (let i = 0; i < 10; i++) {
-    PATH_LIST.push(BASE_PATH + i.toString())
+    if (derivationMode == "ledger_live") {
+      PATH_LIST.push(LEDGER_LIVE_BASE_PATH + i.toString() + "'/0/0")
+    } else {
+      PATH_LIST.push(BIP44_BASE_PATH + i.toString())
+    }
   }
+
   const results: DerivedAddress[] = [];
 
   for (const path of PATH_LIST) {

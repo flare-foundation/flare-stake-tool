@@ -4,9 +4,8 @@ import crypto from "crypto"
 import { unPrefix0x, readUnsignedTxJson } from "../utils"
 import { readUnsignedWithdrawalTx } from './utils'
 import { SignedTxJson, SignedWithdrawalTxJson, UnsignedTxJson, UnsignedWithdrawalTxJson, ContextFile } from '../interfaces'
-import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from '../constants'
+import { gatewayHost, forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from '../constants/forDefi'
 
-const gatewayHost = "api.fordefi.com"
 
 /**
  * @description - Send signature to forDefi

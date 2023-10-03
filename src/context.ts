@@ -1,16 +1,25 @@
-import Web3 from 'web3'
 import fs from 'fs'
+import Web3 from 'web3'
 import { Avalanche, BinTools, Buffer as FlrBuffer } from '@flarenetwork/flarejs'
 import { PrivateKeyPrefix, PublicKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
 import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
 import { PlatformVMAPI as PVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { Context, ContextFile } from './interfaces'
-import { costwo, flare, localflare, NetworkConfig } from './config'
+import { costwo, flare, localflare, NetworkConfig } from './constants/network'
 import {
   unPrefix0x, publicKeyToBech32AddressString, publicKeyToEthereumAddressString,
-  privateKeyToPublicKey,
-  decodePublicKey
+  privateKeyToPublicKey, decodePublicKey
 } from './utils'
+
+
+/**
+ * @param network
+ * @returns {string} The RPC url of the given network
+ */
+export function rpcUrlFromNetworkConfig(network: string): string {
+  const config: NetworkConfig = getNetworkConfig(network)
+  return `${config.protocol}://${config.ip}/ext/bc/C/rpc`
+}
 
 /**
  * @description - parses the file and returns the context of ctx.json
@@ -57,22 +66,6 @@ export function networkFromContextFile(ctxFile: string): string {
   return ctx.network
 }
 
-/** @description ANSI escape codes for colors */
-export const colorCodes = {
-  redColor: '\x1b[31m',
-  greenColor: '\x1b[32m',
-  yellowColor: '\x1b[33m',
-  resetColor: '\x1b[0m',
-  magentaColor: '\x1b[35m',
-  orangeColor: '\x1b[38;5;208m'
-}
-
-/** @description mapping of network name with network code */
-export const networkMapping = {
-  "Flare": "flare",
-  "Coston2": "costwo"
-}
-
 /**
  * @description returns the context
  * @param network - network name: flare/localflare/costwo
@@ -82,7 +75,7 @@ export const networkMapping = {
  * @returns context
  */
 export function getContext(network: string, publicKey?: string, privateKeyHex?: string, privateKeyCB58?: string): Context {
-  return context(getConfig(network), publicKey, privateKeyHex, privateKeyCB58)
+  return context(getNetworkConfig(network), publicKey, privateKeyHex, privateKeyCB58)
 }
 
 /**
@@ -90,7 +83,7 @@ export function getContext(network: string, publicKey?: string, privateKeyHex?: 
  * @param network - network name: flare/localflare/costwo
  * @returns the network configuration
  */
-export function getConfig(network: string | undefined): NetworkConfig {
+export function getNetworkConfig(network: string | undefined): NetworkConfig {
   let networkConfig
   if (network == 'flare' || network === undefined) {
     networkConfig = flare
@@ -114,7 +107,7 @@ export function context(
   config: NetworkConfig,
   publicKey?: string, privkHex?: string, privkCB58?: string,
 ): Context {
-  const { protocol, ip, port, networkID, hrp } = config
+  const { protocol, ip, port, networkID } = config
   // those two addresses should be derived for most cli applications
   let cAddressHex: string | undefined
   let addressBech32: string | undefined
@@ -209,16 +202,3 @@ export function context(
     config: config
   }
 }
-
-/**
- * Directory names for storing txn files for ForDefi
- */
-export const forDefiDirectory = "ForDefiTxnFiles"
-export const forDefiUnsignedTxnDirectory = "UnsignedTxns"
-export const forDefiSignedTxnDirectory = "SignedTxns"
-
-/**
- * max allowed delegation
- */
-
-export const maxAllowedDelegation = 3

@@ -17,12 +17,14 @@ type ExportPCParams = [
  * @description Import funds exported from C-chain to P-chain to P-chain
  * @param ctx - context with constants initialized from user keys
  */
-export async function importTxCP(ctx: Context, threshold?: number): Promise<{ txid: string }> {
+export async function importTxCP(
+  ctx: Context, threshold?: number
+): Promise<{ txid: string, usedFee: string }> {
   const params = await getImportCPParams(ctx, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildImportTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
-  return { txid: txid }
+  return { txid: txid, usedFee: ctx.pchain.getDefaultTxFee().toString() }
 }
 
 /**
@@ -30,12 +32,14 @@ export async function importTxCP(ctx: Context, threshold?: number): Promise<{ tx
  * @param ctx - context with constants initialized from user keys
  * @param amount - amount to export (if left undefined, it exports all funds on P-chain)
  */
-export async function exportTxPC(ctx: Context, amount?: BN, threshold?: number): Promise<{ txid: string }> {
+export async function exportTxPC(
+  ctx: Context, amount?: BN, threshold?: number
+): Promise<{ txid: string, usedFee: string }> {
   const params = await getExportPCParams(ctx, amount, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildExportTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
   const txid: string = await ctx.pchain.issueTx(tx)
-  return { txid: txid }
+  return { txid: txid, usedFee: ctx.pchain.getDefaultTxFee().toString() }
 }
 
 /**
@@ -49,7 +53,8 @@ export async function getUnsignedImportTxCP(ctx: Context, threshold?: number): P
     transactionType: 'importCP',
     serialization: serializeUnsignedTx(unsignedTx),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
+    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex'),
+    usedFee: ctx.pchain.getDefaultTxFee().toString()
   }
 }
 
@@ -65,7 +70,8 @@ export async function getUnsignedExportTxPC(ctx: Context, amount?: BN, threshold
     transactionType: 'exportPC',
     serialization: serializeUnsignedTx(unsignedTx),
     signatureRequests: unsignedTx.prepareUnsignedHashes(ctx.cKeychain),
-    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex')
+    unsignedTransactionBuffer: unsignedTx.toBuffer().toString('hex'),
+    usedFee: ctx.pchain.getDefaultTxFee().toString()
   }
 }
 
