@@ -8,11 +8,11 @@ import {
   RegisterAddressInterface, ScreenConstantsInterface
 } from '../interfaces'
 import { taskConstants, walletConstants } from "../constants/screen"
-import { contextEnv, contextFile } from "../context"
+import { contextEnv, contextFile, getContext } from "../context"
 import { prompts } from "./prompts"
 import { claimRewards, isAddressRegistered, isUnclaimedReward, registerAddress } from "../contracts"
 import { getPathsAndAddresses } from '../ledger/utils'
-import { compressPublicKey } from "../utils"
+import { compressPublicKey, waitFinalize } from "../utils"
 import { cli, initCtxJsonFromOptions } from '../cli'
 
 
@@ -49,17 +49,24 @@ export async function interactiveCli(baseargv: string[]) {
   else if (Object.keys(taskConstants).slice(4, 6).includes(task.toString())) {
 
     if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
-      const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
+      const { network: ctxNetwork, derivationPath: ctxDerivationPath, publicKey } = readInfoFromCtx("ctx.json")
       if (ctxNetwork && ctxDerivationPath) {
         const amount = await prompts.amount()
         const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
         // ask for fees if its exportCP transaction
+        let resp: Promise<any>
         if (taskConstants[task].slice(0, 1) == 'C') {
           const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
           argsExport.push('-f', `${exportFees.fees}`)
+          // for exportCP we wait for the finalization before doing import
+          resp = waitFinalize<any>(getContext(ctxNetwork, publicKey), program.parseAsync(argsExport))
+        } else {
+          resp = program.parseAsync(argsExport)
         }
+        console.log("Waiting for network finalization...")
+        await resp
+        console.log("Transaction finalized!")
         console.log("Please approve export transaction")
-        await program.parseAsync(argsExport)
         const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
         // ask for fees if its importTxPC
         if (taskConstants[task].slice(0, 1) == 'P') {
@@ -119,11 +126,17 @@ export async function interactiveCli(baseargv: string[]) {
       const amount = await prompts.amount()
       const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
       // ask for fees if its exportCP transaction
+      let resp: any
       if (taskConstants[task].slice(0, 1) == 'C') {
         const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
         argsExport.push('-f', `${exportFees.fees}`)
+        resp = waitFinalize<any>(contextEnv(walletProperties.path, walletProperties.network), program.parseAsync(argsExport))
+      } else {
+        resp = program.parseAsync(argsExport)
       }
-      await program.parseAsync(argsExport)
+      console.log("Waiting for finalization...")
+      await resp
+      console.log("Transaction finalized!")
       const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
       // ask for fees if its importTxPC
       if (taskConstants[task].slice(0, 1) == 'P') {

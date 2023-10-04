@@ -433,7 +433,7 @@ async function cliBuildUnsignedTxJson(transactionType: string, ctx: Context, id:
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
   capFeeAt(MAX_TRANSCTION_FEE, ctx.config.hrp, unsignedTxJson.usedFee, params.fee)
   saveUnsignedTxJson(unsignedTxJson, id)
-  logSuccess(`Unsigned transaction${id} constructed`)
+  logSuccess(`Unsigned transaction ${id} constructed`)
 }
 
 async function cliSendSignedTxJson(ctx: Context, id: string): Promise<void> {

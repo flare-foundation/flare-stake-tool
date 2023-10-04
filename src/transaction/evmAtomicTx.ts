@@ -39,7 +39,7 @@ export async function importTxPC(
   ctx: Context, fee?: BN
 ): Promise<{ txid: string, usedFee: string }> {
   const params = await getImportPCParams(ctx, fee)
-  let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
+  const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.cKeychain)
   const txid: string = await ctx.cchain.issueTx(tx)
   const usedFee = params[5].toString()
@@ -77,7 +77,7 @@ export async function getUnsignedImportTxPC(
   ctx: Context, fee?: BN
 ): Promise<UnsignedTxJson> {
   const params = await getImportPCParams(ctx, fee)
-  let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
+  const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
   return {
     transactionType: 'importPC',
     serialization: serializeImportPC_args(params),
