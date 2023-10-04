@@ -145,9 +145,9 @@ export function integerToDecimal(int: string, offset: number): string {
     return '0'
   }
   int = int.padStart(offset, '0')
-  const part1 = int.slice(0, -offset)
-  const part2 = int.slice(-offset)
-  return part1 + '.' + part2
+  const part1 = int.slice(0, -offset) || "0"
+  const part2 = int.slice(-offset).replace(/0+$/, '');
+  return part1 + (part2 === "" ? "" : '.' + part2)
 }
 
 export function parseRelativeTime(time: string): string {
