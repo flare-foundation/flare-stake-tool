@@ -21,8 +21,8 @@ export async function createWithdrawalTransaction(ctx: Context, toAddress: strin
 
     var rawTx = {
         nonce: txNonce,
-        gasPrice: 500000000000,
-        gasLimit: 8000000,
+        gasPrice: 200_000_000_000,
+        gasLimit: 21_000,
         to: toAddress,
         value: amountWei.toString(),
         chainId: ctx.config.networkID

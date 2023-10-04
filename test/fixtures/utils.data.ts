@@ -386,8 +386,8 @@ const fixtures = {
       unsignedTx: {
         rawTx: {
           nonce: 1,
-          gasPrice: 500000000000,
-          gasLimit: 8000000,
+          gasPrice: 200_000_000_000,
+          gasLimit: 21_000,
           to: '0x3AF4d285506B6d4214c21415A6803cd6F8077f35',
           value: '300000000000000000000',
           chainId: 114
@@ -404,8 +404,8 @@ const fixtures = {
     output: {
       rawTx: {
         nonce: 1,
-        gasPrice: 500000000000,
-        gasLimit: 8000000,
+        gasPrice: 200_000_000_000,
+        gasLimit: 21_000,
         to: '0x3AF4d285506B6d4214c21415A6803cd6F8077f35',
         value: '300000000000000000000',
         chainId: 114
@@ -420,8 +420,8 @@ const fixtures = {
     validOutput: {
       rawTx: {
         nonce: 1,
-        gasPrice: 500000000000,
-        gasLimit: 8000000,
+        gasPrice: 200_000_000_000,
+        gasLimit: 21_000,
         to: '0x3AF4d285506B6d4214c21415A6803cd6F8077f35',
         value: '300000000000000000000',
         chainId: 114
@@ -435,8 +435,8 @@ const fixtures = {
     invalidOutput: {
       rawTx: {
         nonce: 1,
-        gasPrice: 500000000000,
-        gasLimit: 8000000,
+        gasPrice: 200_000_000_000,
+        gasLimit: 21_000,
         to: '0x3AF4d285506B6d4214c21415A6803cd6F8077f35',
         value: '300000000000000000000',
         chainId: 114
