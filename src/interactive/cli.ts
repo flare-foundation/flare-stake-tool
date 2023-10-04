@@ -59,7 +59,7 @@ export async function interactiveCli(baseargv: string[]) {
           argsExport.push('-f', `${exportFees.fees}`)
           // for exportCP we wait for the finalization before doing import
           await waitFinalize<any>(getContext(ctxNetwork, publicKey), program.parseAsync(argsExport))
-          console.log("Transaction finalized!")
+          console.log(chalk.green("Transaction finalized!"))
         } else {
           await program.parseAsync(argsExport)
         }
@@ -126,7 +126,7 @@ export async function interactiveCli(baseargv: string[]) {
         const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
         argsExport.push('-f', `${exportFees.fees}`)
         await waitFinalize<any>(contextEnv(walletProperties.path, walletProperties.network), program.parseAsync(argsExport))
-        console.log("Transaction finalized!")
+        console.log(chalk.green("Transaction finalized!"))
       } else {
         await program.parseAsync(argsExport)
       }
@@ -134,6 +134,7 @@ export async function interactiveCli(baseargv: string[]) {
       // ask for fees if its importTxPC
       if (taskConstants[task].slice(0, 1) == 'P') {
         const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
+        console.log("export fees", exportFees.fees)
         argsImport.push('-f', `${exportFees.fees}`)
       }
       await program.parseAsync(argsImport)
