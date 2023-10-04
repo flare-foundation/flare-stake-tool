@@ -148,9 +148,9 @@ export async function getPathsAndAddresses(network: string, derivationMode: stri
 
   for (let i = 0; i < 10; i++) {
     if (derivationMode == "ledger_live") {
-      PATH_LIST.push(LEDGER_LIVE_BASE_PATH + i.toString() + "'/0/0")
+      PATH_LIST.push(LEDGER_LIVE_BASE_PATH + i + "'/0/0")
     } else {
-      PATH_LIST.push(BIP44_BASE_PATH + i.toString())
+      PATH_LIST.push(BIP44_BASE_PATH + i)
     }
   }
 

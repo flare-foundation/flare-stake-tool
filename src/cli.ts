@@ -90,7 +90,7 @@ export async function cli(program: Command) {
     .argument("<importCP|exportCP|importPC|exportPC|delegate|stake>", "Type of a crosschain transaction")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("-a, --amount <amount>", "Amount to transfer")
-    .option("-f, --fee <fee>", "Transaction fee")
+    .option("-f, --fee <fee>", "Transaction fee (in FLR)")
     .option("-n, --node-id <nodeId>", "The id of the node to stake/delegate to")
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")

@@ -83,7 +83,7 @@ export const prompts = {
       name: 'fees',
       message:
         chalk.magenta("Enter fees") + " " +
-        chalk.yellow(`Default Gas fees in WEI: ${baseFees}`) +
+        chalk.yellow(`Default Gas fees in FLR: ${baseFees}`) +
         chalk.magenta(":")
       }];
       return inquirer.prompt(questions);
