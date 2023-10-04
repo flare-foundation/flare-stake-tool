@@ -66,12 +66,11 @@ export async function interactiveCli(baseargv: string[]) {
         console.log("Waiting for network finalization...")
         await resp
         console.log("Transaction finalized!")
-        console.log("Please approve export transaction")
         const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
         // ask for fees if its importTxPC
         if (taskConstants[task].slice(0, 1) == 'P') {
-          const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
-          argsImport.push('-f', `${exportFees.fees}`)
+          const importFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
+          argsImport.push('-f', `${importFees.fees}`)
         }
         console.log("Please approve import transaction")
         await program.parseAsync(argsImport)
