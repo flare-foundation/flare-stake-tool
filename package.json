@@ -70,7 +70,6 @@
     "ethersV5": "npm:ethers@5.7",
     "figlet": "^1.6.0",
     "inquirer": "8.0",
-    "node-jq": "^4.0.1",
     "web3": "^1.8.0"
   }
 }
