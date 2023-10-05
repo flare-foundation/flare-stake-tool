@@ -8,13 +8,15 @@ import {
   RegisterAddressInterface, ScreenConstantsInterface
 } from '../interfaces'
 import { taskConstants, walletConstants } from "../constants/screen"
-import { contextEnv, contextFile } from "../context"
+import { contextEnv, contextFile, getContext } from "../context"
 import { prompts } from "./prompts"
 import { claimRewards, isAddressRegistered, isUnclaimedReward, registerAddress } from "../contracts"
 import { getPathsAndAddresses } from '../ledger/utils'
-import { compressPublicKey } from "../utils"
+import { compressPublicKey, waitFinalize } from "../utils"
 import { cli, initCtxJsonFromOptions } from '../cli'
 
+
+const DEFAULT_EVM_TX_FEE = new BN(1)
 
 /***
  * @description Handles all operations pertaining to the interactive CLL. Creates a list of arguments and internally calls the comamnder based CLI after taking the relevant inputs from the user.
@@ -47,24 +49,25 @@ export async function interactiveCli(baseargv: string[]) {
   else if (Object.keys(taskConstants).slice(4, 6).includes(task.toString())) {
 
     if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
-      const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
+      const { network: ctxNetwork, derivationPath: ctxDerivationPath, publicKey } = readInfoFromCtx("ctx.json")
       if (ctxNetwork && ctxDerivationPath) {
         const amount = await prompts.amount()
         const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
         // ask for fees if its exportCP transaction
         if (taskConstants[task].slice(0, 1) == 'C') {
-          const exportBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(0, 1))
-          const exportFees = await prompts.fees(exportBaseFee);
+          const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
           argsExport.push('-f', `${exportFees.fees}`)
+          // for exportCP we wait for the finalization before doing import
+          await waitFinalize<any>(getContext(ctxNetwork, publicKey), program.parseAsync(argsExport))
+          console.log(chalk.green("Transaction finalized!"))
+        } else {
+          await program.parseAsync(argsExport)
         }
-        console.log("Please approve export transaction")
-        await program.parseAsync(argsExport)
         const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "--blind", "true", "--derivation-path", ctxDerivationPath, `--network=${ctxNetwork}`, "--ledger"]
         // ask for fees if its importTxPC
         if (taskConstants[task].slice(0, 1) == 'P') {
-          const importBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(1, 2))
-          const exportFees = await prompts.fees(importBaseFee);
-          argsImport.push('-f', `${exportFees.fees}`)
+          const importFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
+          argsImport.push('-f', `${importFees.fees}`)
         }
         console.log("Please approve import transaction")
         await program.parseAsync(argsImport)
@@ -85,8 +88,7 @@ export async function interactiveCli(baseargv: string[]) {
             const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, "-i", `${txnId.id}`]
             // ask for fees if its exportCP transaction
             if (taskConstants[task].slice(0, 1) == 'C') {
-              const exportBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(0, 1))
-              const exportFees = await prompts.fees(exportBaseFee);
+              const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
               argsExport.push('-f', `${exportFees.fees}`)
             }
             await program.parseAsync(argsExport)
@@ -95,8 +97,7 @@ export async function interactiveCli(baseargv: string[]) {
             const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, "-i", `${txnId.id}`]
             // ask for fees if its importTxPC
             if (taskConstants[task].slice(0, 1) == 'P') {
-              const importBaseFee = await getFeesBasedOnChain(taskConstants[task].slice(1, 2))
-              const exportFees = await prompts.fees(importBaseFee);
+              const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
               argsImport.push('-f', `${exportFees.fees}`)
             }
             await program.parseAsync(argsImport)
@@ -122,20 +123,20 @@ export async function interactiveCli(baseargv: string[]) {
       const argsExport = [...baseargv.slice(0, 2), "transaction", `export${taskConstants[task].slice(-2)}`, '-a', `${amount.amount}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
       // ask for fees if its exportCP transaction
       if (taskConstants[task].slice(0, 1) == 'C') {
-        const exportBaseFee = await getFeesBasedOnChainForPrivateKey(taskConstants[task].slice(0, 1), walletProperties.path, walletProperties.network)
-        const exportFees = await prompts.fees(exportBaseFee);
+        const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
         argsExport.push('-f', `${exportFees.fees}`)
+        await waitFinalize<any>(contextEnv(walletProperties.path, walletProperties.network), program.parseAsync(argsExport))
+        console.log(chalk.green("Transaction finalized!"))
+      } else {
+        await program.parseAsync(argsExport)
       }
-      console.log("Please approve export transaction")
-      await program.parseAsync(argsExport)
       const argsImport = [...baseargv.slice(0, 2), "transaction", `import${taskConstants[task].slice(-2)}`, `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
       // ask for fees if its importTxPC
       if (taskConstants[task].slice(0, 1) == 'P') {
-        const importBaseFee = await getFeesBasedOnChainForPrivateKey(taskConstants[task].slice(1, 2), walletProperties.path, walletProperties.network)
-        const exportFees = await prompts.fees(importBaseFee);
+        const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE);
+        console.log("export fees", exportFees.fees)
         argsImport.push('-f', `${exportFees.fees}`)
       }
-      console.log("Please approve import transaction")
       await program.parseAsync(argsImport)
     }
     else {
@@ -327,22 +328,7 @@ export async function interactiveCli(baseargv: string[]) {
 
   // Withdraw funds
   else if (Object.keys(taskConstants)[10] == task.toString()) {
-    if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
-      const { derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
-      const amount = await prompts.amount()
-      const withdrawAddress = await prompts.withdrawAddress()
-      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`,]
-      await program.parseAsync(argsWithdraw)
-
-      const argsSign = [...baseargv.slice(0, 2), "sign-hash", "--derivation-path", ctxDerivationPath!]
-      await program.parseAsync(argsSign)
-
-      const argsSend = [...baseargv.slice(0, 2), taskConstants[task],  "--send-signed-tx"]
-      await program.parseAsync(argsSend)
-
-    }
-
-    else if (walletProperties.wallet == Object.keys(walletConstants)[1] && fileExists("ctx.json")) {
+    if (walletProperties.wallet == Object.keys(walletConstants)[1] && fileExists("ctx.json")) {
       const isContinue = await prompts.forDefiContinue()
       const txnId = await prompts.transactionId()
       if (!isContinue.isContinue) {
@@ -360,18 +346,8 @@ export async function interactiveCli(baseargv: string[]) {
         await program.parseAsync(argsSend)
       }
     }
-
-    else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
-      const context: Context = contextEnv(walletProperties.path, walletProperties.network)
-      const amount = await prompts.amount()
-      const withdrawAddress = await prompts.withdrawAddress()
-      const argsWithdraw = [...baseargv.slice(0, 2), taskConstants[task], '-a', `${amount.amount}`, "-t", `${withdrawAddress.address}`,
-      `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
-      await program.parseAsync(argsWithdraw)
-
-      const argsSignSend = [...baseargv.slice(0, 2), "signAndSubmit", `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
-      await program.parseAsync(argsSignSend)
-
+    else {
+      throw new Error("Only Defi wallet supported for withdrawal, otherwise this is a standard ethereum transaction, for which you can use metamask.")
     }
   }
 
@@ -414,16 +390,7 @@ async function connectWallet(): Promise<ConnectWalletInterface> {
     let network
     if (isCreateCtx) {
       network = await selectNetwork()
-
-      const derivationTypePrompt = await prompts.derivationType()
-      const derivation = derivationTypePrompt.derivation
-      console.log("Fetching Addresses...")
-      const pathList: DerivedAddress[] = await getPathsAndAddresses(network, derivation)
-      const choiceList = await createChoicesFromAddress(pathList)
-      const selectedAddress = await prompts.selectAddress(choiceList)
-
-      const selectedDerivedAddress = pathList.find(item => item.ethAddress == selectedAddress.address)
-      const selectedDerivationPath = selectedDerivedAddress?.derivationPath
+      const selectedDerivationPath = await selectDerivationPath(network)
 
       const optionsObject = {
         network,
@@ -673,7 +640,6 @@ async function claimRewardsForDefi(wallet: string, transactionId: string) {
 
 }
 
-
 // fetches the base fees for C-Chain
 async function getBaseFeesForCChain() {
   const ctx: Context = contextFile("ctx.json")
@@ -734,4 +700,17 @@ async function getFeesBasedOnChainForPrivateKey(chain: string, path: string, net
  */
 async function getPromptsAddress() {
   return (await prompts.receiverAddress()).address;
+}
+
+// querries user for their derivation path
+async function selectDerivationPath(network: string) {
+  const derivationTypePrompt = await prompts.derivationType()
+  const derivation = derivationTypePrompt.derivation
+  console.log("Fetching Addresses...")
+  const pathList: DerivedAddress[] = await getPathsAndAddresses(network, derivation)
+  const choiceList = await createChoicesFromAddress(pathList)
+  const selectedAddress = await prompts.selectAddress(choiceList)
+  const selectedDerivedAddress = pathList.find(item => item.ethAddress == selectedAddress.address)
+  const selectedDerivationPath = selectedDerivedAddress?.derivationPath
+  return selectedDerivationPath
 }

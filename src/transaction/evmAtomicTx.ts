@@ -39,7 +39,7 @@ export async function importTxPC(
   ctx: Context, fee?: BN
 ): Promise<{ txid: string, usedFee: string }> {
   const params = await getImportPCParams(ctx, fee)
-  let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
+  const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.cKeychain)
   const txid: string = await ctx.cchain.issueTx(tx)
   const usedFee = params[5].toString()
@@ -77,7 +77,7 @@ export async function getUnsignedImportTxPC(
   ctx: Context, fee?: BN
 ): Promise<UnsignedTxJson> {
   const params = await getImportPCParams(ctx, fee)
-  let unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
+  const unsignedTx: UnsignedTx = await ctx.cchain.buildImportTx(...params)
   return {
     transactionType: 'importPC',
     serialization: serializeImportPC_args(params),
@@ -179,7 +179,7 @@ export async function getExportCPParams(ctx: Context, amount?: BN, fee?: BN, non
   }
   // else use the custom fees passed by the user
   else {
-    params[9] = fee.mul(new BN(exportCost)).div(new BN(1e9))
+    params[9] = fee
   }
   return params
 }
@@ -211,7 +211,7 @@ export async function getImportPCParams(ctx: Context, fee?: BN): Promise<ImportP
   if (!fee) {
     params[5] = baseFee.mul(new BN(importCost))
   } else {
-    params[5] = fee.mul(new BN(importCost)).div(new BN(1e9))
+    params[5] = fee
   }
   return params
 }

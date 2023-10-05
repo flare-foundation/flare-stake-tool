@@ -70,7 +70,7 @@ export const prompts = {
         name: 'amount',
         message:
           chalk.magenta(`Enter amount ${amountPurpose}`) + " " +
-          chalk.magenta(`(in FLR)`)
+          chalk.magenta(`(in FLR):`)
       },
     ];
     return inquirer.prompt(questions);
@@ -81,10 +81,7 @@ export const prompts = {
       type: 'input',
       default: baseFees,
       name: 'fees',
-      message:
-        chalk.magenta("Enter fees") + " " +
-        chalk.yellow(`Default Gas fees in WEI: ${baseFees}`) +
-        chalk.magenta(":")
+      message: chalk.magenta("Enter fees (in FLR):")
       }];
       return inquirer.prompt(questions);
     },

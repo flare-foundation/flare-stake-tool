@@ -145,9 +145,9 @@ export function integerToDecimal(int: string, offset: number): string {
     return '0'
   }
   int = int.padStart(offset, '0')
-  const part1 = int.slice(0, -offset)
-  const part2 = int.slice(-offset)
-  return part1 + '.' + part2
+  const part1 = int.slice(0, -offset) || "0"
+  const part2 = int.slice(-offset).replace(/0+$/, '');
+  return part1 + (part2 === "" ? "" : '.' + part2)
 }
 
 export function parseRelativeTime(time: string): string {
@@ -274,6 +274,8 @@ export function isAlreadySentToChain(id: string): boolean {
   return txObj.isSentToChain ? true : false
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+// limiting delegation number
 
 function countpAddressInDelegation(validators: any[], pAddressBech32: string): number {
   let count = 0
@@ -303,4 +305,16 @@ export async function delegationAddressCount(ctx: Context) {
     countpAddressInDelegation(pCurrent.validators, ctx.pAddressBech32!) +
     countpAddressInDelegation(pendingValidtaor.validators, ctx.pAddressBech32!)
   return count
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// finalization
+
+export async function waitFinalize<T>(ctx: Context, prms: Promise<T>): Promise<T> {
+  const txcount1 = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)
+  const resp = await prms
+  while (await ctx.web3.eth.getTransactionCount(ctx.cAddressHex) == txcount1) {
+    await sleepms(1000)
+  }
+  return resp
 }

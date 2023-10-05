@@ -15,8 +15,8 @@ const fixtures = {
       readUnsignedWithdrawalTx: {
         rawTx: {
           nonce: 1,
-          gasPrice: 500000000000,
-          gasLimit: 8000000,
+          gasPrice: 200_000_000_000,
+          gasLimit: 21_000,
           to: '0x5913760160d245d0C9A05a8a956012694281bEE3',
           value: '10000000000',
           chainId: 162
@@ -27,8 +27,8 @@ const fixtures = {
       readSignedWithdrawalTx: {
         rawTx: {
           nonce: 1,
-          gasPrice: 500000000000,
-          gasLimit: 8000000,
+          gasPrice: 200_000_000_000,
+          gasLimit: 21_000,
           to: '0x5913760160d245d0C9A05a8a956012694281bEE3',
           value: '10000000000',
           chainId: 162
