@@ -18,6 +18,7 @@ export const taskConstants: ScreenConstantsInterface = {
   'Claim Rewards': "rewards",
   'Withdraw funds': 'withdrawal',
   'Import Funds (incase moving assets fails for either P chain or C chain)': 'import',
+  'Optout of Airdrop': 'optout',
   'Quit': 'quit'
 }
 

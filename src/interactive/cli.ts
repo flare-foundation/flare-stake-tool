@@ -5,12 +5,12 @@ import { BN } from '@flarenetwork/flarejs/dist'
 import {
   ClaimRewardsInterface,
   ConnectWalletInterface, Context, ContextFile, DelegationDetailsInterface, DerivedAddress,
-  RegisterAddressInterface, ScreenConstantsInterface
+  RegisterAddressInterface, ScreenConstantsInterface, OptOutOfAirdropInterface
 } from '../interfaces'
 import { taskConstants, walletConstants } from "../constants/screen"
 import { contextEnv, contextFile, getContext } from "../context"
 import { prompts } from "./prompts"
-import { claimRewards, isAddressRegistered, isUnclaimedReward, registerAddress } from "../contracts"
+import { claimRewards, isAddressRegistered, isUnclaimedReward, registerAddress, optOutOfAirdrop } from "../contracts"
 import { getPathsAndAddresses } from '../ledger/utils'
 import { compressPublicKey, waitFinalize } from "../utils"
 import { cli, initCtxJsonFromOptions } from '../cli'
@@ -429,8 +429,38 @@ export async function interactiveCli(baseargv: string[]) {
     }
   }
 
+  // Optout
+  else if (Object.keys(taskConstants)[12] == task.toString()) {
+    if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
+      const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress } = readInfoFromCtx("ctx.json")
+      await optOutOfAirdropLedger(walletProperties.wallet, ctxCAddress!, ctxDerivationPath!, ctxNetwork)
+    }
+
+    else if (walletProperties.wallet == Object.keys(walletConstants)[1] && fileExists("ctx.json")) {
+      const isContinue = await prompts.forDefiContinue()
+      const txnId = await prompts.transactionId()
+      if (!isContinue.isContinue) {
+        await optOutOfAirdropForDefi(walletProperties.wallet, txnId.id)
+        const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
+        await program.parseAsync(argsSign)
+      }
+      else {
+        const argsFetch = makeForDefiArguments("fetch", baseargv, txnId.id)
+        await program.parseAsync(argsFetch)
+        const argsSend = makeForDefiArguments("send", baseargv, txnId.id)
+        await program.parseAsync(argsSend)
+      }
+    }
+
+    else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+      const context: Context = contextEnv(walletProperties.path, walletProperties.network)
+      await optOutOfAirdropPrivateKey(walletProperties.wallet, context)
+    }
+
+  }
+
     // exit the interactive cli
-    else if (Object.keys(taskConstants)[12] == task.toString()) {
+    else if (Object.keys(taskConstants)[13] == task.toString()) {
       // exit the application
       logInfo('Exiting interactive cli.')
       process.exit(0)
@@ -726,6 +756,41 @@ async function claimRewardsForDefi(wallet: string, transactionId: string) {
 
 }
 
+async function optOutOfAirdropPrivateKey(wallet: string, ctx: Context) {
+  const claimRewardsParams: OptOutOfAirdropInterface = {
+    cAddress: ctx.cAddressHex!,
+    network: ctx.config.hrp,
+    wallet: wallet,
+    pvtKey: ctx.privkHex
+  };
+  await optOutOfAirdrop(claimRewardsParams)
+  console.log(chalk.green("Successfully opted out"))
+}
+
+async function optOutOfAirdropLedger(wallet: string, ctxCAddress: string, ctxDerivationPath: string, ctxNetwork: string) {
+
+  const claimRewardsParams: OptOutOfAirdropInterface = {
+    cAddress: ctxCAddress,
+    network: ctxNetwork,
+    wallet: wallet,
+    derivationPath: ctxDerivationPath
+  };
+  console.log("Please sign the transaction on your ledger")
+  await optOutOfAirdrop(claimRewardsParams)
+  console.log(chalk.green("Successfully opted out"))
+}
+
+async function optOutOfAirdropForDefi(wallet: string, transactionId: string) {
+  const context: Context = contextFile("ctx.json")
+  const claimRewardsParams: OptOutOfAirdropInterface = {
+    cAddress: context.cAddressHex!,
+    network: context.config.hrp,
+    wallet: wallet,
+    transactionId: transactionId
+  };
+  await optOutOfAirdrop(claimRewardsParams)
+
+}
 // fetches the base fees for C-Chain
 async function getBaseFeesForCChain() {
   const ctx: Context = contextFile("ctx.json")

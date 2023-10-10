@@ -153,6 +153,19 @@ export interface ClaimRewardsInterface {
 }
 
 /**
+ * Represents the wallet params sent to the optOutOfAirdrop Function
+ * @interface OptOutOfAirdrop
+ */
+ export interface OptOutOfAirdropInterface {
+  cAddress: string,
+  network: string,
+  wallet: keyof typeof walletConstants,
+  derivationPath?: string
+  pvtKey?: string
+  transactionId?: string
+}
+
+/**
  * Represents constant used to store values for contract addresses
  * @interface ContractAddressesInterface
  */
