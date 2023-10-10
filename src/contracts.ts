@@ -253,6 +253,18 @@ async function getUnclaimedRewards(ethAddress: string, network: string): Promise
   return unclaimedRewards
 }
 
+async function isOptedOut(ethAddress: string, network: string): Promise<boolean> {
+  const rpcUrl = rpcUrlFromNetworkConfig(network)
+  const distributionToDelegatorsContractAddress = await getContractAddress(network, distributionToDelegators)
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+
+  const abi = getDistributionToDelegatorsABI() as ethers.ContractInterface
+  const contract = new ethers.Contract(distributionToDelegatorsContractAddress, abi, provider);
+
+  const isOptedOut = await contract.optOutCandidate(ethAddress);
+  return isOptedOut
+}
+
 async function signContractTransaction(wallet: keyof typeof walletConstants, unsignedTx: Object, contract: ethers.Contract, derivationPath?: string,
   transactionId?: string, pvtKey?: string) {
   const serializedUnsignedTx = ethers.utils.serializeTransaction(unsignedTx);
@@ -362,35 +374,34 @@ export async function fetchMirrorFunds(ctx: Context) {
  * @param {optOutOfAirdrop} params - optout parameters
  */
 export async function optOutOfAirdrop(params: OptOutOfAirdropInterface) {
-  try {
-    console.log('Opting you out of airdrop')
-    const { cAddress, network, wallet, derivationPath, pvtKey, transactionId } = params
-    const rpcUrl = rpcUrlFromNetworkConfig(network);
-    const distributionToDelegatorsContractAddress = await getContractAddress(network, distributionToDelegators)
-    const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-    const abi = getDistributionToDelegatorsABI() as ethers.ContractInterface
-    const contract = new ethers.Contract(distributionToDelegatorsContractAddress, abi, provider);
-    const checksumAddress = ethers.utils.getAddress(cAddress);
-    const nonce = await provider.getTransactionCount(checksumAddress);
-    const config: NetworkConfig = getNetworkConfig(network);
-    let gasEstimate
-    try {
-      gasEstimate = await contract.estimateGas.optOutOfAirdrop({ from: cAddress })
-    } catch {
-      console.log(chalk.red('Unable to estimate trx gas fees, Trx is likely to fail'))
-      exit()
-    }
-    const gasPrice = await provider.getGasPrice();
-    const populatedTx = await contract.populateTransaction.optOutOfAirdrop()
-    const unsignedTx = {
-      ...populatedTx,
-      nonce,
-      chainId: config.networkID,
-      gasPrice,
-      gasLimit: gasEstimate
-    }
-    await signContractTransaction(wallet, unsignedTx, contract, derivationPath, transactionId, pvtKey)
-  } catch (error: any) {
-    console.log(chalk.red(error.message))
+  console.log('Opting you out of airdrop')
+  const { cAddress, network, wallet, derivationPath, pvtKey, transactionId } = params
+  if (await isOptedOut(cAddress, network)) {
+    throw new Error('You have already opted out of Airdrop')
   }
+  const rpcUrl = rpcUrlFromNetworkConfig(network);
+  const distributionToDelegatorsContractAddress = await getContractAddress(network, distributionToDelegators)
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  const abi = getDistributionToDelegatorsABI() as ethers.ContractInterface
+  const contract = new ethers.Contract(distributionToDelegatorsContractAddress, abi, provider);
+  const checksumAddress = ethers.utils.getAddress(cAddress);
+  const nonce = await provider.getTransactionCount(checksumAddress);
+  const config: NetworkConfig = getNetworkConfig(network);
+  let gasEstimate
+  try {
+    gasEstimate = await contract.estimateGas.optOutOfAirdrop({ from: cAddress })
+  } catch {
+    console.log(chalk.red('Unable to estimate trx gas fees, Trx is likely to fail'))
+    exit()
+  }
+  const gasPrice = await provider.getGasPrice();
+  const populatedTx = await contract.populateTransaction.optOutOfAirdrop()
+  const unsignedTx = {
+    ...populatedTx,
+    nonce,
+    chainId: config.networkID,
+    gasPrice,
+    gasLimit: gasEstimate
+  }
+  await signContractTransaction(wallet, unsignedTx, contract, derivationPath, transactionId, pvtKey)
 }
