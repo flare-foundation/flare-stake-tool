@@ -431,7 +431,7 @@ export async function interactiveCli(baseargv: string[]) {
     // Optout
     else if (Object.keys(taskConstants)[12] == task.toString()) {
       if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
-        const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress } = readInfoFromCtx("ctx.json")
+        const { network: ctxNetwork, derivationPath: ctxDerivationPath } = readInfoFromCtx("ctx.json")
         const argsOptOut = [...baseargv.slice(0, 2), "opt-out", `--network=${ctxNetwork}`, "--ledger", `--derivation-path=${ctxDerivationPath!}`]
         try {
           await program.parseAsync(argsOptOut)
@@ -445,7 +445,8 @@ export async function interactiveCli(baseargv: string[]) {
         const txnId = await prompts.transactionId()
         try {
           if (!isContinue.isContinue) {
-            const argsOptOut = [...baseargv.slice(0, 2), "opt-out", `--network=${walletProperties.network}`, `-i=${txnId}`, "--ctx-file=ctx.json"]
+            const { network: ctxNetwork } = readInfoFromCtx("ctx.json")
+            const argsOptOut = [...baseargv.slice(0, 2), "opt-out", `--network=${ctxNetwork}`, `-i=${txnId}`, "--ctx-file=ctx.json"]
             await program.parseAsync(argsOptOut)
             const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
             await program.parseAsync(argsSign)
