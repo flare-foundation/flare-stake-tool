@@ -432,8 +432,9 @@ export async function interactiveCli(baseargv: string[]) {
     else if (Object.keys(taskConstants)[12] == task.toString()) {
       if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
         const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress } = readInfoFromCtx("ctx.json")
+        const argsOptOut = [...baseargv.slice(0, 2), "opt-out", `--network=${ctxNetwork}`, "--ledger", `--derivation-path=${ctxDerivationPath!}`]
         try {
-          await optOutOfAirdropLedger(walletProperties.wallet, ctxCAddress!, ctxDerivationPath!, ctxNetwork)
+          await program.parseAsync(argsOptOut)
         } catch (error: any) {
           console.log(chalk.red(error.message))
         }
@@ -444,7 +445,8 @@ export async function interactiveCli(baseargv: string[]) {
         const txnId = await prompts.transactionId()
         try {
           if (!isContinue.isContinue) {
-            await optOutOfAirdropForDefi(walletProperties.wallet, txnId.id)
+            const argsOptOut = [...baseargv.slice(0, 2), "opt-out", `--network=${walletProperties.network}`, `-i=${txnId}`, "--ctx-file=ctx.json"]
+            await program.parseAsync(argsOptOut)
             const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
             await program.parseAsync(argsSign)
           }
@@ -460,14 +462,55 @@ export async function interactiveCli(baseargv: string[]) {
       }
 
       else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
-        const context: Context = contextEnv(walletProperties.path, walletProperties.network)
+        const argsOptOut = [...baseargv.slice(0, 2), "opt-out", `--env-path=${walletProperties.path}`, `--network=${walletProperties.network}`, "--get-hacked"]
         try {
-          await optOutOfAirdropPrivateKey(walletProperties.wallet, context)
+          await program.parseAsync(argsOptOut)
         } catch (error: any) {
           console.log(chalk.red(error.message))
         }
       }
     }
+
+    // // Optout
+    // else if (Object.keys(taskConstants)[12] == task.toString()) {
+    //   if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists("ctx.json")) {
+    //     const { network: ctxNetwork, derivationPath: ctxDerivationPath, ethAddress: ctxCAddress } = readInfoFromCtx("ctx.json")
+    //     try {
+    //       await optOutOfAirdropLedger(walletProperties.wallet, ctxCAddress!, ctxDerivationPath!, ctxNetwork)
+    //     } catch (error: any) {
+    //       console.log(chalk.red(error.message))
+    //     }
+    //   }
+
+    //   else if (walletProperties.wallet == Object.keys(walletConstants)[1] && fileExists("ctx.json")) {
+    //     const isContinue = await prompts.forDefiContinue()
+    //     const txnId = await prompts.transactionId()
+    //     try {
+    //       if (!isContinue.isContinue) {
+    //         await optOutOfAirdropForDefi(walletProperties.wallet, txnId.id)
+    //         const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
+    //         await program.parseAsync(argsSign)
+    //       }
+    //       else {
+    //         const argsFetch = makeForDefiArguments("fetch", baseargv, txnId.id)
+    //         await program.parseAsync(argsFetch)
+    //         const argsSend = makeForDefiArguments("send", baseargv, txnId.id)
+    //         await program.parseAsync(argsSend)
+    //       }
+    //     } catch (error: any) {
+    //       console.log(chalk.red(error.message))
+    //     }
+    //   }
+
+    //   else if (walletProperties.wallet == Object.keys(walletConstants)[2] && walletProperties.network && walletProperties.path) {
+    //     const context: Context = contextEnv(walletProperties.path, walletProperties.network)
+    //     try {
+    //       await optOutOfAirdropPrivateKey(walletProperties.wallet, context)
+    //     } catch (error: any) {
+    //       console.log(chalk.red(error.message))
+    //     }
+    //   }
+    // }
 
     // exit the interactive cli
     else if (Object.keys(taskConstants)[13] == task.toString()) {
@@ -766,41 +809,41 @@ async function claimRewardsForDefi(wallet: string, transactionId: string) {
 
 }
 
-async function optOutOfAirdropPrivateKey(wallet: string, ctx: Context) {
-  const claimRewardsParams: OptOutOfAirdropInterface = {
-    cAddress: ctx.cAddressHex!,
-    network: ctx.config.hrp,
-    wallet: wallet,
-    pvtKey: ctx.privkHex
-  };
-  await optOutOfAirdrop(claimRewardsParams)
-  console.log(chalk.green("Successfully opted out"))
-}
+// async function optOutOfAirdropPrivateKey(wallet: string, ctx: Context) {
+//   const claimRewardsParams: OptOutOfAirdropInterface = {
+//     cAddress: ctx.cAddressHex!,
+//     network: ctx.config.hrp,
+//     wallet: wallet,
+//     pvtKey: ctx.privkHex
+//   };
+//   await optOutOfAirdrop(claimRewardsParams)
+//   console.log(chalk.green("Successfully opted out"))
+// }
 
-async function optOutOfAirdropLedger(wallet: string, ctxCAddress: string, ctxDerivationPath: string, ctxNetwork: string) {
+// async function optOutOfAirdropLedger(wallet: string, ctxCAddress: string, ctxDerivationPath: string, ctxNetwork: string) {
 
-  const claimRewardsParams: OptOutOfAirdropInterface = {
-    cAddress: ctxCAddress,
-    network: ctxNetwork,
-    wallet: wallet,
-    derivationPath: ctxDerivationPath
-  };
-  console.log("Please sign the transaction on your ledger")
-  await optOutOfAirdrop(claimRewardsParams)
-  console.log(chalk.green("Successfully opted out"))
-}
+//   const claimRewardsParams: OptOutOfAirdropInterface = {
+//     cAddress: ctxCAddress,
+//     network: ctxNetwork,
+//     wallet: wallet,
+//     derivationPath: ctxDerivationPath
+//   };
+//   console.log("Please sign the transaction on your ledger")
+//   await optOutOfAirdrop(claimRewardsParams)
+//   console.log(chalk.green("Successfully opted out"))
+// }
 
-async function optOutOfAirdropForDefi(wallet: string, transactionId: string) {
-  const context: Context = contextFile("ctx.json")
-  const claimRewardsParams: OptOutOfAirdropInterface = {
-    cAddress: context.cAddressHex!,
-    network: context.config.hrp,
-    wallet: wallet,
-    transactionId: transactionId
-  };
-  await optOutOfAirdrop(claimRewardsParams)
+// async function optOutOfAirdropForDefi(wallet: string, transactionId: string) {
+//   const context: Context = contextFile("ctx.json")
+//   const claimRewardsParams: OptOutOfAirdropInterface = {
+//     cAddress: context.cAddressHex!,
+//     network: context.config.hrp,
+//     wallet: wallet,
+//     transactionId: transactionId
+//   };
+//   await optOutOfAirdrop(claimRewardsParams)
 
-}
+// }
 // fetches the base fees for C-Chain
 async function getBaseFeesForCChain() {
   const ctx: Context = contextFile("ctx.json")
