@@ -1,6 +1,7 @@
 import { Command, OptionValues } from 'commander'
 import { BigNumber, ethers } from 'ethersV5'
-import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
+import chalk from 'chalk'
+import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams, OptOutOfAirdropInterface } from './interfaces'
 import { rpcUrlFromNetworkConfig, contextEnv, contextFile, getContext, networkFromContextFile } from './context'
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
@@ -24,8 +25,9 @@ import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi/transaction'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess, logWarning } from './output'
-import { submitForDefiTxn, fetchMirrorFunds } from './contracts'
+import { submitForDefiTxn, fetchMirrorFunds, optOutOfAirdrop } from './contracts'
 import { contractTransactionName } from './constants/contracts'
+import { walletConstants } from './constants/screen'
 
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
@@ -157,6 +159,21 @@ export async function cli(program: Command) {
         await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
       }
     })
+  // Opt-out from Airdrop
+  program
+    .command("opt-out").description("Opt-out from the Flare Drop i.e execute optOutOfAirdrop function on DistributionToDelegators smart contract")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      const ctx = await contextFromOptions(options)
+      if (options.getHacked) {
+        await optOutOfAirdropPrivateKey(Object.keys(walletConstants)[2], ctx)
+      } else if (options.ledger) {
+        await optOutOfAirdropLedger(Object.keys(walletConstants)[0], ctx.cAddressHex!, options.derivationPath, options.network)
+      } else { // for ForDefi
+        await optOutOfAirdropForDefi(Object.keys(walletConstants)[1], options.transactionId, ctx)
+      }
+    })
   // sign and submit smart contract transaction
   program
     .command("signAndSubmit").description("Sign a transaction using private key and submit to chain")
@@ -166,6 +183,40 @@ export async function cli(program: Command) {
       const ctx: Context = await contextFromOptions(options)
       await signAndSend(ctx, options.network, options.transactionId)
     })
+}
+
+export async function optOutOfAirdropPrivateKey(wallet: string, ctx: Context) {
+  const optOutParams: OptOutOfAirdropInterface = {
+    cAddress: ctx.cAddressHex!,
+    network: ctx.config.hrp,
+    wallet: wallet,
+    pvtKey: ctx.privkHex
+  };
+  await optOutOfAirdrop(optOutParams)
+  console.log(chalk.green("Successfully opted out"))
+}
+
+export async function optOutOfAirdropLedger(wallet: string, ctxCAddress: string, ctxDerivationPath: string, ctxNetwork: string) {
+  const optOutParams: OptOutOfAirdropInterface = {
+    cAddress: ctxCAddress,
+    network: ctxNetwork,
+    wallet: wallet,
+    derivationPath: ctxDerivationPath
+  };
+  console.log("Please sign the transaction on your ledger")
+  await optOutOfAirdrop(optOutParams)
+  console.log(chalk.green("Successfully opted out"))
+}
+
+export async function optOutOfAirdropForDefi(wallet: string, transactionId: string, ctx: Context) {
+  const optOutParams: OptOutOfAirdropInterface = {
+    cAddress: ctx.cAddressHex!,
+    network: ctx.config.hrp,
+    wallet: wallet,
+    transactionId: transactionId
+  };
+  await optOutOfAirdrop(optOutParams)
+
 }
 
 /**
@@ -408,10 +459,10 @@ export async function logMirrorFundInfo(ctx: Context): Promise<void> {
 // Transaction building and execution
 
 async function cliBuildAndSendTxUsingLedger(transactionType: string, ctx: Context, params: FlareTxParams, blind: boolean, derivationPath: string): Promise<void> {
-  if(transactionType === "exportCP" || transactionType === "exportPC"){
+  if (transactionType === "exportCP" || transactionType === "exportPC") {
     logInfo("Creating export transaction...")
   }
-  if(transactionType === "importCP" || transactionType === "importPC"){
+  if (transactionType === "importCP" || transactionType === "importPC") {
     logInfo("Creating import transaction...")
   }
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
