@@ -101,5 +101,5 @@ ctx*.json
 
 # fordefi
 private.pem
-token
+token*
 ForDefiTxnFiles/
