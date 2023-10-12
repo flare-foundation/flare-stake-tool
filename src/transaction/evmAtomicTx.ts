@@ -134,7 +134,7 @@ export async function issueSignedEvmTx(ctx: Context, signedTxJson: SignedTxJson,
  * @returns returns the params need to export fund from C to P chain
  */
 export async function getExportCPParams(ctx: Context, amount?: BN, fee?: BN, nonce?: number, threshold: number = 1): Promise<ExportCPParams> {
-  const txcount = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)
+  const txcount = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex!)
   const locktime: BN = new BN(0)
   const importFee: BN = ctx.pchain.getDefaultTxFee()
   const baseFeeResponse: string = await ctx.cchain.getBaseFee()

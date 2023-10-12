@@ -26,6 +26,7 @@ import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './
 import { log, logError, logInfo, logSuccess, logWarning } from './output'
 import { submitForDefiTxn, fetchMirrorFunds } from './contracts'
 import { contractTransactionName } from './constants/contracts'
+import { createOptOutTransaction, sendSignedOptOutTransaction } from './forDefi/optOut'
 
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
@@ -46,9 +47,9 @@ export async function cli(program: Command) {
     .option("--ledger", "Use ledger to sign transactions")
     .option("--blind", "Blind signing (used for ledger)", true)
     .option("--derivation-path <derivation-path>", "Ledger address derivation path", BASE_DERIVATION_PATH)
-    .option("--get-hacked", "Use the .env file with the exposed private key")
     .option("--ctx-file <file>", "Context file as returned by init-ctx", 'ctx.json')
     .option("--env-path <path>", "Path to the .env file")
+    .option("--get-hacked", "Use the .env file with the exposed private key")
   // interactive mode
   program
     .command("interactive").description("Interactive mode")
@@ -157,6 +158,21 @@ export async function cli(program: Command) {
         await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
       }
     })
+  // opt out
+  program
+    .command("opt-out").description("Opt out of rewards on the c-chain")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("--nonce <nonce>", "Nonce of the constructed transaction")
+    .option("--send-signed-tx", "Send signed transaction json to the node")
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      const ctx = await contextFromOptions(options)
+      if (options.sendSignedTx) {
+        await optOut_useSignature(ctx, options.transactionId)
+      } else { // create unsigned transaction
+        await optOut_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
+      }
+    })
   // sign and submit smart contract transaction
   program
     .command("signAndSubmit").description("Sign a transaction using private key and submit to chain")
@@ -167,6 +183,7 @@ export async function cli(program: Command) {
       await signAndSend(ctx, options.network, options.transactionId)
     })
 }
+
 
 /**
  * @description - returns context from the options that are passed
@@ -408,10 +425,10 @@ export async function logMirrorFundInfo(ctx: Context): Promise<void> {
 // Transaction building and execution
 
 async function cliBuildAndSendTxUsingLedger(transactionType: string, ctx: Context, params: FlareTxParams, blind: boolean, derivationPath: string): Promise<void> {
-  if(transactionType === "exportCP" || transactionType === "exportPC"){
+  if (transactionType === "exportCP" || transactionType === "exportPC") {
     logInfo("Creating export transaction...")
   }
-  if(transactionType === "importCP" || transactionType === "importPC"){
+  if (transactionType === "importCP" || transactionType === "importPC") {
     logInfo("Creating import transaction...")
   }
   const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(transactionType, ctx, params)
@@ -463,7 +480,7 @@ async function cliBuildAndSendTxUsingPrivateKey(transactionType: string, ctx: Co
 
 async function signForDefi(transaction: string, ctx: string, withdrawal: boolean = false): Promise<void> {
   const txid = await sendToForDefi(transaction, ctx, withdrawal)
-  logSuccess(`Transaction with hash ${txid} sent to the node`)
+  logSuccess(`Transaction with hash ${txid} sent to the ForDefi`)
 }
 
 async function fetchForDefiTx(transaction: string, withdrawal: boolean = false): Promise<void> {
@@ -481,6 +498,16 @@ async function withdraw_getHash(ctx: Context, to: string, amount: number, id: st
 
 async function withdraw_useSignature(ctx: Context, id: string): Promise<void> {
   const txId = await sendSignedWithdrawalTransaction(ctx, id)
+  logSuccess(`Transaction ${txId} sent to the node`)
+}
+
+async function optOut_getHash(ctx: Context, to: string, amount: number, id: string, nonce: number): Promise<void> {
+  const fileId = await createOptOutTransaction(ctx, id, nonce)
+  logSuccess(`Transaction ${fileId} constructed`)
+}
+
+async function optOut_useSignature(ctx: Context, id: string): Promise<void> {
+  const txId = await sendSignedOptOutTransaction(ctx, id)
   logSuccess(`Transaction ${txId} sent to the node`)
 }
 
