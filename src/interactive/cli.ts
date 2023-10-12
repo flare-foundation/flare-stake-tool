@@ -446,7 +446,7 @@ export async function interactiveCli(baseargv: string[]) {
         try {
           if (!isContinue.isContinue) {
             const { network: ctxNetwork } = readInfoFromCtx("ctx.json")
-            const argsOptOut = [...baseargv.slice(0, 2), "opt-out", `--network=${ctxNetwork}`, `-i=${txnId}`, "--ctx-file=ctx.json"]
+            const argsOptOut = [...baseargv.slice(0, 2), "opt-out", `--network=${ctxNetwork}`, `-i`, `${txnId.id}`]
             await program.parseAsync(argsOptOut)
             const argsSign = makeForDefiArguments("sign", baseargv, txnId.id)
             await program.parseAsync(argsSign)
