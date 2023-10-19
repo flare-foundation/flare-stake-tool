@@ -58,3 +58,15 @@ export function waitFinalize3Factory(web3: any) {
     return res;
   }
 }
+
+export function getWeb3Contract(web3: any, address: string, abi: any) {
+  return new web3.eth.Contract(abi, address);
+};
+
+export function getAbi(abiPath: string) {
+  let abi = JSON.parse(fs.readFileSync(abiPath).toString());
+  if (abi.abi) {
+      abi = abi.abi;
+  }
+  return abi;
+}

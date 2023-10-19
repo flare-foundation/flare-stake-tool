@@ -1,3 +1,4 @@
+import Web3 from 'web3'
 import { SignatureRequest } from "@flarenetwork/flarejs/dist/common"
 import { Avalanche } from '@flarenetwork/flarejs'
 import { EVMAPI, KeyChain as EVMKeyChain, } from '@flarenetwork/flarejs/dist/apis/evm'
@@ -10,7 +11,7 @@ export interface Context {
   privkCB58?: string
   publicKey?: [Buffer, Buffer]
   rpcurl: string
-  web3: any
+  web3: Web3
   avalanche: Avalanche
   cchain: EVMAPI
   pchain: PVMAPI
@@ -73,12 +74,13 @@ export interface FlareTxParams {
 }
 
 interface WithdrawalTxData {
-  nonce: number
-  gasPrice: number
-  gasLimit: number
-  to: string
-  value: string | bigint
-  chainId: number
+  nonce: number;
+  gasPrice: number;
+  gasLimit: number;
+  to: string;
+  value?: string | bigint;
+  chainId: number;
+  data?: string;
 }
 
 /**

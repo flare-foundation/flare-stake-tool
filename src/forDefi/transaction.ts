@@ -154,3 +154,36 @@ export async function getVaultPublickey(vaultId: string): Promise<string> {
 
     return pubKeyHex;
 }
+
+
+async function createVault(vaultName: string): Promise<string> {
+
+    const accessToken = readFileSync("token-coston2", 'utf8');
+
+    const requestJson = {
+        "type": "black_box",
+        "key_type": "ecdsa_secp256k1",
+        "name": vaultName
+    };
+
+    const requestBody = JSON.stringify(requestJson)
+    const path = "/api/v1/vaults"
+
+    let response = await fetch(`https://${gatewayHost}${path}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            "Authorization": `Bearer ${accessToken}`
+        },
+        body: requestBody,
+    });
+    const responseJson = await response.json();
+    console.log(responseJson)
+    let pubKey = responseJson.public_key_compressed;
+    let pubKeyHex = Buffer.from(pubKey, 'base64').toString('hex');
+    console.log(pubKeyHex)
+
+    return responseJson["id"];
+}
+
+// createVault("vault-13")
