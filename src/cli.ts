@@ -535,6 +535,7 @@ async function withdraw_useSignature(ctx: Context, id: string): Promise<void> {
   logSuccess(`Transaction ${txId} sent to the node`)
 }
 
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // smart contract transaction signing
 
