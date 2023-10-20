@@ -168,7 +168,7 @@ export function serializeExportCP_args(args: [BN, string, string, string, string
 
 export function deserializeExportCP_args(serargs: string): [BN, string, string, string, string, string[], number, BN, number, BN?] {
   const args = JSON.parse(serargs)
-  ;[0, 7, 9].map(i => args[i] = new BN(args[i], 16))
+    ;[0, 7, 9].map(i => args[i] = new BN(args[i], 16))
   return args
 }
 
@@ -277,18 +277,22 @@ export function isAlreadySentToChain(id: string): boolean {
 //////////////////////////////////////////////////////////////////////////////////////////
 // limiting delegation number
 
-function countpAddressInDelegation(validators: any[], pAddressBech32: string): number {
+function countpAddressInDelegation(validators: any[], pAddressBech32: string): { count: number, validatorNodeIds: string[] } {
   let count = 0
+  const validatorNodeIds = []
   for (const item of validators) {
     if (item.delegators) {
       for (const delegator of item.delegators) {
-        count += delegator.rewardOwner.addresses.filter((addr: string) => {
-          return addr.toLowerCase() === pAddressBech32.toLowerCase()
-        }).length
+        for (const addr of delegator.rewardOwner.addresses) {
+          if (addr.toLowerCase() === pAddressBech32.toLowerCase()) {
+            count++;
+            validatorNodeIds.push(item.nodeID.toLowerCase())
+          }
+        }
       }
     }
   }
-  return count
+  return { count, validatorNodeIds }
 }
 
 /**
@@ -301,10 +305,9 @@ export async function delegationAddressCount(ctx: Context) {
   const pending = await ctx.pchain.getPendingValidators()
   const pendingValidtaor = JSON.parse(JSON.stringify(pending))
   const pCurrent = JSON.parse(JSON.stringify(current))
-  const count =
-    countpAddressInDelegation(pCurrent.validators, ctx.pAddressBech32!) +
-    countpAddressInDelegation(pendingValidtaor.validators, ctx.pAddressBech32!)
-  return count
+  const currentDelegationDetails = countpAddressInDelegation(pCurrent.validators, ctx.pAddressBech32!)
+  const pendingDelegationDetails = countpAddressInDelegation(pendingValidtaor.validators, ctx.pAddressBech32!)
+  return {count: currentDelegationDetails.count+ pendingDelegationDetails.count, validatorNodeId: [...currentDelegationDetails.validatorNodeIds, ...pendingDelegationDetails.validatorNodeIds]}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

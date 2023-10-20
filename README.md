@@ -177,6 +177,18 @@ Where:
 - `end-time` is the unix time of the end of the delegation process.
 - `amount` is the amount to lock and delegate in FLR.
 
+### Opt-out
+
+To opt-out of airdrop, run the following command:
+
+```bash
+flare-stake-tool opt-out --ledger --derivation-path <derivation-path>
+```
+
+Where:
+- `derivation-path` is the BIP44/Ledger Live standard derivation path of the account you want to use. By default it is taken as "m/44'/60'/0'/0/0"
+
+
 ## Operations with public key
 
 The public key is needed to construct the unsigned transaction hashes, which can then be signed externally (e.g. through a hardware wallet or a custodial API) and sent back to the app to finalize the transaction.

@@ -1,6 +1,7 @@
 import { Command, OptionValues } from 'commander'
 import { BigNumber, ethers } from 'ethersV5'
-import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams } from './interfaces'
+import chalk from 'chalk'
+import { UnsignedTxJson, SignedTxJson, Context, ContextFile, FlareTxParams, OptOutOfAirdropInterface } from './interfaces'
 import { rpcUrlFromNetworkConfig, contextEnv, contextFile, getContext, networkFromContextFile } from './context'
 import {
   compressPublicKey, integerToDecimal, decimalToInteger, readSignedTxJson,
@@ -24,9 +25,9 @@ import { ledgerSign, signId } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi/transaction'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess, logWarning } from './output'
-import { submitForDefiTxn, fetchMirrorFunds } from './contracts'
+import { submitForDefiTxn, fetchMirrorFunds, optOutOfAirdrop } from './contracts'
 import { contractTransactionName } from './constants/contracts'
-import { createOptOutTransaction, sendSignedOptOutTransaction } from './forDefi/optOut'
+import { walletConstants } from './constants/screen'
 
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
@@ -158,19 +159,19 @@ export async function cli(program: Command) {
         await withdraw_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
       }
     })
-  // opt out
+  // Opt-out from Airdrop
   program
-    .command("opt-out").description("Opt out of rewards on the c-chain")
+    .command("opt-out").description("Opt-out from the Flare Drop i.e execute optOutOfAirdrop function on DistributionToDelegators smart contract")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .option("--nonce <nonce>", "Nonce of the constructed transaction")
-    .option("--send-signed-tx", "Send signed transaction json to the node")
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
-      if (options.sendSignedTx) {
-        await optOut_useSignature(ctx, options.transactionId)
-      } else { // create unsigned transaction
-        await optOut_getHash(ctx, options.to, options.amount, options.transactionId, options.nonce)
+      if (options.getHacked) {
+        await optOutOfAirdropPrivateKey(Object.keys(walletConstants)[2], ctx)
+      } else if (options.ledger) {
+        await optOutOfAirdropLedger(Object.keys(walletConstants)[0], ctx.cAddressHex!, options.derivationPath, options.network)
+      } else { // for ForDefi
+        await optOutOfAirdropForDefi(Object.keys(walletConstants)[1], options.transactionId, ctx)
       }
     })
   // sign and submit smart contract transaction
@@ -184,6 +185,39 @@ export async function cli(program: Command) {
     })
 }
 
+export async function optOutOfAirdropPrivateKey(wallet: string, ctx: Context) {
+  const optOutParams: OptOutOfAirdropInterface = {
+    cAddress: ctx.cAddressHex!,
+    network: ctx.config.hrp,
+    wallet: wallet,
+    pvtKey: ctx.privkHex
+  };
+  await optOutOfAirdrop(optOutParams)
+  console.log(chalk.green("Successfully opted out"))
+}
+
+export async function optOutOfAirdropLedger(wallet: string, ctxCAddress: string, ctxDerivationPath: string, ctxNetwork: string) {
+  const optOutParams: OptOutOfAirdropInterface = {
+    cAddress: ctxCAddress,
+    network: ctxNetwork,
+    wallet: wallet,
+    derivationPath: ctxDerivationPath
+  };
+  console.log("Please sign the transaction on your ledger")
+  await optOutOfAirdrop(optOutParams)
+  console.log(chalk.green("Successfully opted out"))
+}
+
+export async function optOutOfAirdropForDefi(wallet: string, transactionId: string, ctx: Context) {
+  const optOutParams: OptOutOfAirdropInterface = {
+    cAddress: ctx.cAddressHex!,
+    network: ctx.config.hrp,
+    wallet: wallet,
+    transactionId: transactionId
+  };
+  await optOutOfAirdrop(optOutParams)
+
+}
 
 /**
  * @description - returns context from the options that are passed
@@ -336,10 +370,10 @@ export async function initCtxJsonFromOptions(options: OptionValues, derivationPa
   if (options.ledger) {
     const { publicKey, address } = await ledgerGetAccount(derivationPath, options.network)
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
-    ctxFile = { publicKey, ethAddress, flareAddress: address, network: options.network, derivationPath }
+    ctxFile = { wallet: "ledger", publicKey, ethAddress, flareAddress: address, network: options.network, derivationPath }
   } else if (options.publicKey) {
     if (!validatePublicKey(options.publicKey)) return logError('Invalid public key')
-    ctxFile = { publicKey: options.publicKey, network: options.network }
+    ctxFile = { wallet: "publicKey", publicKey: options.publicKey, network: options.network }
     if (options.vaultId) {
       ctxFile = {
         ...ctxFile,
@@ -501,15 +535,6 @@ async function withdraw_useSignature(ctx: Context, id: string): Promise<void> {
   logSuccess(`Transaction ${txId} sent to the node`)
 }
 
-async function optOut_getHash(ctx: Context, to: string, amount: number, id: string, nonce: number): Promise<void> {
-  const fileId = await createOptOutTransaction(ctx, id, nonce)
-  logSuccess(`Transaction ${fileId} constructed`)
-}
-
-async function optOut_useSignature(ctx: Context, id: string): Promise<void> {
-  const txId = await sendSignedOptOutTransaction(ctx, id)
-  logSuccess(`Transaction ${txId} sent to the node`)
-}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // smart contract transaction signing

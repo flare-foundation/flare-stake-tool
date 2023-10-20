@@ -4,12 +4,12 @@ import { exit } from "process";
 import { bech32 } from "bech32";
 import { BigNumber, ethers } from "ethersV5";
 import { SignatureRequest } from "@flarenetwork/flarejs/dist/common"
-import { ClaimRewardsInterface, Context, RegisterAddressInterface, UnsignedTxJson } from "./interfaces";
+import { ClaimRewardsInterface, OptOutOfAirdropInterface, Context, RegisterAddressInterface, UnsignedTxJson } from "./interfaces";
 import { forDefiDirectory, forDefiUnsignedTxnDirectory } from './constants/forDefi';
 import { NetworkConfig } from "./constants/network";
 import {
   getAddressBinderABI, getFlareContractRegistryABI, defaultContractAddresses, addressBinderContractName,
-  validatorRewardManagerContractName, contractTransactionName, getValidatorRewardManagerABI, pChainStakeMirror, getPChainStakeMirrorABI
+  validatorRewardManagerContractName, contractTransactionName, getValidatorRewardManagerABI, pChainStakeMirror, getPChainStakeMirrorABI, distributionToDelegators, getDistributionToDelegatorsABI
 } from "./constants/contracts";
 import { walletConstants } from "./constants/screen";
 import { prefix0x, saveUnsignedTxJson, integerToDecimal } from "./utils";
@@ -67,7 +67,7 @@ export async function isUnclaimedReward(ethAddressToCheck: string, network: stri
   const rewards = await contract.getStateOfRewards(ethAddressToCheck);
 
   const totalRewardNumber: BigNumber = rewards[0]
-    const claimedRewardNumber: BigNumber = rewards[1]
+  const claimedRewardNumber: BigNumber = rewards[1]
   const unclaimedRewards: BigNumber = totalRewardNumber.sub(claimedRewardNumber)
 
   if (unclaimedRewards.gt(BigNumber.from("0"))) {
@@ -140,7 +140,7 @@ export async function claimRewards(rewardsParams: ClaimRewardsInterface) {
 
   let gasEstimate
   try {
-        gasEstimate = await contract.estimateGas.claim(ownerAddress, prefix0x(receiverAddress), rewardAmount, false, { from: ownerAddress })
+    gasEstimate = await contract.estimateGas.claim(ownerAddress, prefix0x(receiverAddress), rewardAmount, false, { from: ownerAddress })
   } catch {
     console.log(chalk.red("Incorrect arguments passed"))
     exit()
@@ -253,6 +253,18 @@ async function getUnclaimedRewards(ethAddress: string, network: string): Promise
   return unclaimedRewards
 }
 
+async function isOptedOut(ethAddress: string, network: string): Promise<boolean> {
+  const rpcUrl = rpcUrlFromNetworkConfig(network)
+  const distributionToDelegatorsContractAddress = await getContractAddress(network, distributionToDelegators)
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+
+  const abi = getDistributionToDelegatorsABI() as ethers.ContractInterface
+  const contract = new ethers.Contract(distributionToDelegatorsContractAddress, abi, provider);
+
+  const isOptedOut = await contract.optOutCandidate(ethAddress);
+  return isOptedOut
+}
+
 async function signContractTransaction(wallet: keyof typeof walletConstants, unsignedTx: Object, contract: ethers.Contract, derivationPath?: string,
   transactionId?: string, pvtKey?: string) {
   const serializedUnsignedTx = ethers.utils.serializeTransaction(unsignedTx);
@@ -355,4 +367,41 @@ export async function fetchMirrorFunds(ctx: Context) {
       ...delegationToPendingValidator
     }
   };
+}
+
+/**
+ * @description - function to opt you out of airdrop
+ * @param {optOutOfAirdrop} params - optout parameters
+ */
+export async function optOutOfAirdrop(params: OptOutOfAirdropInterface) {
+  console.log('Opting you out of airdrop')
+  const { cAddress, network, wallet, derivationPath, pvtKey, transactionId } = params
+  if (await isOptedOut(cAddress, network)) {
+    throw new Error('You have already opted out of Airdrop')
+  }
+  const rpcUrl = rpcUrlFromNetworkConfig(network);
+  const distributionToDelegatorsContractAddress = await getContractAddress(network, distributionToDelegators)
+  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  const abi = getDistributionToDelegatorsABI() as ethers.ContractInterface
+  const contract = new ethers.Contract(distributionToDelegatorsContractAddress, abi, provider);
+  const checksumAddress = ethers.utils.getAddress(cAddress);
+  const nonce = await provider.getTransactionCount(checksumAddress);
+  const config: NetworkConfig = getNetworkConfig(network);
+  let gasEstimate
+  try {
+    gasEstimate = await contract.estimateGas.optOutOfAirdrop({ from: cAddress })
+  } catch {
+    console.log(chalk.red('Unable to estimate trx gas fees, Trx is likely to fail'))
+    exit()
+  }
+  const gasPrice = await provider.getGasPrice();
+  const populatedTx = await contract.populateTransaction.optOutOfAirdrop()
+  const unsignedTx = {
+    ...populatedTx,
+    nonce,
+    chainId: config.networkID,
+    gasPrice,
+    gasLimit: gasEstimate
+  }
+  await signContractTransaction(wallet, unsignedTx, contract, derivationPath, transactionId, pvtKey)
 }

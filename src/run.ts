@@ -7,13 +7,17 @@ import { interactiveCli } from './interactive/cli'
 import { version } from '../package.json'
 
 
-clear()
-console.log(
-  chalk.white(
-    figlet.textSync('Flare Stake CLI')
+function cliInfo(isClear: boolean = false) {
+  if (isClear) {
+    clear();
+  }
+  console.log(
+    chalk.white(
+      figlet.textSync('Flare Stake CLI')
+    )
   )
-)
-console.log(chalk.green(`Version: ${version}`))
+  console.log(chalk.green(`Version: ${version}`))
+}
 
 const baseArgv = process.argv
 const command = baseArgv[2]
@@ -41,6 +45,7 @@ function getArgv() {
 }
 
 if (command == 'interactive' || command == "-i") {
+  cliInfo(true)
   interactiveCli(baseArgv).then(() => {
     console.log(`Finished execution`)
   }).catch((error) => {
@@ -48,6 +53,7 @@ if (command == 'interactive' || command == "-i") {
   })
 }
 else {
+  cliInfo()
   const program = new Command("Flare Stake Tool")
   cli(program).then(() => {
     program.parseAsync(getArgv()).catch(err => {

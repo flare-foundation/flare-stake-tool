@@ -29,6 +29,10 @@ export const defaultContractAddresses: ContractAddressesInterface = {
     {
         flare: "0x7b61F9F27153a4F2F57Dc30bF08A8eb0cCB96C22",
         costwo: "0x3F65F2e9e25EdA1189c3aF3D596f1c2E71ececa9"
+    },
+    DistributionToDelegators: {
+      flare: "0x9c7A4C83842B29bB4A082b0E689CB9474BD938d0",
+      costwo:"0xbd33bDFf04C357F7FC019E72D0504C24CF4Aa010"
     }
 }
 
@@ -36,6 +40,7 @@ export const addressBinderContractName = "AddressBinder"
 export const validatorRewardManagerContractName = "ValidatorRewardManager"
 export const contractTransactionName = "ContractTransaction"
 export const pChainStakeMirror = "PChainStakeMirror"
+export const distributionToDelegators = "DistributionToDelegators"
 /**
  * @description returns the AddressBinder contract ABI
  */
@@ -65,6 +70,13 @@ export function getPChainStakeMirrorABI() {
   return pChainStakeMirrorABI
 }
 
+/**
+ *
+ * @returns return DistributionToDelegatorsABI contract ABI
+ */
+ export function getDistributionToDelegatorsABI() {
+  return distributionToDelegatorsABI
+}
 const addressBinderABI = [
     {
         "type": "function",
@@ -2211,5 +2223,1035 @@ const pChainStakeMirrorABI = [
           }
       ],
       "anonymous": false
+  }
+]
+
+const distributionToDelegatorsABI = [
+  {
+    "type": "constructor",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_governance",
+        "internalType": "address"
+      },
+      {
+        "type": "address",
+        "name": "_flareDaemon",
+        "internalType": "contract FlareDaemon"
+      },
+      {
+        "type": "address",
+        "name": "_addressUpdater",
+        "internalType": "address"
+      },
+      {
+        "type": "address",
+        "name": "_treasury",
+        "internalType": "contract DistributionTreasury"
+      },
+      {
+        "type": "uint256",
+        "name": "_totalEntitlementWei",
+        "internalType": "uint256"
+      },
+      {
+        "type": "uint256",
+        "name": "_latestEntitlementStartTs",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "AccountClaimed",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "whoClaimed",
+        "internalType": "address",
+        "indexed": true
+      },
+      {
+        "type": "address",
+        "name": "sentTo",
+        "internalType": "address",
+        "indexed": true
+      },
+      {
+        "type": "uint256",
+        "name": "month",
+        "internalType": "uint256",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "amountWei",
+        "internalType": "uint256",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "AccountOptOut",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "theAccount",
+        "internalType": "address",
+        "indexed": true
+      },
+      {
+        "type": "bool",
+        "name": "confirmed",
+        "internalType": "bool",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EntitlementStart",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "entitlementStartTs",
+        "internalType": "uint256",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "GovernanceCallTimelocked",
+    "inputs": [
+      {
+        "type": "bytes4",
+        "name": "selector",
+        "internalType": "bytes4",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "allowedAfterTimestamp",
+        "internalType": "uint256",
+        "indexed": false
+      },
+      {
+        "type": "bytes",
+        "name": "encodedCall",
+        "internalType": "bytes",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "GovernanceInitialised",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "initialGovernance",
+        "internalType": "address",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "GovernedProductionModeEntered",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "governanceSettings",
+        "internalType": "address",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TimelockedGovernanceCallCanceled",
+    "inputs": [
+      {
+        "type": "bytes4",
+        "name": "selector",
+        "internalType": "bytes4",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "timestamp",
+        "internalType": "uint256",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TimelockedGovernanceCallExecuted",
+    "inputs": [
+      {
+        "type": "bytes4",
+        "name": "selector",
+        "internalType": "bytes4",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "timestamp",
+        "internalType": "uint256",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "UseGoodRandomSet",
+    "inputs": [
+      {
+        "type": "bool",
+        "name": "useGoodRandom",
+        "internalType": "bool",
+        "indexed": false
+      },
+      {
+        "type": "uint256",
+        "name": "maxWaitForGoodRandomSeconds",
+        "internalType": "uint256",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "autoClaim",
+    "inputs": [
+      {
+        "type": "address[]",
+        "name": "_rewardOwners",
+        "internalType": "address[]"
+      },
+      {
+        "type": "uint256",
+        "name": "_month",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "cancelGovernanceCall",
+    "inputs": [
+      {
+        "type": "bytes4",
+        "name": "_selector",
+        "internalType": "bytes4"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "_rewardAmount",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "claim",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_rewardOwner",
+        "internalType": "address"
+      },
+      {
+        "type": "address",
+        "name": "_recipient",
+        "internalType": "address"
+      },
+      {
+        "type": "uint256",
+        "name": "_month",
+        "internalType": "uint256"
+      },
+      {
+        "type": "bool",
+        "name": "_wrap",
+        "internalType": "bool"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "contract ClaimSetupManager"
+      }
+    ],
+    "name": "claimSetupManager",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "contract IICombinedNatBalance"
+      }
+    ],
+    "name": "combinedNat",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "confirmOptOutOfAirdrop",
+    "inputs": [
+      {
+        "type": "address[]",
+        "name": "_optOutAddresses",
+        "internalType": "address[]"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": "",
+        "internalType": "bool"
+      }
+    ],
+    "name": "daemonize",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "endBlockNumber",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "entitlementStartTs",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "executeGovernanceCall",
+    "inputs": [
+      {
+        "type": "bytes4",
+        "name": "_selector",
+        "internalType": "bytes4"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "contract FlareDaemon"
+      }
+    ],
+    "name": "flareDaemon",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "_addressUpdater",
+        "internalType": "address"
+      }
+    ],
+    "name": "getAddressUpdater",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "_amountWei",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "getClaimableAmount",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "_month",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "_amountWei",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "getClaimableAmountOf",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_account",
+        "internalType": "address"
+      },
+      {
+        "type": "uint256",
+        "name": "_month",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "_startMonth",
+        "internalType": "uint256"
+      },
+      {
+        "type": "uint256",
+        "name": "_endMonth",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "getClaimableMonths",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "pure",
+    "outputs": [
+      {
+        "type": "string",
+        "name": "",
+        "internalType": "string"
+      }
+    ],
+    "name": "getContractName",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "_currentMonth",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "getCurrentMonth",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "_monthToExpireNext",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "getMonthToExpireNext",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "_lockedFundsWei",
+        "internalType": "uint256"
+      },
+      {
+        "type": "uint256",
+        "name": "_totalInflationAuthorizedWei",
+        "internalType": "uint256"
+      },
+      {
+        "type": "uint256",
+        "name": "_totalClaimedWei",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "getTokenPoolSupplyData",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "address"
+      }
+    ],
+    "name": "governance",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "contract IGovernanceSettings"
+      }
+    ],
+    "name": "governanceSettings",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "initialise",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_initialGovernance",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "latestEntitlementStartTs",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "maxWaitForGoodRandomSeconds",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "nextClaimableMonth",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "_rewardOwner",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": "",
+        "internalType": "bool"
+      }
+    ],
+    "name": "optOut",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "address"
+      }
+    ],
+    "name": "optOutAddresses",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": "",
+        "internalType": "bool"
+      }
+    ],
+    "name": "optOutCandidate",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "optOutOfAirdrop",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "contract IIRandomProvider"
+      }
+    ],
+    "name": "priceSubmitter",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": "",
+        "internalType": "bool"
+      }
+    ],
+    "name": "productionMode",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "sendFundsBackToTreasury",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "setEntitlementStart",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "_entitlementStartTs",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "setUseGoodRandom",
+    "inputs": [
+      {
+        "type": "bool",
+        "name": "_useGoodRandom",
+        "internalType": "bool"
+      },
+      {
+        "type": "uint256",
+        "name": "_maxWaitForGoodRandomSeconds",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "startBlockNumber",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "stop",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": "",
+        "internalType": "bool"
+      }
+    ],
+    "name": "stopped",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": "",
+        "internalType": "bool"
+      }
+    ],
+    "name": "switchToFallbackMode",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "switchToProductionMode",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "allowedAfterTimestamp",
+        "internalType": "uint256"
+      },
+      {
+        "type": "bytes",
+        "name": "encodedCall",
+        "internalType": "bytes"
+      }
+    ],
+    "name": "timelockedCalls",
+    "inputs": [
+      {
+        "type": "bytes4",
+        "name": "",
+        "internalType": "bytes4"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "totalAvailableAmount",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "totalBurnedWei",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "totalClaimedWei",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "totalDistributableAmount",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "totalEntitlementWei",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "totalUnclaimedAmount",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "totalUnclaimedWeight",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "contract DistributionTreasury"
+      }
+    ],
+    "name": "treasury",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "updateContractAddresses",
+    "inputs": [
+      {
+        "type": "bytes32[]",
+        "name": "_contractNameHashes",
+        "internalType": "bytes32[]"
+      },
+      {
+        "type": "address[]",
+        "name": "_contractAddresses",
+        "internalType": "address[]"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "outputs": [],
+    "name": "updateTotalEntitlementWei",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "bool",
+        "name": "",
+        "internalType": "bool"
+      }
+    ],
+    "name": "useGoodRandom",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "votePowerBlockNumbers",
+    "inputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      },
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "address",
+        "name": "",
+        "internalType": "contract WNat"
+      }
+    ],
+    "name": "wNat",
+    "inputs": []
+  },
+  {
+    "type": "function",
+    "stateMutability": "view",
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": "",
+        "internalType": "uint256"
+      }
+    ],
+    "name": "waitingForGoodRandomSinceTs",
+    "inputs": []
+  },
+  {
+    "type": "receive",
+    "stateMutability": "payable"
   }
 ]

@@ -7,16 +7,19 @@ import { ScreenConstantsInterface } from '../interfaces'
  */
 export const taskConstants: ScreenConstantsInterface = {
   'View chain addresses': 'addresses',
-  'Check on-chain balance': "balance",
-  'Get network info': "network",
-  'Get validator info': "validators",
+  'Check on-chain balance': 'balance',
+  'Get network info': 'network',
+  'Get validator info': 'validators',
   'Move assets from C-chain to P-chain': 'CP',
-  'Move assets from P-chain to C-chain': "PC",
-  'Add a validator node': "stake",
-  'Delegate to a validator node': "delegate",
+  'Move assets from P-chain to C-chain': 'PC',
+  'Add a validator node': 'stake',
+  'Delegate to a validator node': 'delegate',
   'Get Mirror fund details': 'mirror',
   'Claim Rewards': "rewards",
-  'Withdraw funds': "withdrawal"
+  'Withdraw funds': 'withdrawal',
+  'Import Funds (incase moving assets fails for either P chain or C chain)': 'import',
+  'Optout of Airdrop': 'optout',
+  'Quit': 'quit'
 }
 
 /**
