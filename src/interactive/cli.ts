@@ -487,7 +487,7 @@ export async function interactiveCli(baseargv: string[]) {
 
 async function connectWallet(): Promise<ConnectWalletInterface> {
   const walletPrompt = await prompts.connectWallet()
-  const wallet = walletPrompt.wallet
+  const wallet: string = walletPrompt.wallet
 
   if (wallet == Object.keys(walletConstants)[2]) {
     const pvtKeyPath = await prompts.pvtKeyPath()
@@ -496,7 +496,7 @@ async function connectWallet(): Promise<ConnectWalletInterface> {
     return { wallet, path, network }
   }
   else if (wallet == Object.keys(walletConstants)[1]) {
-    const isCreateCtx = await getCtxStatus()
+    const isCreateCtx = await getCtxStatus(wallet)
 
     if (isCreateCtx) {
       const publicKey = await prompts.publicKey()
@@ -515,7 +515,7 @@ async function connectWallet(): Promise<ConnectWalletInterface> {
     return { wallet }
   }
   else if (wallet == Object.keys(walletConstants)[0]) {
-    const isCreateCtx = await getCtxStatus()
+    const isCreateCtx = await getCtxStatus(wallet)
     let network
     if (isCreateCtx) {
       network = await selectNetwork()
@@ -561,6 +561,7 @@ function readInfoFromCtx(filePath: string): ContextFile {
   const ctxContent = fs.readFileSync('ctx.json', 'utf-8')
   const ctxData = JSON.parse(ctxContent)
 
+  const wallet = ctxData.wallet
   const publicKey = ctxData.publicKey
   const network = ctxData.network
   const ethAddress = ctxData.ethAddress || undefined
@@ -568,7 +569,7 @@ function readInfoFromCtx(filePath: string): ContextFile {
   const derivationPath = ctxData.derivationPath || undefined
   const vaultId = ctxData.vaultId || undefined
 
-  return { publicKey, network, ethAddress, flareAddress, derivationPath, vaultId }
+  return { wallet, publicKey, network, ethAddress, flareAddress, derivationPath, vaultId }
 
 }
 
@@ -583,13 +584,17 @@ async function createChoicesFromAddress(pathList: DerivedAddress[]) {
   return choiceList
 }
 
-async function getCtxStatus(): Promise<boolean> {
+async function getCtxStatus(wallet: string): Promise<boolean> {
   let isCreateCtx = true
   const isFileExist: boolean = fileExists("ctx.json");
 
   if (isFileExist) {
+    const { wallet: ctxWallet, network: ctxNetwork, publicKey: ctxPublicKey, ethAddress: ctxEthAddress, vaultId: ctxVaultId } = readInfoFromCtx("ctx.json")
+    if (wallet !== ctxWallet) {
+      deleteFile()
+      return isCreateCtx
+    }
     console.log(chalk.magenta("You already have an existing Ctx file with the following parameters - "))
-    const { network: ctxNetwork, publicKey: ctxPublicKey, ethAddress: ctxEthAddress, vaultId: ctxVaultId } = readInfoFromCtx("ctx.json")
     console.log(chalk.hex('#FFA500')("Public Key:"), ctxPublicKey)
     console.log(chalk.hex('#FFA500')("Network:"), ctxNetwork)
     if (ctxEthAddress) {
@@ -604,16 +609,20 @@ async function getCtxStatus(): Promise<boolean> {
     if (isContinue) {
       isCreateCtx = false
     } else {
-      try {
-        fs.unlinkSync('ctx.json');
-        console.log('File "ctx.json" has been deleted.');
-      } catch (error) {
-        console.error('An error occurred while deleting the file:', error);
-      }
+      deleteFile()
     }
   }
 
   return isCreateCtx
+}
+
+function deleteFile() {
+  try {
+    fs.unlinkSync('ctx.json');
+    console.log('File "ctx.json" has been deleted.');
+  } catch (error) {
+    console.error('An error occurred while deleting the file:', error);
+  }
 }
 
 async function getDetailsForDelegation(task: string): Promise<DelegationDetailsInterface> {

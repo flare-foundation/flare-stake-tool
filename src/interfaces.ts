@@ -27,6 +27,7 @@ export interface Context {
 }
 
 export interface ContextFile {
+  wallet: string,
   publicKey: string
   network: string,
   flareAddress?: string
@@ -158,7 +159,7 @@ export interface ClaimRewardsInterface {
  * Represents the wallet params sent to the optOutOfAirdrop Function
  * @interface OptOutOfAirdrop
  */
- export interface OptOutOfAirdropInterface {
+export interface OptOutOfAirdropInterface {
   cAddress: string,
   network: string,
   wallet: keyof typeof walletConstants,

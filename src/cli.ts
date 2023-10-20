@@ -370,10 +370,10 @@ export async function initCtxJsonFromOptions(options: OptionValues, derivationPa
   if (options.ledger) {
     const { publicKey, address } = await ledgerGetAccount(derivationPath, options.network)
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
-    ctxFile = { publicKey, ethAddress, flareAddress: address, network: options.network, derivationPath }
+    ctxFile = { wallet: "ledger", publicKey, ethAddress, flareAddress: address, network: options.network, derivationPath }
   } else if (options.publicKey) {
     if (!validatePublicKey(options.publicKey)) return logError('Invalid public key')
-    ctxFile = { publicKey: options.publicKey, network: options.network }
+    ctxFile = { wallet: "publicKey", publicKey: options.publicKey, network: options.network }
     if (options.vaultId) {
       ctxFile = {
         ...ctxFile,
