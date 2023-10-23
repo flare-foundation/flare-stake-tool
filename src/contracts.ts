@@ -202,7 +202,7 @@ async function getContractAddress(network: string, contractName: string): Promis
 
   const abi = getFlareContractRegistryABI() as ethers.ContractInterface
   if (network != "flare" && network != "costwo") throw new Error("Invalid network passed")
-  const contract = new ethers.Contract(defaultContractAddresses.flareContractRegistryAddress[network], abi, provider);
+  const contract = new ethers.Contract(defaultContractAddresses.FlareContractRegistry[network], abi, provider);
 
   const result = await contract.getContractAddressByName(contractName);
 
