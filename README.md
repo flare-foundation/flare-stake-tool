@@ -13,7 +13,7 @@ This tool also supports moving assets between the C- and P-chains and back.
 
 ## Installation
 
-There are two ways to install the tool. Unless you plan to contribute to this repository, We recommend using `npm` (version >= 16).
+There are two ways to install the tool. Unless you plan to contribute to this repository, We recommend using `yarn` and `node` with version >= 16.
 
 ### Using npm
 
