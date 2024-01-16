@@ -13,7 +13,7 @@ This tool also supports moving assets between the C- and P-chains and back.
 
 ## Installation
 
-There are two ways to install the tool. Unless you plan to contribute to this repository, We recommend using `npm` (version >= 16).
+There are two ways to install the tool. Unless you plan to contribute to this repository, We recommend using `yarn` and `node` with version >= 16.
 
 ### Using npm
 
@@ -176,6 +176,18 @@ Where:
 - `start-time` is the unix time of the start of the delegation process.
 - `end-time` is the unix time of the end of the delegation process.
 - `amount` is the amount to lock and delegate in FLR.
+
+### Opt-out
+
+To opt-out of airdrop, run the following command:
+
+```bash
+flare-stake-tool opt-out --ledger --derivation-path <derivation-path>
+```
+
+Where:
+- `derivation-path` is the BIP44/Ledger Live standard derivation path of the account you want to use. By default it is taken as "m/44'/60'/0'/0/0"
+
 
 ## Operations with public key
 

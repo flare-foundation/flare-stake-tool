@@ -11,9 +11,12 @@ type AddDelegatorParams = [
   string[], BN, number, Buffer | undefined, BN
 ]
 
-async function checkMaximumAllowedDelegation(ctx: Context){
-  const numberOfDelegation = await delegationAddressCount(ctx);
-  if(numberOfDelegation >= maxAllowedDelegation){
+async function checkMaximumAllowedDelegation(ctx: Context, nodeId: string) {
+  const delegationDetails = await delegationAddressCount(ctx);
+  if (delegationDetails.validatorNodeId.includes(nodeId.toLowerCase())) {
+    return;
+  }
+  if (delegationDetails.count >= maxAllowedDelegation) {
     throw new Error(`Exceeded maximum allowed delegation of ${maxAllowedDelegation}`)
   }
 }
@@ -33,7 +36,7 @@ export async function addDelegator(
   endTime: BN,
   threshold?: number
 ) {
-  await checkMaximumAllowedDelegation(ctx)
+  await checkMaximumAllowedDelegation(ctx, nodeID)
   const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddDelegatorTx(...params)
   const tx: Tx = unsignedTx.sign(ctx.pKeychain)
@@ -57,7 +60,7 @@ export async function getUnsignedAddDelegator(
   endTime: BN,
   threshold?: number
 ): Promise<UnsignedTxJson> {
-  await checkMaximumAllowedDelegation(ctx)
+  await checkMaximumAllowedDelegation(ctx, nodeID)
   const params = await getAddDelegatorParams(ctx, nodeID, stakeAmount, startTime, endTime, threshold)
   const unsignedTx: UnsignedTx = await ctx.pchain.buildAddDelegatorTx(...params)
   return {
@@ -105,3 +108,4 @@ export async function getAddDelegatorParams(
     asOf
   ]
 }
+
