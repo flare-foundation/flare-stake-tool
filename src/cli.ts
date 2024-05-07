@@ -21,7 +21,7 @@ import {
 import { addValidator, getUnsignedAddValidator } from './transaction/addValidator'
 import { addDelegator, getUnsignedAddDelegator } from './transaction/addDelegator'
 import { ledgerGetAccount } from './ledger/key'
-import { ledgerSign, signId } from './ledger/sign'
+import { ledgerSign } from './ledger/sign'
 import { getSignature, sendToForDefi } from './forDefi/transaction'
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
 import { log, logError, logInfo, logSuccess, logWarning } from './output'
@@ -37,14 +37,16 @@ const MAX_TRANSCTION_FEE = FLR
 // mapping from network to symbol
 const networkTokenSymbol: { [index: string]: string } = {
   "flare": "FLR",
+  "songbird": "SGB",
   "costwo": "C2FLR",
+  "coston": "CFLR",
   "localflare": "PHT"
 }
 
 export async function cli(program: Command) {
   // global configurations
   program
-    .option("--network <network>", "Network name (flare or costwo)")
+    .option("--network <network>", "Network name (flare|songbird|costwo|coston|localflare)")
     .option("--ledger", "Use ledger to sign transactions")
     .option("--blind", "Blind signing (used for ledger)", true)
     .option("--derivation-path <derivation-path>", "Ledger address derivation path", BASE_DERIVATION_PATH)
@@ -216,7 +218,6 @@ export async function optOutOfAirdropForDefi(wallet: string, transactionId: stri
     transactionId: transactionId
   };
   await optOutOfAirdrop(optOutParams)
-
 }
 
 /**

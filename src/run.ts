@@ -60,6 +60,7 @@ else {
       if (err instanceof Error) {
         console.log(chalk.red(`Error: ${err.message}`))
       }
+      console.log(err)
     })
   })
 }

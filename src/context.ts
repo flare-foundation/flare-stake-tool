@@ -5,7 +5,7 @@ import { PrivateKeyPrefix, PublicKeyPrefix, Defaults } from '@flarenetwork/flare
 import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
 import { PlatformVMAPI as PVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { Context, ContextFile } from './interfaces'
-import { costwo, flare, localflare, NetworkConfig } from './constants/network'
+import { flare, songbird, costwo, coston, localflare, NetworkConfig } from './constants/network'
 import {
   unPrefix0x, publicKeyToBech32AddressString, publicKeyToEthereumAddressString,
   privateKeyToPublicKey, decodePublicKey
@@ -87,8 +87,12 @@ export function getNetworkConfig(network: string | undefined): NetworkConfig {
   let networkConfig
   if (network == 'flare' || network === undefined) {
     networkConfig = flare
+  } else if (network == 'songbird') {
+    networkConfig = songbird
   } else if (network == 'costwo') {
     networkConfig = costwo
+  } else if (network == 'coston') {
+    networkConfig = coston
   } else if (network == 'localflare') {
     networkConfig = localflare
   } else throw Error('Invalid network')

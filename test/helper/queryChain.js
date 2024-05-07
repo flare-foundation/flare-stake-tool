@@ -4,8 +4,8 @@ const request = require('request')
 // but they can differ (especially on localflare), so use this code to fetch the
 // real blockchain ids from the node rpc
 
-// const rpcurl = 'https://coston2-api.flare.network'
-const rpcurl = 'http://localhost:9650'
+const rpcurl = 'https://songbird-api.flare.network'
+//const rpcurl = 'http://localhost:9650'
 
 const chains = ['X', 'C', 'P']
 chains.map(chain =>
@@ -29,6 +29,8 @@ chains.map(chain =>
         console.log(
           `blockchainId for ${chain}-chain: ${data.result.blockchainID}`
         )
+      } else {
+        console.log(error)
       }
     }
   )
@@ -52,6 +54,8 @@ request(
     if (!error && response.statusCode == 200) {
       const data = JSON.parse(body)
       console.log(`assetId: ${data.result.assetID}`)
+    } else {
+      console.log(error)
     }
   }
 )

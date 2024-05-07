@@ -27,8 +27,10 @@ export const taskConstants: ScreenConstantsInterface = {
  */
 export const networkConstants: ScreenConstantsInterface = {
   "flare": "Flare " + chalk.green("(mainnet)"),
+  "songbird": "Songbird " + chalk.green("(canary)"),
   "costwo": "Coston2 " + chalk.yellow("(testnet)"),
-  "localflare": "LocalHost " + chalk.red("(devnet)")
+  "coston": "Coston" + chalk.yellow("(testnet)"),
+  "localflare": "LocalHost " + chalk.red("(devnet)"),
 }
 
 /**
