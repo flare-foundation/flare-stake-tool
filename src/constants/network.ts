@@ -33,7 +33,7 @@ export const costworocks: NetworkConfig = {
 export const coston: NetworkConfig = {
   protocol: 'https',
   ip: 'coston.flare.rocks',
-  networkID: 16,
+  networkID: 7,
   hrp: 'coston'
 }
 
@@ -47,7 +47,7 @@ export const costwo: NetworkConfig = {
 export const songbird: NetworkConfig = {
   protocol: 'https',
   ip: 'songbird-api.flare.network',
-  networkID: 19,
+  networkID: 5,
   hrp: 'songbird'
 }
 

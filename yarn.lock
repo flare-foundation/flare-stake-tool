@@ -743,10 +743,10 @@
     "@ethersproject/properties" "^5.7.0"
     "@ethersproject/strings" "^5.7.0"
 
-"@flarenetwork/flarejs@1.2.2":
-  version "1.2.2"
-  resolved "https://registry.yarnpkg.com/@flarenetwork/flarejs/-/flarejs-1.2.2.tgz#11a1ab5dc7e6f296f461426de5eccd89cf0d1dd9"
-  integrity sha512-evKl6rIBkkv0fZL++Il1Iya7YoyLGDa52fAnTHtMKBxF/03YZMK/5+xNJmNWipT6jWneJiEpYw+MaTiMjJJ7sw==
+"@flarenetwork/flarejs@1.2.3":
+  version "1.2.3"
+  resolved "https://registry.yarnpkg.com/@flarenetwork/flarejs/-/flarejs-1.2.3.tgz#e19dd94bd1cdbf516854ac65f60e8d7206ae51d1"
+  integrity sha512-LWmJkq1MM7hj7fiIvl17qZP6ZA7O9NfZtjEUlCJMcqunXJgghTuXveNac3V34AnnKD6PCMROEG5f8YoF2spTGQ==
   dependencies:
     assert "2.0.0"
     axios "0.27.2"
