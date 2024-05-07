@@ -15,6 +15,14 @@ export const localflare: NetworkConfig = {
   hrp: 'localflare'
 }
 
+export const local: NetworkConfig = {
+  protocol: 'http',
+  ip: 'localhost',
+  port: 9650,
+  networkID: 4294967295,
+  hrp: 'local'
+}
+
 export const costworocks: NetworkConfig = {
   protocol: 'https',
   ip: 'coston2-api.flare.rocks',
