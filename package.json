@@ -1,6 +1,6 @@
 {
   "name": "@flarenetwork/flare-stake-tool",
-  "version": "3.3.1",
+  "version": "3.4.1",
   "description": "Utilities for staking on the Flare network",
   "bin": {
     "flare-stake-tool": "bin/flare-stake-tool"
@@ -59,7 +59,7 @@
   },
   "dependencies": {
     "@avalabs/hw-app-avalanche": "^0.10.1",
-    "@flarenetwork/flarejs": "1.2.3",
+    "@flarenetwork/flarejs": "1.3.0",
     "@ledgerhq/hw-transport-node-hid": "^6.0.0",
     "bech32": "^2.0.0",
     "chalk": "4.1.2",
