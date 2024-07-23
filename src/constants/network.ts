@@ -32,7 +32,7 @@ export const costworocks: NetworkConfig = {
 
 export const coston: NetworkConfig = {
   protocol: 'https',
-  ip: 'coston.flare.rocks',
+  ip: 'coston-api.flare.network',
   networkID: 7,
   hrp: 'coston'
 }
