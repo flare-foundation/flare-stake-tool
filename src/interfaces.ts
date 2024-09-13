@@ -23,7 +23,8 @@ export interface Context {
   cChainBlockchainID: string
   pChainBlockchainID: string
   avaxAssetID: string
-  config: NetworkConfig
+  config: NetworkConfig,
+  chainID: number
 }
 
 export interface ContextFile {
