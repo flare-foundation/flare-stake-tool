@@ -103,3 +103,5 @@ ctx*.json
 private.pem
 token*
 ForDefiTxnFiles/
+
+.DS_Store
