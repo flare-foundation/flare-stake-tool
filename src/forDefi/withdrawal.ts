@@ -25,7 +25,7 @@ export async function createWithdrawalTransaction(ctx: Context, toAddress: strin
         gasLimit: 21_000,
         to: toAddress,
         value: amountWei.toString(),
-        chainId: ctx.config.networkID
+        chainId: ctx.config.chainID
     }
 
     // serialized unsigned transaction
