@@ -4,7 +4,8 @@ export interface NetworkConfig {
   ip: string,
   port?: number,
   networkID: number,
-  hrp: string
+  hrp: string,
+  chainID: number
 }
 
 export const localflare: NetworkConfig = {
@@ -12,7 +13,8 @@ export const localflare: NetworkConfig = {
   ip: 'localhost',
   port: 9650,
   networkID: 162,
-  hrp: 'localflare'
+  hrp: 'localflare',
+  chainID: 162
 }
 
 export const local: NetworkConfig = {
@@ -20,40 +22,46 @@ export const local: NetworkConfig = {
   ip: 'localhost',
   port: 9650,
   networkID: 4294967295,
-  hrp: 'local'
+  hrp: 'local',
+  chainID: 4294967295
 }
 
 export const costworocks: NetworkConfig = {
   protocol: 'https',
   ip: 'coston2-api.flare.rocks',
   networkID: 114,
-  hrp: 'costwo'
+  hrp: 'costwo',
+  chainID: 114
 }
 
 export const coston: NetworkConfig = {
   protocol: 'https',
   ip: 'coston-api.flare.network',
   networkID: 7,
-  hrp: 'coston'
+  hrp: 'coston',
+  chainID: 16
 }
 
 export const costwo: NetworkConfig = {
   protocol: 'https',
   ip: 'coston2-api.flare.network',
   networkID: 114,
-  hrp: 'costwo'
+  hrp: 'costwo',
+  chainID: 114
 }
 
 export const songbird: NetworkConfig = {
   protocol: 'https',
   ip: 'songbird-api.flare.network',
   networkID: 5,
-  hrp: 'songbird'
+  hrp: 'songbird',
+  chainID: 19
 }
 
 export const flare: NetworkConfig = {
   protocol: 'https',
   ip: 'flare-api.flare.network',
   networkID: 14,
-  hrp: 'flare'
+  hrp: 'flare',
+  chainID: 14
 }

@@ -113,7 +113,7 @@ export function context(
   config: NetworkConfig,
   publicKey?: string, privkHex?: string, privkCB58?: string,
 ): Context {
-  const { protocol, ip, port, networkID } = config
+  const { protocol, ip, port, networkID, chainID } = config
   // those two addresses should be derived for most cli applications
   let cAddressHex: string | undefined
   let addressBech32: string | undefined
@@ -205,6 +205,7 @@ export function context(
     cChainBlockchainID: cChainBlockchainID,
     pChainBlockchainID: pChainBlockchainID,
     avaxAssetID: avaxAssetID,
-    config: config
+    config: config,
+    chainID: chainID
   }
 }
