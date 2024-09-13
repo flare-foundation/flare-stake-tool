@@ -743,26 +743,10 @@
     "@ethersproject/properties" "^5.7.0"
     "@ethersproject/strings" "^5.7.0"
 
-"@flarenetwork/flare-stake-tool@^2.6.0":
-  version "2.6.0"
-  resolved "https://registry.yarnpkg.com/@flarenetwork/flare-stake-tool/-/flare-stake-tool-2.6.0.tgz#47ebec88c5720f3e44ea046776bd8a5e5503a7b1"
-  integrity sha512-wLfptW99lS2NlzuYvjmzJQCjXWO67go0gfEGzwDoEAgNY/vhT87O37kDgJDxsF5puc+A3NlBRV/YzKLThVyXfQ==
-  dependencies:
-    "@avalabs/hw-app-avalanche" "^0.10.1"
-    "@flarenetwork/flarejs" "1.2.1"
-    "@ledgerhq/hw-transport-node-hid" "^6.0.0"
-    bech32 "^2.0.0"
-    chalk "4.1.2"
-    commander "^9.4.1"
-    dotenv "^16.0.1"
-    ethereumjs-util "^7.1.5"
-    ethers "6.5.1"
-    web3 "^1.8.0"
-
-"@flarenetwork/flarejs@1.2.1":
-  version "1.2.1"
-  resolved "https://registry.yarnpkg.com/@flarenetwork/flarejs/-/flarejs-1.2.1.tgz#40be48e3c4be223bede235cb7641d3803420a629"
-  integrity sha512-q6ks2v6JTgZCmBo3C7RmbJD+5Xu0dukrwL14DfqLSKulbYFYlKEERCiazy9twQTl/H+EUGOHMl6MYsKnG8YN2Q==
+"@flarenetwork/flarejs@1.3.0":
+  version "1.3.0"
+  resolved "https://registry.yarnpkg.com/@flarenetwork/flarejs/-/flarejs-1.3.0.tgz#1666f2da3002263bd0d78e51757594e8cd48ac2b"
+  integrity sha512-1qvLEdi8B/pNFWDjqfvnbFd1f+cZmqxGBziEm36g+ohDmxTjxqmppyUhkspPhU2oiMhvwASYUZebfs5FP3D16A==
   dependencies:
     assert "2.0.0"
     axios "0.27.2"

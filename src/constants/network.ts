@@ -15,6 +15,14 @@ export const localflare: NetworkConfig = {
   hrp: 'localflare'
 }
 
+export const local: NetworkConfig = {
+  protocol: 'http',
+  ip: 'localhost',
+  port: 9650,
+  networkID: 4294967295,
+  hrp: 'local'
+}
+
 export const costworocks: NetworkConfig = {
   protocol: 'https',
   ip: 'coston2-api.flare.rocks',
@@ -22,11 +30,25 @@ export const costworocks: NetworkConfig = {
   hrp: 'costwo'
 }
 
+export const coston: NetworkConfig = {
+  protocol: 'https',
+  ip: 'coston-api.flare.network',
+  networkID: 7,
+  hrp: 'coston'
+}
+
 export const costwo: NetworkConfig = {
   protocol: 'https',
   ip: 'coston2-api.flare.network',
   networkID: 114,
   hrp: 'costwo'
+}
+
+export const songbird: NetworkConfig = {
+  protocol: 'https',
+  ip: 'songbird-api.flare.network',
+  networkID: 5,
+  hrp: 'songbird'
 }
 
 export const flare: NetworkConfig = {

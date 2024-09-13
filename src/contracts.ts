@@ -29,6 +29,11 @@ type DelegatedAmount = {
  */
 export async function isAddressRegistered(ethAddressToCheck: string, network: string): Promise<boolean> {
 
+  // TODO: Change when contracts are deployed on Songbird and Coston
+  if (network === "songbird" || network === "coston") {
+    return true;
+  }
+
   console.log("Checking Address Registration...")
   const rpcUrl = rpcUrlFromNetworkConfig(network)
   const addressBinderContractAddress = await getContractAddress(network, addressBinderContractName)
