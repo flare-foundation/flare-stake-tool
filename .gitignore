@@ -103,5 +103,3 @@ ctx*.json
 private.pem
 token*
 ForDefiTxnFiles/
-token-production
-token-coston2
