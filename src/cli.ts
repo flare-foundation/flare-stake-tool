@@ -525,7 +525,9 @@ export function capFeeAt(
 //}
 
 function getPublicKeyFromPair(keypair: [Buffer<ArrayBufferLike>, Buffer<ArrayBufferLike>]): string {
-  return Buffer.concat(keypair).toString('hex')
+  const pk = Buffer.concat(keypair).toString('hex')
+  console.log('pk ', pk)
+  return pk
 }
 
 async function buildAndSendTxUsingPrivateKey(
@@ -535,16 +537,13 @@ async function buildAndSendTxUsingPrivateKey(
   stakeParams?: StakeParams
 ): Promise<{ txid: string; usedFee?: string }> {
   async function signTransaction(unsignedTxHex: string, privateKey: string): Promise<string> {
-    const tx = readUnsignedTxJson(unsignedTxHex) as any
-    if (!tx) throw new Error('Invalid txn file')
-
-    const valueStr = tx.rawTx.value
-    const valueBN = BigNumber.from(valueStr)
-    tx.rawTx.value = valueBN
-
     const wallet = new ethers.Wallet(privateKey)
-    const signedTx = await wallet.signTransaction(tx)
-    return signedTx
+    const txBuffer = ethers.utils.arrayify(unsignedTxHex)
+
+    console.log('sign', wallet.publicKey)
+    const signature = await wallet.signMessage(txBuffer)
+
+    return signature
   }
   const sign = async (request: TxDetails): Promise<string> => {
     return await signTransaction(request.unsignedTxHex, ctx.privkHex!)
@@ -574,14 +573,14 @@ async function buildAndSendTxUsingPrivateKey(
     let tp: ExportCTxParams = {
       amount: toBN(params.amount)!,
       exportFee: toBN(params.fee)!,
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
     return { txid: await flare.exportCP(tp, sign) }
   } else if (transactionType === 'importCP') {
     let tp: ImportPTxParams = {
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -589,7 +588,7 @@ async function buildAndSendTxUsingPrivateKey(
   } else if (transactionType === 'exportPC') {
     let tp: ExportPTxParams = {
       amount: toBN(params.amount)!,
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -597,17 +596,17 @@ async function buildAndSendTxUsingPrivateKey(
   } else if (transactionType === 'importPC') {
     let tp: ImportCTxParams = {
       importFee: toBN(params.fee)!,
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
     return { txid: await flare.importPC(tp, sign) }
   } else if (transactionType === 'stake') {
     // publicKey irrelevant apparently?
-    let tp = ui.getValidatorPTxParams('flare', '', stakeParams!)
+    let tp = ui.getValidatorPTxParams(ctx.config.hrp, '', stakeParams!)
     return { txid: await flare.addValidator(tp, sign) }
   } else if (transactionType === 'delegate') {
-    let tp = ui.getDelegatorPTxParams('flare', '', stakeParams!)
+    let tp = ui.getDelegatorPTxParams(ctx.config.hrp, '', stakeParams!)
     return { txid: await flare.addDelegator(tp, sign, processTx) }
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
@@ -746,16 +745,12 @@ async function cliBuildAndSendTxUsingLedger(
     logInfo('Creating import transaction...')
   }
   async function signTransaction(unsignedTxHex: string, privateKey: string): Promise<string> {
-    const tx = readUnsignedTxJson(unsignedTxHex) as any
-    if (!tx) throw new Error('Invalid txn file')
-
-    const valueStr = tx.rawTx.value
-    const valueBN = BigNumber.from(valueStr)
-    tx.rawTx.value = valueBN
-
     const wallet = new ethers.Wallet(privateKey)
-    const signedTx = await wallet.signTransaction(tx)
-    return signedTx
+    const txBuffer = ethers.utils.arrayify(unsignedTxHex)
+
+    const signature = await wallet.signMessage(txBuffer)
+
+    return signature
   }
   const sign = async (request: TxDetails): Promise<string> => {
     return await signTransaction(request.unsignedTxHex, ctx.privkHex!)
@@ -764,7 +759,7 @@ async function cliBuildAndSendTxUsingLedger(
     let tp: ExportCTxParams = {
       amount: toBN(params.amount)!,
       exportFee: toBN(params.fee)!,
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -772,7 +767,7 @@ async function cliBuildAndSendTxUsingLedger(
     return
   } else if (transactionType === 'importCP') {
     let tp: ImportPTxParams = {
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -781,7 +776,7 @@ async function cliBuildAndSendTxUsingLedger(
   } else if (transactionType === 'exportPC') {
     let tp: ExportPTxParams = {
       amount: toBN(params.amount)!,
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -790,7 +785,7 @@ async function cliBuildAndSendTxUsingLedger(
   } else if (transactionType === 'importPC') {
     let tp: ImportCTxParams = {
       importFee: toBN(params.fee)!,
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
