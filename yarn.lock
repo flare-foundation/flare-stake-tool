@@ -1142,9 +1142,9 @@
     "@emurgo/cardano-serialization-lib-nodejs" "13.2.0"
 
 "@flarenetwork/flarejs@^4.0.5":
-  version "1.3.1"
-  resolved "https://registry.yarnpkg.com/@flarenetwork/flarejs/-/flarejs-1.3.1.tgz#cb6f5f3abd06d62f5e4a6a5e5ecbca742f33b70b"
-  integrity sha512-m8kdTI9J4XhvKKLCiWeJ/Cjv4hxZJCgotahH6SL81ZeniEl+5rNqIv+viXMT2blu0U+d3UpqhpzyMTcsVBbARQ==
+  version "1.3.2"
+  resolved "https://registry.yarnpkg.com/@flarenetwork/flarejs/-/flarejs-1.3.2.tgz#a3e01f308307648c52b12ee4df996bc8fef116b7"
+  integrity sha512-euKfFksvLNurRN8hv9A5eU3H3arpY0b0hU4s/lPIEFYVSCEEfSvT30/FejvNrKea4vMe7jq+8J3+hKlp4SjuCg==
   dependencies:
     assert "^2.0.0"
     axios "^1.7.7"
