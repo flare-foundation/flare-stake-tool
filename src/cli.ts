@@ -18,6 +18,7 @@ import {
   utils as futils,
   Utxo,
   addTxSignatures,
+  TransferableOutput,
   Context as FContext
 } from '@flarenetwork/flarejs'
 // import chalk from "chalk";
@@ -566,7 +567,6 @@ async function buildAndSendTxUsingPrivateKey(
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const txCount = await provider.getTransactionCount(ctx.cAddressHex!)
   const baseFee = await evmapi.getBaseFee()
-  const xAddressBytes = futils.bech32ToBytes(ctx.pAddressBech32!)
   function getChainIdFromContext(sourceChain: 'X' | 'P' | 'C', context: FContext.Context) {
     return sourceChain === 'C'
       ? context.cBlockchainID
@@ -578,11 +578,11 @@ async function buildAndSendTxUsingPrivateKey(
   if (transactionType === 'exportCP') {
     const tx = evm.newExportTxFromBaseFee(
       context,
-      BigInt(params.fee!),
+      baseFee / BigInt(FLR),
       BigInt(params.amount!),
       context.pBlockchainID,
       futils.hexToBuffer(ctx.cAddressHex!),
-      [xAddressBytes],
+      [futils.bech32ToBytes(ctx.pAddressBech32!)],
       BigInt(txCount)
     )
 
@@ -612,22 +612,48 @@ async function buildAndSendTxUsingPrivateKey(
     })
 
     return { txid: (await pvmapi.issueSignedTx(importTx.getSignedTx())).txID }
-    //} else if (transactionType === 'exportPC') {
-    //  let tp: ExportPTxParams = {
-    //    amount: toBN(params.amount)!,
-    //    network: ctx.config.hrp,
-    //    type: transactionType,
-    //    publicKey: getPublicKeyFromPair(ctx.publicKey!)
-    //  }
-    //  return { txid: await flare.exportPC(tp, sign) }
-    //} else if (transactionType === 'importPC') {
-    //  let tp: ImportCTxParams = {
-    //    importFee: toBN(params.fee)!,
-    //    network: ctx.config.hrp,
-    //    type: transactionType,
-    //    publicKey: getPublicKeyFromPair(ctx.publicKey!)
-    //  }
-    //  return { txid: await flare.importPC(tp, sign) }
+  } else if (transactionType === 'exportPC') {
+    const { utxos } = await pvmapi.getUTXOs({
+      addresses: [ctx.pAddressBech32!]
+    })
+
+    const tx = pvm.newExportTx(
+      context,
+      getChainIdFromContext('C', context),
+      [futils.bech32ToBytes(ctx.pAddressBech32!)],
+      utxos,
+      [
+        TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount!), [
+          futils.bech32ToBytes(ctx.pAddressBech32!)
+        ])
+      ]
+    )
+    await addTxSignatures({
+      unsignedTx: tx,
+      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
+    })
+    return { txid: (await pvmapi.issueSignedTx(tx.getSignedTx())).txID }
+  } else if (transactionType === 'importPC') {
+    const { utxos } = await evmapi.getUTXOs({
+      sourceChain: 'P',
+      addresses: [ctx.cAddressBech32!]
+    })
+
+    const tx = evm.newImportTxFromBaseFee(
+      context,
+      futils.hexToBuffer(ctx.cAddressHex!),
+      [futils.bech32ToBytes(ctx.pAddressBech32!)],
+      utxos,
+      getChainIdFromContext('P', context),
+      baseFee / BigInt(FLR)
+    )
+
+    await addTxSignatures({
+      unsignedTx: tx,
+      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
+    })
+
+    return { txid: (await evmapi.issueSignedTx(tx.getSignedTx())).txID }
     //} else if (transactionType === 'stake') {
     //  // publicKey irrelevant apparently?
     //  let tp = ui.getValidatorPTxParams(ctx.config.hrp, '', stakeParams!)
