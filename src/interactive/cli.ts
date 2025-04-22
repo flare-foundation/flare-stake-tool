@@ -1,4 +1,5 @@
 import fs from 'fs'
+import TransportNodeHID from '@ledgerhq/hw-transport-node-hid'
 // import { BigNumber, ethers } from "ethersV5";
 import chalk from 'chalk'
 import { Command } from 'commander'
@@ -1250,7 +1251,7 @@ export async function getPathsAndAddresses(
   const results: DerivedAddress[] = []
 
   for (const path of PATH_LIST) {
-    const { publicKey, address: _ } = await ledger.getAccount(path, network)
+    const publicKey = await ledger.getPublicKey(path, network)
 
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
     const derivedAddress: DerivedAddress = {

@@ -9,7 +9,8 @@ import {
   ExportCTxParams,
   // Sign,
   TxDetails,
-  TxSummary
+  TxSummary,
+  ExportCTxDetails
   // ValidatorPTxParams,
 } from './flare/interfaces'
 import {
@@ -19,15 +20,20 @@ import {
   Utxo,
   addTxSignatures,
   TransferableOutput,
-  Context as FContext
+  Context as FContext,
+  EVMUnsignedTx,
+  UnsignedTx,
+  networkIDs,
+  messageHashFromUnsignedTx,
+  utils
 } from '@flarenetwork/flarejs'
 // import chalk from "chalk";
 import {
-  //  UnsignedTxJson,
-  //  SignedTxJson,
+  SignedTxJson,
   Context,
   ContextFile,
-  FlareTxParams
+  FlareTxParams,
+  UnsignedTxJson
   // OptOutOfAirdropInterface,
 } from './interfaces'
 import {
@@ -49,7 +55,9 @@ import {
   validatePublicKey,
   // addFlagForSentSignedTx,
   //isAlreadySentToChain,
-  readUnsignedTxJson
+  readUnsignedTxJson,
+  serializeExportCP_args,
+  toHex
 } from './utils'
 //import {
 //  exportTxCP,
@@ -57,23 +65,17 @@ import {
 //  getUnsignedExportTxCP,
 //  getUnsignedImportTxPC,
 //  issueSignedEvmTxPCImport,
-//  issueSignedEvmTxCPExport,
-//} from "./transaction/evmAtomicTx";
+//  issueSignedEvmTxCPExport
+//} from './transaction/evmAtomicTx'
 //import {
 //  exportTxPC,
 //  importTxCP,
 //  getUnsignedImportTxCP,
 //  getUnsignedExportTxPC,
-//  issueSignedPvmTx,
-//} from "./transaction/pvmAtomicTx";
-//import {
-//  addValidator,
-//  getUnsignedAddValidator,
-//} from "./transaction/addValidator";
-//import {
-//  addDelegator,
-//  getUnsignedAddDelegator,
-//} from "./transaction/addDelegator";
+//  issueSignedPvmTx
+//} from './transaction/pvmAtomicTx'
+//import { addValidator, getUnsignedAddValidator } from './transaction/addValidator'
+//import { addDelegator, getUnsignedAddDelegator } from './transaction/addDelegator'
 //import { ledgerGetAccount } from "./ledger/key";
 //import { ledgerSign } from "./ledger/sign";
 //import { getSignature, sendToForDefi } from "./forDefi/transaction";
@@ -106,6 +108,7 @@ import { StakeParams } from './ui/interfaces'
 import * as ui from './ui'
 import { getPBalance } from './flare/chain'
 import { JsonRpcProvider } from 'ethers'
+//import { ledgerSign } from './ledger/sign'
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -207,7 +210,8 @@ export async function cli(program: Command) {
           options.blind,
           options.derivationPath
         )
-      } //else {
+      }
+      //else {
       //await cliBuildUnsignedTxJson(
       //  type,
       //  ctx,
@@ -375,8 +379,8 @@ export async function cli(program: Command) {
 export async function contextFromOptions(options: OptionValues): Promise<Context> {
   if (options.ledger) {
     logInfo('Fetching account from ledger...')
-    const account = await getAddressAndPubKey(options.derivationPath, options.network)
-    const ctx = getContext(options.network, account.publicKey)
+    const publicKey = await ledger.getPublicKey(options.derivationPath, options.network)
+    const ctx = getContext(options.network, publicKey)
     return ctx
   } else if (options.envPath) {
     return contextEnv(options.envPath, options.network)
@@ -451,82 +455,132 @@ export function capFeeAt(
 //////////////////////////////////////////////////////////////////////////////////////////
 // transaction-type translators
 
-//function buildUnsignedTxJson(
-//  transactionType: string,
-//  ctx: Context,
-//  params: FlareTxParams,
-//): Promise<UnsignedTxJson> {
-//  switch (transactionType) {
-//    case "exportCP": {
-//      return getUnsignedExportTxCP(
-//        ctx,
-//        toBN(params.amount)!,
-//        toBN(params.fee),
-//        params.nonce === undefined ? undefined : Number(params.nonce),
-//      );
-//    }
-//    case "importCP":
-//      return getUnsignedImportTxCP(ctx, Number(params.threshold!));
-//    case "exportPC": {
-//      return getUnsignedExportTxPC(
-//        ctx,
-//        toBN(params.amount)!,
-//        Number(params.threshold!),
-//      );
-//    }
-//    case "importPC": {
-//      return getUnsignedImportTxPC(ctx, toBN(params.fee));
-//    }
-//    case "stake": {
-//      return getUnsignedAddValidator(
-//        ctx,
-//        params.nodeId!,
-//        toBN(params.amount)!,
-//        toBN(params.startTime)!,
-//        toBN(params.endTime)!,
-//        Number(params.delegationFee!),
-//        Number(params.threshold!),
-//      );
-//    }
-//    case "delegate": {
-//      return getUnsignedAddDelegator(
-//        ctx,
-//        params.nodeId!,
-//        toBN(params.amount)!,
-//        toBN(params.startTime)!,
-//        toBN(params.endTime)!,
-//        Number(params.threshold!),
-//      );
-//    }
-//    default:
-//      throw new Error(`Unknown transaction type: ${transactionType}`);
-//  }
-//}
+async function buildUnsignedTxJson(
+  transactionType: string,
+  ctx: Context,
+  params: FlareTxParams
+): Promise<UnsignedTx> {
+  const provider = new JsonRpcProvider(settings.URL[ctx.config.hrp] + '/ext/bc/C/rpc')
+  const evmapi = new evm.EVMApi(settings.URL[ctx.config.hrp])
+  const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
+  const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
+  const txCount = await provider.getTransactionCount(ctx.cAddressHex!)
+  const baseFee = await evmapi.getBaseFee()
+  function getChainIdFromContext(sourceChain: 'X' | 'P' | 'C', context: FContext.Context) {
+    return sourceChain === 'C'
+      ? context.cBlockchainID
+      : sourceChain === 'P'
+        ? context.pBlockchainID
+        : context.xBlockchainID
+  }
 
-//async function sendSignedTxJson(
-//  ctx: Context,
-//  signedTxJson: SignedTxJson,
-//): Promise<string> {
+  switch (transactionType) {
+    case 'exportCP': {
+      const exportTx = evm.newExportTxFromBaseFee(
+        context,
+        baseFee / BigInt(FLR),
+        BigInt(params.amount!),
+        context.pBlockchainID,
+        futils.hexToBuffer(ctx.cAddressHex!),
+        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        BigInt(txCount)
+      )
+      return new Promise(() => exportTx)
+    }
+    case 'importCP': {
+      const { utxos } = await pvmapi.getUTXOs({
+        sourceChain: 'C',
+        addresses: [ctx.pAddressBech32!]
+      })
+
+      const importTx = pvm.newImportTx(
+        context,
+        getChainIdFromContext('C', context),
+        utxos,
+        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        [futils.bech32ToBytes(ctx.cAddressBech32!)]
+      )
+      return new Promise(() => importTx)
+    }
+    case 'exportPC': {
+      const { utxos } = await pvmapi.getUTXOs({
+        addresses: [ctx.pAddressBech32!]
+      })
+
+      const exportTx = pvm.newExportTx(
+        context,
+        getChainIdFromContext('C', context),
+        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        utxos,
+        [
+          TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount!), [
+            futils.bech32ToBytes(ctx.pAddressBech32!)
+          ])
+        ]
+      )
+      return new Promise(() => exportTx)
+    }
+    case 'importPC': {
+      const { utxos } = await evmapi.getUTXOs({
+        sourceChain: 'P',
+        addresses: [ctx.cAddressBech32!]
+      })
+
+      const exportTx = evm.newImportTxFromBaseFee(
+        context,
+        futils.hexToBuffer(ctx.cAddressHex!),
+        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        utxos,
+        getChainIdFromContext('P', context),
+        baseFee / BigInt(FLR)
+      )
+      return new Promise(() => exportTx)
+    }
+    //case 'stake': {
+    //  return getUnsignedAddValidator(
+    //    ctx,
+    //    params.nodeId!,
+    //    toBN(params.amount)!,
+    //    toBN(params.startTime)!,
+    //    toBN(params.endTime)!,
+    //    Number(params.delegationFee!),
+    //    Number(params.threshold!)
+    //  )
+    //}
+    //case 'delegate': {
+    //  return getUnsignedAddDelegator(
+    //    ctx,
+    //    params.nodeId!,
+    //    toBN(params.amount)!,
+    //    toBN(params.startTime)!,
+    //    toBN(params.endTime)!,
+    //    Number(params.threshold!)
+    //  )
+    //}
+    default:
+      throw new Error(`Unknown transaction type: ${transactionType}`)
+  }
+}
+
+//async function sendSignedTxJson(ctx: Context, signedTxJson: SignedTxJson): Promise<string> {
 //  switch (signedTxJson.transactionType) {
-//    case "exportCP": {
-//      const { chainTxId } = await issueSignedEvmTxCPExport(ctx, signedTxJson);
-//      return chainTxId;
+//    case 'exportCP': {
+//      const { chainTxId } = await issueSignedEvmTxCPExport(ctx, signedTxJson)
+//      return chainTxId
 //    }
-//    case "importPC": {
-//      const { chainTxId } = await issueSignedEvmTxPCImport(ctx, signedTxJson);
-//      return chainTxId;
+//    case 'importPC': {
+//      const { chainTxId } = await issueSignedEvmTxPCImport(ctx, signedTxJson)
+//      return chainTxId
 //    }
-//    case "exportPC":
-//    case "importCP":
-//    case "stake":
-//    case "delegate": {
-//      const { chainTxId } = await issueSignedPvmTx(ctx, signedTxJson);
-//      return chainTxId;
+//    case 'exportPC':
+//    case 'importCP':
+//    case 'stake':
+//    case 'delegate': {
+//      const { chainTxId } = await issueSignedPvmTx(ctx, signedTxJson)
+//      return chainTxId
 //    }
 //    default:
-//      throw new Error(
-//        `Unknown transaction type: ${signedTxJson.transactionType}`,
-//      );
+//      throw new Error(`Unknown transaction type: ${signedTxJson.transactionType}`)
 //  }
 //}
 
@@ -576,7 +630,7 @@ async function buildAndSendTxUsingPrivateKey(
   }
 
   if (transactionType === 'exportCP') {
-    const tx = evm.newExportTxFromBaseFee(
+    const exportTx = evm.newExportTxFromBaseFee(
       context,
       baseFee / BigInt(FLR),
       BigInt(params.amount!),
@@ -587,11 +641,11 @@ async function buildAndSendTxUsingPrivateKey(
     )
 
     await addTxSignatures({
-      unsignedTx: tx,
+      unsignedTx: exportTx,
       privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
     })
 
-    return { txid: (await evmapi.issueSignedTx(tx.getSignedTx())).txID }
+    return { txid: (await evmapi.issueSignedTx(exportTx.getSignedTx())).txID }
   } else if (transactionType === 'importCP') {
     const { utxos } = await pvmapi.getUTXOs({
       sourceChain: 'C',
@@ -617,7 +671,7 @@ async function buildAndSendTxUsingPrivateKey(
       addresses: [ctx.pAddressBech32!]
     })
 
-    const tx = pvm.newExportTx(
+    const exportTx = pvm.newExportTx(
       context,
       getChainIdFromContext('C', context),
       [futils.bech32ToBytes(ctx.pAddressBech32!)],
@@ -629,10 +683,10 @@ async function buildAndSendTxUsingPrivateKey(
       ]
     )
     await addTxSignatures({
-      unsignedTx: tx,
+      unsignedTx: exportTx,
       privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
     })
-    return { txid: (await pvmapi.issueSignedTx(tx.getSignedTx())).txID }
+    return { txid: (await pvmapi.issueSignedTx(exportTx.getSignedTx())).txID }
   } else if (transactionType === 'importPC') {
     const { utxos } = await evmapi.getUTXOs({
       sourceChain: 'P',
@@ -654,14 +708,64 @@ async function buildAndSendTxUsingPrivateKey(
     })
 
     return { txid: (await evmapi.issueSignedTx(tx.getSignedTx())).txID }
-    //} else if (transactionType === 'stake') {
-    //  // publicKey irrelevant apparently?
-    //  let tp = ui.getValidatorPTxParams(ctx.config.hrp, '', stakeParams!)
-    //  return { txid: await flare.addValidator(tp, sign) }
-    //} else if (transactionType === 'delegate') {
-    //  let tp = ui.getDelegatorPTxParams(ctx.config.hrp, '', stakeParams!)
-    //  return { txid: await flare.addDelegator(tp, sign, processTx) }
-    //}
+  } else if (transactionType === 'stake') {
+    const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
+    const start = BigInt(params.startTime!)
+    const end = BigInt(params.endTime!)
+    const nodeID = params.nodeId!
+    const blsPublicKey = futils.hexToBuffer(params.popBLSPublicKey!)
+    const blsSignature = futils.hexToBuffer(params.popBLSSignature!)
+
+    const tx = pvm.newAddPermissionlessValidatorTx(
+      context,
+      utxos,
+      [futils.bech32ToBytes(ctx.pAddressBech32!)],
+      nodeID,
+      networkIDs.PrimaryNetworkID.toString(),
+      start,
+      end,
+      BigInt(params.amount!),
+      [futils.bech32ToBytes(ctx.pAddressBech32!)],
+      [futils.bech32ToBytes(ctx.pAddressBech32!)],
+      //TODO: shares
+      1e4 * 20,
+      undefined,
+      1,
+      0n,
+      blsPublicKey,
+      blsSignature
+    )
+
+    await addTxSignatures({
+      unsignedTx: tx,
+      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
+    })
+
+    return { txid: (await pvmapi.issueSignedTx(tx.getSignedTx())).txID }
+  } else if (transactionType === 'delegate') {
+    const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
+    const start = BigInt(params.startTime!)
+    const end = BigInt(params.endTime!)
+    const nodeID = params?.nodeId!
+
+    const tx = pvm.newAddPermissionlessDelegatorTx(
+      context,
+      utxos,
+      [futils.bech32ToBytes(ctx.pAddressBech32!)],
+      nodeID,
+      networkIDs.PrimaryNetworkID.toString(),
+      start,
+      end,
+      BigInt(params.amount!),
+      [futils.bech32ToBytes(ctx.pAddressBech32!)]
+    )
+
+    await addTxSignatures({
+      unsignedTx: tx,
+      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
+    })
+
+    return { txid: (await pvmapi.issueSignedTx(tx.getSignedTx())).txID }
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
   }
@@ -676,7 +780,8 @@ export async function initCtxJsonFromOptions(
 ): Promise<void> {
   let ctxFile: ContextFile
   if (options.ledger) {
-    const { publicKey, address } = await ledger.getAccount(derivationPath, options.network)
+    const publicKey = await ledger.getPublicKey(derivationPath, options.network)
+    const address = await ledger.verifyCAddress(derivationPath)
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
     ctxFile = {
       wallet: 'ledger',
@@ -784,7 +889,6 @@ export async function logMirrorFundInfo(_ctx: Context): Promise<void> {
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // Transaction building and execution
-
 async function cliBuildAndSendTxUsingLedger(
   transactionType: string,
   ctx: Context,
@@ -798,22 +902,20 @@ async function cliBuildAndSendTxUsingLedger(
   if (transactionType === 'importCP' || transactionType === 'importPC') {
     logInfo('Creating import transaction...')
   }
-  async function signTransaction(unsignedTxHex: string, privateKey: string): Promise<string> {
-    const wallet = new ethers.Wallet(privateKey)
-    const txBuffer = ethers.utils.arrayify(unsignedTxHex)
-
-    const signature = await wallet.signMessage(txBuffer)
-
-    return signature
-  }
   const sign = async (request: TxDetails): Promise<string> => {
-    return await signTransaction(request.unsignedTxHex, ctx.privkHex!)
+    if (request.isEvmTx) {
+      return ledger.signEvmTransaction(_derivationPath, request.unsignedTxHex)
+    } else if (await ledger.onlyHashSign()) {
+      return ledger.signHash(_derivationPath, request.unsignedTxHash!)
+    } else {
+      return ledger.sign(_derivationPath, request.unsignedTxHex)
+    }
   }
   if (transactionType === 'exportCP') {
     let tp: ExportCTxParams = {
       amount: toBN(params.amount)!,
       exportFee: toBN(params.fee)!,
-      network: ctx.config.hrp,
+      network: 'flare',
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -821,7 +923,7 @@ async function cliBuildAndSendTxUsingLedger(
     return
   } else if (transactionType === 'importCP') {
     let tp: ImportPTxParams = {
-      network: ctx.config.hrp,
+      network: 'flare',
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -830,7 +932,7 @@ async function cliBuildAndSendTxUsingLedger(
   } else if (transactionType === 'exportPC') {
     let tp: ExportPTxParams = {
       amount: toBN(params.amount)!,
-      network: ctx.config.hrp,
+      network: 'flare',
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -839,39 +941,63 @@ async function cliBuildAndSendTxUsingLedger(
   } else if (transactionType === 'importPC') {
     let tp: ImportCTxParams = {
       importFee: toBN(params.fee)!,
-      network: ctx.config.hrp,
+      network: 'flare',
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
     await flare.importPC(tp, sign)
     return
   }
-
-  //const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(
-  //  transactionType,
-  //  ctx,
-  //  params,
-  //);
-  //capFeeAt(
-  //  MAX_TRANSCTION_FEE,
-  //  ctx.config.hrp,
-  //  unsignedTxJson.usedFee,
-  //  params.fee,
-  //);
-  //if (blind) {
-  //  const filename = unsignedTxJson.signatureRequests[0].message.slice(0, 6);
-  //  saveUnsignedTxJson(unsignedTxJson, filename, "proofs");
-  //  logWarning(
-  //    `Blind signing! Validate generated proofs/${filename}.unsignedTx.json file.`,
-  //  );
-  //}
-  //logInfo(`Please review and sign transaction on your ledger device...`);
-  //const { signature } = await ledgerSign(unsignedTxJson, derivationPath, blind);
-  //const signedTxJson = { ...unsignedTxJson, signature };
-  //logInfo("Sending transaction to the node...");
-  //const chainTxId = await sendSignedTxJson(ctx, signedTxJson);
-  //logSuccess(`Transaction with hash ${chainTxId} sent to the node`);
 }
+
+//async function cliBuildAndSendTxUsingLedger(
+//  transactionType: string,
+//  ctx: Context,
+//  params: FlareTxParams,
+//  blind: boolean,
+//  derivationPath: string
+//): Promise<void> {
+//  if (transactionType === 'exportCP' || transactionType === 'exportPC') {
+//    logInfo('Creating export transaction...')
+//  }
+//  if (transactionType === 'importCP' || transactionType === 'importPC') {
+//    logInfo('Creating import transaction...')
+//  }
+//  const tx = await buildUnsignedTxJson(transactionType, ctx, params)
+//  const txHex = toHex(messageHashFromUnsignedTx(tx))
+//  logInfo(`Please review and sign transaction on your ledger device...`)
+//  const signature = await ledger.signEvmTransaction(derivationPath, txHex)
+//  //const signedTxJson = { ...unsignedTxJson, signature }
+//  //logInfo('Sending transaction to the node...')
+//  //const chainTxId = await sendSignedTxJson(ctx, signedTxJson)
+//  //logSuccess(`Transaction with hash ${chainTxId} sent to the node`)
+//}
+
+//const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(
+//  transactionType,
+//  ctx,
+//  params,
+//);
+//capFeeAt(
+//  MAX_TRANSCTION_FEE,
+//  ctx.config.hrp,
+//  unsignedTxJson.usedFee,
+//  params.fee,
+//);
+//if (blind) {
+//  const filename = unsignedTxJson.signatureRequests[0].message.slice(0, 6);
+//  saveUnsignedTxJson(unsignedTxJson, filename, "proofs");
+//  logWarning(
+//    `Blind signing! Validate generated proofs/${filename}.unsignedTx.json file.`,
+//  );
+//}
+//logInfo(`Please review and sign transaction on your ledger device...`);
+//const { signature } = await ledgerSign(unsignedTxJson, derivationPath, blind);
+//const signedTxJson = { ...unsignedTxJson, signature };
+//logInfo("Sending transaction to the node...");
+//const chainTxId = await sendSignedTxJson(ctx, signedTxJson);
+//logSuccess(`Transaction with hash ${chainTxId} sent to the node`);
+//}
 
 //async function cliBuildUnsignedTxJson(
 //  transactionType: string,
