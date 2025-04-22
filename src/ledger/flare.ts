@@ -1,6 +1,6 @@
 import { FlareApp } from '@zondax/ledger-flare'
 import { ledgerService } from '@ledgerhq/hw-app-eth'
-import TransportNodeHID from '@ledgerhq/hw-transport-node-hid'
+import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import * as pubk from '../flare/pubk'
 import * as utils from '../utils'
 
@@ -128,7 +128,7 @@ export async function signHash(bip44Path: string, message: string): Promise<stri
 async function _connect(execute: (app: FlareApp) => Promise<void>): Promise<void> {
   let flare
   try {
-    let transport = await TransportNodeHID.create()
+    let transport = await TransportNodeHid.open(undefined)
     flare = new FlareApp(transport)
     await execute(flare)
   } finally {

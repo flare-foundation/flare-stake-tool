@@ -1,6 +1,6 @@
 import AvalancheApp from '@avalabs/hw-app-avalanche'
 import { ledgerService } from '@ledgerhq/hw-app-eth'
-import TransportNodeHID from '@ledgerhq/hw-transport-node-hid'
+import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import * as pubk from '../flare/pubk'
 import * as utils from '../utils'
 import { TransactionFactory } from '@ethereumjs/tx'
@@ -114,7 +114,7 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
 async function _connect(execute: (app: AvalancheApp) => Promise<void>): Promise<void> {
   let avalanche
   try {
-    let transport = await TransportNodeHID.create()
+    let transport = await TransportNodeHid.open(undefined)
     avalanche = new AvalancheApp(transport)
     await execute(avalanche)
   } finally {

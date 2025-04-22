@@ -1,6 +1,4 @@
 import fs from 'fs'
-import TransportNodeHID from '@ledgerhq/hw-transport-node-hid'
-// import { BigNumber, ethers } from "ethersV5";
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { BN } from 'bn.js'

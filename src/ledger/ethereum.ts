@@ -1,5 +1,5 @@
 import EthApp, { ledgerService } from '@ledgerhq/hw-app-eth'
-import TransportNodeHID from '@ledgerhq/hw-transport-node-hid'
+import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import * as pubk from '../flare/pubk'
 import * as utils from '../utils'
 import { TransactionFactory } from '@ethereumjs/tx'
@@ -101,7 +101,7 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
 async function _connect(execute: (app: EthApp) => Promise<void>): Promise<void> {
   let eth
   try {
-    let transport = await TransportNodeHID.create()
+    let transport = await TransportNodeHid.open(undefined)
     eth = new EthApp(transport)
     await execute(eth)
   } finally {
