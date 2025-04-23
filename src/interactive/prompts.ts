@@ -314,7 +314,7 @@ export const prompts = {
       {
         type: 'input',
         name: 'popBLSPublicKey',
-        message: chalk.magenta('Please enter the popBLSPublicKey')
+        message: chalk.magenta('Please enter the popBLSPublicKey: ')
       }
     ]
     return inquirer.prompt(questions)
@@ -324,7 +324,7 @@ export const prompts = {
       {
         type: 'input',
         name: 'popBLSSignature',
-        message: chalk.magenta('Please enter the popBLSSignature')
+        message: chalk.magenta('Please enter the popBLSSignature: ')
       }
     ]
     return inquirer.prompt(questions)
