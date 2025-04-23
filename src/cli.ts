@@ -1,5 +1,4 @@
 import { Command, OptionValues } from 'commander'
-// import BN from "bn.js";
 import { BigNumber, ethers } from 'ethersV5'
 import {
   ExportPTxParams,
