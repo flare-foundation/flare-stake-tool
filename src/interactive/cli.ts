@@ -274,9 +274,22 @@ export async function interactiveCli(baseargv: string[]) {
           //  ctxPAddress,
           //);
 
-          const { amount, nodeId, startTime, endTime, delegationFee } =
-            await getDetailsForDelegation(taskConstants[task])
-          if (ctxNetwork && ctxDerivationPath && delegationFee) {
+          const {
+            amount,
+            nodeId,
+            startTime,
+            endTime,
+            delegationFee,
+            popBLSPublicKey,
+            popBLSSignature
+          } = await getDetailsForDelegation(taskConstants[task])
+          if (
+            ctxNetwork &&
+            ctxDerivationPath &&
+            delegationFee &&
+            popBLSPublicKey &&
+            popBLSSignature
+          ) {
             const argsValidator = [
               ...baseargv.slice(0, 2),
               'transaction',
@@ -296,7 +309,11 @@ export async function interactiveCli(baseargv: string[]) {
               '--derivation-path',
               ctxDerivationPath,
               `--network=${ctxNetwork}`,
-              '--ledger'
+              '--ledger',
+              `--pop-bls-public-key`,
+              popBLSPublicKey,
+              `--pop-bls-signature`,
+              popBLSSignature
             ]
             await program.parseAsync(argsValidator)
           } else {
@@ -321,8 +338,15 @@ export async function interactiveCli(baseargv: string[]) {
             if (isRegistered) {
               txnId = await prompts.transactionId()
               txnId = txnId.id
-              const { amount, nodeId, startTime, endTime, delegationFee } =
-                await getDetailsForDelegation(taskConstants[task])
+              const {
+                amount,
+                nodeId,
+                startTime,
+                endTime,
+                delegationFee,
+                popBLSPublicKey,
+                popBLSSignature
+              } = await getDetailsForDelegation(taskConstants[task])
               const argsValidator = [
                 ...baseargv.slice(0, 2),
                 'transaction',
@@ -339,7 +363,11 @@ export async function interactiveCli(baseargv: string[]) {
                 '--delegation-fee',
                 `${delegationFee}`,
                 '-i',
-                `${txnId}`
+                `${txnId}`,
+                `--pop-bls-public-key`,
+                popBLSPublicKey!,
+                `--pop-bls-signature`,
+                popBLSSignature!
               ]
               await program.parseAsync(argsValidator)
             } else {
@@ -376,9 +404,15 @@ export async function interactiveCli(baseargv: string[]) {
         //  walletProperties.path!,
         //);
 
-        const { amount, nodeId, startTime, endTime, delegationFee } = await getDetailsForDelegation(
-          taskConstants[task]
-        )
+        const {
+          amount,
+          nodeId,
+          startTime,
+          endTime,
+          delegationFee,
+          popBLSPublicKey,
+          popBLSSignature
+        } = await getDetailsForDelegation(taskConstants[task])
         const argsValidator = [
           ...baseargv.slice(0, 2),
           'transaction',
@@ -395,7 +429,11 @@ export async function interactiveCli(baseargv: string[]) {
           '--delegation-fee',
           `${delegationFee}`,
           `--env-path=${walletProperties.path}`,
-          '--get-hacked'
+          '--get-hacked',
+          `--pop-bls-public-key`,
+          popBLSPublicKey!,
+          `--pop-bls-signature`,
+          popBLSSignature!
         ]
         await program.parseAsync(argsValidator)
       } else {
@@ -1007,13 +1045,43 @@ async function getDetailsForDelegation(task: string): Promise<DelegationDetailsI
   }
   if (task == 'stake') {
     const fee = await prompts.delegationFee()
+    const popBLSPublicKey = await prompts.popBLSPublicKey()
+    const popBLSSignature = await prompts.popBLSSignature()
     return {
       ...delegationDetails,
-      delegationFee: fee.fee
+      delegationFee: fee.fee,
+      popBLSPublicKey: popBLSPublicKey,
+      popBLSSignature: popBLSSignature
     }
   }
   return delegationDetails
 }
+
+//async function getDetailsForValidation(task: string): Promise<DelegationDetailsInterface> {
+//  const amount = await prompts.amount()
+//  const nodeId = await prompts.nodeId()
+//  const startTime = await prompts.unixTime('start')
+//  const endTime = await prompts.unixTime('end')
+//  const popBLSPublicKey = await prompts.popBLSPublicKey()
+//  const popBLSSignature = await prompts.popBLSSignature()
+//  const validationDetails = {
+//    amount: amount.amount,
+//    nodeId: nodeId.id,
+//    startTime: startTime.time,
+//    endTime: endTime.time,
+//    popBLSPublicKey: popBLSPublicKey,
+//    popBLSSignature: popBLSSignature
+//  }
+//  if (task == 'stake') {
+//    const fee = await prompts.delegationFee()
+//    return {
+//    TODO: popBLS stuff?
+//      ...validationDetails,
+//      delegationFee: fee.fee
+//    }
+//  }
+//  return delegationDetails
+//}
 
 function makeForDefiArguments(txnType: string, baseargv: string[], txnId: string) {
   if (txnType == 'sign') {

@@ -138,7 +138,24 @@ export interface DelegationDetailsInterface {
   startTime: string
   endTime: string
   delegationFee?: string
+  popBLSPublicKey?: string
+  popBLSSignature?: string
 }
+
+// TODO: delete?
+///**
+// * Represents the properties returned from the "getDetailsForValidation" function
+// * @interface ValidationDetailsInterface
+// */
+//export interface ValidationDetailsInterface {
+//  amount: string
+//  nodeId: string
+//  startTime: string
+//  endTime: string
+//  delegationFee?: string
+//  popBLSPublicKey?: string
+//  popBLSSignature?: string
+//}
 
 /**
  * Represents the wallet params sent to the registerAddress Function

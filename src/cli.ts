@@ -10,7 +10,9 @@ import {
   // Sign,
   TxDetails,
   TxSummary,
-  ExportCTxDetails
+  ExportCTxDetails,
+  ValidatorPTxParams,
+  DelegatorPTxParams
   // ValidatorPTxParams,
 } from './flare/interfaces'
 import {
@@ -108,6 +110,7 @@ import { StakeParams } from './ui/interfaces'
 import * as ui from './ui'
 import { getPBalance } from './flare/chain'
 import { JsonRpcProvider } from 'ethers'
+import { BN } from 'bn.js'
 //import { ledgerSign } from './ledger/sign'
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
@@ -195,6 +198,8 @@ export async function cli(program: Command) {
       'Delegation fee defined by the deployed validator',
       '10'
     )
+    .option('--pop-bls-public-key <popBLSPublicKey>', 'BLS Public Key')
+    .option('--pop-bls-signature <popBLSSignature>', 'BLS Signature')
     .option('--threshold <threshold>', 'Threshold of the constructed transaction', '1')
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
@@ -727,8 +732,7 @@ async function buildAndSendTxUsingPrivateKey(
       BigInt(params.amount!),
       [futils.bech32ToBytes(ctx.pAddressBech32!)],
       [futils.bech32ToBytes(ctx.pAddressBech32!)],
-      //TODO: shares
-      1e4 * 20,
+      Number(params.delegationFee) ?? 0,
       undefined,
       1,
       0n,
@@ -915,7 +919,7 @@ async function cliBuildAndSendTxUsingLedger(
     let tp: ExportCTxParams = {
       amount: toBN(params.amount)!,
       exportFee: toBN(params.fee)!,
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -923,7 +927,7 @@ async function cliBuildAndSendTxUsingLedger(
     return
   } else if (transactionType === 'importCP') {
     let tp: ImportPTxParams = {
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -932,7 +936,7 @@ async function cliBuildAndSendTxUsingLedger(
   } else if (transactionType === 'exportPC') {
     let tp: ExportPTxParams = {
       amount: toBN(params.amount)!,
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
@@ -946,6 +950,42 @@ async function cliBuildAndSendTxUsingLedger(
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
     await flare.importPC(tp, sign)
+    return
+  } else if (transactionType === 'stake') {
+    let tp: ValidatorPTxParams = {
+      network: ctx.config.hrp,
+      type: transactionType,
+      publicKey: getPublicKeyFromPair(ctx.publicKey!),
+      delegationFee: Number(params.delegationFee) ?? 0,
+      nodeId: params.nodeId!,
+      popBLSPublicKey: futils.hexToBuffer(params.popBLSPublicKey!),
+      popBLSSignature: futils.hexToBuffer(params.popBLSSignature!),
+      amount: new BN(params.amount!),
+      startTime: new BN(params.startTime!),
+      endTime: new BN(params.endTime!),
+
+      // unnecessary?
+      useConsumableUTXOs: false,
+      customUTXOs: []
+    }
+    await flare.addValidator(tp, sign)
+    return
+  } else if (transactionType === 'delegate') {
+    let tp: DelegatorPTxParams = {
+      network: ctx.config.hrp,
+      type: transactionType,
+      publicKey: getPublicKeyFromPair(ctx.publicKey!),
+      nodeId: params.nodeId!,
+      amount: new BN(params.amount!),
+      startTime: new BN(params.startTime!),
+      endTime: new BN(params.endTime!),
+
+      // unnecessary?
+      useConsumableUTXOs: false,
+      customUTXOs: []
+    }
+    let presubmit = (): Promise<boolean> => new Promise(() => false)
+    await flare.addDelegator(tp, sign, presubmit)
     return
   }
 }
