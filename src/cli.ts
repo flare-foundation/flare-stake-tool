@@ -945,7 +945,7 @@ async function cliBuildAndSendTxUsingLedger(
   } else if (transactionType === 'importPC') {
     let tp: ImportCTxParams = {
       importFee: toBN(params.fee)!,
-      network: 'flare',
+      network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!)
     }
