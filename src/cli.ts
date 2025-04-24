@@ -1,65 +1,34 @@
 import { Command, OptionValues } from 'commander'
-// import BN from "bn.js";
 import { BigNumber, ethers } from 'ethersV5'
-// import { privateToPublic, toBuffer } from "ethereumjs-util";
 import {
   ExportPTxParams,
   ImportCTxParams,
   ImportPTxParams,
   ExportCTxParams,
-  // Sign,
   TxDetails,
   TxSummary,
-  ExportCTxDetails,
   ValidatorPTxParams,
   DelegatorPTxParams
-  // ValidatorPTxParams,
 } from './flare/interfaces'
 import {
   pvm,
   evm,
   utils as futils,
-  Utxo,
-  addTxSignatures,
   TransferableOutput,
   Context as FContext,
-  EVMUnsignedTx,
-  UnsignedTx,
-  networkIDs,
-  messageHashFromUnsignedTx,
-  utils
+  UnsignedTx
 } from '@flarenetwork/flarejs'
-// import chalk from "chalk";
-import {
-  SignedTxJson,
-  Context,
-  ContextFile,
-  FlareTxParams,
-  UnsignedTxJson
-  // OptOutOfAirdropInterface,
-} from './interfaces'
-import {
-  rpcUrlFromNetworkConfig,
-  contextEnv,
-  contextFile,
-  getContext
-  // networkFromContextFile,
-} from './context'
+import { Context, ContextFile, FlareTxParams } from './interfaces'
+import { rpcUrlFromNetworkConfig, contextEnv, contextFile, getContext } from './context'
 import {
   compressPublicKey,
   integerToDecimal,
   decimalToInteger,
-  // readSignedTxJson,
-  // saveUnsignedTxJson,
   toBN,
   initCtxJson,
   publicKeyToEthereumAddressString,
   validatePublicKey,
-  // addFlagForSentSignedTx,
-  //isAlreadySentToChain,
-  readUnsignedTxJson,
-  serializeExportCP_args,
-  toHex
+  readUnsignedTxJson
 } from './utils'
 //import {
 //  exportTxCP,
@@ -82,13 +51,7 @@ import {
 //import { ledgerSign } from "./ledger/sign";
 //import { getSignature, sendToForDefi } from "./forDefi/transaction";
 import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
-import {
-  log,
-  logError,
-  logInfo,
-  logSuccess
-  // logWarning
-} from './output'
+import { log, logError, logInfo, logSuccess } from './output'
 //import {
 //  submitForDefiTxn,
 //  fetchMirrorFunds,
@@ -97,21 +60,14 @@ import {
 //import { contractTransactionName } from "./constants/contracts";
 // import { walletConstants } from "./constants/screen";
 
-// import * as metamask from "./metamask";
 import * as ledger from './ledger'
-// import * as trezor from "./trezor";
 import * as flare from './flare'
-// import * as pubk from "./flare/pubk";
 import * as settings from './settings'
-// import * as utils from "./utils";
-import { getAddressAndPubKey } from './ledger/flare'
-// import { ExportCTxDetails } from "./flare/interfaces";
 import { StakeParams } from './ui/interfaces'
-import * as ui from './ui'
 import { getPBalance } from './flare/chain'
 import { JsonRpcProvider } from 'ethers'
 import { BN } from 'bn.js'
-//import { ledgerSign } from './ledger/sign'
+import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC } from './transaction'
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -620,156 +576,19 @@ async function buildAndSendTxUsingPrivateKey(
     // Return default value
     return true
   }
-  const provider = new JsonRpcProvider(settings.URL[ctx.config.hrp] + '/ext/bc/C/rpc')
-  const evmapi = new evm.EVMApi(settings.URL[ctx.config.hrp])
-  const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
-  const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
-  const txCount = await provider.getTransactionCount(ctx.cAddressHex!)
-  const baseFee = await evmapi.getBaseFee()
-  function getChainIdFromContext(sourceChain: 'X' | 'P' | 'C', context: FContext.Context) {
-    return sourceChain === 'C'
-      ? context.cBlockchainID
-      : sourceChain === 'P'
-        ? context.pBlockchainID
-        : context.xBlockchainID
-  }
 
   if (transactionType === 'exportCP') {
-    const exportTx = evm.newExportTxFromBaseFee(
-      context,
-      baseFee / BigInt(FLR),
-      BigInt(params.amount!),
-      context.pBlockchainID,
-      futils.hexToBuffer(ctx.cAddressHex!),
-      [futils.bech32ToBytes(ctx.pAddressBech32!)],
-      BigInt(txCount)
-    )
-
-    await addTxSignatures({
-      unsignedTx: exportTx,
-      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
-    })
-
-    return { txid: (await evmapi.issueSignedTx(exportTx.getSignedTx())).txID }
-  } else if (transactionType === 'importCP') {
-    const { utxos } = await pvmapi.getUTXOs({
-      sourceChain: 'C',
-      addresses: [ctx.pAddressBech32!]
-    })
-
-    const importTx = pvm.newImportTx(
-      context,
-      getChainIdFromContext('C', context),
-      utxos,
-      [futils.bech32ToBytes(ctx.pAddressBech32!)],
-      [futils.bech32ToBytes(ctx.cAddressBech32!)]
-    )
-
-    await addTxSignatures({
-      unsignedTx: importTx,
-      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
-    })
-
-    return { txid: (await pvmapi.issueSignedTx(importTx.getSignedTx())).txID }
+    return await exportCP(ctx, params)
   } else if (transactionType === 'exportPC') {
-    const { utxos } = await pvmapi.getUTXOs({
-      addresses: [ctx.pAddressBech32!]
-    })
-
-    const exportTx = pvm.newExportTx(
-      context,
-      getChainIdFromContext('C', context),
-      [futils.bech32ToBytes(ctx.pAddressBech32!)],
-      utxos,
-      [
-        TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount!), [
-          futils.bech32ToBytes(ctx.pAddressBech32!)
-        ])
-      ]
-    )
-    await addTxSignatures({
-      unsignedTx: exportTx,
-      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
-    })
-    return { txid: (await pvmapi.issueSignedTx(exportTx.getSignedTx())).txID }
+    return await exportPC(ctx, params)
+  } else if (transactionType === 'importCP') {
+    return await importCP(ctx, params)
   } else if (transactionType === 'importPC') {
-    const { utxos } = await evmapi.getUTXOs({
-      sourceChain: 'P',
-      addresses: [ctx.cAddressBech32!]
-    })
-
-    const tx = evm.newImportTxFromBaseFee(
-      context,
-      futils.hexToBuffer(ctx.cAddressHex!),
-      [futils.bech32ToBytes(ctx.pAddressBech32!)],
-      utxos,
-      getChainIdFromContext('P', context),
-      baseFee / BigInt(FLR)
-    )
-
-    await addTxSignatures({
-      unsignedTx: tx,
-      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
-    })
-
-    return { txid: (await evmapi.issueSignedTx(tx.getSignedTx())).txID }
+    return await importPC(ctx, params)
   } else if (transactionType === 'stake') {
-    const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
-    const start = BigInt(params.startTime!)
-    const end = BigInt(params.endTime!)
-    const nodeID = params.nodeId!
-    const blsPublicKey = futils.hexToBuffer(params.popBLSPublicKey!)
-    const blsSignature = futils.hexToBuffer(params.popBLSSignature!)
-
-    const tx = pvm.newAddPermissionlessValidatorTx(
-      context,
-      utxos,
-      [futils.bech32ToBytes(ctx.pAddressBech32!)],
-      nodeID,
-      networkIDs.PrimaryNetworkID.toString(),
-      start,
-      end,
-      BigInt(params.amount!),
-      [futils.bech32ToBytes(ctx.pAddressBech32!)],
-      [futils.bech32ToBytes(ctx.pAddressBech32!)],
-      Number(params.delegationFee) ?? 0,
-      undefined,
-      1,
-      0n,
-      blsPublicKey,
-      blsSignature
-    )
-
-    await addTxSignatures({
-      unsignedTx: tx,
-      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
-    })
-
-    return { txid: (await pvmapi.issueSignedTx(tx.getSignedTx())).txID }
+    return await addValidator(ctx, params)
   } else if (transactionType === 'delegate') {
-    const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
-    const start = BigInt(params.startTime!)
-    const end = BigInt(params.endTime!)
-    const nodeID = params?.nodeId!
-
-    const tx = pvm.newAddPermissionlessDelegatorTx(
-      context,
-      utxos,
-      [futils.bech32ToBytes(ctx.pAddressBech32!)],
-      nodeID,
-      networkIDs.PrimaryNetworkID.toString(),
-      start,
-      end,
-      BigInt(params.amount!),
-      [futils.bech32ToBytes(ctx.pAddressBech32!)]
-    )
-
-    await addTxSignatures({
-      unsignedTx: tx,
-      privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
-    })
-
-    return { txid: (await pvmapi.issueSignedTx(tx.getSignedTx())).txID }
+    return addDelegator(ctx, params)
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
   }
