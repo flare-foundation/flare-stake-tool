@@ -66,7 +66,7 @@ function _getAccount(network: string, publicKey: string): Account {
     network,
     publicKey: pubk.normalizePublicKey(publicKey),
     cAddress: pubk.publicKeyToCAddress(publicKey),
-    pAddress: pubk.publicKeyToPAddress(network, publicKey)
+    pAddress: 'P-' + pubk.publicKeyToPAddress(network, publicKey)
   }
 }
 
@@ -155,7 +155,7 @@ async function _exportCP(
   presubmit?: PreSubmit
 ): Promise<SubmittedTxData> {
   let account = _getAccount(params.network, params.publicKey)
-  console.log('params pk', params.publicKey, params.network)
+  // console.log('params pk', params.publicKey, params.network)
   let unsignedTx = await txs.buildExportCTx(account, params)
   let balance = await chain.getCPBalance(account.network, account.pAddress)
   let tx = await _signAndSubmitTx(unsignedTx, sign, presubmit)
@@ -271,7 +271,7 @@ async function _waitForBalanceChange(startBalance: BN, balance: () => Promise<BN
 export async function addDelegator(
   params: DelegatorPTxParams,
   sign: Sign,
-  presubmit: PreSubmit,
+  presubmit?: PreSubmit,
   validate?: boolean
 ): Promise<string> {
   let account = _getAccount(params.network, params.publicKey)

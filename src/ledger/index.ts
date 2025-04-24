@@ -107,15 +107,15 @@ export async function signPersonalMessage(bip44Path: string, message: string): P
 }
 
 async function _getApp(): Promise<string> {
-  //if (await flare.isFlareApp()) {
-  return FLARE
-  //} else if (await avalanche.isAvalancheApp()) {
-  //  return AVALANCHE
-  //} else if (await avalanche.isEthereumApp()) {
-  //  return ETHEREUM
-  //} else {
-  //  throw new Error(
-  //    'A supported app (Flare or Avalanche) is not running on the connected Ledger device'
-  //  )
-  //}
+  if (await flare.isFlareApp()) {
+      return FLARE
+  } else if (await avalanche.isAvalancheApp()) {
+      return AVALANCHE
+  } else if (await avalanche.isEthereumApp()) {
+      return ETHEREUM
+  } else {
+      throw new Error(
+          'A supported app (Flare or Avalanche) is not running on the connected Ledger device'
+      )
+  }
 }

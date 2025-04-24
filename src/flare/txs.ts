@@ -105,10 +105,10 @@ async function _getUnsignedExportCTx(
 ): Promise<EVMUnsignedTx> {
   const context = await getContext(account.network)
   const cAddress = futils.hexToBuffer(account.cAddress)
-  const pAddress = futils.bech32ToBytes(`P-${account.pAddress}`)
-  console.log(' address ', account.publicKey)
-  console.log(' c address ', account.cAddress)
-  console.log(' p address ', account.pAddress)
+  const pAddress = futils.bech32ToBytes(account.pAddress)
+  // console.log(' address ', account.publicKey)
+  // console.log(' c address ', account.cAddress)
+  // console.log(' p address ', account.pAddress)
   const nonce = await chain.numberOfCTxs(account.network, account.cAddress)
 
   return evm.newExportTx(
@@ -147,7 +147,7 @@ async function _getImportCTxFee(account: Account): Promise<BN> {
 
 async function _getUnsignedImportCTx(account: Account, importFee: BN): Promise<UnsignedTx> {
   const context = await getContext(account.network)
-  const pAddressString = `C-${account.pAddress}`
+  const pAddressString = `C-${account.pAddress.slice(2)}`
   const pAddress = futils.bech32ToBytes(pAddressString)
   const cAddress = futils.hexToBuffer(account.cAddress)
   const evmapi = new evm.EVMApi(settings.URL[account.network])
@@ -172,7 +172,7 @@ export async function buildImportPTx(
 ): Promise<UnsignedTxData> {
   const context = await getContext(account.network)
   const pvmapi = new pvm.PVMApi(settings.URL[account.network])
-  const pAddressString = `P-${account.pAddress}`
+  const pAddressString = account.pAddress
   const pAddress = futils.bech32ToBytes(pAddressString)
   const { utxos } = await pvmapi.getUTXOs({
     addresses: [pAddressString],
@@ -206,7 +206,7 @@ export async function buildExportPTx(
 ): Promise<UnsignedTxData> {
   const context = await getContext(account.network)
   const pvmapi = new pvm.PVMApi(settings.URL[account.network])
-  const pAddressString = `P-${account.pAddress}`
+  const pAddressString = account.pAddress
   const pAddress = futils.bech32ToBytes(pAddressString)
 
   const exportFee = await chain.getPTxDefaultFee(account.network)
@@ -239,7 +239,7 @@ export async function buildAddDelegatorTx(
 ): Promise<UnsignedTxData> {
   const context = await getContext(account.network)
   const pvmapi = new pvm.PVMApi(settings.URL[account.network])
-  const pAddressString = `P-${account.pAddress}`
+  const pAddressString = account.pAddress
   const pAddress = futils.bech32ToBytes(pAddressString)
   const { utxos } = await pvmapi.getUTXOs({ addresses: [pAddressString] })
 
@@ -267,7 +267,7 @@ export async function buildAddValidatorTx(
 ): Promise<UnsignedTxData> {
   const context = await getContext(account.network)
   const pvmapi = new pvm.PVMApi(settings.URL[account.network])
-  const pAddressString = `P-${account.pAddress}`
+  const pAddressString = account.pAddress
   const pAddress = futils.bech32ToBytes(pAddressString)
   const { utxos } = await pvmapi.getUTXOs({ addresses: [pAddressString] })
 
@@ -536,8 +536,8 @@ export async function signAndSubmitTx(
     signedTxData.signature = signature
 
     let publicKey = pubk.recoverPublicKeyFromMsg(unsignedTxHash, signature)
-    console.log('1 ', publicKey)
-    console.log('2 ', unsignedTxData.txDetails.publicKey)
+    // console.log('1 ', publicKey)
+    // console.log('2 ', unsignedTxData.txDetails.publicKey)
     if (!pubk.equalPublicKey(publicKey, unsignedTxData.txDetails.publicKey)) {
       if (unsignedTx instanceof UnsignedTx) {
         publicKey = pubk.recoverPublicKeyFromEthMsg(utils.toHex(unsignedTxHash, false), signature)

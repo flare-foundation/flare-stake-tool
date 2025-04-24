@@ -984,8 +984,8 @@ async function cliBuildAndSendTxUsingLedger(
       useConsumableUTXOs: false,
       customUTXOs: []
     }
-    let presubmit = (): Promise<boolean> => new Promise(() => false)
-    await flare.addDelegator(tp, sign, presubmit)
+    // let presubmit =  null (): Promise<boolean> => new Promise(() => false)
+    await flare.addDelegator(tp, sign)
     return
   }
 }

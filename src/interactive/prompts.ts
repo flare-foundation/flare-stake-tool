@@ -121,7 +121,7 @@ export const prompts = {
         message:
           chalk.magenta(`Enter ${timeType} time`) +
           ' ' +
-          chalk.yellow('(E.g. 1693185095') +
+          chalk.yellow('(E.g. 1693185095)') +
           chalk.magenta(':')
       }
     ]

@@ -38,7 +38,7 @@ export async function getPCBalance(network: string, pAddress: string): Promise<B
   const evmapi = new evm.EVMApi(settings.URL[network])
   const context = await getContext(network)
   const { utxos } = await evmapi.getUTXOs({
-    addresses: [`C-${pAddress}`],
+    addresses: [`C-${pAddress.slice(2)}`],
     sourceChain: context.pBlockchainID
   })
   return sumUtxoTransferableOutputs(utxos)
@@ -48,7 +48,7 @@ export async function getCPBalance(network: string, pAddress: string): Promise<B
   const pvmapi = new pvm.PVMApi(settings.URL[network])
   const context = await getContext(network)
   const { utxos } = await pvmapi.getUTXOs({
-    addresses: [`P-${pAddress}`],
+    addresses: [pAddress],
     sourceChain: context.cBlockchainID
   })
   return sumUtxoTransferableOutputs(utxos)
@@ -61,7 +61,7 @@ export async function getCStake(network: string, cAddress: string): Promise<BN> 
 
 export async function getPStake(network: string, pAddress: string): Promise<BN> {
   const pvmapi = new pvm.PVMApi(settings.URL[network])
-  const { staked } = await pvmapi.getStake({ addresses: [`P-${pAddress}`] })
+  const { staked } = await pvmapi.getStake({ addresses: [pAddress] })
   return new BN(staked.toString())
 }
 

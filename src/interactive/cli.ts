@@ -108,10 +108,10 @@ export async function interactiveCli(baseargv: string[]) {
             '-a',
             `${amount.amount}`,
             '--blind',
-            'true',
             '--derivation-path',
             ctxDerivationPath,
-            `--network=${ctxNetwork}`,
+            '--network',
+            `${ctxNetwork}`,
             '--ledger'
           ]
           // ask for fees if its exportCP transaction
@@ -132,10 +132,10 @@ export async function interactiveCli(baseargv: string[]) {
             'transaction',
             `import${taskConstants[task].slice(-2)}`,
             '--blind',
-            'true',
             '--derivation-path',
             ctxDerivationPath,
-            `--network=${ctxNetwork}`,
+            '--network',
+            `${ctxNetwork}`,
             '--ledger'
           ]
           // ask for fees if its importTxPC
@@ -477,10 +477,10 @@ export async function interactiveCli(baseargv: string[]) {
             '-e',
             `${endTime}`,
             '--blind',
-            'true',
             '--derivation-path',
             ctxDerivationPath,
-            `--network=${ctxNetwork}`,
+            `--network`,
+            `${ctxNetwork}`,
             '--ledger'
           ]
           await program.parseAsync(argsDelegate)
