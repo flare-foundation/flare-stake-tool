@@ -22,8 +22,8 @@ variables:
     - apt-get install -y gettext
     - envsubst <<< '//registry.npmjs.org/:_authToken=$AUTH_TOKEN' > .npmrc
     - result=$(grep -Pc "$PATTERN_SEMI" <<< "$CI_COMMIT_TAG") || true
-    - npm ci
-    - npm run build
+    - yarn install --frozen-lockfile
+    - yarn build
     - if [ $result -eq 1 ]; then npm publish; else npm publish --tag beta; fi;
 
 stages:
