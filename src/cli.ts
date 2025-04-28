@@ -532,8 +532,7 @@ async function buildUnsignedTx(
 }
 
 async function sendSignedTxJson(ctx: Context, signedTxJson: SignedTxJson): Promise<string> {
-  const txJson = JSON.parse(signedTxJson.serialization)
-  const unsignedTx = UnsignedTx.fromJSON(txJson)
+  const unsignedTx = UnsignedTx.fromJSON(signedTxJson.serialization)
   const signature = Buffer.from(signedTxJson.signature, 'hex')
   unsignedTx.addSignature(signature)
   const signedTx = unsignedTx.getSignedTx()
