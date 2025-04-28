@@ -8,7 +8,8 @@ import {
   TxDetails,
   TxSummary,
   ValidatorPTxParams,
-  DelegatorPTxParams
+  DelegatorPTxParams,
+  UnsignedTxData
 } from './flare/interfaces'
 import {
   pvm,
@@ -16,9 +17,10 @@ import {
   utils as futils,
   TransferableOutput,
   Context as FContext,
-  UnsignedTx
+  UnsignedTx,
+  messageHashFromUnsignedTx
 } from '@flarenetwork/flarejs'
-import { Context, ContextFile, FlareTxParams } from './interfaces'
+import { Context, ContextFile, FlareTxParams, SignedTxJson, UnsignedTxJson } from './interfaces'
 import { rpcUrlFromNetworkConfig, contextEnv, contextFile, getContext } from './context'
 import {
   compressPublicKey,
@@ -28,7 +30,11 @@ import {
   initCtxJson,
   publicKeyToEthereumAddressString,
   validatePublicKey,
-  readUnsignedTxJson
+  readUnsignedTxJson,
+  saveUnsignedTxJson,
+  isAlreadySentToChain,
+  addFlagForSentSignedTx,
+  readSignedTxJson
 } from './utils'
 //import {
 //  exportTxCP,
@@ -68,10 +74,13 @@ import { getPBalance } from './flare/chain'
 import { JsonRpcProvider } from 'ethers'
 import { BN } from 'bn.js'
 import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC } from './transaction'
+import { getSignature, sendToForDefi } from './forDefi/transaction'
+import { submitForDefiTxn } from './contracts'
+import { contractTransactionName } from './constants/contracts'
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
-// const MAX_TRANSCTION_FEE = FLR;
+const MAX_TRANSCTION_FEE = FLR
 
 // mapping from network to symbol
 const networkTokenSymbol: { [index: string]: string } = {
@@ -171,55 +180,54 @@ export async function cli(program: Command) {
           options.blind,
           options.derivationPath
         )
+      } else {
+        await cliBuildAndSaveUnsignedTxJson(
+          type,
+          ctx,
+          options.transactionId,
+          options as FlareTxParams,
+        );
       }
-      //else {
-      //await cliBuildUnsignedTxJson(
-      //  type,
-      //  ctx,
-      //  options.transactionId,
-      //  options as FlareTxParams,
-      //);
-      //}
     })
   // signed transaction sending
-  //program
-  //  .command("send")
-  //  .description("Send signed transaction json to the node")
-  //  .option(
-  //    "-i, --transaction-id <transaction-id>",
-  //    "Id of the transaction to send to the network",
-  //  )
-  //  .action(async (options: OptionValues) => {
-  //    options = getOptions(program, options);
-  //    const ctx = await contextFromOptions(options);
-  //    await cliSendSignedTxJson(ctx, options.transactionId);
-  //  });
+  program
+    .command("send")
+    .description("Send signed transaction json to the node")
+    .option(
+      "-i, --transaction-id <transaction-id>",
+      "Id of the transaction to send to the network",
+    )
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options);
+      const ctx = await contextFromOptions(options);
+      await cliSendSignedTxJson(ctx, options.transactionId);
+    });
   // forDefi signing
-  //program
-  //  .command("forDefi")
-  //  .description("Sign with ForDefi")
-  //  .argument("<sign|fetch>", "Type of a forDefi transaction")
-  //  .option(
-  //    "-i, --transaction-id <transaction-id>",
-  //    "Id of the transaction to finalize",
-  //  )
-  //  .option("--withdrawal", "Withdrawing funds from c-chain")
-  //  .action(async (type: string, options: OptionValues) => {
-  //    options = getOptions(program, options);
-  //    if (type == "sign") {
-  //      if (options.withdrawal) {
-  //        await signForDefi(options.transactionId, options.ctxFile, true);
-  //      } else {
-  //        await signForDefi(options.transactionId, options.ctxFile);
-  //      }
-  //    } else if (type == "fetch") {
-  //      if (options.withdrawal) {
-  //        await fetchForDefiTx(options.transactionId, true);
-  //      } else {
-  //        await fetchForDefiTx(options.transactionId);
-  //      }
-  //    }
-  //  });
+  program
+    .command("forDefi")
+    .description("Sign with ForDefi")
+    .argument("<sign|fetch>", "Type of a forDefi transaction")
+    .option(
+      "-i, --transaction-id <transaction-id>",
+      "Id of the transaction to finalize",
+    )
+    .option("--withdrawal", "Withdrawing funds from c-chain")
+    .action(async (type: string, options: OptionValues) => {
+      options = getOptions(program, options);
+      if (type == "sign") {
+        if (options.withdrawal) {
+          await signForDefi(options.transactionId, options.ctxFile, true);
+        } else {
+          await signForDefi(options.transactionId, options.ctxFile);
+        }
+      } else if (type == "fetch") {
+        if (options.withdrawal) {
+          await fetchForDefiTx(options.transactionId, true);
+        } else {
+          await fetchForDefiTx(options.transactionId);
+        }
+      }
+    });
   // withdrawal from c-chain
   program
     .command('withdrawal')
@@ -416,7 +424,7 @@ export function capFeeAt(
 //////////////////////////////////////////////////////////////////////////////////////////
 // transaction-type translators
 
-async function buildUnsignedTxJson(
+async function buildUnsignedTx(
   transactionType: string,
   ctx: Context,
   params: FlareTxParams
@@ -446,7 +454,7 @@ async function buildUnsignedTxJson(
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
         BigInt(txCount)
       )
-      return new Promise(() => exportTx)
+      return exportTx
     }
     case 'importCP': {
       const { utxos } = await pvmapi.getUTXOs({
@@ -461,7 +469,7 @@ async function buildUnsignedTxJson(
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
         [futils.bech32ToBytes(ctx.cAddressBech32!)]
       )
-      return new Promise(() => importTx)
+      return importTx
     }
     case 'exportPC': {
       const { utxos } = await pvmapi.getUTXOs({
@@ -479,7 +487,7 @@ async function buildUnsignedTxJson(
           ])
         ]
       )
-      return new Promise(() => exportTx)
+      return exportTx
     }
     case 'importPC': {
       const { utxos } = await evmapi.getUTXOs({
@@ -495,7 +503,7 @@ async function buildUnsignedTxJson(
         getChainIdFromContext('P', context),
         baseFee / BigInt(FLR)
       )
-      return new Promise(() => exportTx)
+      return exportTx
     }
     //case 'stake': {
     //  return getUnsignedAddValidator(
@@ -523,27 +531,31 @@ async function buildUnsignedTxJson(
   }
 }
 
-//async function sendSignedTxJson(ctx: Context, signedTxJson: SignedTxJson): Promise<string> {
-//  switch (signedTxJson.transactionType) {
-//    case 'exportCP': {
-//      const { chainTxId } = await issueSignedEvmTxCPExport(ctx, signedTxJson)
-//      return chainTxId
-//    }
-//    case 'importPC': {
-//      const { chainTxId } = await issueSignedEvmTxPCImport(ctx, signedTxJson)
-//      return chainTxId
-//    }
-//    case 'exportPC':
-//    case 'importCP':
-//    case 'stake':
-//    case 'delegate': {
-//      const { chainTxId } = await issueSignedPvmTx(ctx, signedTxJson)
-//      return chainTxId
-//    }
-//    default:
-//      throw new Error(`Unknown transaction type: ${signedTxJson.transactionType}`)
-//  }
-//}
+async function sendSignedTxJson(ctx: Context, signedTxJson: SignedTxJson): Promise<string> {
+  const txJson = JSON.parse(signedTxJson.serialization)
+  const unsignedTx = UnsignedTx.fromJSON(txJson)
+  const signature = Buffer.from(signedTxJson.signature, 'hex')
+  unsignedTx.addSignature(signature)
+  const signedTx = unsignedTx.getSignedTx()
+  switch (signedTxJson.transactionType) {
+    case 'exportCP':
+    case 'importCP': {
+      const evmapi = new evm.EVMApi(settings.URL[ctx.config.hrp])
+      const resp = await evmapi.issueSignedTx(signedTx)
+      return resp.txID
+    }
+    case 'exportPC':
+    case 'importCP':
+    case 'stake':
+    case 'delegate': {
+      const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
+      const resp = await pvmapi.issueSignedTx(signedTx)
+      return resp.txID
+    }
+    default:
+      throw new Error(`Unknown transaction type: ${signedTxJson.transactionType}`)
+  }
+}
 
 function getPublicKeyFromPair(keypair: [Buffer<ArrayBufferLike>, Buffer<ArrayBufferLike>]): string {
   const pk = Buffer.concat(keypair).toString('hex')
@@ -858,47 +870,58 @@ async function cliBuildAndSendTxUsingLedger(
 //logSuccess(`Transaction with hash ${chainTxId} sent to the node`);
 //}
 
-//async function cliBuildUnsignedTxJson(
-//  transactionType: string,
-//  ctx: Context,
-//  id: string,
-//  params: FlareTxParams,
-//): Promise<void> {
-//  const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(
-//    transactionType,
-//    ctx,
-//    params,
-//  );
-//  capFeeAt(
-//    MAX_TRANSCTION_FEE,
-//    ctx.config.hrp,
-//    unsignedTxJson.usedFee,
-//    params.fee,
-//  );
-//  saveUnsignedTxJson(unsignedTxJson, id);
-//  logSuccess(`Unsigned transaction ${id} constructed`);
-//}
+async function cliBuildAndSaveUnsignedTxJson(
+  transactionType: string,
+  ctx: Context,
+  id: string,
+  params: FlareTxParams,
+): Promise<void> {
+  const unsignedTx: UnsignedTx = await buildUnsignedTx(
+    transactionType,
+    ctx,
+    params,
+  );
+  const txBuffer = Buffer.from(unsignedTx.toBytes()).toString('hex');
+  const txMessage = Buffer.from(messageHashFromUnsignedTx(unsignedTx)).toString('hex');
+  const unsignedTxJson: UnsignedTxJson = {
+    transactionType,
+    signatureRequests: [{
+      message: txMessage,
+      signer: ''
+    }],
+    unsignedTransactionBuffer: txBuffer,
+    serialization: JSON.stringify(unsignedTx.toJSON()),
+  }
+  // capFeeAt(
+  //   MAX_TRANSCTION_FEE,
+  //   ctx.config.hrp,
+  //   unsignedTxJson.usedFee,
+  //   params.fee,
+  // );
+  saveUnsignedTxJson(unsignedTxJson, id);
+  logSuccess(`Unsigned transaction ${id} constructed`);
+}
 
-//async function cliSendSignedTxJson(ctx: Context, id: string): Promise<void> {
-//  if (isAlreadySentToChain(id)) {
-//    throw new Error("Tx already sent to chain");
-//  }
-//  const signedTxnJson = readSignedTxJson(id);
-//  let chainTxId;
-//  if (signedTxnJson.transactionType === contractTransactionName) {
-//    chainTxId = await submitForDefiTxn(
-//      id,
-//      signedTxnJson.signature,
-//      ctx.config.hrp,
-//    );
-//  } else {
-//    chainTxId = await sendSignedTxJson(ctx, signedTxnJson);
-//  }
-//  addFlagForSentSignedTx(id);
-//  logSuccess(
-//    `Signed transaction ${id} with hash ${chainTxId} sent to the node`,
-//  );
-//}
+async function cliSendSignedTxJson(ctx: Context, id: string): Promise<void> {
+  if (isAlreadySentToChain(id)) {
+    throw new Error("Tx already sent to chain");
+  }
+  const signedTxnJson = readSignedTxJson(id);
+  let chainTxId;
+  if (signedTxnJson.transactionType === contractTransactionName) {
+    chainTxId = await submitForDefiTxn(
+      id,
+      signedTxnJson.signature,
+      ctx.config.hrp,
+    );
+  } else {
+    chainTxId = await sendSignedTxJson(ctx, signedTxnJson);
+  }
+  addFlagForSentSignedTx(id);
+  logSuccess(
+    `Signed transaction ${id} with hash ${chainTxId} sent to the node`,
+  );
+}
 
 async function cliBuildAndSendTxUsingPrivateKey(
   transactionType: string,
@@ -914,25 +937,25 @@ async function cliBuildAndSendTxUsingPrivateKey(
 //////////////////////////////////////////////////////////////////////////////////////////
 // Transaction execution using ForDefi api
 
-//async function signForDefi(
-//  transaction: string,
-//  ctx: string,
-//  withdrawal: boolean = false,
-//): Promise<void> {
-//  const txid = await sendToForDefi(transaction, ctx, withdrawal);
-//  logSuccess(`Transaction with hash ${txid} sent to the ForDefi`);
-//}
+async function signForDefi(
+  transaction: string,
+  ctx: string,
+  withdrawal: boolean = false,
+): Promise<void> {
+  const txid = await sendToForDefi(transaction, ctx, withdrawal);
+  logSuccess(`Transaction with hash ${txid} sent to the ForDefi`);
+}
 
-//async function fetchForDefiTx(
-//  transaction: string,
-//  withdrawal: boolean = false,
-//): Promise<void> {
-//  if (isAlreadySentToChain(transaction)) {
-//    throw new Error("Tx already sent to chain");
-//  }
-//  const signature = await getSignature(transaction, withdrawal);
-//  logSuccess(`Success! Signature: ${signature}`);
-//}
+async function fetchForDefiTx(
+  transaction: string,
+  withdrawal: boolean = false,
+): Promise<void> {
+  if (isAlreadySentToChain(transaction)) {
+    throw new Error("Tx already sent to chain");
+  }
+  const signature = await getSignature(transaction, withdrawal);
+  logSuccess(`Success! Signature: ${signature}`);
+}
 
 async function withdraw_getHash(
   ctx: Context,

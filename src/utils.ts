@@ -1,6 +1,7 @@
 import BN from 'bn.js'
 import { fromWei, toWei } from 'web3-utils'
 import { base58 } from '@scure/base'
+import { messageHashFromUnsignedTx, UnsignedTx } from '@flarenetwork/flarejs'
 
 export function toBuffer(value: string | number | number[] | Buffer | Uint8Array): Buffer {
   if (Buffer.isBuffer(value)) {
@@ -160,7 +161,9 @@ import {
   //  SignedTxJson,
   //UnsignedTxJson,
   ContextFile,
-  Context
+  Context,
+  UnsignedTxJson,
+  SignedTxJson
 } from './interfaces'
 import {
   forDefiDirectory,
@@ -336,7 +339,7 @@ export function deserializeExportCP_args(
   serargs: string
 ): [BN, string, string, string, string, string[], number, BN, number, BN?] {
   const args = JSON.parse(serargs)
-  ;[0, 7, 9].map((i) => (args[i] = new BN(args[i], 16)))
+    ;[0, 7, 9].map((i) => (args[i] = new BN(args[i], 16)))
   return args
 }
 
@@ -380,32 +383,30 @@ export function initCtxJson(contextFile: ContextFile) {
   }
   fs.writeFileSync('ctx.json', JSON.stringify(contextFile, null, 2))
 }
-//
-//export function saveUnsignedTxJson(
-//  unsignedTxJson: UnsignedTxJson,
-//  id: string,
-//  dir?: string,
-//): void {
-//  if (dir === undefined)
-//    dir = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}`;
-//  fs.mkdirSync(dir, { recursive: true });
-//  const fname = `${dir}/${id}.unsignedTx.json`;
-//  if (fs.existsSync(fname)) {
-//    throw new Error(`unsignedTx file ${fname} already exists`);
-//  }
-//  const forDefiHash = Buffer.from(
-//    unsignedTxJson.signatureRequests[0].message,
-//    "hex",
-//  ).toString("base64");
-//  const unsignedTxJsonForDefi: UnsignedTxJson = {
-//    ...unsignedTxJson,
-//    forDefiHash: forDefiHash,
-//  };
-//  const serialization = JSON.stringify(unsignedTxJsonForDefi, null, 2);
-//  fs.writeFileSync(fname, serialization);
-//}
-//
-export function readUnsignedTxJson(id: string) {
+
+export function saveUnsignedTxJson(
+  unsignedTxJson: UnsignedTxJson,
+  id: string,
+  dir?: string,
+): void {
+  if (dir === undefined) {
+    dir = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}`;
+  }
+  fs.mkdirSync(dir, { recursive: true });
+  const fname = `${dir}/${id}.unsignedTx.json`;
+  if (fs.existsSync(fname)) {
+    throw new Error(`unsignedTx file ${fname} already exists`);
+  }
+  const forDefiHash = Buffer.from(unsignedTxJson.signatureRequests[0].message, 'hex').toString('base64')
+  const unsignedTxJsonForDefi: UnsignedTxJson = {
+    ...unsignedTxJson,
+    forDefiHash: forDefiHash,
+  };
+  const serialization = JSON.stringify(unsignedTxJsonForDefi, null, 2);
+  fs.writeFileSync(fname, serialization);
+}
+
+export function readUnsignedTxJson(id: string): UnsignedTxJson {
   const fname = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedTx.json`
   if (!fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} does not exist`)
@@ -413,39 +414,39 @@ export function readUnsignedTxJson(id: string) {
   const serialization = fs.readFileSync(fname, 'utf-8').toString()
   return JSON.parse(serialization)
 }
-//
-//export function readSignedTxJson(id: string): SignedTxJson {
-//  const fname = `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`;
-//  if (!fs.existsSync(fname)) {
-//    throw new Error(`signedTx file ${fname} does not exist`);
-//  }
-//  const serialization = fs.readFileSync(fname).toString();
-//  const resp = JSON.parse(serialization) as SignedTxJson;
-//  if (!resp.signature) {
-//    throw new Error(`unsignedTx file ${fname} does not contain signature`);
-//  }
-//  return resp;
-//}
+
+export function readSignedTxJson(id: string): SignedTxJson {
+  const fname = `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`;
+  if (!fs.existsSync(fname)) {
+    throw new Error(`signedTx file ${fname} does not exist`);
+  }
+  const serialization = fs.readFileSync(fname).toString();
+  const resp = JSON.parse(serialization) as SignedTxJson;
+  if (!resp.signature) {
+    throw new Error(`unsignedTx file ${fname} does not contain signature`);
+  }
+  return resp;
+}
 
 /**
  * @description Adds a flag to the signed txn to indicate it has been submitted to the blockchain
  * @param {string} id Transaction Id used to create the transaction file
  */
-//export function addFlagForSentSignedTx(id: string) {
-//  const fname = `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`;
-//  if (!fs.existsSync(fname)) {
-//    throw new Error(`signedTx file ${fname} does not exist`);
-//  }
-//  const serialization = fs.readFileSync(fname).toString();
-//  const txObj = JSON.parse(serialization) as SignedTxJson;
-//  txObj.isSentToChain = true;
-//
-//  fs.writeFileSync(
-//    `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`,
-//    JSON.stringify(txObj),
-//    "utf8",
-//  );
-//}
+export function addFlagForSentSignedTx(id: string) {
+  const fname = `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`;
+  if (!fs.existsSync(fname)) {
+    throw new Error(`signedTx file ${fname} does not exist`);
+  }
+  const serialization = fs.readFileSync(fname).toString();
+  const txObj = JSON.parse(serialization) as SignedTxJson;
+  txObj.isSentToChain = true;
+
+  fs.writeFileSync(
+    `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`,
+    JSON.stringify(txObj),
+    "utf8",
+  );
+}
 
 /**
  * @description Checks whether the transaction has already been submitted to the blockchain
