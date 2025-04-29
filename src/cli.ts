@@ -445,14 +445,16 @@ async function buildUnsignedTx(
 
   switch (transactionType) {
     case 'exportCP': {
+      const nonce = params.nonce ?? txCount
+      const fee = params.fee ?? baseFee / BigInt(FLR) // params.fee is in nanoFLR, baseFee in wei
       const exportTx = evm.newExportTxFromBaseFee(
         context,
-        baseFee / BigInt(FLR),
+        BigInt(fee),
         BigInt(params.amount!),
         context.pBlockchainID,
         futils.hexToBuffer(ctx.cAddressHex!),
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
-        BigInt(txCount)
+        BigInt(nonce)
       )
       return exportTx
     }
