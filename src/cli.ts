@@ -435,6 +435,7 @@ async function buildUnsignedTx(
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const txCount = await provider.getTransactionCount(ctx.cAddressHex!)
   const baseFee = await evmapi.getBaseFee()
+  const fee = params.fee ?? baseFee / BigInt(FLR) // params.fee is in nanoFLR, baseFee in wei
   function getChainIdFromContext(sourceChain: 'X' | 'P' | 'C', context: FContext.Context) {
     return sourceChain === 'C'
       ? context.cBlockchainID
@@ -445,14 +446,15 @@ async function buildUnsignedTx(
 
   switch (transactionType) {
     case 'exportCP': {
+      const nonce = params.nonce ?? txCount
       const exportTx = evm.newExportTxFromBaseFee(
         context,
-        baseFee / BigInt(FLR),
+        BigInt(fee),
         BigInt(params.amount!),
         context.pBlockchainID,
         futils.hexToBuffer(ctx.cAddressHex!),
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
-        BigInt(txCount)
+        BigInt(nonce)
       )
       return exportTx
     }
@@ -501,7 +503,7 @@ async function buildUnsignedTx(
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
         utxos,
         getChainIdFromContext('P', context),
-        baseFee / BigInt(FLR)
+        BigInt(fee)
       )
       return exportTx
     }
