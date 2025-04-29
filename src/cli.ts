@@ -538,7 +538,7 @@ async function sendSignedTxJson(ctx: Context, signedTxJson: SignedTxJson): Promi
   const signedTx = unsignedTx.getSignedTx()
   switch (signedTxJson.transactionType) {
     case 'exportCP':
-    case 'importCP': {
+    case 'importPC': {
       const evmapi = new evm.EVMApi(settings.URL[ctx.config.hrp])
       const resp = await evmapi.issueSignedTx(signedTx)
       return resp.txID
