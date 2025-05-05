@@ -18,7 +18,8 @@ import {
   TransferableOutput,
   Context as FContext,
   UnsignedTx,
-  messageHashFromUnsignedTx
+  messageHashFromUnsignedTx,
+  networkIDs
 } from '@flarenetwork/flarejs'
 import { Context, ContextFile, FlareTxParams, SignedTxJson, UnsignedTxJson } from './interfaces'
 import { rpcUrlFromNetworkConfig, contextEnv, contextFile, getContext } from './context'
@@ -434,8 +435,6 @@ async function buildUnsignedTx(
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const txCount = await provider.getTransactionCount(ctx.cAddressHex!)
-  const baseFee = await evmapi.getBaseFee()
-  const fee = params.fee ?? baseFee / BigInt(FLR) // params.fee is in nanoFLR, baseFee in wei
   function getChainIdFromContext(sourceChain: 'X' | 'P' | 'C', context: FContext.Context) {
     return sourceChain === 'C'
       ? context.cBlockchainID
@@ -446,14 +445,19 @@ async function buildUnsignedTx(
 
   switch (transactionType) {
     case 'exportCP': {
+      if (!params.fee) {
+        throw new Error(
+          `fee is required for exportCP transaction. Use --fee <fee> to specify the fee`
+        )
+      }
       const nonce = params.nonce ?? txCount
-      const exportTx = evm.newExportTxFromBaseFee(
+      const exportTx = evm.newExportTx(
         context,
-        BigInt(fee),
         BigInt(params.amount!),
         context.pBlockchainID,
         futils.hexToBuffer(ctx.cAddressHex!),
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        BigInt(params.fee!),
         BigInt(nonce)
       )
       return exportTx
@@ -492,42 +496,73 @@ async function buildUnsignedTx(
       return exportTx
     }
     case 'importPC': {
+      if (!params.fee) {
+        throw new Error(
+          `fee is required for importPC transaction. Use --fee <fee> to specify the fee`
+        )
+      }
       const { utxos } = await evmapi.getUTXOs({
         sourceChain: 'P',
         addresses: [ctx.cAddressBech32!]
       })
 
-      const exportTx = evm.newImportTxFromBaseFee(
+      const exportTx = evm.newImportTx(
         context,
         futils.hexToBuffer(ctx.cAddressHex!),
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
         utxos,
         getChainIdFromContext('P', context),
-        BigInt(fee)
+        BigInt(params.fee!)
       )
       return exportTx
     }
-    //case 'stake': {
-    //  return getUnsignedAddValidator(
-    //    ctx,
-    //    params.nodeId!,
-    //    toBN(params.amount)!,
-    //    toBN(params.startTime)!,
-    //    toBN(params.endTime)!,
-    //    Number(params.delegationFee!),
-    //    Number(params.threshold!)
-    //  )
-    //}
-    //case 'delegate': {
-    //  return getUnsignedAddDelegator(
-    //    ctx,
-    //    params.nodeId!,
-    //    toBN(params.amount)!,
-    //    toBN(params.startTime)!,
-    //    toBN(params.endTime)!,
-    //    Number(params.threshold!)
-    //  )
-    //}
+    case 'stake': {
+      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
+      const start = BigInt(params.startTime!)
+      const end = BigInt(params.endTime!)
+      const nodeID = params.nodeId!
+      const blsPublicKey = futils.hexToBuffer(params.popBLSPublicKey!)
+      const blsSignature = futils.hexToBuffer(params.popBLSSignature!)
+
+      const stakeTx = pvm.newAddPermissionlessValidatorTx(
+        context,
+        utxos,
+        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        nodeID,
+        networkIDs.PrimaryNetworkID.toString(),
+        start,
+        end,
+        BigInt(params.amount!),
+        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        Number(params.delegationFee) ?? 0,
+        undefined,
+        1,
+        0n,
+        blsPublicKey,
+        blsSignature
+      )
+      return stakeTx
+    }
+    case 'delegate': {
+      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
+      const start = BigInt(params.startTime!)
+      const end = BigInt(params.endTime!)
+      const nodeID = params?.nodeId!
+
+      const delegateTx = pvm.newAddPermissionlessDelegatorTx(
+        context,
+        utxos,
+        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        nodeID,
+        networkIDs.PrimaryNetworkID.toString(),
+        start,
+        end,
+        BigInt(params.amount!),
+        [futils.bech32ToBytes(ctx.pAddressBech32!)]
+      )
+      return delegateTx
+    }
     default:
       throw new Error(`Unknown transaction type: ${transactionType}`)
   }
