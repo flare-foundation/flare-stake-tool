@@ -81,7 +81,6 @@ import { contractTransactionName } from './constants/contracts'
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
-const MAX_TRANSCTION_FEE = FLR
 
 // mapping from network to symbol
 const networkTokenSymbol: { [index: string]: string } = {
@@ -164,8 +163,8 @@ export async function cli(program: Command) {
       'Delegation fee defined by the deployed validator',
       '10'
     )
-    .option('--pop-bls-public-key <popBLSPublicKey>', 'BLS Public Key')
-    .option('--pop-bls-signature <popBLSSignature>', 'BLS Signature')
+    .option('--pop-bls-public-key <popBlsPublicKey>', 'BLS Public Key')
+    .option('--pop-bls-signature <popBlsSignature>', 'BLS Signature')
     .option('--threshold <threshold>', 'Threshold of the constructed transaction', '1')
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
@@ -398,29 +397,7 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
   }
   return { ...allOptions, network }
 }
-/**
- * @description - Returms the fee getting used
- * @param cap - the max allowed free
- * @param usedFee - fee that was used
- * @param specifiedFee - fee specified by the user
- */
-export function capFeeAt(
-  cap: number,
-  network: string,
-  usedFee?: string,
-  specifiedFee?: string
-): void {
-  if (usedFee !== undefined && usedFee !== specifiedFee) {
-    // if usedFee was specified by the user, we don't cap it
-    const usedFeeNumber = Number(usedFee) // if one of the fees is defined, usedFee is defined
-    const symbol = networkTokenSymbol[network]
-    if (usedFeeNumber > cap)
-      throw new Error(
-        `Used fee of ${usedFeeNumber / FLR} ${symbol} is higher than the maximum allowed fee of ${cap / FLR} ${symbol}`
-      )
-    logInfo(`Using fee of ${usedFeeNumber / FLR} ${symbol}`)
-  }
-}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // transaction-type translators
@@ -521,8 +498,8 @@ async function buildUnsignedTx(
       const start = BigInt(params.startTime!)
       const end = BigInt(params.endTime!)
       const nodeID = params.nodeId!
-      const blsPublicKey = futils.hexToBuffer(params.popBLSPublicKey!)
-      const blsSignature = futils.hexToBuffer(params.popBLSSignature!)
+      const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey!)
+      const blsSignature = futils.hexToBuffer(params.popBlsSignature!)
 
       const stakeTx = pvm.newAddPermissionlessValidatorTx(
         context,
@@ -535,7 +512,7 @@ async function buildUnsignedTx(
         BigInt(params.amount!),
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
-        Number(params.delegationFee) ?? 0,
+        Number(params.delegationFee) * 1e4, // default fee is 10%
         undefined,
         1,
         0n,
@@ -825,8 +802,8 @@ async function cliBuildAndSendTxUsingLedger(
       publicKey: getPublicKeyFromPair(ctx.publicKey!),
       delegationFee: Number(params.delegationFee) ?? 0,
       nodeId: params.nodeId!,
-      popBLSPublicKey: futils.hexToBuffer(params.popBLSPublicKey!),
-      popBLSSignature: futils.hexToBuffer(params.popBLSSignature!),
+      popBLSPublicKey: futils.hexToBuffer(params.popBlsPublicKey!),
+      popBLSSignature: futils.hexToBuffer(params.popBlsSignature!),
       amount: new BN(params.amount!),
       startTime: new BN(params.startTime!),
       endTime: new BN(params.endTime!),
@@ -928,12 +905,6 @@ async function cliBuildAndSaveUnsignedTxJson(
     unsignedTransactionBuffer: txBuffer,
     serialization: JSON.stringify(unsignedTx.toJSON()),
   }
-  // capFeeAt(
-  //   MAX_TRANSCTION_FEE,
-  //   ctx.config.hrp,
-  //   unsignedTxJson.usedFee,
-  //   params.fee,
-  // );
   saveUnsignedTxJson(unsignedTxJson, id);
   logSuccess(`Unsigned transaction ${id} constructed`);
 }

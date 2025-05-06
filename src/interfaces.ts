@@ -85,8 +85,8 @@ export interface FlareTxParams {
   nonce?: string
   delegationFee?: string
   threshold?: string
-  popBLSPublicKey?: string
-  popBLSSignature?: string
+  popBlsPublicKey?: string
+  popBlsSignature?: string
 }
 
 interface WithdrawalTxData {

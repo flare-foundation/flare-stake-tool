@@ -127,8 +127,8 @@ export async function addValidator(ctx: Context, params: FlareTxParams) {
   const start = BigInt(params.startTime!)
   const end = BigInt(params.endTime!)
   const nodeID = params.nodeId!
-  const blsPublicKey = futils.hexToBuffer(params.popBLSPublicKey!)
-  const blsSignature = futils.hexToBuffer(params.popBLSSignature!)
+  const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey!)
+  const blsSignature = futils.hexToBuffer(params.popBlsSignature!)
 
   const tx = pvm.newAddPermissionlessValidatorTx(
     context,
@@ -141,7 +141,7 @@ export async function addValidator(ctx: Context, params: FlareTxParams) {
     BigInt(params.amount!),
     [futils.bech32ToBytes(ctx.pAddressBech32!)],
     [futils.bech32ToBytes(ctx.pAddressBech32!)],
-    Number(params.delegationFee) ?? 0,
+    Number(params.delegationFee) * 1e4,
     undefined,
     1,
     0n,
