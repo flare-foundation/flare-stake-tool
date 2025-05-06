@@ -91,7 +91,7 @@ export function getContext(
   privateKeyHex?: string,
   privateKeyCB58?: string
 ): Context {
-  return context(getNetworkConfig(network), publicKey, privateKeyHex, privateKeyCB58)
+  return context(getNetworkConfig(network), publicKey, privateKeyHex, privateKeyCB58, network)
 }
 
 /**
@@ -123,13 +123,15 @@ export function getNetworkConfig(network: string | undefined): NetworkConfig {
  * @param publicKey - public key
  * @param privkHex - private key in hex format
  * @param privkCB58 - private key in cb58 format
+ * @param network - network name
  * @returns the context object
  */
 export function context(
   config: NetworkConfig,
   publicKey?: string,
   privkHex?: string,
-  privkCB58?: string
+  privkCB58?: string,
+  network?: string
 ): Context {
   const { protocol, ip, port, networkID: _, chainID } = config
   // those two addresses should be derived for most cli applications
@@ -175,22 +177,6 @@ export function context(
     addressBech32 = publicKeyToBech32AddressString(publicKey, config.hrp)
   }
 
-  //const avalanche = new Avalanche(ip, port, protocol, networkID);
-  //const cchain: EVMAPI = avalanche.CChain();
-  //const pchain: PVMAPI = avalanche.PChain();
-  //const cKeychain: EVMKeyChain = cchain.keyChain();
-  //const pKeychain: PVMKeyChain = pchain.keyChain();
-
-  //if (privkCB58 || publicKey) {
-  //  const key = privkCB58
-  //    ? `${PrivateKeyPrefix}${privkCB58}`
-  //    : `${PublicKeyPrefix}${publicKey!}`;
-  //  pKeychain.importKey(key);
-  //  cKeychain.importKey(key);
-  //}
-
-  //const pAddressStrings: string[] = pchain.keyChain().getAddressStrings();
-  //const cAddressStrings: string[] = cchain.keyChain().getAddressStrings();
   const pAddressBech32 = /*pAddressStrings[0] ||*/ `P-${addressBech32}`
   const cAddressBech32 = /*cAddressStrings[0] ||*/ `C-${addressBech32}`
 
@@ -204,10 +190,6 @@ export function context(
     cAddressHex = _cAddressHex
   }
 
-  //const pChainBlockchainID: string = Defaults.network[networkID].P.blockchainID;
-  //const cChainBlockchainID: string = Defaults.network[networkID].C.blockchainID;
-  //const avaxAssetID: string = Defaults.network[networkID].P.avaxAssetID!;
-
   return {
     privkHex: privkHex,
     privkCB58: privkCB58,
@@ -217,10 +199,8 @@ export function context(
     pAddressBech32: pAddressBech32,
     cAddressBech32: cAddressBech32,
     cAddressHex: cAddressHex,
-    //cChainBlockchainID: cChainBlockchainID,
-    //pChainBlockchainID: pChainBlockchainID,
-    //avaxAssetID: avaxAssetID,
     config: config,
-    chainID: chainID
+    chainID: chainID,
+    network: network
   }
 }

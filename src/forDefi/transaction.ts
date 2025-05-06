@@ -1,13 +1,12 @@
-//import fetch from "node-fetch";
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import crypto from "crypto";
 import { unPrefix0x, readUnsignedTxJson } from "../utils";
-import { readUnsignedWithdrawalTx } from "./utils";
+import { readUnsignedEvmTx } from "./utils";
 import {
   SignedTxJson,
-  SignedWithdrawalTxJson,
+  SignedEvmTxJson,
   UnsignedTxJson,
-  UnsignedWithdrawalTxJson,
+  UnsignedEvmTxJson,
   ContextFile,
 } from "../interfaces";
 import {
@@ -21,15 +20,13 @@ import {
  * @description - Send signature to forDefi
  * @param unsignedTxidFile - path to the file
  * @param ctxFile - ctx file
- * @param withdrawal - boolen if its a withdrawl trx or not
- * @param _getVaultPublickey - for testcase mocking purpose, bydefault it calls getVaultPublickey
+ * @param evmTx - true if it is a regular EVM transaction
  * @returns
  */
 export async function sendToForDefi(
   unsignedTxidFile: string,
   ctxFile: string,
-  withdrawal: boolean = false,
-  _getVaultPublickey = getVaultPublickey,
+  evmTx: boolean = false,
 ): Promise<string> {
   const accessToken = readFileSync("./token", "utf8");
   const file = readFileSync(ctxFile, "utf8");
@@ -38,18 +35,18 @@ export async function sendToForDefi(
   const vault_id = ctx.vaultId!;
 
   // vaultPublicKey should match public key in contex file
-  let vaultPublicKey = await _getVaultPublickey(vault_id);
+  let vaultPublicKey = await getVaultPublickey(vault_id);
   if (unPrefix0x(ctx.publicKey) != vaultPublicKey) {
     throw Error("public key does not match the vault");
   }
 
   let hash: string;
-  let txidObj: UnsignedTxJson | UnsignedWithdrawalTxJson;
-  if (!withdrawal) {
+  let txidObj: UnsignedTxJson | UnsignedEvmTxJson;
+  if (!evmTx) {
     txidObj = readUnsignedTxJson(unsignedTxidFile);
     hash = txidObj.signatureRequests[0].message;
   } else {
-    txidObj = readUnsignedWithdrawalTx(unsignedTxidFile);
+    txidObj = readUnsignedEvmTx(unsignedTxidFile);
     hash = txidObj.message;
   }
 
@@ -102,24 +99,24 @@ export async function sendToForDefi(
 /**
  * @description - gets the signature from forDefi
  * @param unsignedTxidFile - unsigned transaction file
- * @param withdrawal - whether withdrawl is enabled or not
+ * @param evmTx - true if it is a regular EVM transaction
  * @returns signature
  */
 export async function getSignature(
   unsignedTxidFile: string,
-  withdrawal: boolean = false,
+  evmTx: boolean = false,
 ): Promise<string> {
   const path = "/api/v1/transactions";
   const accessToken = readFileSync("./token", "utf8");
 
-  let txidObj: UnsignedTxJson | UnsignedWithdrawalTxJson;
-  let signedTxObj: SignedTxJson | SignedWithdrawalTxJson;
-  if (!withdrawal) {
+  let txidObj: UnsignedTxJson | UnsignedEvmTxJson;
+  let signedTxObj: SignedTxJson | SignedEvmTxJson;
+  if (!evmTx) {
     txidObj = readUnsignedTxJson(unsignedTxidFile);
     signedTxObj = txidObj as SignedTxJson;
   } else {
-    txidObj = readUnsignedWithdrawalTx(unsignedTxidFile);
-    signedTxObj = txidObj as SignedWithdrawalTxJson;
+    txidObj = readUnsignedEvmTx(unsignedTxidFile);
+    signedTxObj = txidObj as SignedEvmTxJson;
   }
   let id = txidObj.forDefiTxId;
 

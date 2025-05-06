@@ -1,9 +1,9 @@
 import fs from 'fs'
-import { UnsignedWithdrawalTxJson, SignedWithdrawalTxJson } from '../interfaces'
+import { UnsignedEvmTxJson, SignedEvmTxJson } from '../interfaces'
 import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from '../constants/forDefi'
 
 
-export function saveUnsignedWithdrawalTx(unsignedTx: UnsignedWithdrawalTxJson, id: string): void {
+export function saveUnsignedEvmTx(unsignedTx: UnsignedEvmTxJson, id: string): void {
   const fname = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedTx.json`
   if (fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} already exists`)
@@ -13,22 +13,22 @@ export function saveUnsignedWithdrawalTx(unsignedTx: UnsignedWithdrawalTxJson, i
   fs.writeFileSync(fname, serialization)
 }
 
-export function readUnsignedWithdrawalTx(id: string): UnsignedWithdrawalTxJson {
+export function readUnsignedEvmTx(id: string): UnsignedEvmTxJson {
   const fname = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedTx.json`
   if (!fs.existsSync(fname)) {
     throw new Error(`unsignedTx file ${fname} does not exist`)
   }
   const serialization = fs.readFileSync(fname).toString()
-  return JSON.parse(serialization) as UnsignedWithdrawalTxJson
+  return JSON.parse(serialization) as UnsignedEvmTxJson
 }
 
-export function readSignedWithdrawalTx(id: string): SignedWithdrawalTxJson {
+export function readSignedEvmTx(id: string): SignedEvmTxJson {
   const fname = `${forDefiDirectory}/${forDefiSignedTxnDirectory}/${id}.signedTx.json`
   if (!fs.existsSync(fname)) {
     throw new Error(`signedTx file ${fname} does not exist`)
   }
   const serialization = fs.readFileSync(fname).toString()
-  const resp = JSON.parse(serialization) as SignedWithdrawalTxJson
+  const resp = JSON.parse(serialization) as SignedEvmTxJson
   if (!resp.signature) {
     throw new Error(`unsignedTx file ${fname} does not contain signature`)
   }

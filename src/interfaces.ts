@@ -1,14 +1,4 @@
 import Web3 from 'web3'
-//import { SignatureRequest } from "@flarenetwork/flarejs/dist/common";
-//import { Avalanche } from "@flarenetwork/flarejs";
-//import {
-//  EVMAPI,
-//  KeyChain as EVMKeyChain,
-//} from "@flarenetwork/flarejs/dist/apis/evm";
-//import {
-//  PlatformVMAPI as PVMAPI,
-//  KeyChain as PVMKeyChain,
-//} from "@flarenetwork/flarejs/dist/apis/platformvm";
 import { NetworkConfig } from './constants/network'
 import { walletConstants } from './constants/screen'
 
@@ -18,19 +8,12 @@ export interface Context {
   publicKey?: [Buffer, Buffer]
   rpcurl: string
   web3: Web3
-  // avalanche: Avalanche;
-  //  cchain: EVMAPI;
-  //  pchain: PVMAPI;
-  //  cKeychain: EVMKeyChain;
-  //  pKeychain: PVMKeyChain;
   pAddressBech32?: string
   cAddressBech32?: string
   cAddressHex?: string
-  //cChainBlockchainID: string;
-  //pChainBlockchainID: string;
-  //avaxAssetID: string;
   config: NetworkConfig
-  chainID: number
+  chainID: number,
+  network?: string
 }
 
 export interface ContextFile {
@@ -65,14 +48,15 @@ export interface SignedTxJson extends UnsignedTxJson {
   isSentToChain?: boolean
 }
 
-export interface UnsignedWithdrawalTxJson {
-  rawTx: WithdrawalTxData
+export interface UnsignedEvmTxJson {
+  transactionType: string
+  rawTx: EvmTxData
   message: string
   forDefiTxId?: string
   forDefiHash?: string
 }
 
-export interface SignedWithdrawalTxJson extends UnsignedWithdrawalTxJson {
+export interface SignedEvmTxJson extends UnsignedEvmTxJson {
   signature: string
 }
 
@@ -89,7 +73,7 @@ export interface FlareTxParams {
   popBlsSignature?: string
 }
 
-interface WithdrawalTxData {
+interface EvmTxData {
   nonce: number
   gasPrice: number
   gasLimit: number
@@ -142,21 +126,6 @@ export interface DelegationDetailsInterface {
   popBLSSignature?: string
 }
 
-// TODO: delete?
-///**
-// * Represents the properties returned from the "getDetailsForValidation" function
-// * @interface ValidationDetailsInterface
-// */
-//export interface ValidationDetailsInterface {
-//  amount: string
-//  nodeId: string
-//  startTime: string
-//  endTime: string
-//  delegationFee?: string
-//  popBLSPublicKey?: string
-//  popBLSSignature?: string
-//}
-
 /**
  * Represents the wallet params sent to the registerAddress Function
  * @interface RegisterAddressInterface
@@ -208,5 +177,7 @@ export interface ContractAddressesInterface {
   [contractName: string]: {
     flare: string
     costwo: string
+    songbird: string
+    coston: string
   }
 }

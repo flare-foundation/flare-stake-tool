@@ -1,5 +1,4 @@
 import { Command, OptionValues } from 'commander'
-import { BigNumber, ethers } from 'ethersV5'
 import {
   ExportPTxParams,
   ImportCTxParams,
@@ -8,8 +7,7 @@ import {
   TxDetails,
   TxSummary,
   ValidatorPTxParams,
-  DelegatorPTxParams,
-  UnsignedTxData
+  DelegatorPTxParams
 } from './flare/interfaces'
 import {
   pvm,
@@ -22,7 +20,7 @@ import {
   networkIDs
 } from '@flarenetwork/flarejs'
 import { Context, ContextFile, FlareTxParams, SignedTxJson, UnsignedTxJson } from './interfaces'
-import { rpcUrlFromNetworkConfig, contextEnv, contextFile, getContext } from './context'
+import { contextEnv, contextFile, getContext } from './context'
 import {
   compressPublicKey,
   integerToDecimal,
@@ -31,42 +29,13 @@ import {
   initCtxJson,
   publicKeyToEthereumAddressString,
   validatePublicKey,
-  readUnsignedTxJson,
   saveUnsignedTxJson,
   isAlreadySentToChain,
   addFlagForSentSignedTx,
   readSignedTxJson
 } from './utils'
-//import {
-//  exportTxCP,
-//  importTxPC,
-//  getUnsignedExportTxCP,
-//  getUnsignedImportTxPC,
-//  issueSignedEvmTxPCImport,
-//  issueSignedEvmTxCPExport
-//} from './transaction/evmAtomicTx'
-//import {
-//  exportTxPC,
-//  importTxCP,
-//  getUnsignedImportTxCP,
-//  getUnsignedExportTxPC,
-//  issueSignedPvmTx
-//} from './transaction/pvmAtomicTx'
-//import { addValidator, getUnsignedAddValidator } from './transaction/addValidator'
-//import { addDelegator, getUnsignedAddDelegator } from './transaction/addDelegator'
-//import { ledgerGetAccount } from "./ledger/key";
-//import { ledgerSign } from "./ledger/sign";
-//import { getSignature, sendToForDefi } from "./forDefi/transaction";
-import { createWithdrawalTransaction, sendSignedWithdrawalTransaction } from './forDefi/withdrawal'
+import { createOptOutTransaction, createWithdrawalTransaction, sendSignedEvmTransaction } from './forDefi/evmTx'
 import { log, logError, logInfo, logSuccess } from './output'
-//import {
-//  submitForDefiTxn,
-//  fetchMirrorFunds,
-//  optOutOfAirdrop,
-//} from "./contracts";
-//import { contractTransactionName } from "./constants/contracts";
-// import { walletConstants } from "./constants/screen";
-
 import * as ledger from './ledger'
 import * as flare from './flare'
 import * as settings from './settings'
@@ -76,8 +45,6 @@ import { JsonRpcProvider } from 'ethers'
 import { BN } from 'bn.js'
 import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC } from './transaction'
 import { getSignature, sendToForDefi } from './forDefi/transaction'
-import { submitForDefiTxn } from './contracts'
-import { contractTransactionName } from './constants/contracts'
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -208,27 +175,25 @@ export async function cli(program: Command) {
     .description("Sign with ForDefi")
     .argument("<sign|fetch>", "Type of a forDefi transaction")
     .option(
-      "-i, --transaction-id <transaction-id>",
-      "Id of the transaction to finalize",
-    )
-    .option("--withdrawal", "Withdrawing funds from c-chain")
+      "-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("--evm-tx", "Regular EVM transaction")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options);
       if (type == "sign") {
-        if (options.withdrawal) {
+        if (options.evmTx) {
           await signForDefi(options.transactionId, options.ctxFile, true);
         } else {
           await signForDefi(options.transactionId, options.ctxFile);
         }
       } else if (type == "fetch") {
-        if (options.withdrawal) {
+        if (options.evmTx) {
           await fetchForDefiTx(options.transactionId, true);
         } else {
           await fetchForDefiTx(options.transactionId);
         }
       }
     });
-  // withdrawal from c-chain
+  // withdrawal (transfer) from c-chain
   program
     .command('withdrawal')
     .description('Withdraw funds from c-chain')
@@ -236,109 +201,28 @@ export async function cli(program: Command) {
     .option('-a, --amount <amount>', 'Amount to transfer')
     .option('-t, --to <to>', 'Address to send funds to')
     .option('--nonce <nonce>', 'Nonce of the constructed transaction')
-    .option('--send-signed-tx', 'Send signed transaction json to the node')
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
-      if (options.sendSignedTx) {
-        await withdraw_useSignature(ctx, options.transactionId)
-      } else {
-        // create unsigned transaction
-        await withdraw_getHash(
+        await buildUnsignedWithdrawalTxJson(
           ctx,
           options.to,
           options.amount,
           options.transactionId,
           options.nonce
         )
-      }
     })
-  // Opt-out from Airdrop
-  // TODO: Needed?
-  //program
-  //  .command("opt-out")
-  //  .description(
-  //    "Opt-out from the Flare Drop i.e execute optOutOfAirdrop function on DistributionToDelegators smart contract",
-  //  )
-  //  .option(
-  //    "-i, --transaction-id <transaction-id>",
-  //    "Id of the transaction to finalize",
-  //  )
-  //  .action(async (options: OptionValues) => {
-  //    options = getOptions(program, options);
-  //    const ctx = await contextFromOptions(options);
-  //    if (options.getHacked) {
-  //      await optOutOfAirdropPrivateKey(Object.keys(walletConstants)[2], ctx);
-  //    } else if (options.ledger) {
-  //      await optOutOfAirdropLedger(
-  //        Object.keys(walletConstants)[0],
-  //        ctx.cAddressHex!,
-  //        options.derivationPath,
-  //        options.network,
-  //      );
-  //    } else {
-  //      // for ForDefi
-  //      await optOutOfAirdropForDefi(
-  //        Object.keys(walletConstants)[1],
-  //        options.transactionId,
-  //        ctx,
-  //      );
-  //    }
-  //  });
-  // sign and submit smart contract transaction
+  // opt out
   program
-    .command('signAndSubmit')
-    .description('Sign a transaction using private key and submit to chain')
-    .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
-    .action(async (options: OptionValues) => {
-      options = getOptions(program, options)
-      const ctx: Context = await contextFromOptions(options)
-      await signAndSend(ctx, options.network, options.transactionId)
-    })
+  .command("optOut").description("Opt out of rewards on the c-chain")
+  .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+  .option("--nonce <nonce>", "Nonce of the constructed transaction")
+  .action(async (options: OptionValues) => {
+    options = getOptions(program, options)
+    const ctx = await contextFromOptions(options)
+    await buildUnsignedOptOutTxJson(ctx, options.to, options.amount, options.transactionId, options.nonce)
+  })
 }
-
-// TODO: needed?
-//export async function optOutOfAirdropPrivateKey(wallet: string, ctx: Context) {
-//  const optOutParams: OptOutOfAirdropInterface = {
-//    cAddress: ctx.cAddressHex!,
-//    network: ctx.config.hrp,
-//    wallet: wallet,
-//    pvtKey: ctx.privkHex,
-//  };
-//  await optOutOfAirdrop(optOutParams);
-//  console.log(chalk.green("Successfully opted out"));
-//}
-
-//export async function optOutOfAirdropLedger(
-//  wallet: string,
-//  ctxCAddress: string,
-//  ctxDerivationPath: string,
-//  ctxNetwork: string,
-//) {
-//  const optOutParams: OptOutOfAirdropInterface = {
-//    cAddress: ctxCAddress,
-//    network: ctxNetwork,
-//    wallet: wallet,
-//    derivationPath: ctxDerivationPath,
-//  };
-//  console.log("Please sign the transaction on your ledger");
-//  await optOutOfAirdrop(optOutParams);
-//  console.log(chalk.green("Successfully opted out"));
-//}
-
-//export async function optOutOfAirdropForDefi(
-//  wallet: string,
-//  transactionId: string,
-//  ctx: Context,
-//) {
-//  const optOutParams: OptOutOfAirdropInterface = {
-//    cAddress: ctx.cAddressHex!,
-//    network: ctx.config.hrp,
-//    wallet: wallet,
-//    transactionId: transactionId,
-//  };
-//  await optOutOfAirdrop(optOutParams);
-//}
 
 /**
  * @description - returns context from the options that are passed
@@ -834,55 +718,6 @@ async function cliBuildAndSendTxUsingLedger(
   }
 }
 
-//async function cliBuildAndSendTxUsingLedger(
-//  transactionType: string,
-//  ctx: Context,
-//  params: FlareTxParams,
-//  blind: boolean,
-//  derivationPath: string
-//): Promise<void> {
-//  if (transactionType === 'exportCP' || transactionType === 'exportPC') {
-//    logInfo('Creating export transaction...')
-//  }
-//  if (transactionType === 'importCP' || transactionType === 'importPC') {
-//    logInfo('Creating import transaction...')
-//  }
-//  const tx = await buildUnsignedTxJson(transactionType, ctx, params)
-//  const txHex = toHex(messageHashFromUnsignedTx(tx))
-//  logInfo(`Please review and sign transaction on your ledger device...`)
-//  const signature = await ledger.signEvmTransaction(derivationPath, txHex)
-//  //const signedTxJson = { ...unsignedTxJson, signature }
-//  //logInfo('Sending transaction to the node...')
-//  //const chainTxId = await sendSignedTxJson(ctx, signedTxJson)
-//  //logSuccess(`Transaction with hash ${chainTxId} sent to the node`)
-//}
-
-//const unsignedTxJson: UnsignedTxJson = await buildUnsignedTxJson(
-//  transactionType,
-//  ctx,
-//  params,
-//);
-//capFeeAt(
-//  MAX_TRANSCTION_FEE,
-//  ctx.config.hrp,
-//  unsignedTxJson.usedFee,
-//  params.fee,
-//);
-//if (blind) {
-//  const filename = unsignedTxJson.signatureRequests[0].message.slice(0, 6);
-//  saveUnsignedTxJson(unsignedTxJson, filename, "proofs");
-//  logWarning(
-//    `Blind signing! Validate generated proofs/${filename}.unsignedTx.json file.`,
-//  );
-//}
-//logInfo(`Please review and sign transaction on your ledger device...`);
-//const { signature } = await ledgerSign(unsignedTxJson, derivationPath, blind);
-//const signedTxJson = { ...unsignedTxJson, signature };
-//logInfo("Sending transaction to the node...");
-//const chainTxId = await sendSignedTxJson(ctx, signedTxJson);
-//logSuccess(`Transaction with hash ${chainTxId} sent to the node`);
-//}
-
 async function cliBuildAndSaveUnsignedTxJson(
   transactionType: string,
   ctx: Context,
@@ -915,12 +750,8 @@ async function cliSendSignedTxJson(ctx: Context, id: string): Promise<void> {
   }
   const signedTxnJson = readSignedTxJson(id);
   let chainTxId;
-  if (signedTxnJson.transactionType === contractTransactionName) {
-    chainTxId = await submitForDefiTxn(
-      id,
-      signedTxnJson.signature,
-      ctx.config.hrp,
-    );
+  if (signedTxnJson.transactionType === "EVM") {
+    chainTxId = await sendSignedEvmTransaction(ctx, id)
   } else {
     chainTxId = await sendSignedTxJson(ctx, signedTxnJson);
   }
@@ -942,29 +773,29 @@ async function cliBuildAndSendTxUsingPrivateKey(
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-// Transaction execution using ForDefi api
+// ForDefi
 
 async function signForDefi(
   transaction: string,
   ctx: string,
-  withdrawal: boolean = false,
+  evmTx: boolean = false,
 ): Promise<void> {
-  const txid = await sendToForDefi(transaction, ctx, withdrawal);
+  const txid = await sendToForDefi(transaction, ctx, evmTx);
   logSuccess(`Transaction with hash ${txid} sent to the ForDefi`);
 }
 
 async function fetchForDefiTx(
   transaction: string,
-  withdrawal: boolean = false,
+  evmTx: boolean = false,
 ): Promise<void> {
   if (isAlreadySentToChain(transaction)) {
     throw new Error("Tx already sent to chain");
   }
-  const signature = await getSignature(transaction, withdrawal);
+  const signature = await getSignature(transaction, evmTx);
   logSuccess(`Success! Signature: ${signature}`);
 }
 
-async function withdraw_getHash(
+async function buildUnsignedWithdrawalTxJson(
   ctx: Context,
   to: string,
   amount: number,
@@ -975,25 +806,7 @@ async function withdraw_getHash(
   logSuccess(`Transaction ${fileId} constructed`)
 }
 
-async function withdraw_useSignature(ctx: Context, id: string): Promise<void> {
-  const txId = await sendSignedWithdrawalTransaction(ctx, id)
-  logSuccess(`Transaction ${txId} sent to the node`)
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-// smart contract transaction signing
-
-async function signAndSend(ctx: Context, network: string, id: string): Promise<void> {
-  const tx = readUnsignedTxJson(id) as any
-  if (!tx) throw new Error('Invalid txn file')
-
-  const valueStr = tx.rawTx.value
-  const valueBN = BigNumber.from(valueStr)
-  tx.rawTx.value = valueBN
-  const provider = new ethers.providers.JsonRpcProvider(rpcUrlFromNetworkConfig(network))
-
-  const wallet = new ethers.Wallet(ctx.privkHex!)
-  const signedTx = await wallet.signTransaction(tx.rawTx)
-  const chainId = await provider.sendTransaction(signedTx)
-  logSuccess(`Signed transaction ${id} with hash ${chainId.hash} sent to the node`)
+async function buildUnsignedOptOutTxJson(ctx: Context, to: string, amount: number, id: string, nonce: number): Promise<void> {
+  const fileId = await createOptOutTransaction(ctx, id, nonce)
+  logSuccess(`Transaction ${fileId} constructed`)
 }

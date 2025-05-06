@@ -5,36 +5,48 @@ import { ContractAddressesInterface } from "../interfaces"
  */
 export const maxAllowedDelegation = 3
 
+export const flareContractRegistryAddress = "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019"
 
 /**
  * @description Stores the default chain-wise addresses for contracts
  */
 export const defaultContractAddresses: ContractAddressesInterface = {
-    AddressBinder:
-    {
-        flare: "0x5d931b4b7e408278F417ec887995696DA5Bd6ca2",
-        costwo: "0x332aa9e37d64caaf70ae5dbe8efc2fc7611934ae"
-    },
-    ValidatorRewardManager:
-    {
-        flare: "0xc0cf3aaf93bd978c5bc662564aa73e331f2ec0b5",
-        costwo: "0x33913ace907f682e305f36d7538d3ccd37e2ca5b"
-    },
-    FlareContractRegistry:
-    {
-        flare: "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019",
-        costwo: "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019"
-    },
-    PChainStakeMirror:
-    {
-        flare: "0x7b61F9F27153a4F2F57Dc30bF08A8eb0cCB96C22",
-        costwo: "0xd2a1bb23eb350814a30dd6f9de78bb2c8fdd9f1d"
-    },
-    DistributionToDelegators: {
-      flare: "0x9c7A4C83842B29bB4A082b0E689CB9474BD938d0",
-      costwo:"0xbd33bdff04c357f7fc019e72d0504c24cf4aa010"
-    }
+  AddressBinder:
+  {
+      flare: "0x5d931b4b7e408278F417ec887995696DA5Bd6ca2",
+      costwo: "0x332aa9e37d64caaf70ae5dbe8efc2fc7611934ae",
+      songbird: "",
+      coston: ""
+  },
+  ValidatorRewardManager:
+  {
+      flare: "0xc0cf3aaf93bd978c5bc662564aa73e331f2ec0b5",
+      costwo: "0x33913ace907f682e305f36d7538d3ccd37e2ca5b",
+      songbird: "",
+      coston: ""
+  },
+  FlareContractRegistry:
+  {
+      flare: "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019",
+      costwo: "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019",
+      songbird: "",
+      coston: ""
+  },
+  PChainStakeMirror:
+  {
+      flare: "0x7b61F9F27153a4F2F57Dc30bF08A8eb0cCB96C22",
+      costwo: "0xd2a1bb23eb350814a30dd6f9de78bb2c8fdd9f1d",
+      songbird: "",
+      coston: ""
+  },
+  DistributionToDelegators: {
+    flare: "0x9c7A4C83842B29bB4A082b0E689CB9474BD938d0",
+    costwo:"0xbd33bdff04c357f7fc019e72d0504c24cf4aa010",
+    songbird: "",
+    coston: ""
+  }
 }
+
 
 export const addressBinderContractName = "AddressBinder"
 export const validatorRewardManagerContractName = "ValidatorRewardManager"
@@ -187,7 +199,7 @@ const addressBinderABI = [
   }
 ]
 
-const flareContractRegistryABI = [
+export const flareContractRegistryABI = [
     {
         "type": "constructor",
         "stateMutability": "nonpayable",
@@ -2311,7 +2323,7 @@ const pChainStakeMirrorABI = [
   }
 ]
 
-const distributionToDelegatorsABI = [
+export const distributionToDelegatorsABI = [
   {
     "type": "constructor",
     "stateMutability": "nonpayable",
