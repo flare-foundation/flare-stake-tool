@@ -15,5 +15,5 @@
     // "sourceMap": true
     // "moduleResolution": "bundler"
   },
-  "exclude": ["node_modules", "scripts", "test", "dist", "go-localflare"]
+  "exclude": ["node_modules", "scripts", "test", "dist"]
 }
