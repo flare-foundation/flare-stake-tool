@@ -2,7 +2,6 @@ import * as settings from '../settings'
 import * as utils from '../utils'
 import * as pubk from './pubk'
 import * as txs from './txs'
-import * as contracts from './contracts'
 import * as explorer from './explorer'
 import * as indexer from './indexer'
 import BN from 'bn.js'
@@ -18,13 +17,6 @@ export function getWeb3(network: string): Web3 {
 
 export async function getCBalance(network: string, cAddress: string): Promise<BN> {
   let balance = await getWeb3(network).eth.getBalance(cAddress)
-  return utils.weiToGwei(balance)
-}
-
-export async function getWCBalance(network: string, cAddress: string): Promise<BN> {
-  let web3 = getWeb3(network)
-  let wnat = contracts.getWNat(network, web3)
-  let balance = await (wnat.methods.balanceOf as any)(cAddress).call()
   return utils.weiToGwei(balance)
 }
 
@@ -52,11 +44,6 @@ export async function getCPBalance(network: string, pAddress: string): Promise<B
     sourceChain: context.cBlockchainID
   })
   return sumUtxoTransferableOutputs(utxos)
-}
-
-export async function getCStake(network: string, cAddress: string): Promise<BN> {
-  const pChainStakeMirror = contracts.getPChainStakeMirror(network, getWeb3(network))
-  return utils.weiToGwei(await (pChainStakeMirror.methods.balanceOf as any)(cAddress).call())
 }
 
 export async function getPStake(network: string, pAddress: string): Promise<BN> {
@@ -225,33 +212,6 @@ export async function getAnyPTx(network: string, pAddress: string) {
   return undefined
 }
 
-export async function getMirroredCAddress(
-  network: string,
-  pAddress: string
-): Promise<string | undefined> {
-  let addressBinder = contracts.getAddressBinder(network, getWeb3(network))
-  let pAddressHex = pubk.pAddressToHex(pAddress)
-  let cAddress = await (addressBinder.methods.pAddressToCAddress as any)(pAddressHex).call()
-  if (utils.isZeroHex(cAddress)) {
-    return undefined
-  } else {
-    return pubk.normalizeCAddress(cAddress)
-  }
-}
-
-export async function getMirroredPAddress(
-  network: string,
-  cAddress: string
-): Promise<string | undefined> {
-  let addressBinder = contracts.getAddressBinder(network, getWeb3(network))
-  let pAddress = await (addressBinder.methods.cAddressToPAddress as any)(cAddress).call()
-  if (utils.isZeroHex(cAddress)) {
-    return undefined
-  } else {
-    return pubk.normalizePAddress(network, pAddress)
-  }
-}
-
 export async function getCTxBaseFee(network: string): Promise<BN> {
   // let avajs = getAvalanche(network)
   // let feeWei = new BN(utils.toHex(await avajs.CChain().getBaseFee(), false), "hex")
@@ -286,13 +246,6 @@ export async function numberOfCTxs(network: string, cAddress: string): Promise<n
   let web3 = getWeb3(network)
   let nonce = await web3.eth.getTransactionCount(cAddress)
   return Number(nonce)
-}
-
-export async function getUnclaimedCStakeReward(network: string, cAddress: string): Promise<BN> {
-  let web3 = getWeb3(network)
-  let rewardManager = contracts.getValidatorRewardManager(network, web3)
-  let stateOfRewards = await (rewardManager.methods.getStateOfRewards as any)(cAddress).call()
-  return utils.weiToGwei(new BN(stateOfRewards[0]).sub(new BN(stateOfRewards[1])))
 }
 
 export async function getPTxDefaultFee(network: string): Promise<BN> {

@@ -45,23 +45,6 @@ export function publicKeyToCAddress(publicKey: string) {
   return normalizeCAddress(utils.toHex(ethutil.publicToAddress(uncompressed)))
 }
 
-export async function cAddressToPublicKey(
-  network: string,
-  cAddress: string
-): Promise<string | undefined> {
-  let publicKey = await _cAddressToPublicKey(network, cAddress)
-  if (publicKey) {
-    return publicKey
-  } else {
-    let pAddress = await chain.getMirroredPAddress(network, cAddress)
-    if (pAddress) {
-      return _pAddressToPublicKey(network, pAddress)
-    } else {
-      return undefined
-    }
-  }
-}
-
 async function _cAddressToPublicKey(
   network: string,
   cAddress: string
@@ -99,49 +82,13 @@ export function publicKeyToPAddress(network: string, publicKey: string): string 
   return normalizePAddress(network, bech32.encode(hrp, bech32.toWords(address)))
 }
 
-export async function pAddressToPublicKey(
-  network: string,
-  pAddress: string
-): Promise<string | undefined> {
-  let normalizedPAddress = normalizePAddress(network, pAddress)
-  let publicKey = await _pAddressToPublicKey(network, normalizedPAddress)
-  if (publicKey) {
-    return publicKey
-  } else {
-    let cAddress = await chain.getMirroredCAddress(network, normalizedPAddress)
-    if (cAddress) {
-      return _cAddressToPublicKey(network, cAddress)
-    } else {
-      return undefined
-    }
-  }
-}
-
-async function _pAddressToPublicKey(
-  network: string,
-  pAddress: string
-): Promise<string | undefined> {
-  let publicKey = undefined
-  try {
-    let ptx = await chain.getAnyPTx(network, pAddress)
-    if (ptx) {
-      publicKey = '' //recoverPublicKeyFromPTx(ptx);
-      if (!equalPAddress(network, publicKeyToPAddress(network, publicKey), pAddress)) {
-        publicKey = undefined
-      }
-    }
-  } finally {
-    return publicKey
-  }
-}
-
 export function isPAddress(network: string, value: string): boolean {
   return (value.startsWith('P-') ? value.slice(2) : value).startsWith(settings.HRP[network])
 }
 
 export function equalPAddress(network: string, value1: string, value2: string): boolean {
-  let value1Hex = utils.isHex(value1) ? value1 : pAddressToHex(value1)
-  let value2Hex = utils.isHex(value2) ? value2 : pAddressToHex(value2)
+  let value1Hex = utils.isHex(value1) ? value1 : pAddressToHex(value1.startsWith('P-') ? value1.slice(2) : value1)
+  let value2Hex = utils.isHex(value2) ? value2 : pAddressToHex(value2.startsWith('P-') ? value2.slice(2) : value2)
   return (
     utils.isEqualHex(value1Hex, value2Hex) &&
     isPAddress(network, pAddressToBech(network, value1Hex))
@@ -150,6 +97,10 @@ export function equalPAddress(network: string, value1: string, value2: string): 
 
 export function pAddressToHex(pAddressBech: string): string {
   return utils.toHex(bech32.fromWords(bech32.decode(pAddressBech).words))
+}
+
+export function pAddressToBytes20(pAddress: string) {
+  return Buffer.from(bech32.fromWords(bech32.decode(pAddress).words)).toString('hex');
 }
 
 export function pAddressToBech(network: string, pAddressHex: string): string {

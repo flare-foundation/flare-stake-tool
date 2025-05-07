@@ -53,7 +53,6 @@ export const TX_TYPES: TxType = {
     IMPORT_PTX: "Import to P-chain",
     DELEGATOR_PTX: "Add delegator to P-chain",
     VALIDATOR_PTX: "Add validator to P-chain",
-    CLAIM_REWARD_CTX: "Claim stake reward on C-chain",
     WRAP_CTX: "Wrap on C-chain",
     UNWRAP_CTX: "Unwrap on C-chain",
     ERC20_CTX: "ERC-20 token C-chain transfer",

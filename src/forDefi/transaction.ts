@@ -157,7 +157,7 @@ export async function getSignature(
 
 /**
  * @description Gets the vault public key
- * @param vaultId - the valultid
+ * @param vaultId - the vault id
  * @returns returns vault public key
  */
 export async function getVaultPublickey(vaultId: string): Promise<string> {
@@ -179,8 +179,8 @@ export async function getVaultPublickey(vaultId: string): Promise<string> {
   return pubKeyHex;
 }
 
-async function createVault(vaultName: string): Promise<string> {
-  const accessToken = readFileSync("token-coston2", "utf8");
+async function createVault(vaultName: string, tokenPath: string): Promise<string> {
+  const accessToken = readFileSync(tokenPath, "utf8");
 
   const requestJson = {
     type: "black_box",
@@ -207,5 +207,3 @@ async function createVault(vaultName: string): Promise<string> {
 
   return responseJson["id"];
 }
-
-// createVault("vault-13")

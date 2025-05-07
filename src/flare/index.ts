@@ -1,9 +1,7 @@
 import {
   Account,
   AccountState,
-  ClaimCStakeRewardTxParams,
   DelegatorPTxParams,
-  ERC20TransferCTxParams,
   ExportCTxParams,
   ExportPTxParams,
   ImportCTxParams,
@@ -13,10 +11,7 @@ import {
   Sign,
   SubmittedTxData,
   UnsignedTxData,
-  UnwrapCTxParams,
-  ValidatorPTxParams,
-  WrapCTxParams
-} from './interfaces'
+  ValidatorPTxParams} from './interfaces'
 import * as chain from './chain'
 import * as pubk from './pubk'
 import * as txs from './txs'
@@ -26,41 +21,6 @@ import * as utils from '../utils'
 const TX_EFFECT_TIMEOUT = 10000
 const TX_EFFECT_DELAY = 500
 
-// account
-
-export async function getAccount(network: string, accountId: string): Promise<Account> {
-  if (pubk.isPublicKey(accountId)) {
-    return _getAccount(network, accountId)
-  } else if (pubk.isCAddress(accountId)) {
-    let publicKey = await pubk.cAddressToPublicKey(network, accountId)
-    if (publicKey) {
-      return _getAccount(network, publicKey)
-    } else {
-      throw new Error('Failed to determine stake account with the given C-chain address')
-    }
-  } else if (pubk.isPAddress(network, accountId)) {
-    let publicKey = await pubk.pAddressToPublicKey(network, accountId)
-    if (publicKey) {
-      return _getAccount(network, publicKey)
-    } else {
-      throw new Error('Failed to determine stake account with the given P-chain address')
-    }
-  } else if (accountId.startsWith('NodeID-')) {
-    let stakes = await chain.getPStakes(network)
-    let stake = stakes.find((s) => s.nodeId === accountId && s.type === 'validator')
-    let publicKey = undefined
-    if (stake) {
-      publicKey = await pubk.pAddressToPublicKey(network, stake.address)
-    }
-    if (publicKey) {
-      return _getAccount(network, publicKey)
-    } else {
-      throw new Error('Failed to determine stake account with the given node id')
-    }
-  }
-  throw new Error('Failed to determine stake account with the given identifier')
-}
-
 function _getAccount(network: string, publicKey: string): Account {
   return {
     network,
@@ -69,40 +29,6 @@ function _getAccount(network: string, publicKey: string): Account {
     pAddress: 'P-' + pubk.publicKeyToPAddress(network, publicKey)
   }
 }
-
-export async function getAccountState(network: string, publicKey: string): Promise<AccountState> {
-  let account = _getAccount(network, publicKey)
-
-  let time = new Date()
-  let cBalance = await chain.getCBalance(network, account.cAddress)
-  let pBalance = await chain.getPBalance(network, account.pAddress)
-  let pcBalance = await chain.getPCBalance(network, account.pAddress)
-  let cpBalance = await chain.getCPBalance(network, account.pAddress)
-  let wcBalance = new BN(0) // await chain.getWCBalance(network, account.cAddress) TODO: solve this for localflare
-  let cStake = new BN(0) // await chain.getCStake(network, account.cAddress) TODO: solve this for localflare
-  let pStake = await chain.getPStake(network, account.pAddress)
-  let pStakes = await chain.getPStakes(network)
-  let pStakesOf = await chain.getPStakesOf(network, account.pAddress, pStakes)
-  let pStakeUTXOsOf = await chain.getUTXOsFromPStakes(network, account.pAddress, pStakesOf)
-  let pStakesTo = await chain.getPStakesTo(network, account.pAddress, pStakes)
-  let cReward = new BN(0) // await chain.getUnclaimedCStakeReward(network, account.cAddress) TODO: solve this for localflare
-
-  return {
-    time,
-    cBalance,
-    pBalance,
-    pcBalance,
-    cpBalance,
-    wcBalance,
-    cStake,
-    pStake,
-    pStakesOf,
-    pStakeUTXOsOf,
-    pStakesTo,
-    cReward
-  }
-}
-
 // transactions
 
 export async function moveCP(
@@ -287,6 +213,8 @@ export async function addDelegator(
       `Delegation transaction ${tx.id} on P-chain not confirmed (status is ${tx.status})`
     )
   }
+  // TODO: possibly redundant (if address delegated to multiple nodes it can find the existing stake)
+  // fix it ore remove it?
   if (tx.submitted) {
     await _waitForStake(account, tx.id)
   }
@@ -358,66 +286,6 @@ async function _waitForStake(account: Account, txId: string): Promise<void> {
     TX_EFFECT_TIMEOUT,
     TX_EFFECT_DELAY
   )
-}
-
-export async function claimCStakeReward(
-  params: ClaimCStakeRewardTxParams,
-  sign: Sign,
-  presubmit?: PreSubmit
-): Promise<string> {
-  let account = _getAccount(params.network, params.publicKey)
-  let unsignedTx = await txs.buildClaimCStakeRewardTx(account, params)
-  let tx = await _signAndSubmitTx(unsignedTx, sign, presubmit)
-  if (tx.submitted && !tx.confirmed) {
-    throw new Error(
-      `Claim reward transaction ${tx.id} on C-chain not confirmed (status is ${tx.status})`
-    )
-  }
-  return tx.id
-}
-
-export async function wrapC(
-  params: WrapCTxParams,
-  sign: Sign,
-  presubmit?: PreSubmit
-): Promise<string> {
-  let account = _getAccount(params.network, params.publicKey)
-  let unsignedTx = await txs.buildWrapCTx(account, params)
-  let tx = await _signAndSubmitTx(unsignedTx, sign, presubmit)
-  if (tx.submitted && !tx.confirmed) {
-    throw new Error(`Wrap transaction ${tx.id} on C-chain not confirmed (status is ${tx.status})`)
-  }
-  return tx.id
-}
-
-export async function unwrapC(
-  params: UnwrapCTxParams,
-  sign: Sign,
-  presubmit?: PreSubmit
-): Promise<string> {
-  let account = _getAccount(params.network, params.publicKey)
-  let unsignedTx = await txs.buildUnwrapCTx(account, params)
-  let tx = await _signAndSubmitTx(unsignedTx, sign, presubmit)
-  if (tx.submitted && !tx.confirmed) {
-    throw new Error(`Unwrap transaction ${tx.id} on C-chain not confirmed (status is ${tx.status})`)
-  }
-  return tx.id
-}
-
-export async function erc20Transfer(
-  params: ERC20TransferCTxParams,
-  sign: Sign,
-  presubmit?: PreSubmit
-): Promise<string> {
-  let account = _getAccount(params.network, params.publicKey)
-  let unsignedTx = await txs.buildERC20TransferCTx(account, params)
-  let tx = await _signAndSubmitTx(unsignedTx, sign, presubmit)
-  if (tx.submitted && !tx.confirmed) {
-    throw new Error(
-      `ERC-20 transfer transaction ${tx.id} on C-chain not confirmed (status is ${tx.status})`
-    )
-  }
-  return tx.id
 }
 
 async function _signAndSubmitTx(

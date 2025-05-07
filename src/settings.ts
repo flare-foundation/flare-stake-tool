@@ -80,26 +80,10 @@ export const CURRENCY_NAME: NetworkId = {
     songbird: "Songbird"
 }
 
-export const ADDRESS_BINDER: NetworkId = {
-    costwo: "0x332aa9e37D64CAAF70ae5dBe8EFC2FC7611934Ae",
-    flare: "0x5d931b4b7e408278F417ec887995696DA5Bd6ca2",
-    localflare: ""
-}
-
 export const PCHAIN_STAKE_MIRROR: NetworkId = {
     costwo: "0xd2a1Bb23eB350814a30Dd6f9de78Bb2C8fdD9F1D",
     flare: "0x7b61F9F27153a4F2F57Dc30bF08A8eb0cCB96C22",
-    localflare: ""
-}
-
-export const WNAT: NetworkId = {
-    costwo: "0xC67DCE33D7A8efA5FfEB961899C73fe01bCe9273",
-    flare: "0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d",
-    localflare: ""
-}
-
-export const VALIDATOR_REWARD_MANAGER: NetworkId = {
-    costwo: "0x33913AcE907F682E305f36d7538D3cCd37E2cA5B",
-    flare: "0xc0CF3Aaf93bd978C5BC662564Aa73E331f2eC0B5",
-    localflare: ""
+    localflare: "",
+    coston: "",
+    songbird: ""
 }

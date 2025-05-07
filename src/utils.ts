@@ -1,7 +1,6 @@
 import BN from 'bn.js'
 import { fromWei, toWei } from 'web3-utils'
 import { base58 } from '@scure/base'
-import { messageHashFromUnsignedTx, UnsignedTx } from '@flarenetwork/flarejs'
 
 export function toBuffer(value: string | number | number[] | Buffer | Uint8Array): Buffer {
   if (Buffer.isBuffer(value)) {
@@ -343,37 +342,6 @@ export function deserializeExportCP_args(
   return args
 }
 
-//export function serializeImportPC_args(
-//  args: [UTXOSet, string, string[], string, string[], BN],
-//): string {
-//  return JSON.stringify([args[0].serialize("hex"), ...args.slice(1)], null, 2);
-//}
-
-//export function deserializeImportPC_args(
-//  serargs: string,
-//): [UTXOSet, string, string[], string, string[], BN] {
-//  const args = JSON.parse(serargs);
-//  const utxoSet = new UTXOSet();
-//  utxoSet.deserialize(args[0]);
-//  args[0] = utxoSet;
-//  args[5] = new BN(args[5], 16);
-//  return args;
-//}
-//
-//export function serializeUnsignedTx(
-//  unsignedTx: EvmUnsignedTx | PvmUnsignedTx,
-//): string {
-//  return JSON.stringify(unsignedTx.serialize("hex"), null, 2);
-//}
-//
-//export function deserializeUnsignedTx<
-//  UnsignedTx extends EvmUnsignedTx | PvmUnsignedTx,
-//>(type: { new (): UnsignedTx }, serialized: string): UnsignedTx {
-//  const unsignedTx: UnsignedTx = new type();
-//  unsignedTx.deserialize(JSON.parse(serialized));
-//  return unsignedTx;
-//}
-//
 ////////////////////////////////////////////////////////////////////////////////////////////
 //// key and unsigned/signed transaction storage
 //

@@ -1,7 +1,6 @@
 import * as utils from '../utils'
 import * as settings from '../settings'
 import * as chain from './chain'
-import * as contracts from './contracts'
 import * as pubk from './pubk'
 import {
   Account,
@@ -300,61 +299,6 @@ export async function buildAddValidatorTx(
 
 function _unsignedTxToHex(unsignedTx: UnsignedTx | EVMUnsignedTx): string {
   return utils.toHex(unsignedTx.toBytes())
-}
-
-export async function buildClaimCStakeRewardTx(
-  account: Account,
-  params: ClaimCStakeRewardTxParams
-): Promise<UnsignedTxData> {
-  let web3 = chain.getWeb3(account.network)
-  let rewardManager = contracts.getValidatorRewardManager(account.network, web3)
-  let data = (rewardManager.methods.claim as any)(
-    account.cAddress,
-    params.recipient,
-    BigInt(utils.gweiToWei(params.amount).toString()),
-    params.wrap
-  ).encodeABI() as string
-  return buildEvmTx(account, params, {
-    to: rewardManager.options.address!,
-    data
-  })
-}
-
-export async function buildWrapCTx(
-  account: Account,
-  params: WrapCTxParams
-): Promise<UnsignedTxData> {
-  let web3 = chain.getWeb3(account.network)
-  let wnat = contracts.getWNat(account.network, web3)
-  let value = BigInt(utils.gweiToWei(params.amount).toString())
-  let data = (wnat.methods.deposit as any)().encodeABI() as string
-  return buildEvmTx(account, params, {
-    to: wnat.options.address!,
-    value,
-    data
-  })
-}
-
-export async function buildUnwrapCTx(
-  account: Account,
-  params: UnwrapCTxParams
-): Promise<UnsignedTxData> {
-  let web3 = chain.getWeb3(account.network)
-  let wnat = contracts.getWNat(account.network, web3)
-  let value = BigInt(utils.gweiToWei(params.amount).toString())
-  let data = (wnat.methods.withdraw as any)(value).encodeABI() as string
-  return buildEvmTx(account, params, { to: wnat.options.address!, data })
-}
-
-export async function buildERC20TransferCTx(
-  account: Account,
-  params: ERC20TransferCTxParams
-): Promise<UnsignedTxData> {
-  let web3 = chain.getWeb3(account.network)
-  let erc20 = contracts.getERC20(params.token, web3)
-  let value = BigInt(params.amount.toString())
-  let data = (erc20.methods.transfer as any)(params.recipient, value).encodeABI() as string
-  return buildEvmTx(account, params, { to: params.token, data })
 }
 
 export async function buildEvmTx(

@@ -20,7 +20,7 @@ import {
   networkIDs
 } from '@flarenetwork/flarejs'
 import { Context, ContextFile, FlareTxParams, SignedTxJson, UnsignedTxJson } from './interfaces'
-import { contextEnv, contextFile, getContext } from './context'
+import { contextEnv, contextFile, getContext, networkFromContextFile } from './context'
 import {
   compressPublicKey,
   integerToDecimal,
@@ -45,6 +45,7 @@ import { JsonRpcProvider } from 'ethers'
 import { BN } from 'bn.js'
 import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC } from './transaction'
 import { getSignature, sendToForDefi } from './forDefi/transaction'
+import { fetchMirrorFunds } from './contracts'
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 const FLR = 1e9 // one FLR in nanoFLR
@@ -116,7 +117,7 @@ export async function cli(program: Command) {
     .description('Move funds from one chain to another, stake, and delegate')
     .argument(
       '<importCP|exportCP|importPC|exportPC|delegate|stake>',
-      'Type of a crosschain transaction'
+      'Type of a cross chain transaction'
     )
     .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
     .option('-a, --amount <amount>', 'Amount to transfer')
@@ -253,9 +254,8 @@ export function networkFromOptions(options: OptionValues): string {
   let network = options.network
   if (network == undefined) {
     try {
-      //network = networkFromContextFile(options.ctxFile);
+      network = networkFromContextFile(options.ctxFile);
       // TODO:
-      throw 'e'
     } catch (e) {
       network = 'flare'
     }
@@ -612,11 +612,10 @@ export async function logValidatorInfo(ctx: Context): Promise<void> {
  * @description Logs mirror fund details
  * @param ctx - context
  */
-export async function logMirrorFundInfo(_ctx: Context): Promise<void> {
-  log('not implemented')
-  // const mirroFundDetails = await fetchMirrorFunds(ctx);
-  // logInfo(`Mirror fund details on the network "${ctx.config.hrp}"`);
-  // log(JSON.stringify(mirroFundDetails, null, 2));
+export async function logMirrorFundInfo(ctx: Context): Promise<void> {
+  const mirroFundDetails = await fetchMirrorFunds(ctx);
+  logInfo(`Mirror fund details on the network "${ctx.config.hrp}"`);
+  log(JSON.stringify(mirroFundDetails, null, 2));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -680,6 +679,7 @@ async function cliBuildAndSendTxUsingLedger(
     await flare.importPC(tp, sign)
     return
   } else if (transactionType === 'stake') {
+    logInfo('Creating stake transaction...')
     let tp: ValidatorPTxParams = {
       network: ctx.config.hrp,
       type: transactionType,
@@ -699,6 +699,7 @@ async function cliBuildAndSendTxUsingLedger(
     await flare.addValidator(tp, sign)
     return
   } else if (transactionType === 'delegate') {
+    logInfo('Creating delegate transaction...')
     let tp: DelegatorPTxParams = {
       network: ctx.config.hrp,
       type: transactionType,

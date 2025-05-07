@@ -1,9 +1,8 @@
 import chalk from 'chalk'
 import { ScreenConstantsInterface } from '../interfaces'
 
-
 /**
- * @description Object that constains list of tasks user can perform as its keys and their corresponding CLI commands as values.
+ * @description Object that contains list of tasks user can perform as its keys and their corresponding CLI commands as values.
  */
 export const taskConstants: ScreenConstantsInterface = {
   'View chain addresses': 'addresses',
@@ -15,10 +14,7 @@ export const taskConstants: ScreenConstantsInterface = {
   'Add a validator node': 'stake',
   'Delegate to a validator node': 'delegate',
   'Get Mirror fund details': 'mirror',
-  'Claim Rewards': "rewards",
-  'Withdraw funds': 'withdrawal',
-  'Import Funds (incase moving assets fails for either P chain or C chain)': 'import',
-  'Optout of Airdrop': 'optout',
+  'Import Funds (in case export fails for either P chain or C chain)': 'import',
   'Quit': 'quit'
 }
 
@@ -38,7 +34,6 @@ export const networkConstants: ScreenConstantsInterface = {
  */
 export const walletConstants: ScreenConstantsInterface = {
   "ledger": 'Ledger',
-  "publicKey": 'Public Key',
   "privateKey": "Private Key " + chalk.red("(not recommended!)")
 }
 

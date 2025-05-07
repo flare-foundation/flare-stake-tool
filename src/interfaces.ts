@@ -127,49 +127,6 @@ export interface DelegationDetailsInterface {
 }
 
 /**
- * Represents the wallet params sent to the registerAddress Function
- * @interface RegisterAddressInterface
- */
-export interface RegisterAddressInterface {
-  publicKey: string
-  pAddress: string
-  cAddress: string
-  network: string
-  wallet: keyof typeof walletConstants
-  derivationPath?: string
-  pvtKey?: string
-  transactionId?: string
-}
-
-/**
- * Represents the wallet params sent to the claimRewards Function
- * @interface ClaimRewardsInterface
- */
-export interface ClaimRewardsInterface {
-  claimAmount: string
-  ownerAddress: string
-  receiverAddress: string
-  network: string
-  wallet: keyof typeof walletConstants
-  derivationPath?: string
-  pvtKey?: string
-  transactionId?: string
-}
-
-/**
- * Represents the wallet params sent to the optOutOfAirdrop Function
- * @interface OptOutOfAirdrop
- */
-export interface OptOutOfAirdropInterface {
-  cAddress: string
-  network: string
-  wallet: keyof typeof walletConstants
-  derivationPath?: string
-  pvtKey?: string
-  transactionId?: string
-}
-
-/**
  * Represents constant used to store values for contract addresses
  * @interface ContractAddressesInterface
  */

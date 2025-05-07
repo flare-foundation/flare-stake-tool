@@ -1,7 +1,7 @@
 import fs from 'fs'
 import Web3 from 'web3'
 //import { BinTools, Buffer as FlrBuffer } from "@flarenetwork/flarejs";
-//import { PrivateKeyPrefix, PublicKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
+import { utils } from '@flarenetwork/flarejs';
 //import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
 //import { PlatformVMAPI as PVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { Context, ContextFile } from './interfaces'
@@ -19,7 +19,8 @@ import {
   publicKeyToBech32AddressString,
   publicKeyToEthereumAddressString,
   privateKeyToPublicKey,
-  decodePublicKey
+  decodePublicKey,
+  unPrefix0x
 } from './utils'
 
 /**
@@ -140,15 +141,16 @@ export function context(
 
   // derive private key in both cb58 and hex if only one is provided
   // TODO:
-  //const bintools = BinTools.getInstance();
-  //if (privkHex !== undefined && privkHex !== "") {
-  //  privkHex = unPrefix0x(privkHex);
-  //  const privkBuf = bintools.addChecksum(FlrBuffer.from(privkHex, "hex"));
-  //  privkCB58 = bintools.bufferToB58(privkBuf);
-  //} else if (privkCB58 !== undefined && privkCB58 !== "") {
-  //  const privkBuf = bintools.cb58Decode(privkCB58);
-  //  privkHex = privkBuf.toString("hex");
-  //}
+  if (privkHex !== undefined && privkHex !== "") {
+   privkHex = unPrefix0x(privkHex);
+   const privkBuf = Buffer.from(privkHex, "hex");
+   privkCB58 = utils.base58check.encode(privkBuf);
+   console.log("privkCB58", privkCB58);
+  } else if (privkCB58 !== undefined && privkCB58 !== "") {
+   const privkBuf = Buffer.from(utils.base58check.decode(privkCB58));
+   privkHex = privkBuf.toString("hex");
+   console.log("privkHex", privkHex);
+  }
 
   // derive the public key coords if private key is present and check that they match
   // the public key if provided
@@ -163,6 +165,9 @@ export function context(
       throw Error('provided private key does not match the public key')
     }
     publicKeyPair = [pubX, pubY]
+    if (!publicKey) {
+      publicKey = '04' + Buffer.concat(publicKeyPair).toString('hex') // standardize
+    }
   }
 
   const path = '/ext/bc/C/rpc'

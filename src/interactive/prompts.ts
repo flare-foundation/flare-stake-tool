@@ -202,21 +202,6 @@ export const prompts = {
     return inquirer.prompt(questions)
   },
 
-  vaultId: async () => {
-    const questions = [
-      {
-        type: 'input',
-        name: 'id',
-        message:
-          chalk.magenta('Enter a ForDefi VauldId') +
-          ' ' +
-          chalk.yellow('(E.g. 42989fc9-xxxx-xxxx-xxxx-xxxxxxxxxxxx)') +
-          chalk.magenta(':')
-      }
-    ]
-    return inquirer.prompt(questions)
-  },
-
   transactionId: async () => {
     const questions = [
       {
@@ -227,33 +212,6 @@ export const prompts = {
           ' ' +
           chalk.yellow('(E.g. abc-txn)') +
           chalk.magenta(':')
-      }
-    ]
-    return inquirer.prompt(questions)
-  },
-
-  forDefiTxn: async () => {
-    const questions = [
-      {
-        type: 'list',
-        name: 'txn',
-        message: chalk.magenta('Which transaction do you want to do?'),
-        choices: ['Export funds', 'Import funds']
-      }
-    ]
-    return inquirer.prompt(questions)
-  },
-
-  forDefiContinue: async () => {
-    const questions = [
-      {
-        type: 'list',
-        name: 'isContinue',
-        message: chalk.magenta('Choose an option'),
-        choices: ['Start new transaction', 'Continue existing transaction'],
-        filter: (val: string) => {
-          return val.includes('existing') ? true : false
-        }
       }
     ]
     return inquirer.prompt(questions)
