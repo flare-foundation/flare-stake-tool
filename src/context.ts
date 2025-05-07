@@ -145,11 +145,9 @@ export function context(
    privkHex = unPrefix0x(privkHex);
    const privkBuf = Buffer.from(privkHex, "hex");
    privkCB58 = utils.base58check.encode(privkBuf);
-   console.log("privkCB58", privkCB58);
   } else if (privkCB58 !== undefined && privkCB58 !== "") {
    const privkBuf = Buffer.from(utils.base58check.decode(privkCB58));
    privkHex = privkBuf.toString("hex");
-   console.log("privkHex", privkHex);
   }
 
   // derive the public key coords if private key is present and check that they match
