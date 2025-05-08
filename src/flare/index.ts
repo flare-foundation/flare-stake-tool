@@ -81,7 +81,6 @@ async function _exportCP(
   presubmit?: PreSubmit
 ): Promise<SubmittedTxData> {
   let account = _getAccount(params.network, params.publicKey)
-  // console.log('params pk', params.publicKey, params.network)
   let unsignedTx = await txs.buildExportCTx(account, params)
   let balance = await chain.getCPBalance(account.network, account.pAddress)
   let tx = await _signAndSubmitTx(unsignedTx, sign, presubmit)

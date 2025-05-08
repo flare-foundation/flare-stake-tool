@@ -105,9 +105,6 @@ async function _getUnsignedExportCTx(
   const context = await getContext(account.network)
   const cAddress = futils.hexToBuffer(account.cAddress)
   const pAddress = futils.bech32ToBytes(account.pAddress)
-  // console.log(' address ', account.publicKey)
-  // console.log(' c address ', account.cAddress)
-  // console.log(' p address ', account.pAddress)
   const nonce = await chain.numberOfCTxs(account.network, account.cAddress)
 
   return evm.newExportTx(
@@ -480,8 +477,6 @@ export async function signAndSubmitTx(
     signedTxData.signature = signature
 
     let publicKey = pubk.recoverPublicKeyFromMsg(unsignedTxHash, signature)
-    // console.log('1 ', publicKey)
-    // console.log('2 ', unsignedTxData.txDetails.publicKey)
     if (!pubk.equalPublicKey(publicKey, unsignedTxData.txDetails.publicKey)) {
       if (unsignedTx instanceof UnsignedTx) {
         publicKey = pubk.recoverPublicKeyFromEthMsg(utils.toHex(unsignedTxHash, false), signature)
