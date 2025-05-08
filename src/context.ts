@@ -134,13 +134,13 @@ export function context(
   privkCB58?: string,
   network?: string
 ): Context {
+
   const { protocol, ip, port, networkID: _, chainID } = config
   // those two addresses should be derived for most cli applications
   let cAddressHex: string | undefined
   let addressBech32: string | undefined
 
   // derive private key in both cb58 and hex if only one is provided
-  // TODO:
   if (privkHex !== undefined && privkHex !== "") {
    privkHex = unPrefix0x(privkHex);
    const privkBuf = Buffer.from(privkHex, "hex");

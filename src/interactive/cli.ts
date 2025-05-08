@@ -9,7 +9,6 @@ import {
   DerivedAddress,
   ScreenConstantsInterface
 } from '../interfaces'
-import { taskConstants, walletConstants } from '../constants/screen'
 import { contextEnv, getContext } from '../context'
 import { prompts } from './prompts'
 import {
@@ -39,31 +38,31 @@ export async function interactiveCli(baseargv: string[]) {
     if (!walletProperties) {
       throw new Error('Cannot connect to wallet')
     }
-    const task = await selectTask()
+    const task = String(await selectTask())
     const program = new Command('Flare Stake Tool')
     await cli(program)
 
     // First 4 info functions
-    if (Object.keys(taskConstants).slice(0, 4).includes(task.toString())) {
+    if (["addresses", "balance", "network", "validators"].includes(task)) {
       if (
-        walletProperties.wallet == Object.keys(walletConstants)[0]
+        walletProperties.wallet == "ledger"
       ) {
         const argsInfo = [
           ...baseargv.slice(0, 2),
           'info',
-          taskConstants[task],
+          task,
           `--ctx-file=ctx.json`
         ]
         await program.parseAsync(argsInfo)
       } else if (
-        walletProperties.wallet == Object.keys(walletConstants)[1] &&
+        walletProperties.wallet == "privateKey" &&
         walletProperties.path &&
         walletProperties.network
       ) {
         const argsInfo = [
           ...baseargv.slice(0, 2),
           'info',
-          taskConstants[task],
+          task,
           `--env-path=${walletProperties.path}`,
           `--network=${walletProperties.network}`,
           '--get-hacked'
@@ -75,8 +74,8 @@ export async function interactiveCli(baseargv: string[]) {
     }
 
     // Functions for export and import to move funds between chains
-    else if (Object.keys(taskConstants).slice(4, 6).includes(task.toString())) {
-      if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists('ctx.json')) {
+    else if (task == "CP" || task == "PC") {
+      if (walletProperties.wallet == "ledger" && fileExists('ctx.json')) {
         const {
           network: ctxNetwork,
           derivationPath: ctxDerivationPath,
@@ -87,7 +86,7 @@ export async function interactiveCli(baseargv: string[]) {
           const argsExport = [
             ...baseargv.slice(0, 2),
             'transaction',
-            `export${taskConstants[task].slice(-2)}`,
+            `export${task}`,
             '-a',
             `${amount.amount}`,
             '--blind',
@@ -98,7 +97,7 @@ export async function interactiveCli(baseargv: string[]) {
             '--ledger'
           ]
           // ask for fees if its exportCP transaction
-          if (taskConstants[task].slice(0, 1) == 'C') {
+          if (task.slice(0, 1) == 'C') {
             const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE)
             argsExport.push('-f', `${exportFees.fees}`)
             // for exportCP we wait for the finalization before doing import
@@ -113,7 +112,7 @@ export async function interactiveCli(baseargv: string[]) {
           const argsImport = [
             ...baseargv.slice(0, 2),
             'transaction',
-            `import${taskConstants[task].slice(-2)}`,
+            `import${task}`,
             '--blind',
             '--derivation-path',
             ctxDerivationPath,
@@ -122,7 +121,7 @@ export async function interactiveCli(baseargv: string[]) {
             '--ledger'
           ]
           // ask for fees if its importTxPC
-          if (taskConstants[task].slice(0, 1) == 'P') {
+          if (task.slice(0, 1) == 'P') {
             const importFees = await prompts.fees(DEFAULT_EVM_TX_FEE)
             argsImport.push('-f', `${importFees.fees}`)
           }
@@ -132,16 +131,16 @@ export async function interactiveCli(baseargv: string[]) {
           console.log('Missing params in ctx file')
         }
       } else if (
-        walletProperties.wallet == Object.keys(walletConstants)[1] &&
+        walletProperties.wallet == "privateKey" &&
         walletProperties.network &&
         walletProperties.path
       ) {
-        // // explicitly throw error when ctx.json doesn't exist
+        // explicitly throw error when ctx.json doesn't exist
         const amount = await prompts.amount()
         const argsExport = [
           ...baseargv.slice(0, 2),
           'transaction',
-          `export${taskConstants[task].slice(-2)}`,
+          `export${task}`,
           '-a',
           `${amount.amount}`,
           `--env-path=${walletProperties.path}`,
@@ -149,7 +148,7 @@ export async function interactiveCli(baseargv: string[]) {
           '--get-hacked'
         ]
         // ask for fees if its exportCP transaction
-        if (taskConstants[task].slice(0, 1) == 'C') {
+        if (task.slice(0, 1) == 'C') {
           const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE)
           argsExport.push('-f', `${exportFees.fees}`)
           await waitFinalize<any>(
@@ -163,13 +162,13 @@ export async function interactiveCli(baseargv: string[]) {
         const argsImport = [
           ...baseargv.slice(0, 2),
           'transaction',
-          `import${taskConstants[task].slice(-2)}`,
+          `import${task}`,
           `--env-path=${walletProperties.path}`,
           `--network=${walletProperties.network}`,
           '--get-hacked'
         ]
         // ask for fees if its importTxPC
-        if (taskConstants[task].slice(0, 1) == 'P') {
+        if (task.slice(0, 1) == 'P') {
           const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE)
           argsImport.push('-f', `${exportFees.fees}`)
         }
@@ -180,8 +179,8 @@ export async function interactiveCli(baseargv: string[]) {
     }
 
     // Adding a validator
-    else if (Object.keys(taskConstants)[6] == task.toString()) {
-      if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists('ctx.json')) {
+    else if ("stake" == task) {
+      if (walletProperties.wallet == "ledger" && fileExists('ctx.json')) {
         const {
           network: ctxNetwork,
           derivationPath: ctxDerivationPath,
@@ -199,7 +198,7 @@ export async function interactiveCli(baseargv: string[]) {
             delegationFee,
             popBLSPublicKey,
             popBLSSignature
-          } = await getDetailsForDelegation(taskConstants[task])
+          } = await getDetailsForDelegation(task)
           if (
             ctxNetwork &&
             ctxDerivationPath &&
@@ -210,7 +209,7 @@ export async function interactiveCli(baseargv: string[]) {
             const argsValidator = [
               ...baseargv.slice(0, 2),
               'transaction',
-              taskConstants[task],
+              task,
               '-n',
               `${nodeId}`,
               '-a',
@@ -238,7 +237,7 @@ export async function interactiveCli(baseargv: string[]) {
           }
         }
       } else if (
-        walletProperties.wallet == Object.keys(walletConstants)[1] &&
+        walletProperties.wallet == "privateKey" &&
         walletProperties.network &&
         walletProperties.path
       ) {
@@ -251,11 +250,11 @@ export async function interactiveCli(baseargv: string[]) {
           delegationFee,
           popBLSPublicKey,
           popBLSSignature
-        } = await getDetailsForDelegation(taskConstants[task])
+        } = await getDetailsForDelegation(task)
         const argsValidator = [
           ...baseargv.slice(0, 2),
           'transaction',
-          taskConstants[task],
+          task,
           '-n',
           `${nodeId}`,
           `--network=${walletProperties.network}`,
@@ -281,8 +280,8 @@ export async function interactiveCli(baseargv: string[]) {
     }
 
     // Delegating to a Validator
-    else if (Object.keys(taskConstants)[7] == task.toString()) {
-      if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists('ctx.json')) {
+    else if ("delegate" == task) {
+      if (walletProperties.wallet == "ledger" && fileExists('ctx.json')) {
         const {
           network: ctxNetwork,
           derivationPath: ctxDerivationPath,
@@ -293,12 +292,12 @@ export async function interactiveCli(baseargv: string[]) {
         if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
 
           const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(
-            taskConstants[task]
+            task
           )
           const argsDelegate = [
             ...baseargv.slice(0, 2),
             'transaction',
-            taskConstants[task],
+            task,
             '-n',
             `${nodeId}`,
             '-a',
@@ -319,18 +318,18 @@ export async function interactiveCli(baseargv: string[]) {
           console.log('Missing params in ctx file')
         }
       } else if (
-        walletProperties.wallet == Object.keys(walletConstants)[1] &&
+        walletProperties.wallet == "privateKey" &&
         walletProperties.network &&
         walletProperties.path
       ) {
 
         const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(
-          taskConstants[task]
+          task
         )
         const argsDelegate = [
           ...baseargv.slice(0, 2),
           'transaction',
-          taskConstants[task],
+          task,
           '-n',
           `${nodeId}`,
           `--network=${walletProperties.network}`,
@@ -345,31 +344,31 @@ export async function interactiveCli(baseargv: string[]) {
         ]
         await program.parseAsync(argsDelegate)
       } else {
-        console.log('only pvt key and ledger supported for delegation right now')
+        console.log('only private key and ledger are supported for delegation')
       }
     }
 
     // Mirror funds
-    else if (Object.keys(taskConstants)[8] == task.toString()) {
+    else if ("mirror" == task) {
       if (
-        walletProperties.wallet == Object.keys(walletConstants)[0]
+        walletProperties.wallet == "ledger"
       ) {
         const argsInfo = [
           ...baseargv.slice(0, 2),
           'info',
-          taskConstants[task],
+          task,
           `--ctx-file=ctx.json`
         ]
         await program.parseAsync(argsInfo)
       } else if (
-        walletProperties.wallet == Object.keys(walletConstants)[1] &&
+        walletProperties.wallet == "privateKey" &&
         walletProperties.path &&
         walletProperties.network
       ) {
         const argsInfo = [
           ...baseargv.slice(0, 2),
           'info',
-          taskConstants[task],
+          task,
           `--env-path=${walletProperties.path}`,
           `--network=${walletProperties.network}`,
           '--get-hacked'
@@ -379,13 +378,13 @@ export async function interactiveCli(baseargv: string[]) {
         console.log('Incorrect arguments passed!')
       }
     }
-    else if (Object.keys(taskConstants)[9] == task.toString()) {
+    else if ("import" == task) {
       const importDestChain = await prompts.importTrxType()
       let trxType
       if (importDestChain.type == 'P') trxType = 'CP'
       if (importDestChain.type == 'C') trxType = 'PC'
 
-      if (walletProperties.wallet == Object.keys(walletConstants)[0] && fileExists('ctx.json')) {
+      if (walletProperties.wallet == "ledger" && fileExists('ctx.json')) {
         const { network: ctxNetwork, derivationPath: ctxDerivationPath } =
           readInfoFromCtx('ctx.json')
         if (ctxNetwork && ctxDerivationPath) {
@@ -410,7 +409,7 @@ export async function interactiveCli(baseargv: string[]) {
           console.log('Missing params in ctx file')
         }
       } else if (
-        walletProperties.wallet == Object.keys(walletConstants)[1] &&
+        walletProperties.wallet == "privateKey" &&
         walletProperties.network &&
         walletProperties.path
       ) {
@@ -435,7 +434,7 @@ export async function interactiveCli(baseargv: string[]) {
     }
 
     // exit the interactive cli
-    else if (Object.keys(taskConstants)[10] == task.toString()) {
+    else if ("quit" == task) {
       // exit the application
       logInfo('Exiting interactive cli.')
       process.exit(0)
@@ -449,12 +448,18 @@ async function connectWallet(): Promise<ConnectWalletInterface> {
   const walletPrompt = await prompts.connectWallet()
   const wallet: string = walletPrompt.wallet
 
-  if (wallet == Object.keys(walletConstants)[1]) {
+  if (wallet == "privateKey") {
     const pvtKeyPath = await prompts.pvtKeyPath()
     const path = pvtKeyPath.pvtKeyPath
+    // check if the file exists
+    if (!fileExists(path)) {
+      throw new Error("File doesn't exist")
+    }
     const network = await selectNetwork()
+    // check if the file is a valid private key
+    contextEnv(path, network)
     return { wallet, path, network }
-  } else if (wallet == Object.keys(walletConstants)[0]) {
+  } else if (wallet == "ledger") {
     const isCreateCtx = await getCtxStatus(wallet)
     let network
     if (isCreateCtx) {
@@ -546,7 +551,7 @@ async function getCtxStatus(wallet: string): Promise<boolean> {
       return isCreateCtx
     }
     console.log(
-      chalk.magenta('You already have an existing Ctx file with the following parameters - ')
+      chalk.magenta('You already have an existing Ctx file with the following parameters:')
     )
     console.log(chalk.hex('#FFA500')('Public Key:'), ctxPublicKey)
     console.log(chalk.hex('#FFA500')('Network:'), ctxNetwork)
@@ -628,30 +633,6 @@ async function getDetailsForDelegation(task: string): Promise<DelegationDetailsI
 //  }
 //  return delegationDetails
 //}
-
-function makeForDefiArguments(txnType: string, baseargv: string[], txnId: string) {
-  if (txnType == 'sign') {
-    const argsSign = [...baseargv.slice(0, 2), 'forDefi', 'sign', '-i', `${txnId}`]
-    return argsSign
-  }
-  if (txnType == 'fetch') {
-    const argsFetch = [...baseargv.slice(0, 2), 'forDefi', 'fetch', '-i', `${txnId}`]
-    return argsFetch
-  }
-  if (txnType == 'send') {
-    const argsSign = [...baseargv.slice(0, 2), 'send', '-i', `${txnId}`]
-    return argsSign
-  }
-  return []
-}
-
-/**
- * @description - Get the prompts address
- * @returns - prompts address
- */
-// async function getPromptsAddress() {
-//   return (await prompts.receiverAddress()).address;
-// }
 
 export async function getPathsAndAddresses(
   network: string,

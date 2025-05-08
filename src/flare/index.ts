@@ -197,8 +197,8 @@ async function _waitForBalanceChange(startBalance: BN, balance: () => Promise<BN
 export async function addDelegator(
   params: DelegatorPTxParams,
   sign: Sign,
+  validate?: boolean,
   presubmit?: PreSubmit,
-  validate?: boolean
 ): Promise<string> {
   let account = _getAccount(params.network, params.publicKey)
   let stakes = await chain.getPStakes(account.network)
@@ -224,8 +224,8 @@ export async function addDelegator(
 export async function addValidator(
   params: ValidatorPTxParams,
   sign: Sign,
-  presubmit?: PreSubmit,
-  validate?: boolean
+  validate?: boolean,
+  presubmit?: PreSubmit
 ): Promise<string> {
   let account = _getAccount(params.network, params.publicKey)
   if (validate) {
@@ -275,7 +275,7 @@ async function _checkNodeId(
   }
   let nodeIds = stakes.filter((s) => s.type === 'validator').map((s) => s.nodeId)
   if (!nodeIds.includes(nodeId)) {
-    throw new Error(`Unkown node id`)
+    throw new Error(`Unknown node id`)
   }
 }
 

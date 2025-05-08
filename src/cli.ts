@@ -497,7 +497,7 @@ async function buildAndSendTxUsingPrivateKey(
   } else if (transactionType === 'stake') {
     return await addValidator(ctx, params)
   } else if (transactionType === 'delegate') {
-    return addDelegator(ctx, params)
+    return await addDelegator(ctx, params)
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
   }
@@ -684,7 +684,7 @@ async function cliBuildAndSendTxUsingLedger(
       network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!),
-      delegationFee: Number(params.delegationFee) ?? 0,
+      delegationFee: Number(params.delegationFee)  * 1e4, // default fee is 10%
       nodeId: params.nodeId!,
       popBLSPublicKey: futils.hexToBuffer(params.popBlsPublicKey!),
       popBLSSignature: futils.hexToBuffer(params.popBlsSignature!),
@@ -696,7 +696,7 @@ async function cliBuildAndSendTxUsingLedger(
       useConsumableUTXOs: false,
       customUTXOs: []
     }
-    await flare.addValidator(tp, sign)
+    await flare.addValidator(tp, sign, true)
     return
   } else if (transactionType === 'delegate') {
     logInfo('Creating delegate transaction...')
@@ -714,7 +714,7 @@ async function cliBuildAndSendTxUsingLedger(
       customUTXOs: []
     }
     // let presubmit =  null (): Promise<boolean> => new Promise(() => false)
-    await flare.addDelegator(tp, sign)
+    await flare.addDelegator(tp, sign, true)
     return
   }
 }

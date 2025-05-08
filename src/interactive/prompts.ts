@@ -165,7 +165,11 @@ export const prompts = {
         type: 'list',
         name: 'task',
         message: chalk.magenta('What do you want to do?'),
-        choices: [...Object.keys(taskConstants)]
+        choices: [...Object.values(taskConstants)],
+        filter: (val: string) => {
+          const key = Object.keys(taskConstants).find((key) => taskConstants[key] == val)
+          return key
+        }
       }
     ]
     return inquirer.prompt(questions)

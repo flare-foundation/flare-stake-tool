@@ -5,17 +5,17 @@ import { ScreenConstantsInterface } from '../interfaces'
  * @description Object that contains list of tasks user can perform as its keys and their corresponding CLI commands as values.
  */
 export const taskConstants: ScreenConstantsInterface = {
-  'View chain addresses': 'addresses',
-  'Check on-chain balance': 'balance',
-  'Get network info': 'network',
-  'Get validator info': 'validators',
-  'Move assets from C-chain to P-chain': 'CP',
-  'Move assets from P-chain to C-chain': 'PC',
-  'Add a validator node': 'stake',
-  'Delegate to a validator node': 'delegate',
-  'Get Mirror fund details': 'mirror',
-  'Import Funds (in case export fails for either P chain or C chain)': 'import',
-  'Quit': 'quit'
+  'addresses': 'View chain addresses',
+  'balance': 'Check on-chain balance',
+  'network': 'Get network info',
+  'validators': 'Get validator info',
+  'CP': 'Move assets from C-chain to P-chain',
+  'PC': 'Move assets from P-chain to C-chain',
+  'stake': 'Add a validator node',
+  'delegate': 'Delegate to a validator node',
+  'mirror': 'Get Mirror fund details',
+  'import': 'Import Funds (in case export fails for either P chain or C chain)',
+  'quit': 'Quit'
 }
 
 /**
@@ -25,7 +25,7 @@ export const networkConstants: ScreenConstantsInterface = {
   "flare": "Flare " + chalk.green("(mainnet)"),
   "songbird": "Songbird " + chalk.green("(canary)"),
   "costwo": "Coston2 " + chalk.yellow("(testnet)"),
-  "coston": "Coston" + chalk.yellow("(testnet)"),
+  "coston": "Coston " + chalk.yellow("(testnet)"),
   "localflare": "LocalHost " + chalk.red("(devnet)"),
 }
 
