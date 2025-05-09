@@ -356,7 +356,7 @@ export function saveUnsignedTxJson(
   unsignedTxJson: UnsignedTxJson,
   id: string,
   dir?: string,
-): void {
+): string {
   if (dir === undefined) {
     dir = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}`;
   }
@@ -372,6 +372,7 @@ export function saveUnsignedTxJson(
   };
   const serialization = JSON.stringify(unsignedTxJsonForDefi, null, 2);
   fs.writeFileSync(fname, serialization);
+  return forDefiHash;
 }
 
 export function readUnsignedTxJson(id: string): UnsignedTxJson {

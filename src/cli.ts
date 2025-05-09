@@ -29,10 +29,10 @@ import {
   initCtxJson,
   publicKeyToEthereumAddressString,
   validatePublicKey,
-  saveUnsignedTxJson,
   isAlreadySentToChain,
   addFlagForSentSignedTx,
-  readSignedTxJson
+  readSignedTxJson,
+  saveUnsignedTxJson
 } from './utils'
 import { createOptOutTransaction, createWithdrawalTransaction, sendSignedEvmTransaction } from './forDefi/evmTx'
 import { log, logError, logInfo, logSuccess } from './output'
@@ -221,7 +221,7 @@ export async function cli(program: Command) {
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
     const ctx = await contextFromOptions(options)
-    await buildUnsignedOptOutTxJson(ctx, options.to, options.amount, options.transactionId, options.nonce)
+    await buildUnsignedOptOutTxJson(ctx, options.transactionId, options.nonce)
   })
 }
 
@@ -741,8 +741,9 @@ async function cliBuildAndSaveUnsignedTxJson(
     unsignedTransactionBuffer: txBuffer,
     serialization: JSON.stringify(unsignedTx.toJSON()),
   }
-  saveUnsignedTxJson(unsignedTxJson, id);
+  const forDefiHash = saveUnsignedTxJson(unsignedTxJson, id);
   logSuccess(`Unsigned transaction ${id} constructed`);
+  logSuccess(`ForDefi hash: ${forDefiHash}`);
 }
 
 async function cliSendSignedTxJson(ctx: Context, id: string): Promise<void> {
@@ -803,11 +804,13 @@ async function buildUnsignedWithdrawalTxJson(
   id: string,
   nonce: number
 ): Promise<void> {
-  const fileId = await createWithdrawalTransaction(ctx, to, amount, id, nonce)
-  logSuccess(`Transaction ${fileId} constructed`)
+  const forDefiHash = await createWithdrawalTransaction(ctx, to, amount, id, nonce)
+  logSuccess(`Transaction ${id} constructed`)
+  logSuccess(`ForDefi hash: ${forDefiHash}`)
 }
 
-async function buildUnsignedOptOutTxJson(ctx: Context, to: string, amount: number, id: string, nonce: number): Promise<void> {
-  const fileId = await createOptOutTransaction(ctx, id, nonce)
-  logSuccess(`Transaction ${fileId} constructed`)
+async function buildUnsignedOptOutTxJson(ctx: Context, id: string, nonce: number): Promise<void> {
+  const forDefiHash = await createOptOutTransaction(ctx, id, nonce)
+  logSuccess(`Transaction ${id} constructed`)
+  logSuccess(`ForDefi hash: ${forDefiHash}`)
 }
