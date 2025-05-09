@@ -14,10 +14,10 @@ import { distributionToDelegatorsABI, flareContractRegistryABI, flareContractReg
  * @param nonce - nonce
  * @returns returns the file id
  */
-export async function createWithdrawalTransaction(ctx: Context, toAddress: string, amount: number, id: string, nonce: number): Promise<string> {
-
+export async function createWithdrawalTransaction(ctx: Context, toAddress: string, amount: number, fileId: string, nonce: number): Promise<string>
+{
     const web3 = ctx.web3;
-    const txNonce = nonce ?? String(await web3.eth.getTransactionCount(ctx.cAddressHex));
+    const txNonce = nonce ?? Number(await web3.eth.getTransactionCount(ctx.cAddressHex));
 
     let amountWei = BigInt(amount) * BigInt(10 ** 9) // amount is already in nanoFLR
 
@@ -35,18 +35,19 @@ export async function createWithdrawalTransaction(ctx: Context, toAddress: strin
 
     // serialized unsigned transaction
     const ethersTx = Transaction.from(rawTx)
-    let hash = unPrefix0x(ethersTx.unsignedHash);
+    const hash = unPrefix0x(ethersTx.unsignedHash);
+    const forDefiHash = Buffer.from(hash, 'hex').toString('base64');
 
     const unsignedTx = <UnsignedEvmTxJson> {
         transactionType: 'EVM',
         rawTx: rawTx,
         message: hash,
-        forDefiHash: Buffer.from(hash, 'hex').toString('base64')
+        forDefiHash: forDefiHash
     }
     // save tx data
-    saveUnsignedEvmTx(unsignedTx, id);
+    saveUnsignedEvmTx(unsignedTx, fileId);
 
-    return id;
+    return forDefiHash;
 }
 
 /**
@@ -56,7 +57,7 @@ export async function createWithdrawalTransaction(ctx: Context, toAddress: strin
  * @param nonce - nonce
  * @returns returns the file id
  */
-export async function createOptOutTransaction(ctx: Context, id: string, nonce: number): Promise<string> {
+export async function createOptOutTransaction(ctx: Context, fileId: string, nonce: number): Promise<string> {
 
     const web3 = ctx.web3;
 
@@ -88,17 +89,18 @@ export async function createOptOutTransaction(ctx: Context, id: string, nonce: n
     // serialized unsigned transaction
     const ethersTx = Transaction.from(rawTx)
     const hash = unPrefix0x(ethersTx.unsignedHash);
+    const forDefiHash = Buffer.from(hash, 'hex').toString('base64');
 
     const unsignedTx = <UnsignedEvmTxJson> {
         transactionType: 'EVM',
         rawTx: rawTx,
         message: hash,
-        forDefiHash: Buffer.from(hash, 'hex').toString('base64')
+        forDefiHash: forDefiHash
     }
     // save tx data
-    saveUnsignedEvmTx(unsignedTx, id);
+    saveUnsignedEvmTx(unsignedTx, fileId);
 
-    return id;
+    return forDefiHash;
 }
 
 /**
