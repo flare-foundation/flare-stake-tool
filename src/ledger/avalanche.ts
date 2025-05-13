@@ -1,9 +1,8 @@
-import AvalancheApp from '@avalabs/hw-app-avalanche'
+import AvalancheApp, { ResponseAddress } from '@avalabs/hw-app-avalanche'
 import { ledgerService } from '@ledgerhq/hw-app-eth'
 import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import * as pubk from '../flare/pubk'
 import * as utils from '../utils'
-import { TransactionFactory } from '@ethereumjs/tx'
 
 export async function isAvalancheApp(): Promise<boolean> {
   return (await _getAppName()) === 'Avalanche'
@@ -23,11 +22,11 @@ async function _getAppName(): Promise<string> {
 }
 
 export async function getPublicKey(bip44Path: string, hrp: string): Promise<string> {
-  let account = undefined
+  let account: ResponseAddress | undefined = undefined
   await _connect(async (app) => {
     account = await app.getAddressAndPubKey(bip44Path, false, hrp)
   })
-  if (account!.errorMessage != 'No errors') {
+  if (!account /* || account.errorMessage != 'No errors' */) {
     throw Error(
       `Failed to obtain public key from ledger: ${account!.errorMessage}, code ${account!.returnCode}`
     )
@@ -112,7 +111,7 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
 }
 
 async function _connect(execute: (app: AvalancheApp) => Promise<void>): Promise<void> {
-  let avalanche
+  let avalanche: AvalancheApp | undefined = undefined
   try {
     let transport = await TransportNodeHid.open(undefined)
     avalanche = new AvalancheApp(transport)

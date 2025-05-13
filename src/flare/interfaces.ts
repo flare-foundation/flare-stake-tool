@@ -88,7 +88,7 @@ export interface ImportCTxParams extends TxParams {
     importFee: BN
 }
 
-export interface ImportPTxParams extends TxParams { }
+export type ImportPTxParams = TxParams
 
 export interface StakePTxParams extends TxParams {
     nodeId: string,

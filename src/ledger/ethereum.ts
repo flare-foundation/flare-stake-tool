@@ -2,7 +2,6 @@ import EthApp, { ledgerService } from '@ledgerhq/hw-app-eth'
 import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import * as pubk from '../flare/pubk'
 import * as utils from '../utils'
-import { TransactionFactory } from '@ethereumjs/tx'
 
 export async function isEthereumApp() {
   let eth = false
