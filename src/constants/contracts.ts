@@ -15,8 +15,8 @@ export const defaultContractAddresses: ContractAddressesInterface = {
   {
       flare: "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019",
       costwo: "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019",
-      songbird: "",
-      coston: ""
+      songbird: "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019",
+      coston: "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019"
   },
   PChainStakeMirror:
   {

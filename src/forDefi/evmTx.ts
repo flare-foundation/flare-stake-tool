@@ -19,7 +19,7 @@ export async function createWithdrawalTransaction(ctx: Context, toAddress: strin
     const web3 = ctx.web3;
     const txNonce = nonce ?? Number(await web3.eth.getTransactionCount(ctx.cAddressHex));
 
-    let amountWei = BigInt(amount) * BigInt(10 ** 9) // amount is already in nanoFLR
+    const amountWei = BigInt(amount) * BigInt(10 ** 9) // amount is already in nanoFLR
 
     // check if address is valid
     web3.utils.toChecksumAddress(toAddress);

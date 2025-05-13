@@ -33,7 +33,7 @@ async function getContractAddress(
   const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
 
   const abi = getFlareContractRegistryABI() as ethers.ContractInterface;
-  if (network != "flare" && network != "costwo")
+  if (network != "flare" && network != "costwo" && network != "coston" && network != "songbird")
     throw new Error("Invalid network passed");
   const contract = new ethers.Contract(
     defaultContractAddresses.FlareContractRegistry[network],
