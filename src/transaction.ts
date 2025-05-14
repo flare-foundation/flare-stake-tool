@@ -25,14 +25,17 @@ export async function exportCP(ctx: Context, params: FlareTxParams) {
   const provider = new JsonRpcProvider(settings.URL[ctx.config.hrp] + '/ext/bc/C/rpc')
   const evmapi = new evm.EVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
-  const txCount = await provider.getTransactionCount(ctx.cAddressHex!)
+  if (!ctx.cAddressHex) {
+    throw new Error('cAddressHex is undefined or null');
+  }
+  const txCount = await provider.getTransactionCount(ctx.cAddressHex)
   const baseFee = await evmapi.getBaseFee()
   const exportTx = evm.newExportTxFromBaseFee(
     context,
     baseFee / BigInt(FLR),
     BigInt(params.amount!),
     context.pBlockchainID,
-    futils.hexToBuffer(ctx.cAddressHex!),
+    futils.hexToBuffer(ctx.cAddressHex),
     [futils.bech32ToBytes(ctx.pAddressBech32!)],
     BigInt(txCount)
   )
@@ -94,7 +97,6 @@ export async function exportPC(ctx: Context, params: FlareTxParams) {
   return { txid: (await pvmapi.issueSignedTx(exportTx.getSignedTx())).txID }
 }
 export async function importPC(ctx: Context, params: FlareTxParams) {
-  const provider = new JsonRpcProvider(settings.URL[ctx.config.hrp] + '/ext/bc/C/rpc')
   const evmapi = new evm.EVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const baseFee = await evmapi.getBaseFee()
@@ -162,7 +164,7 @@ export async function addDelegator(ctx: Context, params: FlareTxParams) {
   const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
   const start = BigInt(params.startTime!)
   const end = BigInt(params.endTime!)
-  const nodeID = params?.nodeId!
+  const nodeID = params?.nodeId as string
 
   const tx = pvm.newAddPermissionlessDelegatorTx(
     context,

@@ -1,9 +1,6 @@
 import fs from 'fs'
 import Web3 from 'web3'
-//import { BinTools, Buffer as FlrBuffer } from "@flarenetwork/flarejs";
 import { utils } from '@flarenetwork/flarejs';
-//import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
-//import { PlatformVMAPI as PVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
 import { Context, ContextFile } from './interfaces'
 import {
   flare,
@@ -15,13 +12,13 @@ import {
   NetworkConfig
 } from './constants/network'
 import {
-  // unPrefix0x,
   publicKeyToBech32AddressString,
   publicKeyToEthereumAddressString,
   privateKeyToPublicKey,
   decodePublicKey,
   unPrefix0x
 } from './utils'
+import * as dotenv from 'dotenv';
 
 /**
  * @param network
@@ -49,7 +46,7 @@ export function readContextFile(ctxFile: string): ContextFile {
  * @returns - returns the context from .env file
  */
 export function contextEnv(path: string, network: string): Context {
-  require('dotenv').config({ path: path })
+  dotenv.config({ path: path })
   return getContext(
     network,
     process.env.PUBLIC_KEY,

@@ -1,5 +1,3 @@
-import { songbird } from "./constants/network"
-
 type NetworkId = {
     [key: string]: string
 }

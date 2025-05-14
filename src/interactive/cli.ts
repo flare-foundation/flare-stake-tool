@@ -40,7 +40,7 @@ export async function interactiveCli(baseargv: string[]) {
     }
     const task = String(await selectTask())
     const program = new Command('Flare Stake Tool')
-    await cli(program)
+    cli(program)
 
     // First 4 info functions
     if (["addresses", "balance", "network", "validators"].includes(task)) {
@@ -502,7 +502,7 @@ function fileExists(filePath: string): boolean {
 
 function readInfoFromCtx(_filePath: string): ContextFile {
   const ctxContent = fs.readFileSync('ctx.json', 'utf-8')
-  const ctxData = JSON.parse(ctxContent)
+  const ctxData = JSON.parse(ctxContent) as ContextFile
 
   const wallet = ctxData.wallet
   const publicKey = ctxData.publicKey
@@ -523,7 +523,7 @@ function readInfoFromCtx(_filePath: string): ContextFile {
   }
 }
 
-async function createChoicesFromAddress(pathList: DerivedAddress[]) {
+function createChoicesFromAddress(pathList: DerivedAddress[]): string[] {
   const choiceList: string[] = []
 
   for (let i = 0; i < 10; i++) {
@@ -673,7 +673,7 @@ async function selectDerivationPath(network: string) {
   const derivation = derivationTypePrompt.derivation
   console.log('Fetching Addresses...')
   const pathList: DerivedAddress[] = await getPathsAndAddresses(network, derivation)
-  const choiceList = await createChoicesFromAddress(pathList)
+  const choiceList = createChoicesFromAddress(pathList)
   const selectedAddress = await prompts.selectAddress(choiceList)
   const selectedDerivedAddress = pathList.find((item) => item.ethAddress == selectedAddress.address)
   const selectedDerivationPath = selectedDerivedAddress?.derivationPath

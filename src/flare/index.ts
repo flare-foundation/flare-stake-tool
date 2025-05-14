@@ -1,6 +1,5 @@
 import {
   Account,
-  AccountState,
   DelegatorPTxParams,
   ExportCTxParams,
   ExportPTxParams,

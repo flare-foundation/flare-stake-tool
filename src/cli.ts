@@ -5,7 +5,6 @@ import {
   ImportPTxParams,
   ExportCTxParams,
   TxDetails,
-  TxSummary,
   ValidatorPTxParams,
   DelegatorPTxParams
 } from './flare/interfaces'
@@ -39,7 +38,6 @@ import { log, logError, logInfo, logSuccess } from './output'
 import * as ledger from './ledger'
 import * as flare from './flare'
 import * as settings from './settings'
-import { StakeParams } from './ui/interfaces'
 import { getPBalance } from './flare/chain'
 import { JsonRpcProvider } from 'ethers'
 import { BN } from 'bn.js'
@@ -48,7 +46,6 @@ import { getSignature, sendToForDefi } from './forDefi/transaction'
 import { fetchMirrorFunds } from './contracts'
 
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
-const FLR = 1e9 // one FLR in nanoFLR
 
 // mapping from network to symbol
 const networkTokenSymbol: { [index: string]: string } = {
@@ -59,7 +56,7 @@ const networkTokenSymbol: { [index: string]: string } = {
   localflare: 'PHT'
 }
 
-export async function cli(program: Command) {
+export function cli(program: Command): void {
   // global configurations
   program
     .option('--network <network>', 'Network name (flare|songbird|costwo|coston|localflare)')
@@ -87,7 +84,7 @@ export async function cli(program: Command) {
     .option('-p, --public-key <public-key>', 'Public key of the account')
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
-      initCtxJsonFromOptions(options)
+      await initCtxJsonFromOptions(options)
     })
   // information about the network
   program
@@ -145,14 +142,14 @@ export async function cli(program: Command) {
           type,
           ctx,
           options as FlareTxParams,
-          options.blind,
-          options.derivationPath
+          options.blind as boolean,
+          options.derivationPath as string
         )
       } else {
         await cliBuildAndSaveUnsignedTxJson(
           type,
           ctx,
-          options.transactionId,
+          options.transactionId as string,
           options as FlareTxParams,
         );
       }
@@ -168,7 +165,7 @@ export async function cli(program: Command) {
     .action(async (options: OptionValues) => {
       options = getOptions(program, options);
       const ctx = await contextFromOptions(options);
-      await cliSendSignedTxJson(ctx, options.transactionId);
+      await cliSendSignedTxJson(ctx, options.transactionId as string);
     });
   // forDefi signing
   program
@@ -180,7 +177,13 @@ export async function cli(program: Command) {
     .option("--evm-tx", "Regular EVM transaction")
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options);
+      if (typeof options.transactionId !== 'string') {
+        throw new Error('Option --blind must be a string');
+      }
       if (type == "sign") {
+      if (typeof options.ctxFile !== 'string') {
+        throw new Error('Option --ctx-file must be a string');
+      }
         if (options.evmTx) {
           await signForDefi(options.transactionId, options.ctxFile, true);
         } else {
@@ -207,10 +210,10 @@ export async function cli(program: Command) {
       const ctx = await contextFromOptions(options)
         await buildUnsignedWithdrawalTxJson(
           ctx,
-          options.to,
-          options.amount,
-          options.transactionId,
-          options.nonce
+          options.to as string,
+          options.amount as number,
+          options.transactionId as string,
+          options.nonce as number
         )
     })
   // opt out
@@ -221,7 +224,7 @@ export async function cli(program: Command) {
   .action(async (options: OptionValues) => {
     options = getOptions(program, options)
     const ctx = await contextFromOptions(options)
-    await buildUnsignedOptOutTxJson(ctx, options.transactionId, options.nonce)
+    await buildUnsignedOptOutTxJson(ctx, options.transactionId as string, options.nonce as number)
   })
 }
 
@@ -233,13 +236,13 @@ export async function cli(program: Command) {
 export async function contextFromOptions(options: OptionValues): Promise<Context> {
   if (options.ledger) {
     logInfo('Fetching account from ledger...')
-    const publicKey = await ledger.getPublicKey(options.derivationPath, options.network)
-    const ctx = getContext(options.network, publicKey)
+    const publicKey = await ledger.getPublicKey(options.derivationPath as string, options.network as string)
+    const ctx = getContext(options.network as string, publicKey)
     return ctx
   } else if (options.envPath) {
-    return contextEnv(options.envPath, options.network)
+    return contextEnv(options.envPath as string, options.network as string)
   } else {
-    return contextFile(options.ctxFile)
+    return contextFile(options.ctxFile as string)
   }
 }
 
@@ -251,13 +254,13 @@ export async function contextFromOptions(options: OptionValues): Promise<Context
  * @returns - network
  */
 export function networkFromOptions(options: OptionValues): string {
-  let network = options.network
+  let network = options.network as string
   if (network == undefined) {
     try {
-      network = networkFromContextFile(options.ctxFile);
-      // TODO:
-    } catch (e) {
+      network = networkFromContextFile(options.ctxFile as string);
+    } catch (e: any) {
       network = 'flare'
+      logError(`Error ${e}. No network was passed and no context file was found. Defaulting to flare network`)
     }
   }
   logInfo(`Using network: ${network}`)
@@ -273,11 +276,15 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
   const allOptions: OptionValues = { ...program.opts(), ...options }
   const network = networkFromOptions(allOptions)
   // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
-  if (allOptions.amount) {
-    allOptions.amount = decimalToInteger(allOptions.amount.replace(/,/g, ''), 9)
+  if (allOptions.amount !== undefined) {
+    if (typeof allOptions.amount !== 'string') {
+      throw new Error('Option --amount must be a string');
+    }
+    const cleanedAmount = allOptions.amount.replace(/,/g, '');
+    allOptions.amount = decimalToInteger(cleanedAmount, 9).toString(); // convert back to string if needed
   }
   if (allOptions.fee) {
-    allOptions.fee = decimalToInteger(allOptions.fee, 9)
+    allOptions.fee = decimalToInteger(allOptions.fee as string, 9)
   }
   return { ...allOptions, network }
 }
@@ -318,7 +325,7 @@ async function buildUnsignedTx(
         context.pBlockchainID,
         futils.hexToBuffer(ctx.cAddressHex!),
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
-        BigInt(params.fee!),
+        BigInt(params.fee),
         BigInt(nonce)
       )
       return exportTx
@@ -373,7 +380,7 @@ async function buildUnsignedTx(
         [futils.bech32ToBytes(ctx.pAddressBech32!)],
         utxos,
         getChainIdFromContext('P', context),
-        BigInt(params.fee!)
+        BigInt(params.fee)
       )
       return exportTx
     }
@@ -409,7 +416,7 @@ async function buildUnsignedTx(
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
       const start = BigInt(params.startTime!)
       const end = BigInt(params.endTime!)
-      const nodeID = params?.nodeId!
+      const nodeID = params.nodeId!
 
       const delegateTx = pvm.newAddPermissionlessDelegatorTx(
         context,
@@ -463,29 +470,7 @@ async function buildAndSendTxUsingPrivateKey(
   transactionType: string,
   ctx: Context,
   params: FlareTxParams,
-  stakeParams?: StakeParams
 ): Promise<{ txid: string; usedFee?: string }> {
-  // TODO: needed?
-  const processTx = async (_summary: TxSummary): Promise<boolean> => {
-    //if (txSettings.exportSignedTx) {
-    //  try {
-    //    utils.saveToFile(
-    //      JSON.stringify(summary, undefined, "  "),
-    //      `${utils.timestamp()}_${summary.type}.json`,
-    //    );
-    //  } catch {}
-    //}
-    //if (txSettings.copySignedTx) {
-    //  try {
-    //    await utils.copyToClipboard(summary.signedTx);
-    //  } catch {}
-    //}
-    //return txSettings.submitTx;
-
-    // Return default value
-    return true
-  }
-
   if (transactionType === 'exportCP') {
     return await exportCP(ctx, params)
   } else if (transactionType === 'exportPC') {
@@ -512,7 +497,7 @@ export async function initCtxJsonFromOptions(
 ): Promise<void> {
   let ctxFile: ContextFile
   if (options.ledger) {
-    const publicKey = await ledger.getPublicKey(derivationPath, options.network)
+    const publicKey = await ledger.getPublicKey(derivationPath, options.network as string)
     const address = await ledger.verifyCAddress(derivationPath)
     const ethAddress = publicKeyToEthereumAddressString(publicKey)
     ctxFile = {
@@ -520,20 +505,20 @@ export async function initCtxJsonFromOptions(
       publicKey,
       ethAddress,
       flareAddress: address,
-      network: options.network,
+      network: options.network as string,
       derivationPath
     }
   } else if (options.publicKey) {
-    if (!validatePublicKey(options.publicKey)) return logError('Invalid public key')
+    if (!validatePublicKey(options.publicKey as string)) return logError('Invalid public key')
     ctxFile = {
       wallet: 'publicKey',
-      publicKey: options.publicKey,
-      network: options.network
+      publicKey: options.publicKey as string,
+      network: options.network as string
     }
     if (options.vaultId) {
       ctxFile = {
         ...ctxFile,
-        vaultId: options.vaultId
+        vaultId: options.vaultId as string
       }
     }
   } else {
