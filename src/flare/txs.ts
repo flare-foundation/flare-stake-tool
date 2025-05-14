@@ -4,11 +4,9 @@ import * as chain from './chain'
 import * as pubk from './pubk'
 import {
   Account,
-  ClaimCStakeRewardTxParams,
   DelegatorPTxDetails,
   DelegatorPTxParams,
   EcdsaSignature,
-  ERC20TransferCTxParams,
   EvmTx,
   EvmTxDetails,
   EvmTxParams,
@@ -22,15 +20,10 @@ import {
   ImportPTxParams,
   PreSubmit,
   Sign,
-  // TODO: needed?
-  //StakePTxParams,
   SubmittedTxData,
   UnsignedTxData,
-  UnwrapCTxParams,
   ValidatorPTxDetails,
-  ValidatorPTxParams,
-  WrapCTxParams
-} from './interfaces'
+  ValidatorPTxParams} from './interfaces'
 import BN from 'bn.js'
 import {
   evm,
@@ -43,14 +36,13 @@ import {
   networkIDs,
   messageHashFromUnsignedTx,
   TypeSymbols,
-  // TODO: signTx needed?
-  // signTx,
   SigningData
 } from '@flarenetwork/flarejs'
 import {
   LegacyTransaction as EvmLegacyTx,
   FeeMarketEIP1559Transaction as EvmEIP1559Tx,
-  TransactionFactory
+  TransactionFactory,
+  FeeMarketEIP1559TxData
 } from '@ethereumjs/tx'
 import Web3 from 'web3'
 import { RLP } from '@ethereumjs/rlp'
@@ -178,7 +170,7 @@ export async function buildImportPTx(
   const unsignedTx = pvm.newImportTx(
     context,
     context.cBlockchainID,
-    utxos as any,
+    utxos,
     [pAddress],
     [pAddress]
   )
@@ -219,7 +211,7 @@ export async function buildExportPTx(
     pAddress
   ])
 
-  const unsignedTx = pvm.newExportTx(context, context.cBlockchainID, [pAddress], utxos as any, [
+  const unsignedTx = pvm.newExportTx(context, context.cBlockchainID, [pAddress], utxos, [
     output
   ])
   const unsignedTxHex = _unsignedTxToHex(unsignedTx)
@@ -241,7 +233,7 @@ export async function buildAddDelegatorTx(
 
   const unsignedTx = pvm.newAddPermissionlessDelegatorTx(
     context,
-    utxos as any,
+    utxos,
     [pAddress],
     params.nodeId,
     networkIDs.PrimaryNetworkID.toString(),
@@ -269,7 +261,7 @@ export async function buildAddValidatorTx(
 
   const unsignedTx = pvm.newAddPermissionlessValidatorTx(
     context,
-    utxos as any,
+    utxos,
     [pAddress],
     params.nodeId,
     networkIDs.PrimaryNetworkID.toString(),
@@ -314,7 +306,7 @@ export async function buildEvmTx(
   if (!txData.nonce) {
     txData.nonce = await chain.numberOfCTxs(account.network, account.cAddress)
   }
-  if (!txData.maxFeePerGas) {
+  if (!txData.maxFeePerGas || !txData.maxPriorityFeePerGas) {
     let feeEstimate = await chain.estimateEIP1559Fee(account.network)
     txData.maxFeePerGas = feeEstimate[0]
     txData.maxPriorityFeePerGas = feeEstimate[1]
@@ -335,7 +327,7 @@ export async function buildEvmTx(
       data: Uint8Array.from(utils.toBuffer(txData.data ?? '')),
       value: txData.value,
       gasLimit: txData.gasLimit,
-      gasPrice: txData.maxFeePerGas! - txData.maxPriorityFeePerGas!,
+      gasPrice: txData.maxFeePerGas - txData.maxPriorityFeePerGas,
       nonce: txData.nonce,
       chainId: txData.chainId
     }
@@ -358,7 +350,6 @@ export async function buildEvmTx(
   } else {
     throw new Error('Unsupported transaction type')
   }
-  // let unsignedTxHex = utils.toHex(unsignedTx.serialize())
 
   return {
     txDetails: {
@@ -392,7 +383,7 @@ export async function finalizeAndConvertEvmTx(
 
   let network = _getNetworkFromChainId(chainId)
 
-  let to = utils.toHex(tx.to ? tx.to!.toString() : '')
+  let to = utils.toHex(tx.to ? tx.to.toString() : '')
   let value = tx.value
   let data = utils.toHex(tx.data)
   let nonce = await chain.numberOfCTxs(network, from)
@@ -505,14 +496,16 @@ export async function signAndSubmitTx(
           v += 8 + 2 * parseInt(settings.CHAIN_ID[network], 16)
         }
         tx = EvmLegacyTx.fromTxData({
-          ...(unsignedTx.toJSON() as any),
+          ...(unsignedTx.toJSON()),
           v: BigInt(v.toString()),
           r: BigInt(expandedSignature.r.toString()),
           s: BigInt(expandedSignature.s.toString())
         })
       } else {
+        const txData = unsignedTx.toJSON() as FeeMarketEIP1559TxData
+        delete txData.gasPrice
         tx = EvmEIP1559Tx.fromTxData({
-          ...(unsignedTx.toJSON() as any),
+          ...txData,
           v: BigInt(expandedSignature.recoveryParam.toString()),
           r: BigInt(expandedSignature.r.toString()),
           s: BigInt(expandedSignature.s.toString())
@@ -584,7 +577,7 @@ export async function signAndSubmitTx(
   let status = ''
   let confirmed = false
   if (submitted) {
-    let result: any
+    let result: [string, boolean]
     if (unsignedTx instanceof EvmLegacyTx || unsignedTx instanceof EvmEIP1559Tx) {
       result = await _waitForEvmTxConfirmation(chain.getWeb3(network), id)
     } else if (unsignedTx instanceof EVMUnsignedTx) {
@@ -593,6 +586,8 @@ export async function signAndSubmitTx(
     } else if (unsignedTx instanceof UnsignedTx) {
       const pvmapi = new pvm.PVMApi(settings.URL[network])
       result = await _waitForPTxConfirmation(pvmapi, id)
+    } else {
+          throw new Error(`Can not issue transaction of type ${typeof unsignedTx}`)
     }
     status = result[0]
     confirmed = result[1]
@@ -628,7 +623,9 @@ export async function submitTxHex(txHex: string): Promise<[string, string, boole
     let status = result[0]
     let confirmed = result[1]
     return [id, status, confirmed]
-  } catch {}
+  } catch (e: any) {
+    console.log('Error submitting CTx', e)
+  }
   try {
     // let ptx = new PTx()
     // ptx.fromBuffer(utils.toBuffer(txHex) as any)
@@ -641,7 +638,9 @@ export async function submitTxHex(txHex: string): Promise<[string, string, boole
     let status = result[0]
     let confirmed = result[1]
     return [id, status, confirmed]
-  } catch {}
+  } catch (e: any) {
+    console.log('Error submitting PTx', e)
+  }
   try {
     let evmTx = TransactionFactory.fromSerializedData(utils.toBuffer(txHex))
     let chainId
@@ -657,7 +656,9 @@ export async function submitTxHex(txHex: string): Promise<[string, string, boole
     let status = result[0]
     let confirmed = result[1]
     return [id, status, confirmed]
-  } catch {}
+  } catch (e: any) {
+    console.log('Error submitting EVM Tx', e)
+  }
 
   return null
 }
@@ -721,7 +722,9 @@ async function _waitForEvmTxConfirmation(web3: Web3, txId: string): Promise<[str
     let receipt
     try {
       receipt = await web3.eth.getTransactionReceipt(txId)
-    } catch {}
+    } catch (e: any) {
+      console.log('Error getting transaction receipt', e)
+    }
     if (receipt) {
       status = receipt.status == BigInt(1) ? 'Confirmed' : 'Failed'
       break

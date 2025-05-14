@@ -1,11 +1,8 @@
-import { TransactionFactory } from '@ethereumjs/tx'
 import * as settings from '../settings'
 import * as utils from '../utils'
-import * as chain from './chain'
 import { bech32 } from 'bech32'
 import { ec } from 'elliptic'
 import * as ethutil from 'ethereumjs-util'
-//import { SignedTx } from "../../../flarejs/dist/es/serializable/avax";
 
 const secp256k1 = new ec('secp256k1')
 
@@ -43,24 +40,6 @@ export function isPublicKey(value: string): boolean {
 export function publicKeyToCAddress(publicKey: string) {
   let uncompressed = utils.toBuffer(uncompressedPublicKey(publicKey, false))
   return normalizeCAddress(utils.toHex(ethutil.publicToAddress(uncompressed)))
-}
-
-async function _cAddressToPublicKey(
-  network: string,
-  cAddress: string
-): Promise<string | undefined> {
-  let publicKey = undefined
-  try {
-    let ctx = await chain.getAnyCTx(network, cAddress)
-    if (ctx) {
-      publicKey = await recoverPublicKeyFromCTx(ctx)
-      if (!equalCAddress(publicKeyToCAddress(publicKey), cAddress)) {
-        publicKey = undefined
-      }
-    }
-  } finally {
-    return publicKey
-  }
 }
 
 export function isCAddress(value: string): boolean {
@@ -118,22 +97,6 @@ export function normalizePAddress(network: string, pAddress: string): string {
   return pAddress
 }
 
-export async function recoverPublicKeyFromCTx(txData: any): Promise<string> {
-  // let tx = TransactionFactory.fromTxData(txData)
-  let tx = await TransactionFactory.fromRPC(txData)
-  return normalizePublicKey(utils.toHex(tx.getSenderPublicKey(), false))
-}
-
-//export function recoverPublicKeyFromPTx(txData: SignedTx): string {
-//  // unsignedTx.fromBuffer(utils.toBuffer(utils.toHex(txData.rawTx, false)) as any)
-//  // let sigreq = unsignedTx.prepareUnsignedHashes(undefined as any)
-//  // let msg = utils.toBuffer(utils.toHex(sigreq[0].message, false))
-//  // let sig = utils.toBuffer(utils.toHex(txData.credentials[0].signatures[0], false))
-//  // let kp = chain.getAvalanche(txData.network).PChain().keyChain().makeKey()
-//  // return normalizePublicKey(utils.toHex(kp.recover(msg as any, sig as any)))
-//  return "";
-//}
-
 export function recoverPublicKeyFromMsg(message: string, signature: string): string {
   let msg = utils.toBuffer(message)
   let sig = ethutil.fromRpcSig(utils.toHex(signature))
@@ -149,11 +112,6 @@ export function getHashedEthMsg(message: string): string {
   return utils.toHex(
     ethutil.keccakFromString(`\x19Ethereum Signed Message:\n${message.length}${message}`)
   )
-}
-
-export function getEthSignatureComponents(signature: string): [string, string, string] {
-  let sig = ethutil.fromRpcSig(utils.toHex(signature))
-  return [utils.toHex(sig.v.toString(16)), utils.toHex(sig.r), utils.toHex(sig.s)]
 }
 
 function _getKeyPair(publicKey: string): ec.KeyPair {

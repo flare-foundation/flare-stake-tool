@@ -2,10 +2,31 @@ import TrezorConnect from "@trezor/connect-web";
 import * as utils from "../utils";
 import { FeeMarketEIP1559Transaction, LegacyTransaction, TransactionFactory } from "@ethereumjs/tx";
 
-var initialized = false
+// Interfaces for Trezor transaction input
+interface BaseTxInput {
+  to: string;
+  value: string;
+  data: string;
+  nonce: string;
+  gasLimit: string;
+  chainId: number;
+}
+
+interface LegacyTxInput extends BaseTxInput {
+  gasPrice: string;
+}
+
+interface EIP1559TxInput extends BaseTxInput {
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
+}
+
+type TxInput = LegacyTxInput | EIP1559TxInput;
+
+let initialized = false
 
 export async function getPublicKey(bip44Path: string): Promise<string> {
-    _initalize()
+    _initialize()
 
     let response = await TrezorConnect.getPublicKey({ path: bip44Path, showOnTrezor: false });
     if (response.success) {
@@ -16,7 +37,7 @@ export async function getPublicKey(bip44Path: string): Promise<string> {
 }
 
 export async function ethereumSignMessage(bip44Path: string, message: string): Promise<string> {
-    _initalize()
+    _initialize()
 
     let response = await TrezorConnect.ethereumSignMessage({ path: bip44Path, message: message, hex: false })
     if (response.success) {
@@ -28,8 +49,8 @@ export async function ethereumSignMessage(bip44Path: string, message: string): P
 }
 
 export async function signEvmTransaction(bip44Path: string, txHex: string): Promise<string> {
-    _initalize()
-    
+    _initialize()
+
     let tx = TransactionFactory.fromSerializedData(utils.toBuffer(txHex))
     let btx = {
         to: tx.to ? tx.to.toString() : "0x0",
@@ -38,7 +59,7 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
         nonce: tx.nonce.toString(16),
         gasLimit: tx.gasLimit.toString(16)
     }
-    let transaction: any
+    let transaction: TxInput
     let chainId: number
     if (tx instanceof LegacyTransaction) {
         chainId = Number(tx.v!)
@@ -80,7 +101,7 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
     }
 }
 
-function _initalize() {
+function _initialize() {
     if (!initialized)
         TrezorConnect.init({
             lazyLoad: true,
@@ -88,6 +109,12 @@ function _initalize() {
                 email: 'developer@xyz.com',
                 appUrl: 'http://your.application.com',
             },
+        })
+        .then(() => {
+          initialized = true
+        })
+        .catch((error) => {
+          throw new Error(`Failed to initialize Trezor Connect: ${error}`);
         });
-    initialized = true
+
 }

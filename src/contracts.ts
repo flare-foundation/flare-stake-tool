@@ -1,14 +1,10 @@
-import fs from "fs";
-import { BigNumber, ethers } from "ethersV5";
-import {
-  forDefiDirectory,
-  forDefiUnsignedTxnDirectory,
-} from "./constants/forDefi";
+import { ethers } from "ethersV5";
 import {
   getFlareContractRegistryABI,
   defaultContractAddresses,
   getPChainStakeMirrorABI,
   pChainStakeMirror,
+  flareContractRegistryABI,
 } from "./constants/contracts";
 import {
   rpcUrlFromNetworkConfig,
@@ -17,6 +13,8 @@ import { Context } from "./interfaces";
 import { pvm } from "@flarenetwork/flarejs";
 import * as settings from './settings'
 import { integerToDecimal } from "./utils";
+import { zeroAddress } from "ethereumjs-util";
+import { GetCurrentValidatorsResponse } from "@flarenetwork/flarejs/dist/vms/pvm";
 
 type DelegationInfo = {
   nodeID: string;
@@ -32,18 +30,22 @@ async function getContractAddress(
   const rpcUrl = rpcUrlFromNetworkConfig(network);
   const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
 
+<<<<<<< HEAD
   const abi = getFlareContractRegistryABI() as ethers.ContractInterface;
   if (network != "flare" && network != "costwo" && network != "coston" && network != "songbird")
+=======
+  if (network != "flare" && network != "costwo" && network != "songbird" && network != "coston") {
+>>>>>>> eslint
     throw new Error("Invalid network passed");
+  }
   const contract = new ethers.Contract(
     defaultContractAddresses.FlareContractRegistry[network],
-    abi,
+    flareContractRegistryABI,
     provider,
   );
 
-  const result = await contract.getContractAddressByName(contractName);
-
-  if (result !== "0x0000000000000000000000000000000000000000") return result;
+  const result = await contract.getContractAddressByName(contractName) as string;
+  if (result !== zeroAddress()) return result;
 
   const defaultAddress = defaultContractAddresses[contractName]?.[network];
   if (defaultAddress) return defaultAddress;
@@ -51,17 +53,6 @@ async function getContractAddress(
   throw new Error("Contract Address not found");
 }
 
-function readUnsignedEVMObject(id: string): ethers.utils.UnsignedTransaction {
-  const fname = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedEVMObject.json`;
-  if (!fs.existsSync(fname)) {
-    throw new Error(`unsigned EVM Object file ${fname} does not exist`);
-  }
-  const serialization = fs.readFileSync(fname).toString();
-  let file = JSON.parse(serialization);
-  file.gasPrice = BigNumber.from(file.gasPrice.hex);
-  file.gasLimit = BigNumber.from(file.gasLimit.hex);
-  return file as ethers.utils.UnsignedTransaction;
-}
 
 ////////// MIRROR FUND /////////
 // fetches current validator info
@@ -81,33 +72,28 @@ const fetchPendingValidatorInfo = async (ctx: Context) => {
 // fetches the delegation stake (from both current and pending validator) for the current user
 const fetchDelegateStake = async (
   ctx: Context,
-  validatorFunction: (ctx: Context) => {},
+  validatorFunction: (ctx: Context) => any,
 ) => {
-  const validatorsInfo = await validatorFunction(ctx);
-  const validatorData = (validatorsInfo as any)?.validators;
+  const validatorsInfo = await validatorFunction(ctx) as GetCurrentValidatorsResponseFixed;
+  const validatorsData = validatorsInfo.validators;
   let userStake = [];
-  for (let i = 0; i < validatorData.length; i++) {
-    for (
-      let j = 0;
-      j < (validatorData[i].delegators && validatorData[i].delegators?.length);
-      j++
-    ) {
-      if (
-        validatorData[i].delegators[j] &&
-        validatorData[i].delegators[j].rewardOwner.addresses.includes(
-          ctx.pAddressBech32,
-        )
+  for (let i = 0; i < validatorsData.length; i++) {
+    const validatorData = validatorsData[i];
+    console.log("validatorData", validatorData.delegators);
+    for (let j = 0; j < (validatorData.delegators && validatorData.delegators?.length);j++) {
+      if (validatorData.delegators[j] &&
+        validatorData.delegators[j].rewardOwner.addresses.includes(ctx.pAddressBech32!)
       ) {
         const startDate = new Date(
-          parseInt(validatorData[i]?.delegators[j]?.startTime) * 1000,
+          parseInt(validatorData?.delegators[j]?.startTime) * 1000,
         );
         const endDate = new Date(
-          parseInt(validatorData[i]?.delegators[j]?.endTime) * 1000,
+          parseInt(validatorData?.delegators[j]?.endTime) * 1000,
         );
         userStake.push({
-          nodeID: validatorData[i]?.nodeID,
+          nodeID: validatorData?.nodeID,
           stakeAmount:
-            parseFloat(validatorData[i]?.delegators[j]?.stakeAmount) / 1e9,
+            parseFloat(validatorData?.delegators[j]?.stakeAmount) / 1e9,
           startTime: startDate,
           endTime: endDate,
         });
@@ -133,22 +119,23 @@ const getTotalFromDelegation = (data: DelegationInfo[]) => {
 */
 export async function fetchMirrorFunds(ctx: Context) {
   // fetch from the contract
-  const rpcUrl = rpcUrlFromNetworkConfig(ctx.config.hrp);
-  const pChainStakeMirrorContractAddress = await getContractAddress(
-    ctx.config.hrp,
-    pChainStakeMirror,
-  );
-  const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
-  const abi = getPChainStakeMirrorABI() as ethers.ContractInterface;
-  const contract = new ethers.Contract(
-    pChainStakeMirrorContractAddress,
-    abi,
-    provider,
-  );
-  const stakedAmount = await contract.balanceOf(ctx.cAddressHex);
-  const stakedAmountInFLR = parseFloat(
-    integerToDecimal(stakedAmount.toString(), 18),
-  );
+  // TODO: implement from contract (mirrored) and split to two (mirrored and directly from p-chai
+  // const rpcUrl = rpcUrlFromNetworkConfig(ctx.config.hrp);
+  // const pChainStakeMirrorContractAddress = await getContractAddress(
+  //   ctx.config.hrp,
+  //   pChainStakeMirror,
+  // );
+  // const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  // const abi = getPChainStakeMirrorABI() as ethers.ContractInterface;
+  // const contract = new ethers.Contract(
+  //   pChainStakeMirrorContractAddress,
+  //   abi,
+  //   provider,
+  // );
+  // const stakedAmount = await contract.balanceOf(ctx.cAddressHex);
+  // const stakedAmountInFLR = parseFloat(
+  //   integerToDecimal(stakedAmount.toString(), 18),
+  // );
   // fetch for the chain
   const delegationToCurrentValidator = await fetchDelegateStake(
     ctx,
@@ -159,7 +146,8 @@ export async function fetchMirrorFunds(ctx: Context) {
     fetchPendingValidatorInfo,
   );
   const totalDelegatedAmount =
-    getTotalFromDelegation(delegationToCurrentValidator) +
+    getTotalFromDelegation(delegationToCurrentValidator)
+    +
     getTotalFromDelegation(delegationToPendingValidator);
   const totalInFLR = parseFloat(totalDelegatedAmount.toString());
   return {
@@ -170,3 +158,40 @@ export async function fetchMirrorFunds(ctx: Context) {
     ],
   };
 }
+
+
+export type GetCurrentValidatorsResponseFixed = {
+  validators: {
+    accruedDelegateeReward: string;
+    txID: string;
+    startTime: string;
+    endTime: string;
+    stakeAmount: string;
+    nodeID: string;
+    weight: string;
+    validationRewardOwner: {
+      locktime: string;
+      threshold: string;
+      addresses: string[];
+    };
+    delegatorCount: string;
+    delegatorWeight: string;
+    potentialReward: string;
+    delegationFee: string;
+    uptime: string;
+    connected: boolean;
+    delegators: {
+      txID: string;
+      startTime: string;
+      endTime: string;
+      stakeAmount: string;
+      nodeID: string;
+      rewardOwner: {
+        locktime: string;
+        threshold: string;
+        addresses: string[];
+      };
+      potentialReward: string;
+    }[];
+  }[];
+};

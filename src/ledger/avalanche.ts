@@ -1,9 +1,9 @@
-import AvalancheApp from '@avalabs/hw-app-avalanche'
+import AvalancheApp, { ResponseAddress, ResponseSign } from '@avalabs/hw-app-avalanche'
 import { ledgerService } from '@ledgerhq/hw-app-eth'
 import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import * as pubk from '../flare/pubk'
 import * as utils from '../utils'
-import { TransactionFactory } from '@ethereumjs/tx'
+import { EthAddress, Signature } from './interfaces'
 
 export async function isAvalancheApp(): Promise<boolean> {
   return (await _getAppName()) === 'Avalanche'
@@ -23,30 +23,29 @@ async function _getAppName(): Promise<string> {
 }
 
 export async function getPublicKey(bip44Path: string, hrp: string): Promise<string> {
-  let account = undefined
+  let account: ResponseAddress | undefined
   await _connect(async (app) => {
     account = await app.getAddressAndPubKey(bip44Path, false, hrp)
   })
-  if (account!.errorMessage != 'No errors') {
-    throw Error(
-      `Failed to obtain public key from ledger: ${account!.errorMessage}, code ${account!.returnCode}`
-    )
+  if (!account || !account.publicKey) {
+    throw new Error('Invalid or missing public key from ledger response');
   }
-  let publicKey = pubk.normalizePublicKey(utils.toHex(account!.publicKey))
+
+  let publicKey = pubk.normalizePublicKey(utils.toHex(account.publicKey))
   return publicKey
 }
 
 export async function getCAddress(bip44Path: string, display: boolean): Promise<string> {
-  let account = undefined
+  let account: EthAddress | undefined
   await _connect(async (app) => {
     account = await app.getETHAddress(bip44Path, display)
   })
-  if (account!.errorMessage && account!.errorMessage != 'No errors') {
+  if (!account) {
     throw Error(
-      `Failed to obtain C-chain address from ledger: ${account!.errorMessage}, code ${account!.returnCode}`
+      `Failed to obtain C-chain address from ledger`
     )
   }
-  return account!.address
+  return account.address
 }
 
 export async function getPAddress(
@@ -54,31 +53,32 @@ export async function getPAddress(
   hrp: string,
   display: boolean
 ): Promise<string> {
-  let account = undefined
+  let account: ResponseAddress | undefined
   await _connect(async (app) => {
     account = await app.getAddressAndPubKey(bip44Path, display, hrp)
   })
-  if (account!.errorMessage != 'No errors') {
+  if (!account) {
     throw Error(
-      `Failed to obtain public key from ledger: ${account!.errorMessage}, code ${account!.returnCode}`
+      `Failed to obtain public key from ledger`
     )
   }
-  return account!.address
+  return account.address
 }
 
 export async function signHash(bip44Path: string, message: string): Promise<string> {
   let signPath = _getSignPath(bip44Path)
   let messageBuffer = utils.toBuffer(message)
-  let response = undefined
+  let response: ResponseSign | undefined
   await _connect(async (app) => {
     response = await app.signHash(_getAccountPath(bip44Path), [signPath], messageBuffer)
   })
-  if (response!.errorMessage != 'No errors') {
-    throw new Error(
-      `Failed to sign message on ledger: ${response!.errorMessage}, code ${response!.returnCode}`
-    )
+  if (!response) {
+    if (response && (response as ResponseSign).errorMessage != "No errors") {
+      throw new Error(`Failed to sign message on ledger:  ${(response as ResponseSign).errorMessage}`)
+    }
+    throw new Error( `Failed to sign message on ledger`)
   }
-  let signature = response!.signatures?.get(signPath)?.toString('hex')
+  let signature = response.signatures?.get(signPath)?.toString('hex')
   if (!signature) {
     throw new Error('No signature returned from ledger')
   }
@@ -88,7 +88,7 @@ export async function signHash(bip44Path: string, message: string): Promise<stri
 export async function signEvmTransaction(bip44Path: string, txHex: string): Promise<string> {
   let rawTx = utils.toHex(txHex, false)
   let resolution = await ledgerService.resolveTransaction(rawTx, {}, {})
-  let response: any = undefined
+  let response: Signature | undefined
   await _connect(async (app) => {
     response = await app.signEVMTransaction(bip44Path, rawTx, resolution)
   })
@@ -112,7 +112,7 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
 }
 
 async function _connect(execute: (app: AvalancheApp) => Promise<void>): Promise<void> {
-  let avalanche
+  let avalanche: AvalancheApp | undefined = undefined
   try {
     let transport = await TransportNodeHid.open(undefined)
     avalanche = new AvalancheApp(transport)

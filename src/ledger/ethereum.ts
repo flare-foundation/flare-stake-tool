@@ -2,7 +2,7 @@ import EthApp, { ledgerService } from '@ledgerhq/hw-app-eth'
 import TransportNodeHid from '@ledgerhq/hw-transport-node-hid'
 import * as pubk from '../flare/pubk'
 import * as utils from '../utils'
-import { TransactionFactory } from '@ethereumjs/tx'
+import { EthAddress, Signature } from './interfaces'
 
 export async function isEthereumApp() {
   let eth = false
@@ -11,31 +11,33 @@ export async function isEthereumApp() {
       let info = await app.getAppConfiguration()
       console.log(info)
       eth = true
-    } catch {}
+    } catch (e: any) {
+      console.log(e)
+    }
   })
   return eth
 }
 
 export async function getPublicKey(bip44Path: string): Promise<string> {
-  let response: any = undefined
+  let response: EthAddress | undefined
   await _connect(async (app) => {
     response = await app.getAddress(bip44Path)
   })
   if (!response || !response.publicKey) {
     throw new Error('Failed to obtain public key from ledger')
   }
-  return pubk.normalizePublicKey(response!.publicKey)
+  return pubk.normalizePublicKey(response.publicKey)
 }
 
 export async function getCAddress(bip44Path: string, display: boolean): Promise<string> {
-  let response: any = undefined
+  let response: EthAddress | undefined
   await _connect(async (app) => {
     response = await app.getAddress(bip44Path, display)
   })
   if (!response || !response.address) {
     throw new Error('Failed to obtain C-chain address from ledger')
   }
-  return response!.address
+  return response.address
 }
 
 export async function getPAddress(
@@ -43,7 +45,7 @@ export async function getPAddress(
   hrp: string,
   display: boolean
 ): Promise<string> {
-  let response: any = undefined
+  let response: EthAddress | undefined
   await _connect(async (app) => {
     response = await app.getAddress(bip44Path, display)
   })
@@ -55,7 +57,7 @@ export async function getPAddress(
 
 export async function signPersonalMessage(bip44Path: string, message: string): Promise<string> {
   let messageHex = utils.toHex(Buffer.from(message, 'utf-8'), false)
-  let response: any = undefined
+  let response: Signature | undefined
   await _connect(async (app) => {
     response = await app.signPersonalMessage(bip44Path, messageHex)
   })
@@ -75,7 +77,7 @@ export async function signPersonalMessage(bip44Path: string, message: string): P
 export async function signEvmTransaction(bip44Path: string, txHex: string): Promise<string> {
   let rawTx = utils.toHex(txHex, false)
   let resolution = await ledgerService.resolveTransaction(rawTx, {}, {})
-  let response: any = undefined
+  let response: Signature | undefined
   await _connect(async (app) => {
     response = await app.signTransaction(bip44Path, rawTx, resolution)
   })

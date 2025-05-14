@@ -27,7 +27,7 @@ export function toHex(
   } else if (typeof value === 'number') {
     hex = value.toString(16)
   } else if (Buffer.isBuffer(value)) {
-    hex = (value as Buffer).toString('hex')
+    hex = value.toString('hex')
   } else if (value instanceof Uint8Array || Array.isArray(value)) {
     hex = Buffer.from(value).toString('hex')
   } else {
@@ -55,7 +55,7 @@ export function isEqualHex(value1: string, value2: string): boolean {
 }
 
 export function toCB58(value: Buffer): string {
-  return base58.encode(value as any)
+  return base58.encode(value)
 }
 
 export function flrToGwei(flrValue: number | string): BN {
@@ -148,17 +148,7 @@ import fs from 'fs'
 import * as ethutil from 'ethereumjs-util'
 import * as elliptic from 'elliptic'
 import { bech32 } from 'bech32'
-//import { BN } from "@flarenetwork/flarejs/dist";
-//import { UnixNow } from "@flarenetwork/flarejs/dist/utils";
-//import { EcdsaSignature } from "@flarenetwork/flarejs/dist/common";
-//import {
-//  UnsignedTx as EvmUnsignedTx,
-//  UTXOSet,
-//} from "@flarenetwork/flarejs/dist/apis/evm";
-//import { UnsignedTx as PvmUnsignedTx } from "@flarenetwork/flarejs/dist/apis/platformvm";
 import {
-  //  SignedTxJson,
-  //UnsignedTxJson,
   ContextFile,
   Context,
   UnsignedTxJson,
@@ -234,6 +224,7 @@ export function validatePublicKey(publicKey: string): boolean {
     decodePublicKey(publicKey)
     return true
   } catch (error) {
+    console.error('Invalid public key:', error)
     return false
   }
 }
@@ -272,11 +263,9 @@ export function recoverPublicKey(message: Buffer, signature: string): Buffer {
 // general helper functions
 
 export async function sleepms(milliseconds: number) {
-  await new Promise((resolve: any) => {
-    setTimeout(() => {
-      resolve()
-    }, milliseconds)
-  })
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }
 
 export function unPrefix0x(tx: string) {
@@ -325,23 +314,6 @@ export function toBN(num: number | string | BN | undefined): BN | undefined {
   return num ? new BN(num) : undefined
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-// serialization of atomic c-chain addresses does not work correctly, so we have to improvise
-
-export function serializeExportCP_args(
-  args: [BN, string, string, string, string, string[], number, BN, number, BN?]
-): string {
-  return JSON.stringify(args, null, 2)
-}
-
-export function deserializeExportCP_args(
-  serargs: string
-): [BN, string, string, string, string, string[], number, BN, number, BN?] {
-  const args = JSON.parse(serargs)
-    ;[0, 7, 9].map((i) => (args[i] = new BN(args[i], 16)))
-  return args
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////
 //// key and unsigned/signed transaction storage
 //
@@ -381,7 +353,7 @@ export function readUnsignedTxJson(id: string): UnsignedTxJson {
     throw new Error(`unsignedTx file ${fname} does not exist`)
   }
   const serialization = fs.readFileSync(fname, 'utf-8').toString()
-  return JSON.parse(serialization)
+  return JSON.parse(serialization) as UnsignedTxJson
 }
 
 export function readSignedTxJson(id: string): SignedTxJson {
@@ -428,9 +400,9 @@ export function isAlreadySentToChain(id: string): boolean {
     return false
   }
   const serialization = fs.readFileSync(fname).toString()
-  const txObj = JSON.parse(serialization)
+  const txObj = JSON.parse(serialization) as SignedTxJson
 
-  return txObj.isSentToChain ? true : false
+  return !!txObj.isSentToChain
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

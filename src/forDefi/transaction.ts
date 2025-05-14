@@ -16,6 +16,20 @@ import {
   forDefiUnsignedTxnDirectory,
 } from "../constants/forDefi";
 
+interface ForDefiResponse {
+  id: string;
+  signatures: {
+    data: string;
+    signed_by: any;
+  }[];
+  [key: string]: unknown;
+}
+
+interface VaultResponse {
+  id: string;
+  public_key_compressed: string;
+}
+
 /**
  * @description - Send signature to forDefi
  * @param unsignedTxidFile - path to the file
@@ -32,9 +46,13 @@ export async function sendToForDefi(
   const file = readFileSync(ctxFile, "utf8");
   const ctx = JSON.parse(file) as ContextFile;
 
-  const vault_id = ctx.vaultId!;
+  // check if ctx file is valid
+  if (!ctx.vaultId) {
+    throw Error("vaultId not found in context");
+  }
+  const vault_id = ctx.vaultId;
 
-  // vaultPublicKey should match public key in contex file
+  // vaultPublicKey should match public key in context file
   let vaultPublicKey = await getVaultPublickey(vault_id);
   if (unPrefix0x(ctx.publicKey) != vaultPublicKey) {
     throw Error("public key does not match the vault");
@@ -73,7 +91,7 @@ export async function sendToForDefi(
   const sign = crypto.createSign("SHA256").update(payload, "utf8").end();
   const signature1 = sign.sign(privateKey, "base64");
 
-  let response = await fetch(`https://${gatewayHost}${path}`, {
+  const response = await fetch(`https://${gatewayHost}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -83,7 +101,7 @@ export async function sendToForDefi(
     },
     body: requestBody,
   });
-  const responseJson = await response.json();
+  const responseJson = await response.json() as ForDefiResponse;
   let txId = responseJson.id;
 
   // write tx id (to later fetch the signature)
@@ -129,7 +147,7 @@ export async function getSignature(
     },
   });
 
-  const responseJson = await responseSignature.json();
+  const responseJson = await responseSignature.json() as ForDefiResponse;
 
   let signatureHex;
   try {
@@ -137,7 +155,7 @@ export async function getSignature(
       responseJson.signatures[0].data,
       "base64",
     ).toString("hex");
-  } catch (e) {
+  } catch (e: any) {
     throw Error("Transaction is not signed yet? " + e);
   }
 
@@ -170,7 +188,7 @@ export async function getVaultPublickey(vaultId: string): Promise<string> {
       Authorization: `Bearer ${accessToken}`,
     },
   });
-  const responseJson = await response.json();
+  const responseJson = await response.json() as VaultResponse;
 
   let pubKey = responseJson.public_key_compressed;
 
@@ -199,7 +217,7 @@ async function createVault(vaultName: string, tokenPath: string): Promise<string
     },
     body: requestBody,
   });
-  const responseJson = await response.json();
+  const responseJson = await response.json() as VaultResponse;
   console.log(responseJson);
   let pubKey = responseJson.public_key_compressed;
   let pubKeyHex = Buffer.from(pubKey, "base64").toString("hex");

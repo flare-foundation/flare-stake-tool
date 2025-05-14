@@ -51,12 +51,15 @@ if (command == "interactive" || command == "-i") {
 } else {
   cliInfo();
   const program = new Command("Flare Stake Tool");
-  cli(program).then(() => {
-    program.parseAsync(getArgv()).catch((err) => {
+  cli(program);
+  program.parseAsync(getArgv())
+    .catch((err) => {
       if (err instanceof Error) {
-        console.log(chalk.red(`Error: ${err.message}`));
+        console.error(chalk.red(`Error: ${err.message}`));
+      } else {
+        console.error(chalk.red(`Error: ${String(err)}`));
       }
-      console.log(err);
+      process.exit(1);
     });
-  });
+
 }

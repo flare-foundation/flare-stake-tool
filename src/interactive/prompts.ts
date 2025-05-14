@@ -24,7 +24,7 @@ export const prompts = {
         }
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ wallet: string }>(questions)
   },
   derivationType: async () => {
     const questions = [
@@ -41,7 +41,7 @@ export const prompts = {
         }
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ derivation: string }>(questions)
   },
   pvtKeyPath: async () => {
     const questions = [
@@ -55,7 +55,7 @@ export const prompts = {
           chalk.magenta(':')
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ pvtKeyPath: string }>(questions)
   },
 
   publicKey: async () => {
@@ -72,7 +72,7 @@ export const prompts = {
           chalk.magenta(':')
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ publicKey: string }>(questions)
   },
 
   amount: async (amountPurpose: string = '') => {
@@ -83,7 +83,7 @@ export const prompts = {
         message: chalk.magenta(`Enter amount ${amountPurpose}`) + ' ' + chalk.magenta(`(in FLR):`)
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ amount: string }>(questions)
   },
 
   fees: async (baseFees?: unknown) => {
@@ -95,7 +95,7 @@ export const prompts = {
         message: chalk.magenta('Enter fees (in FLR):')
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ fees: string }>(questions)
   },
 
   nodeId: async () => {
@@ -110,7 +110,7 @@ export const prompts = {
           chalk.magenta(':')
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ id: string }>(questions)
   },
 
   unixTime: async (timeType: string) => {
@@ -125,7 +125,7 @@ export const prompts = {
           chalk.magenta(':')
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ time: string }>(questions)
   },
 
   ctxFile: async () => {
@@ -140,7 +140,7 @@ export const prompts = {
         }
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ isContinue: boolean }>(questions)
   },
 
   selectNetwork: async () => {
@@ -156,7 +156,7 @@ export const prompts = {
         }
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ network: string }>(questions)
   },
 
   selectTask: async () => {
@@ -172,7 +172,7 @@ export const prompts = {
         }
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ task: string }>(questions)
   },
 
   selectAddress: async (choiceList: string[]) => {
@@ -188,7 +188,7 @@ export const prompts = {
         }
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ address: string }>(questions)
   },
 
   delegationFee: async () => {
@@ -203,7 +203,7 @@ export const prompts = {
           chalk.magenta(':')
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ fee: string }>(questions)
   },
 
   transactionId: async () => {
@@ -218,44 +218,7 @@ export const prompts = {
           chalk.magenta(':')
       }
     ]
-    return inquirer.prompt(questions)
-  },
-
-  isOwnerReceiver: async () => {
-    const questions = [
-      {
-        type: 'list',
-        name: 'isOwnerReceiver',
-        message: chalk.magenta('Where do you want to receive your rewards?'),
-        choices: ['Send to my wallet', 'Receive with another wallet'],
-        filter: (val: string) => {
-          return val.includes('my') ? true : false
-        }
-      }
-    ]
-    return inquirer.prompt(questions)
-  },
-
-  receiverAddress: async () => {
-    const questions = [
-      {
-        type: 'input',
-        name: 'address',
-        message: chalk.magenta('Please enter the C-address where you want to receive your rewards:')
-      }
-    ]
-    return inquirer.prompt(questions)
-  },
-
-  withdrawAddress: async () => {
-    const questions = [
-      {
-        type: 'input',
-        name: 'address',
-        message: chalk.magenta('Please enter the C-address where you want to withdraw your funds:')
-      }
-    ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ id: string }>(questions)
   },
 
   importTrxType: async () => {
@@ -269,7 +232,7 @@ export const prompts = {
         choices: ['P', 'C']
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ type: string }>(questions)
   },
   popBLSPublicKey: async () => {
     const questions = [
@@ -279,7 +242,7 @@ export const prompts = {
         message: chalk.magenta('Please enter the popBLSPublicKey: ')
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ popBLSPublicKey: string }>(questions)
   },
   popBLSSignature: async () => {
     const questions = [
@@ -289,6 +252,6 @@ export const prompts = {
         message: chalk.magenta('Please enter the popBLSSignature: ')
       }
     ]
-    return inquirer.prompt(questions)
+    return inquirer.prompt<{ popBLSSignature: string }>(questions)
   }
 }

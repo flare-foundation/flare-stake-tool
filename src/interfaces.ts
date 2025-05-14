@@ -1,6 +1,5 @@
 import Web3 from 'web3'
 import { NetworkConfig } from './constants/network'
-import { walletConstants } from './constants/screen'
 
 export interface Context {
   privkHex?: string
