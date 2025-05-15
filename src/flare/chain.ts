@@ -156,18 +156,18 @@ export async function estimateEIP1559Fee(network: string): Promise<[bigint, bigi
   let feeHistory = await web3.eth.getFeeHistory(4, 'latest', ['10', '50'])
 
   let baseFee = BigInt(0)
-  let gasUsedRatio = BigInt(0)
+  let gasUsedRatio = 0
   let priorityFee10 = BigInt(0)
   let priorityFee50 = BigInt(0)
   for (let i = 0; i < 4; i++) {
     let factor = BigInt(10 * (i + 1))
     baseFee += factor * BigInt((feeHistory.baseFeePerGas)[i])
-    gasUsedRatio += (feeHistory.gasUsedRatio)[i]
+    gasUsedRatio += Number((feeHistory.gasUsedRatio)[i]) // feeHistory.gasUsedRatio is number
     priorityFee10 += factor * BigInt((feeHistory.reward)[i][0])
     priorityFee50 += factor * BigInt((feeHistory.reward)[i][1])
   }
   baseFee = baseFee / BigInt(100)
-  let priorityFee = (gasUsedRatio / 4n < BigInt(0.9) ? priorityFee10 : priorityFee50) / BigInt(100)
+  let priorityFee = (gasUsedRatio / 4 < 0.9 ? priorityFee10 : priorityFee50) / BigInt(100)
   let maxFee = BigInt(2) * baseFee + priorityFee
 
   return [maxFee, priorityFee]
