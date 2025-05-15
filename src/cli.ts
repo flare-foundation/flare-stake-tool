@@ -587,9 +587,11 @@ export async function logValidatorInfo(ctx: Context): Promise<void> {
   //const pending = await ctx.pchain.getPendingValidators();
   //const current = await ctx.pchain.getCurrentValidators();
   const fpending = JSON.stringify(pending.validators, null, 2)
+  const fpendingDel = JSON.stringify(pending.delegators, null, 2)
   const fcurrent = JSON.stringify(current.validators, null, 2)
   logInfo(`Validators on the network "${ctx.config.hrp}"`)
-  log(`pending: ${fpending}`)
+  log(`pending validators: ${fpending}`)
+  log(`pending delegations: ${fpendingDel}`)
   log(`current: ${fcurrent}`)
 }
 
