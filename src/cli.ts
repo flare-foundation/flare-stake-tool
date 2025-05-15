@@ -623,9 +623,12 @@ async function cliBuildAndSendTxUsingLedger(
   const sign = async (request: TxDetails): Promise<string> => {
     if (request.isEvmTx) {
       return ledger.signEvmTransaction(_derivationPath, request.unsignedTxHex)
-    } else if (await ledger.onlyHashSign()) {
+    } else if (await ledger.onlyHashSign()) { // ethereum or avalanche app
       return ledger.signHash(_derivationPath, request.unsignedTxHash!)
     } else {
+      if (ctx.network === 'localflare') { // non-blind signing doesn't work on localflare
+        return ledger.signHash(_derivationPath, request.unsignedTxHash!)
+      }
       return ledger.sign(_derivationPath, request.unsignedTxHex)
     }
   }
