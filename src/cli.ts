@@ -633,6 +633,11 @@ async function cliBuildAndSendTxUsingLedger(
     }
   }
   if (transactionType === 'exportCP') {
+    if (!params.amount) {
+      throw new Error(
+        `amount is required for exportCP transaction. Use --amount <amount> to specify the amount`
+      )
+    }
     let tp: ExportCTxParams = {
       amount: toBN(params.amount)!,
       exportFee: toBN(params.fee)!,

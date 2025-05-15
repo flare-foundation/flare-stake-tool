@@ -77,7 +77,7 @@ export interface TxParams {
 
 export interface ExportCTxParams extends TxParams {
   amount: BN,
-  exportFee: BN
+  exportFee?: BN
 }
 
 export interface ExportPTxParams extends TxParams {
@@ -85,7 +85,7 @@ export interface ExportPTxParams extends TxParams {
 }
 
 export interface ImportCTxParams extends TxParams {
-  importFee: BN
+  importFee?: BN
 }
 
 export type ImportPTxParams = TxParams

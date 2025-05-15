@@ -57,7 +57,7 @@ export async function buildExportCTx(
   params: ExportCTxParams
 ): Promise<UnsignedTxData> {
   let importFeeReservation = await chain.getPTxDefaultFee(account.network)
-  if (params.exportFee.isZero()) {
+  if (!params.exportFee || params.exportFee.isZero()) {
     params.exportFee = await _getExportCTxFee(account, params.amount, importFeeReservation)
   }
   let unsignedTx = await _getUnsignedExportCTx(
@@ -114,7 +114,7 @@ export async function buildImportCTx(
   account: Account,
   params: ImportCTxParams
 ): Promise<UnsignedTxData> {
-  if (params.importFee.isZero()) {
+  if (!params.importFee || params.importFee.isZero()) {
     params.importFee = await _getImportCTxFee(account)
   }
   let unsignedTx = await _getUnsignedImportCTx(account, params.importFee)
@@ -199,7 +199,7 @@ export async function buildExportPTx(
 
   const exportFee = await chain.getPTxDefaultFee(account.network)
   let amount = params.amount
-  if (amount.isZero()) {
+  if (!amount || amount.isZero()) {
     amount = (await chain.getPBalance(account.network, account.pAddress)).sub(exportFee)
   }
   if (amount.lte(new BN(0))) {
