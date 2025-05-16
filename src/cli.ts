@@ -281,7 +281,7 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
       throw new Error('Option --amount must be a string');
     }
     const cleanedAmount = allOptions.amount.replace(/,/g, '');
-    allOptions.amount = decimalToInteger(cleanedAmount, 9).toString(); // convert back to string if needed
+    allOptions.amount = decimalToInteger(cleanedAmount, 9).toString()
   }
   if (allOptions.fee) {
     allOptions.fee = decimalToInteger(allOptions.fee as string, 9)
