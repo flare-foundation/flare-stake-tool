@@ -7,7 +7,8 @@ import {
   ContextFile,
   DelegationDetailsInterface,
   DerivedAddress,
-  ScreenConstantsInterface
+  ScreenConstantsInterface,
+  TransferDetailsInterface
 } from '../interfaces'
 import { contextEnv, getContext } from '../context'
 import { prompts } from './prompts'
@@ -188,7 +189,7 @@ export async function interactiveCli(baseargv: string[]) {
         } = readInfoFromCtx('ctx.json')
         const ctxPAddress = 'P-' + publicKeyToBech32AddressString(ctxPublicKey, ctxNetwork)
         if (ctxNetwork && ctxDerivationPath && ctxPAddress) {
-          const amount = await getAmountForTransfer(task)
+          const { amount, transferAddress } = await getDetailsForTransfer(task)
           if (
             ctxNetwork &&
             ctxDerivationPath
@@ -199,6 +200,8 @@ export async function interactiveCli(baseargv: string[]) {
               task,
               '-a',
               `${amount}`,
+              '--transfer-address',
+              `${transferAddress}`,
               '--blind',
               '--derivation-path',
               ctxDerivationPath,
@@ -217,7 +220,7 @@ export async function interactiveCli(baseargv: string[]) {
         walletProperties.path
       ) {
 
-        const amount = await getAmountForTransfer(task)
+        const { amount, transferAddress } = await getDetailsForTransfer(task)
         const argsValidator = [
           ...baseargv.slice(0, 2),
           'transaction',
@@ -225,6 +228,8 @@ export async function interactiveCli(baseargv: string[]) {
           `--network=${walletProperties.network}`,
           '-a',
           `${amount}`,
+          '--transfer-address',
+          `${transferAddress}`,
           `--env-path=${walletProperties.path}`,
           '--get-hacked',
         ]
@@ -664,9 +669,10 @@ async function getDetailsForDelegation(task: string): Promise<DelegationDetailsI
   return delegationDetails
 }
 
-async function getAmountForTransfer(task: string): Promise<string> {
+async function getDetailsForTransfer(task: string): Promise<TransferDetailsInterface> {
   const { amount } = await prompts.amount()
-  return amount
+  const { transferAddress } = await prompts.transferAddress()
+  return { amount, transferAddress }
 }
 
 //async function getDetailsForValidation(task: string): Promise<DelegationDetailsInterface> {

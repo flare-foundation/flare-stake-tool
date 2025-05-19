@@ -130,6 +130,7 @@ export function cli(program: Command): void {
     )
     .option('--pop-bls-public-key <popBlsPublicKey>', 'BLS Public Key')
     .option('--pop-bls-signature <popBlsSignature>', 'BLS Signature')
+    .option('--transfer-address <transfer-address>', 'P-chain address to transfer funds to')
     .option('--threshold <threshold>', 'Threshold of the constructed transaction', '1')
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)

@@ -239,7 +239,7 @@ export const prompts = {
       {
         type: 'input',
         name: 'popBLSPublicKey',
-        message: chalk.magenta('Please enter the popBLSPublicKey: ')
+        message: chalk.magenta('Please enter the popBLSPublicKey:')
       }
     ]
     return inquirer.prompt<{ popBLSPublicKey: string }>(questions)
@@ -249,9 +249,20 @@ export const prompts = {
       {
         type: 'input',
         name: 'popBLSSignature',
-        message: chalk.magenta('Please enter the popBLSSignature: ')
+        message: chalk.magenta('Please enter the popBLSSignature:')
       }
     ]
     return inquirer.prompt<{ popBLSSignature: string }>(questions)
-  }
+  },
+  transferAddress: async () => {
+    const questions = [
+      {
+        type: 'input',
+        name: 'transferAddress',
+        message:
+          chalk.magenta('Enter destination P-chain address:')
+      }
+    ]
+    return inquirer.prompt<{ transferAddress: string }>(questions)
+  },
 }

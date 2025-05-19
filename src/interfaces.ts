@@ -70,6 +70,7 @@ export interface FlareTxParams {
   threshold?: string
   popBlsPublicKey?: string
   popBlsSignature?: string
+  transferAddress?: string
 }
 
 interface EvmTxData {
@@ -136,4 +137,10 @@ export interface ContractAddressesInterface {
     songbird: string
     coston: string
   }
+}
+
+
+export interface TransferDetailsInterface {
+  amount: string
+  transferAddress: string
 }
