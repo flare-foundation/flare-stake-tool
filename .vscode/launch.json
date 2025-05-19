@@ -1,0 +1,88 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Interactive mode",
+            "program": "${workspaceFolder}/src/run.ts",
+            "preLaunchTask": "tsc: build - tsconfig.json",
+            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+            "console": "integratedTerminal",
+            "args": [
+                "interactive",
+            ],
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch send delegator",
+            "program": "${workspaceFolder}/src/run.ts",
+            "preLaunchTask": "tsc: build - tsconfig.json",
+            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+            "console": "integratedTerminal",
+            "args": [
+                "transaction",
+                "delegate",
+                "-n", "NodeID-CZYx3on11wwYXFoHwZtAQZT5unZ9JHMf6",
+                "-a", "50000",
+                "-s", "1745420400",
+                "-e", "1746630000",
+                "--blind",
+                "--derivation-path", "m/44'/60'/0'/0/0",
+                "--network", "costwo",
+                "--ledger"
+            ],
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch fordefi send delegator",
+            "program": "${workspaceFolder}/src/run.ts",
+            "preLaunchTask": "tsc: build - tsconfig.json",
+            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+            "console": "integratedTerminal",
+            "args": [
+                "transaction",
+                "exportCP",
+                "--amount", "5",
+                "--fee", "1",
+                "-i", "e1",
+                "--ctx-file", "ctx-costwo.json"
+            ],
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch fordefi sign",
+            "program": "${workspaceFolder}/src/run.ts",
+            "preLaunchTask": "tsc: build - tsconfig.json",
+            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+            "console": "integratedTerminal",
+            "args": [
+                "forDefi",
+                "sign",
+                "-i", "e1",
+                "--ctx-file", "ctx-costwo.json"
+            ],
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch fordefi send",
+            "program": "${workspaceFolder}/src/run.ts",
+            "preLaunchTask": "tsc: build - tsconfig.json",
+            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+            "console": "integratedTerminal",
+            "args": [
+                "send",
+                "-i", "iCP1",
+                "--ctx-file", "ctx-costwo.json"
+            ],
+        },
+    ]
+}
