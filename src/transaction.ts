@@ -185,22 +185,3 @@ export async function addDelegator(ctx: Context, params: FlareTxParams) {
 
   return { txid: (await pvmapi.issueSignedTx(tx.getSignedTx())).txID }
 }
-
-export async function internalTransfer(ctx: Context, params: FlareTxParams) {
-  const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
-  const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
-  const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
-  const pChainAddressBytes = futils.bech32ToBytes(ctx.pAddressBech32!)
-  const tx = pvm.newBaseTx(context, [pChainAddressBytes], utxos, [
-    TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount!), [
-      pChainAddressBytes,
-    ]),
-  ]);
-
-  await addTxSignatures({
-    unsignedTx: tx,
-    privateKeys: [futils.hexToBuffer(ctx.privkHex!)]
-  })
-
-  return { txid: (await pvmapi.issueSignedTx(tx.getSignedTx())).txID }
-}

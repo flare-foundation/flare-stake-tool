@@ -178,62 +178,6 @@ export async function interactiveCli(baseargv: string[]) {
       }
     }
 
-    else if (task === 'transfer') {
-      // transfer funds between p-chain addresses
-      if (walletProperties.wallet == "ledger" && fileExists('ctx.json')) {
-        const {
-          network: ctxNetwork,
-          derivationPath: ctxDerivationPath,
-          publicKey: ctxPublicKey
-        } = readInfoFromCtx('ctx.json')
-        const ctxPAddress = 'P-' + publicKeyToBech32AddressString(ctxPublicKey, ctxNetwork)
-        if (ctxNetwork && ctxDerivationPath && ctxPAddress) {
-          const amount = await getAmountForTransfer(task)
-          if (
-            ctxNetwork &&
-            ctxDerivationPath
-          ) {
-            const argsValidator = [
-              ...baseargv.slice(0, 2),
-              'transaction',
-              task,
-              '-a',
-              `${amount}`,
-              '--blind',
-              '--derivation-path',
-              ctxDerivationPath,
-              `--network`,
-              `${ctxNetwork}`,
-              '--ledger'
-            ]
-            await program.parseAsync(argsValidator)
-          } else {
-            console.log('Missing values for certain params')
-          }
-        }
-      } else if (
-        walletProperties.wallet == "privateKey" &&
-        walletProperties.network &&
-        walletProperties.path
-      ) {
-
-        const amount = await getAmountForTransfer(task)
-        const argsValidator = [
-          ...baseargv.slice(0, 2),
-          'transaction',
-          task,
-          `--network=${walletProperties.network}`,
-          '-a',
-          `${amount}`,
-          `--env-path=${walletProperties.path}`,
-          '--get-hacked',
-        ]
-        await program.parseAsync(argsValidator)
-      } else {
-        console.log('only pvt key and ledger supported for staking right now')
-      }
-    }
-
     // Adding a validator
     else if ("stake" == task) {
       if (walletProperties.wallet == "ledger" && fileExists('ctx.json')) {

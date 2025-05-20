@@ -41,7 +41,7 @@ import * as settings from './settings'
 import { getPBalance } from './flare/chain'
 import { JsonRpcProvider } from 'ethers'
 import { BN } from 'bn.js'
-import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC, internalTransfer } from './transaction'
+import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC } from './transaction'
 import { getSignature, sendToForDefi } from './forDefi/transaction'
 import { fetchMirrorFunds } from './contracts'
 
@@ -113,7 +113,7 @@ export function cli(program: Command): void {
     .command('transaction')
     .description('Move funds from one chain to another, stake, and delegate')
     .argument(
-      '<importCP|exportCP|importPC|exportPC|delegate|stake|transfer>',
+      '<importCP|exportCP|importPC|exportPC|delegate|stake>',
       'Type of a cross chain transaction'
     )
     .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
@@ -483,8 +483,6 @@ async function buildAndSendTxUsingPrivateKey(
     return await addValidator(ctx, params)
   } else if (transactionType === 'delegate') {
     return await addDelegator(ctx, params)
-  } else if (transactionType === 'transfer') {
-    return await internalTransfer(ctx, params)
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
   }
