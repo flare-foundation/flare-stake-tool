@@ -1,7 +1,7 @@
 {
-  "name": "mm-dapp-react",
-  "private": true,
-  "version": "0.0.0",
+  "name": "@flarenetwork/flare-stake-tool",
+  "version": "4.0.0-rc.0",
+  "description": "Utilities for staking on the Flare network",
   "bin": {
     "flare-stake-tool": "bin/flare-stake-tool"
   },
