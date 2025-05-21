@@ -5,7 +5,8 @@ export interface NetworkConfig {
   port?: number,
   networkID: number,
   hrp: string,
-  chainID: number
+  chainID: number,
+  DurangoTime: Date
 }
 
 export const localflare: NetworkConfig = {
@@ -14,7 +15,8 @@ export const localflare: NetworkConfig = {
   port: 9650,
   networkID: 162,
   hrp: 'localflare',
-  chainID: 162
+  chainID: 162,
+  DurangoTime: new Date('2025-05-15T14:00:00Z')
 }
 
 export const local: NetworkConfig = {
@@ -23,7 +25,8 @@ export const local: NetworkConfig = {
   port: 9650,
   networkID: 4294967295,
   hrp: 'local',
-  chainID: 4294967295
+  chainID: 4294967295,
+  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
 }
 
 export const costworocks: NetworkConfig = {
@@ -31,7 +34,8 @@ export const costworocks: NetworkConfig = {
   ip: 'coston2-api.flare.rocks',
   networkID: 114,
   hrp: 'costwo',
-  chainID: 114
+  chainID: 114,
+  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
 }
 
 export const coston: NetworkConfig = {
@@ -39,7 +43,8 @@ export const coston: NetworkConfig = {
   ip: 'coston-api.flare.network',
   networkID: 7,
   hrp: 'coston',
-  chainID: 16
+  chainID: 16,
+  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
 }
 
 export const costwo: NetworkConfig = {
@@ -47,7 +52,8 @@ export const costwo: NetworkConfig = {
   ip: 'coston2-api.flare.network',
   networkID: 114,
   hrp: 'costwo',
-  chainID: 114
+  chainID: 114,
+  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
 }
 
 export const songbird: NetworkConfig = {
@@ -55,7 +61,8 @@ export const songbird: NetworkConfig = {
   ip: 'songbird-api.flare.network',
   networkID: 5,
   hrp: 'songbird',
-  chainID: 19
+  chainID: 19,
+  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
 }
 
 export const flare: NetworkConfig = {
@@ -63,5 +70,6 @@ export const flare: NetworkConfig = {
   ip: 'flare-api.flare.network',
   networkID: 14,
   hrp: 'flare',
-  chainID: 14
+  chainID: 14,
+  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
 }

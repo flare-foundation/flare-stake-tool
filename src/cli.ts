@@ -111,7 +111,7 @@ export function cli(program: Command): void {
   // transaction construction and sending
   program
     .command('transaction')
-    .description('Move funds from one chain to another, stake, and delegate')
+    .description('Move funds from one chain to another or to another P-chain address, stake, and delegate')
     .argument(
       '<importCP|exportCP|importPC|exportPC|delegate|stake|transfer>',
       'Type of a cross chain transaction'
@@ -198,10 +198,10 @@ export function cli(program: Command): void {
         }
       }
     });
-  // withdrawal (transfer) from c-chain
+  // withdrawal (transfer) from C-chain
   program
     .command('withdrawal')
-    .description('Withdraw funds from c-chain')
+    .description('Withdraw funds from C-chain')
     .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
     .option('-a, --amount <amount>', 'Amount to transfer')
     .option('-t, --to <to>', 'Address to send funds to')
@@ -219,7 +219,7 @@ export function cli(program: Command): void {
     })
   // opt out
   program
-  .command("optOut").description("Opt out of rewards on the c-chain")
+  .command("optOut").description("Opt out of rewards on the C-chain")
   .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
   .option("--nonce <nonce>", "Nonce of the constructed transaction")
   .action(async (options: OptionValues) => {
@@ -387,7 +387,7 @@ async function buildUnsignedTx(
     }
     case 'stake': {
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
-      const start = BigInt(params.startTime!)
+      const start = BigInt(params.startTime || 0)
       const end = BigInt(params.endTime!)
       const nodeID = params.nodeId!
       const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey!)
@@ -415,7 +415,7 @@ async function buildUnsignedTx(
     }
     case 'delegate': {
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
-      const start = BigInt(params.startTime!)
+      const start = BigInt(params.startTime || 0)
       const end = BigInt(params.endTime!)
       const nodeID = params.nodeId!
 
@@ -682,7 +682,7 @@ async function cliBuildAndSendTxUsingLedger(
       popBLSPublicKey: futils.hexToBuffer(params.popBlsPublicKey!),
       popBLSSignature: futils.hexToBuffer(params.popBlsSignature!),
       amount: new BN(params.amount!),
-      startTime: new BN(params.startTime!),
+      startTime: new BN(params.startTime || 0),
       endTime: new BN(params.endTime!),
 
       // unnecessary?
@@ -699,7 +699,7 @@ async function cliBuildAndSendTxUsingLedger(
       publicKey: getPublicKeyFromPair(ctx.publicKey!),
       nodeId: params.nodeId!,
       amount: new BN(params.amount!),
-      startTime: new BN(params.startTime!),
+      startTime: new BN(params.startTime || 0),
       endTime: new BN(params.endTime!),
 
       // unnecessary?
