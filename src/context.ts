@@ -1,16 +1,24 @@
 import fs from 'fs'
 import Web3 from 'web3'
-import { Avalanche, BinTools, Buffer as FlrBuffer } from '@flarenetwork/flarejs'
-import { PrivateKeyPrefix, PublicKeyPrefix, Defaults } from '@flarenetwork/flarejs/dist/utils'
-import { EVMAPI, KeyChain as EVMKeyChain } from '@flarenetwork/flarejs/dist/apis/evm'
-import { PlatformVMAPI as PVMAPI, KeyChain as PVMKeyChain } from '@flarenetwork/flarejs/dist/apis/platformvm'
+import { utils } from '@flarenetwork/flarejs';
 import { Context, ContextFile } from './interfaces'
-import { flare, songbird, costwo, coston, localflare, local, NetworkConfig } from './constants/network'
 import {
-  unPrefix0x, publicKeyToBech32AddressString, publicKeyToEthereumAddressString,
-  privateKeyToPublicKey, decodePublicKey
+  flare,
+  songbird,
+  costwo,
+  coston,
+  localflare,
+  local,
+  NetworkConfig
+} from './constants/network'
+import {
+  publicKeyToBech32AddressString,
+  publicKeyToEthereumAddressString,
+  privateKeyToPublicKey,
+  decodePublicKey,
+  unPrefix0x
 } from './utils'
-
+import * as dotenv from 'dotenv';
 
 /**
  * @param network
@@ -38,12 +46,13 @@ export function readContextFile(ctxFile: string): ContextFile {
  * @returns - returns the context from .env file
  */
 export function contextEnv(path: string, network: string): Context {
-  require('dotenv').config({ path: path })
+  dotenv.config({ path: path })
   return getContext(
     network,
     process.env.PUBLIC_KEY,
     process.env.PRIVATE_KEY_HEX,
-    process.env.PRIVATE_KEY_CB58)
+    process.env.PRIVATE_KEY_CB58
+  )
 }
 
 /**
@@ -74,8 +83,13 @@ export function networkFromContextFile(ctxFile: string): string {
  * @param privateKeyCB58 - private key in cb58 format
  * @returns context
  */
-export function getContext(network: string, publicKey?: string, privateKeyHex?: string, privateKeyCB58?: string): Context {
-  return context(getNetworkConfig(network), publicKey, privateKeyHex, privateKeyCB58)
+export function getContext(
+  network: string,
+  publicKey?: string,
+  privateKeyHex?: string,
+  privateKeyCB58?: string
+): Context {
+  return context(getNetworkConfig(network), publicKey, privateKeyHex, privateKeyCB58, network)
 }
 
 /**
@@ -107,26 +121,30 @@ export function getNetworkConfig(network: string | undefined): NetworkConfig {
  * @param publicKey - public key
  * @param privkHex - private key in hex format
  * @param privkCB58 - private key in cb58 format
+ * @param network - network name
  * @returns the context object
  */
 export function context(
   config: NetworkConfig,
-  publicKey?: string, privkHex?: string, privkCB58?: string,
+  publicKey?: string,
+  privkHex?: string,
+  privkCB58?: string,
+  network?: string
 ): Context {
-  const { protocol, ip, port, networkID, chainID } = config
+
+  const { protocol, ip, port, networkID: _, chainID } = config
   // those two addresses should be derived for most cli applications
   let cAddressHex: string | undefined
   let addressBech32: string | undefined
 
   // derive private key in both cb58 and hex if only one is provided
-  const bintools = BinTools.getInstance()
-  if (privkHex !== undefined && privkHex !== '') {
-    privkHex = unPrefix0x(privkHex)
-    const privkBuf = bintools.addChecksum(FlrBuffer.from(privkHex, 'hex'))
-    privkCB58 = bintools.bufferToB58(privkBuf)
-  } else if (privkCB58 !== undefined && privkCB58 !== '') {
-    const privkBuf = bintools.cb58Decode(privkCB58)
-    privkHex = privkBuf.toString('hex')
+  if (privkHex !== undefined && privkHex !== "") {
+   privkHex = unPrefix0x(privkHex);
+   const privkBuf = Buffer.from(privkHex, "hex");
+   privkCB58 = utils.base58check.encode(privkBuf);
+  } else if (privkCB58 !== undefined && privkCB58 !== "") {
+   const privkBuf = Buffer.from(utils.base58check.decode(privkCB58));
+   privkHex = privkBuf.toString("hex");
   }
 
   // derive the public key coords if private key is present and check that they match
@@ -134,14 +152,17 @@ export function context(
   let publicKeyPair: [Buffer, Buffer] | undefined
   if (publicKey) {
     publicKeyPair = decodePublicKey(publicKey)
-    publicKey = "04" + Buffer.concat(publicKeyPair).toString('hex') // standardize
+    publicKey = '04' + Buffer.concat(publicKeyPair).toString('hex') // standardize
   }
   if (privkHex) {
     const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(privkHex, 'hex'))
     if (publicKey && (!publicKeyPair![0].equals(pubX) || !publicKeyPair![1].equals(pubY))) {
-      throw Error("provided private key does not match the public key")
+      throw Error('provided private key does not match the public key')
     }
     publicKeyPair = [pubX, pubY]
+    if (!publicKey) {
+      publicKey = '04' + Buffer.concat(publicKeyPair).toString('hex') // standardize
+    }
   }
 
   const path = '/ext/bc/C/rpc'
@@ -156,25 +177,12 @@ export function context(
     addressBech32 = publicKeyToBech32AddressString(publicKey, config.hrp)
   }
 
-  const avalanche = new Avalanche(ip, port, protocol, networkID)
-  const cchain: EVMAPI = avalanche.CChain()
-  const pchain: PVMAPI = avalanche.PChain()
-  const cKeychain: EVMKeyChain = cchain.keyChain()
-  const pKeychain: PVMKeyChain = pchain.keyChain()
-
-  if (privkCB58 || publicKey) {
-    const key = (privkCB58) ? `${PrivateKeyPrefix}${privkCB58}` : `${PublicKeyPrefix}${publicKey!}`
-    pKeychain.importKey(key)
-    cKeychain.importKey(key)
-  }
-
-  const pAddressStrings: string[] = pchain.keyChain().getAddressStrings()
-  const cAddressStrings: string[] = cchain.keyChain().getAddressStrings()
-  const pAddressBech32 = pAddressStrings[0] || `P-${addressBech32}`
-  const cAddressBech32 = cAddressStrings[0] || `C-${addressBech32}`
+  const pAddressBech32 = /*pAddressStrings[0] ||*/ `P-${addressBech32}`
+  const cAddressBech32 = /*cAddressStrings[0] ||*/ `C-${addressBech32}`
 
   if (privkHex) {
-    const cAccount = web3.eth.accounts.privateKeyToAccount(privkHex)
+    const prefixPrivkHex = privkHex.startsWith('0x') ? privkHex : `0x${privkHex}`
+    const cAccount = web3.eth.accounts.privateKeyToAccount(prefixPrivkHex)
     const _cAddressHex = cAccount.address
     if (cAddressHex && cAddressHex.toLowerCase() !== _cAddressHex.toLowerCase()) {
       throw Error('c-chain address does not match private key')
@@ -182,30 +190,17 @@ export function context(
     cAddressHex = _cAddressHex
   }
 
-  const pChainBlockchainID: string =
-    Defaults.network[networkID].P.blockchainID
-  const cChainBlockchainID: string =
-    Defaults.network[networkID].C.blockchainID
-  const avaxAssetID: string = Defaults.network[networkID].P.avaxAssetID!
-
   return {
     privkHex: privkHex,
     privkCB58: privkCB58,
     publicKey: publicKeyPair,
     rpcurl: rpcurl,
     web3: web3,
-    avalanche: avalanche,
-    cchain: cchain,
-    pchain: pchain,
-    cKeychain: cKeychain,
-    pKeychain: pKeychain,
     pAddressBech32: pAddressBech32,
     cAddressBech32: cAddressBech32,
     cAddressHex: cAddressHex,
-    cChainBlockchainID: cChainBlockchainID,
-    pChainBlockchainID: pChainBlockchainID,
-    avaxAssetID: avaxAssetID,
     config: config,
-    chainID: chainID
+    chainID: chainID,
+    network: network
   }
 }

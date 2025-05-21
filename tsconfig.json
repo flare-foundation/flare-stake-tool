@@ -1,20 +1,19 @@
 {
   "compilerOptions": {
-    "target": "es2016",
-    "module": "commonjs",
+    "target": "ES2020",
+    "module": "CommonJS",
+    "outDir": "dist",
+    "sourceMap": true,
     "allowJs": true,
     "esModuleInterop": true,
-    "outDir": "dist",
     "rootDir": "./",
     "strict": true,
     "preserveSymlinks": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    // "module": "commonjs",
+    // "sourceMap": true
+    // "moduleResolution": "bundler"
   },
-  "exclude": [
-    "node_modules",
-    "scripts",
-    "test",
-    "dist",
-    "go-localflare"
-  ]
+  "exclude": ["node_modules", "scripts", "test", "dist"]
 }
