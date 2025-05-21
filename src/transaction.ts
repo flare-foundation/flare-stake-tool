@@ -30,9 +30,10 @@ export async function exportCP(ctx: Context, params: FlareTxParams) {
   }
   const txCount = await provider.getTransactionCount(ctx.cAddressHex)
   const baseFee = await evmapi.getBaseFee()
+  const fee = !params.fee || BigInt(params.fee) == 0n  || BigInt(params.fee) < baseFee? baseFee : BigInt(params.fee)
   const exportTx = evm.newExportTxFromBaseFee(
     context,
-    baseFee / BigInt(FLR),
+    fee / BigInt(FLR),
     BigInt(params.amount!),
     context.pBlockchainID,
     futils.hexToBuffer(ctx.cAddressHex),
@@ -99,19 +100,19 @@ export async function exportPC(ctx: Context, params: FlareTxParams) {
 export async function importPC(ctx: Context, params: FlareTxParams) {
   const evmapi = new evm.EVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
-  const baseFee = await evmapi.getBaseFee()
   const { utxos } = await evmapi.getUTXOs({
     sourceChain: 'P',
     addresses: [ctx.cAddressBech32!]
   })
-
+  const baseFee = await evmapi.getBaseFee()
+  const fee = !params.fee || BigInt(params.fee) == 0n  || BigInt(params.fee) < baseFee? baseFee : BigInt(params.fee)
   const tx = evm.newImportTxFromBaseFee(
     context,
     futils.hexToBuffer(ctx.cAddressHex!),
     [futils.bech32ToBytes(ctx.pAddressBech32!)],
     utxos,
     getChainIdFromContext('P', context),
-    baseFee / BigInt(FLR)
+    fee / BigInt(FLR)
   )
 
   await addTxSignatures({

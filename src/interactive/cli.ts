@@ -22,6 +22,7 @@ import * as ledger from '../ledger'
 import { logInfo } from '../output'
 
 const DEFAULT_EVM_TX_FEE = new BN(1)
+const DEFAULT_EVM_TX_BASE_FEE = new BN(25)
 
 /***
  * @description Handles all operations pertaining to the interactive CLL. Creates a list of arguments and internally calls the commander based CLI after taking the relevant inputs from the user.
@@ -150,8 +151,8 @@ export async function interactiveCli(baseargv: string[]) {
         ]
         // ask for fees if its exportCP transaction
         if (task.slice(0, 1) == 'C') {
-          const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE)
-          argsExport.push('-f', `${exportFees.fees}`)
+          const exportFees = await prompts.baseFee(DEFAULT_EVM_TX_BASE_FEE)
+          argsExport.push('-f', `${exportFees.baseFee}`)
           await waitFinalize<any>(
             contextEnv(walletProperties.path, walletProperties.network),
             program.parseAsync(argsExport)
@@ -170,8 +171,8 @@ export async function interactiveCli(baseargv: string[]) {
         ]
         // ask for fees if its importTxPC
         if (task.slice(0, 1) == 'P') {
-          const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE)
-          argsImport.push('-f', `${exportFees.fees}`)
+          const exportFees = await prompts.baseFee(DEFAULT_EVM_TX_BASE_FEE)
+          argsImport.push('-f', `${exportFees.baseFee}`)
         }
         await program.parseAsync(argsImport)
       } else {
@@ -484,8 +485,8 @@ export async function interactiveCli(baseargv: string[]) {
         ]
         // ask for fees if its importTxPC
         if (importDestChain.type == 'C') {
-          const importFees = await prompts.fees(DEFAULT_EVM_TX_FEE)
-          argsImport.push('-f', `${importFees.fees}`)
+          const importFees = await prompts.baseFee(DEFAULT_EVM_TX_BASE_FEE)
+          argsImport.push('-f', `${importFees.baseFee}`)
         }
         console.log('Please approve import transaction')
         await program.parseAsync(argsImport)
