@@ -86,16 +86,30 @@ export const prompts = {
     return inquirer.prompt<{ amount: string }>(questions)
   },
 
-  fees: async (baseFees?: unknown) => {
+  // exportCP and importPC fees
+  fees: async (defaultFees?: unknown) => {
     const questions = [
       {
         type: 'input',
-        default: baseFees,
+        default: defaultFees,
         name: 'fees',
         message: chalk.magenta('Enter fees (in FLR):')
       }
     ]
     return inquirer.prompt<{ fees: string }>(questions)
+  },
+
+  // base fee for exportCP and importPC txs with private key
+  baseFee: async (defaultBaseFee?: unknown) => {
+    const questions = [
+      {
+        type: 'input',
+        default: defaultBaseFee,
+        name: 'baseFee',
+        message: chalk.magenta('Enter base fee (in nanoFLR):')
+      }
+    ]
+    return inquirer.prompt<{ baseFee: string }>(questions)
   },
 
   nodeId: async () => {

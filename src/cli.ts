@@ -218,7 +218,7 @@ export function cli(program: Command): void {
     })
   // opt out
   program
-  .command("optOut").description("Opt out of rewards on the c-chain")
+  .command("optOut").description("Opt out of airdrop on the c-chain")
   .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
   .option("--nonce <nonce>", "Nonce of the constructed transaction")
   .action(async (options: OptionValues) => {
@@ -281,7 +281,7 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
       throw new Error('Option --amount must be a string');
     }
     const cleanedAmount = allOptions.amount.replace(/,/g, '');
-    allOptions.amount = decimalToInteger(cleanedAmount, 9).toString(); // convert back to string if needed
+    allOptions.amount = decimalToInteger(cleanedAmount, 9).toString()
   }
   if (allOptions.fee) {
     allOptions.fee = decimalToInteger(allOptions.fee as string, 9)
@@ -633,6 +633,11 @@ async function cliBuildAndSendTxUsingLedger(
     }
   }
   if (transactionType === 'exportCP') {
+    if (!params.amount) {
+      throw new Error(
+        `amount is required for exportCP transaction. Use --amount <amount> to specify the amount`
+      )
+    }
     let tp: ExportCTxParams = {
       amount: toBN(params.amount)!,
       exportFee: toBN(params.fee)!,
