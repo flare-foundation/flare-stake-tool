@@ -31,7 +31,6 @@ export async function exportCP(ctx: Context, params: FlareTxParams) {
   const txCount = await provider.getTransactionCount(ctx.cAddressHex)
   const baseFee = await evmapi.getBaseFee()
   const fee = !params.fee || BigInt(params.fee) == 0n  || BigInt(params.fee) < baseFee? baseFee : BigInt(params.fee)
-  console.log(baseFee)
   const exportTx = evm.newExportTxFromBaseFee(
     context,
     fee / BigInt(FLR),

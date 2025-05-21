@@ -218,7 +218,7 @@ export function cli(program: Command): void {
     })
   // opt out
   program
-  .command("optOut").description("Opt out of rewards on the c-chain")
+  .command("optOut").description("Opt out of airdrop on the c-chain")
   .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
   .option("--nonce <nonce>", "Nonce of the constructed transaction")
   .action(async (options: OptionValues) => {

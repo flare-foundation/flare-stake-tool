@@ -74,7 +74,6 @@ const fetchDelegateStake = async (
   let userStake = [];
   for (let i = 0; i < validatorsData.length; i++) {
     const validatorData = validatorsData[i];
-    console.log("validatorData", validatorData.delegators);
     for (let j = 0; j < (validatorData.delegators && validatorData.delegators?.length);j++) {
       if (validatorData.delegators[j] &&
         validatorData.delegators[j].rewardOwner.addresses.includes(ctx.pAddressBech32!)
