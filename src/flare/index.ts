@@ -20,7 +20,7 @@ import * as utils from '../utils'
 const TX_EFFECT_TIMEOUT = 10000
 const TX_EFFECT_DELAY = 500
 
-function _getAccount(network: string, publicKey: string): Account {
+export function _getAccount(network: string, publicKey: string): Account {
   return {
     network,
     publicKey: pubk.normalizePublicKey(publicKey),
@@ -242,7 +242,7 @@ export async function addValidator(
   return tx.id
 }
 
-async function _checkNumberOfStakes(
+export async function _checkNumberOfStakes(
   account: Account,
   nodeId: string,
   startTime: BN,
@@ -263,7 +263,7 @@ async function _checkNumberOfStakes(
   }
 }
 
-async function _checkNodeId(
+export async function _checkNodeId(
   account: Account,
   nodeId: string,
   stakes?: Array<PStake>
