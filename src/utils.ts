@@ -103,6 +103,10 @@ export function dateToDateTimeString(date: Date): string {
   return date.toLocaleString()
 }
 
+export function adjustStartTime(startTime: any): number {
+  return Number(startTime) || Math.round(Date.now() / 1000)
+}
+
 export async function waitWhile(
   condition: () => Promise<boolean>,
   timeoutMs: number,

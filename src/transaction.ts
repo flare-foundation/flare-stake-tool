@@ -10,6 +10,7 @@ import {
   networkIDs
 } from '@flarenetwork/flarejs'
 import { Context, FlareTxParams } from './interfaces'
+import { adjustStartTime } from './utils'
 
 const FLR = 1e9 // one FLR in nanoFLR
 
@@ -127,7 +128,7 @@ export async function addValidator(ctx: Context, params: FlareTxParams) {
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
-  const start = BigInt(params.startTime || 0)
+  const start = BigInt(adjustStartTime(params.startTime))
   const end = BigInt(params.endTime!)
   const nodeID = params.nodeId!
   const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey!)
@@ -163,7 +164,7 @@ export async function addDelegator(ctx: Context, params: FlareTxParams) {
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
-  const start = BigInt(params.startTime || 0)
+  const start = BigInt(adjustStartTime(params.startTime))
   const end = BigInt(params.endTime!)
   const nodeID = params?.nodeId as string
 

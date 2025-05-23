@@ -31,7 +31,8 @@ import {
   isAlreadySentToChain,
   addFlagForSentSignedTx,
   readSignedTxJson,
-  saveUnsignedTxJson
+  saveUnsignedTxJson,
+  adjustStartTime
 } from './utils'
 import { createOptOutTransaction, createWithdrawalTransaction, sendSignedEvmTransaction } from './forDefi/evmTx'
 import { log, logError, logInfo, logSuccess } from './output'
@@ -387,7 +388,7 @@ async function buildUnsignedTx(
     }
     case 'stake': {
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
-      const start = BigInt(params.startTime || 0)
+      const start = BigInt(adjustStartTime(params.startTime))
       const end = BigInt(params.endTime!)
       const nodeID = params.nodeId!
       const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey!)
@@ -415,7 +416,7 @@ async function buildUnsignedTx(
     }
     case 'delegate': {
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
-      const start = BigInt(params.startTime || 0)
+      const start = BigInt(adjustStartTime(params.startTime))
       const end = BigInt(params.endTime!)
       const nodeID = params.nodeId!
 
@@ -688,7 +689,7 @@ async function cliBuildAndSendTxUsingLedger(
       popBLSPublicKey: futils.hexToBuffer(params.popBlsPublicKey!),
       popBLSSignature: futils.hexToBuffer(params.popBlsSignature!),
       amount: new BN(params.amount!),
-      startTime: new BN(params.startTime || 0),
+      startTime: new BN(adjustStartTime(params.startTime)),
       endTime: new BN(params.endTime!),
 
       // unnecessary?
@@ -705,7 +706,7 @@ async function cliBuildAndSendTxUsingLedger(
       publicKey: getPublicKeyFromPair(ctx.publicKey!),
       nodeId: params.nodeId!,
       amount: new BN(params.amount!),
-      startTime: new BN(params.startTime || 0),
+      startTime: new BN(adjustStartTime(params.startTime)),
       endTime: new BN(params.endTime!),
 
       // unnecessary?
