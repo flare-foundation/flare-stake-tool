@@ -10,7 +10,7 @@ import {
   ScreenConstantsInterface,
   TransferDetailsInterface
 } from '../interfaces'
-import { contextEnv, getContext } from '../context'
+import { contextEnv, getContext, isDurango } from '../context'
 import { prompts } from './prompts'
 import {
   publicKeyToBech32AddressString,
@@ -260,7 +260,7 @@ export async function interactiveCli(baseargv: string[]) {
             delegationFee,
             popBLSPublicKey,
             popBLSSignature
-          } = await getDetailsForDelegation(task)
+          } = await getDetailsForDelegation(task, isDurango(ctxNetwork))
           if (
             ctxNetwork &&
             ctxDerivationPath &&
@@ -312,7 +312,7 @@ export async function interactiveCli(baseargv: string[]) {
           delegationFee,
           popBLSPublicKey,
           popBLSSignature
-        } = await getDetailsForDelegation(task)
+        } = await getDetailsForDelegation(task, isDurango(walletProperties.network))
         const argsValidator = [
           ...baseargv.slice(0, 2),
           'transaction',
@@ -354,7 +354,7 @@ export async function interactiveCli(baseargv: string[]) {
         if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
 
           const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(
-            task
+            task, isDurango(ctxNetwork)
           )
           const argsDelegate = [
             ...baseargv.slice(0, 2),
@@ -386,7 +386,7 @@ export async function interactiveCli(baseargv: string[]) {
       ) {
 
         const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(
-          task
+          task, isDurango(walletProperties.network)
         )
         const argsDelegate = [
           ...baseargv.slice(0, 2),
@@ -645,16 +645,20 @@ function deleteFile() {
   }
 }
 
-async function getDetailsForDelegation(task: string): Promise<DelegationDetailsInterface> {
+async function getDetailsForDelegation(task: string, isDurango: boolean): Promise<DelegationDetailsInterface> {
   const amount = await prompts.amount()
   const nodeId = await prompts.nodeId()
-  const startTime = await prompts.unixTime('start')
-  const endTime = await prompts.unixTime('end')
+  let startTime: string = '0'
+  if (!isDurango) {
+    const { time } = await prompts.unixTime('start')
+    startTime = time
+  }
+  const { time: endTime } = await prompts.unixTime('end')
   const delegationDetails = {
     amount: amount.amount,
     nodeId: nodeId.id,
-    startTime: startTime.time,
-    endTime: endTime.time
+    startTime: startTime,
+    endTime: endTime
   }
   if (task == 'stake') {
     const fee = await prompts.delegationFee()

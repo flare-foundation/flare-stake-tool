@@ -41,7 +41,7 @@ import * as settings from './settings'
 import { getPBalance } from './flare/chain'
 import { JsonRpcProvider } from 'ethers'
 import { BN } from 'bn.js'
-import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC } from './transaction'
+import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC, internalTransfer } from './transaction'
 import { getSignature, sendToForDefi } from './forDefi/transaction'
 import { fetchMirrorFunds } from './contracts'
 
@@ -452,7 +452,8 @@ async function sendSignedTxJson(ctx: Context, signedTxJson: SignedTxJson): Promi
     case 'exportPC':
     case 'importCP':
     case 'stake':
-    case 'delegate': {
+    case 'delegate':
+    case 'transfer': {
       const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
       const resp = await pvmapi.issueSignedTx(signedTx)
       return resp.txID
@@ -484,6 +485,8 @@ async function buildAndSendTxUsingPrivateKey(
     return await addValidator(ctx, params)
   } else if (transactionType === 'delegate') {
     return await addDelegator(ctx, params)
+  } else if (transactionType === 'transfer') {
+    return await internalTransfer(ctx, params)
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
   }

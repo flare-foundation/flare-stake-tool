@@ -204,3 +204,9 @@ export function context(
     network: network
   }
 }
+
+export function isDurango(network: string): boolean {
+  const cfg = getNetworkConfig(network)
+  if (!cfg) return false
+  return Date.now() >= cfg.DurangoTime.getTime()
+}
