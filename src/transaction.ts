@@ -136,6 +136,11 @@ export async function addValidator(ctx: Context, params: FlareTxParams) {
   const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey!)
   const blsSignature = futils.hexToBuffer(params.popBlsSignature!)
 
+  const pk = Buffer.concat(ctx.publicKey!).toString('hex')
+  const account = _getAccount(ctx.network!, pk)
+  let stakes = await chain.getPStakes(account.network)
+  await _checkNumberOfStakes(account, params.nodeId!, new BN(params.startTime!), new BN(params.endTime!), stakes)
+
   const tx = pvm.newAddPermissionlessValidatorTx(
     context,
     utxos,

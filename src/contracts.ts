@@ -74,20 +74,40 @@ const fetchDelegateStake = async (
   let userStake = [];
   for (let i = 0; i < validatorsData.length; i++) {
     const validatorData = validatorsData[i];
+    // get validators
+    if (validatorData.validationRewardOwner && validatorData.validationRewardOwner.addresses.includes(ctx.pAddressBech32!)) {
+       const startDate = new Date(
+          parseInt(validatorData.startTime) * 1000,
+        );
+        const endDate = new Date(
+          parseInt(validatorData.endTime) * 1000,
+        );
+        userStake.push({
+          type: "validator",
+          nodeID: validatorData.nodeID,
+          stakeAmount:
+            parseFloat(validatorData.stakeAmount) / 1e9,
+          startTime: startDate,
+          endTime: endDate,
+        });
+    }
+
+    // get delegators
     for (let j = 0; j < (validatorData.delegators && validatorData.delegators?.length);j++) {
       if (validatorData.delegators[j] &&
         validatorData.delegators[j].rewardOwner.addresses.includes(ctx.pAddressBech32!)
       ) {
         const startDate = new Date(
-          parseInt(validatorData?.delegators[j]?.startTime) * 1000,
+          parseInt(validatorData.delegators[j].startTime) * 1000,
         );
         const endDate = new Date(
-          parseInt(validatorData?.delegators[j]?.endTime) * 1000,
+          parseInt(validatorData.delegators[j].endTime) * 1000,
         );
         userStake.push({
-          nodeID: validatorData?.nodeID,
+          type: "delegator",
+          nodeID: validatorData.nodeID,
           stakeAmount:
-            parseFloat(validatorData?.delegators[j]?.stakeAmount) / 1e9,
+            parseFloat(validatorData.delegators[j].stakeAmount) / 1e9,
           startTime: startDate,
           endTime: endDate,
         });
@@ -130,7 +150,7 @@ export async function fetchMirrorFunds(ctx: Context) {
   // const stakedAmountInFLR = parseFloat(
   //   integerToDecimal(stakedAmount.toString(), 18),
   // );
-  // fetch for the chain
+  // fetch from the chain
   const delegationToCurrentValidator = await fetchDelegateStake(
     ctx,
     fetchValidatorInfo,
@@ -163,7 +183,17 @@ export type GetCurrentValidatorsResponseFixed = {
     stakeAmount: string;
     nodeID: string;
     weight: string;
+    rewardOwner: {
+      locktime: string;
+      threshold: string;
+      addresses: string[];
+    };
     validationRewardOwner: {
+      locktime: string;
+      threshold: string;
+      addresses: string[];
+    };
+    delegationRewardOwner: {
       locktime: string;
       threshold: string;
       addresses: string[];
@@ -188,4 +218,4 @@ export type GetCurrentValidatorsResponseFixed = {
       potentialReward: string;
     }[];
   }[];
-};
+}

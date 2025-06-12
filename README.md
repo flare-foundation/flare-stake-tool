@@ -248,7 +248,7 @@ where --ctx-file is optional and specifies the path to the context file. If not 
 To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` flag with `--get-hacked` and add an additional argument `--env-path <path to your private key file>`. For example:
 
 ```bash
-flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file> --get-hacked
+flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file> --get-hacked --network <flare|costwo|songbird|coston|localflare>
 ```
 
 ## Interactive CLI
