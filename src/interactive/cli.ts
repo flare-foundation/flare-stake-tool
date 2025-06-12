@@ -4,21 +4,24 @@ import { Command } from 'commander'
 import { BN } from 'bn.js'
 import {
   ConnectWalletInterface,
+  Context,
   ContextFile,
   DelegationDetailsInterface,
   DerivedAddress,
   ScreenConstantsInterface
 } from '../interfaces'
-import { contextEnv, getContext } from '../context'
+import { contextEnv, getContext, getNetworkConfig } from '../context'
 import { prompts } from './prompts'
 import {
   publicKeyToBech32AddressString,
   publicKeyToEthereumAddressString,
   waitFinalize
 } from '../utils'
-import { cli, initCtxJsonFromOptions } from '../cli'
+import { cli, initCtxJsonFromOptions, networkTokenSymbol } from '../cli'
 import * as ledger from '../ledger'
 import { logInfo } from '../output'
+import { getStateOfRewards } from '../forDefi/evmTx'
+import Web3 from 'web3'
 
 const DEFAULT_EVM_TX_FEE = new BN(1)
 const DEFAULT_EVM_TX_BASE_FEE = new BN(25)
@@ -433,7 +436,100 @@ export async function interactiveCli(baseargv: string[]) {
         console.log('Incorrect arguments passed!')
       }
     }
-
+    else if ("claim" == task) {
+      if (walletProperties.wallet == "ledger" && fileExists('ctx.json')) {
+        const {
+          network: ctxNetwork,
+          derivationPath: ctxDerivationPath,
+          ethAddress: ctxCAddress,
+          // publicKey: ctxPublicKey,
+          flareAddress: ctxPAddress
+        } = readInfoFromCtx('ctx.json')
+        const networkConfig = getNetworkConfig(ctxNetwork)
+        const path = '/ext/bc/C/rpc'
+        const port = networkConfig.port
+        const ip = networkConfig.ip
+        const protocol = networkConfig.protocol
+        const iport = port ? `${ip}:${port}` : `${ip}`
+        const rpcurl = `${protocol}://${iport}`
+        const web3 = new Web3(`${rpcurl}${path}`)
+        if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
+          const { unclaimedRewards, totalRewards, claimedRewards } = await getStateOfRewards(web3, ctxCAddress)
+          console.log(chalk.yellow(
+            `State of rewards for ${ctxCAddress}:\n` +
+            `Total rewards: ${totalRewards} ${networkTokenSymbol[ctxNetwork]}\n` +
+            `Claimed rewards: ${claimedRewards} ${networkTokenSymbol[ctxNetwork]}\n` +
+            `Unclaimed rewards: ${unclaimedRewards} ${networkTokenSymbol[ctxNetwork]}`
+          ))
+          if (Number(unclaimedRewards) === 0) {
+            console.log(chalk.green('Nothing to claim!'))
+            break
+          }
+          const claimAll = await prompts.claimAllUnclaimed(unclaimedRewards, networkTokenSymbol[networkConfig.hrp]
+          );
+          const amount = claimAll.claimAllUnclaimed ? undefined : (await prompts.claimAmount()).claimAmount
+          const wrapRewards = await prompts.wrapRewards()
+          const recipientAddress = await prompts.recipientAddress(ctxCAddress)
+          const argsDelegate = [
+            ...baseargv.slice(0, 2),
+            'claim',
+            ...(amount ? [`-a`] : []),
+            ...(amount ? [`${amount}`] : []),
+            '-r',
+            `${recipientAddress.recipientAddress}`,
+            '--blind',
+            '--derivation-path',
+            ctxDerivationPath,
+            `--network`,
+            `${ctxNetwork}`,
+            '--ledger',
+            ...(wrapRewards.wrapRewards ? ['-w'] : [])
+          ]
+          await program.parseAsync(argsDelegate)
+        } else {
+          console.log('Missing params in ctx file')
+        }
+      } else if (
+        walletProperties.wallet == "privateKey" &&
+        walletProperties.network &&
+        walletProperties.path
+      ) {
+        const ctx: Context = contextEnv(walletProperties.path, walletProperties.network)
+        const ctxCAddress = ctx.cAddressHex
+        const { unclaimedRewards, totalRewards, claimedRewards } = await getStateOfRewards(ctx.web3, ctxCAddress!)
+        const symbol = networkTokenSymbol[ctx.config.hrp]
+        console.log(chalk.yellow(
+          `State of rewards for ${ctxCAddress}:\n` +
+          `Total rewards: ${totalRewards} ${symbol}\n` +
+          `Claimed rewards: ${claimedRewards} ${symbol}\n` +
+          `Unclaimed rewards: ${unclaimedRewards} ${symbol}`
+        ))
+        if (Number(unclaimedRewards) === 0) {
+          console.log(chalk.green('Nothing to claim!'))
+          break
+        }
+        const claimAll = await prompts.claimAllUnclaimed(unclaimedRewards, symbol
+        );
+        const amount = claimAll.claimAllUnclaimed ? undefined : (await prompts.claimAmount()).claimAmount
+        const wrapRewards = await prompts.wrapRewards()
+        const recipientAddress = await prompts.recipientAddress(ctx.cAddressHex)
+        const argsDelegate = [
+          ...baseargv.slice(0, 2),
+          'claim',
+          ...(amount ? [`-a`] : []),
+          ...(amount ? [`${amount}`] : []),
+          '-r',
+          `${recipientAddress.recipientAddress}`,
+          `--env-path=${walletProperties.path}`,
+          '--get-hacked',
+          `--network=${walletProperties.network}`,
+          ...(wrapRewards.wrapRewards ? ['-w'] : [])
+        ]
+        await program.parseAsync(argsDelegate)
+      } else {
+        console.log('only private key and ledger are supported')
+      }
+    }
     // exit the interactive cli
     else if ("quit" == task) {
       // exit the application
@@ -607,11 +703,6 @@ async function getDetailsForDelegation(task: string): Promise<DelegationDetailsI
     }
   }
   return delegationDetails
-}
-
-async function getAmountForTransfer(task: string): Promise<string> {
-  const { amount } = await prompts.amount()
-  return amount
 }
 
 //async function getDetailsForValidation(task: string): Promise<DelegationDetailsInterface> {
