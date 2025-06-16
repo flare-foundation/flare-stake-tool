@@ -16,7 +16,7 @@ export const localflare: NetworkConfig = {
   networkID: 162,
   hrp: 'localflare',
   chainID: 162,
-  DurangoTime: new Date('2025-05-15T14:00:00Z')
+  DurangoTime: new Date('2025-01-01T00:00:00Z')
 }
 
 export const local: NetworkConfig = {
@@ -26,16 +26,7 @@ export const local: NetworkConfig = {
   networkID: 4294967295,
   hrp: 'local',
   chainID: 4294967295,
-  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
-}
-
-export const costworocks: NetworkConfig = {
-  protocol: 'https',
-  ip: 'coston2-api.flare.rocks',
-  networkID: 114,
-  hrp: 'costwo',
-  chainID: 114,
-  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
+  DurangoTime: new Date('2025-01-01T00:00:00Z')
 }
 
 export const coston: NetworkConfig = {
@@ -44,7 +35,7 @@ export const coston: NetworkConfig = {
   networkID: 7,
   hrp: 'coston',
   chainID: 16,
-  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
+  DurangoTime: new Date('2025-07-01T12:00:00Z')
 }
 
 export const costwo: NetworkConfig = {
@@ -53,7 +44,7 @@ export const costwo: NetworkConfig = {
   networkID: 114,
   hrp: 'costwo',
   chainID: 114,
-  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
+  DurangoTime: new Date('2025-06-24T12:00:00Z')
 }
 
 export const songbird: NetworkConfig = {
