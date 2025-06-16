@@ -11,6 +11,9 @@ import {
 } from '@flarenetwork/flarejs'
 import { Context, FlareTxParams } from './interfaces'
 import { adjustStartTime } from './utils'
+import * as chain from './flare/chain'
+import { _checkNodeId, _checkNumberOfStakes, _getAccount } from './flare'
+import { BN } from 'bn.js'
 
 const FLR = 1e9 // one FLR in nanoFLR
 
@@ -134,6 +137,11 @@ export async function addValidator(ctx: Context, params: FlareTxParams) {
   const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey!)
   const blsSignature = futils.hexToBuffer(params.popBlsSignature!)
 
+  const pk = Buffer.concat(ctx.publicKey!).toString('hex')
+  const account = _getAccount(ctx.network!, pk)
+  let stakes = await chain.getPStakes(account.network)
+  await _checkNumberOfStakes(account, params.nodeId!, new BN(params.startTime!), new BN(params.endTime!), stakes)
+
   const tx = pvm.newAddPermissionlessValidatorTx(
     context,
     utxos,
@@ -167,6 +175,12 @@ export async function addDelegator(ctx: Context, params: FlareTxParams) {
   const start = BigInt(adjustStartTime(params.startTime))
   const end = BigInt(params.endTime!)
   const nodeID = params?.nodeId as string
+
+  const pk = Buffer.concat(ctx.publicKey!).toString('hex')
+  const account = _getAccount(ctx.network!, pk)
+  let stakes = await chain.getPStakes(account.network)
+  await _checkNumberOfStakes(account, params.nodeId!, new BN(params.startTime!), new BN(params.endTime!), stakes)
+  await _checkNodeId(account, params.nodeId!, stakes)
 
   const tx = pvm.newAddPermissionlessDelegatorTx(
     context,

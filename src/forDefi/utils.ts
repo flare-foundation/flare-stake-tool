@@ -2,6 +2,7 @@ import fs from 'fs'
 import { UnsignedEvmTxJson, SignedEvmTxJson } from '../interfaces'
 import { forDefiDirectory, forDefiSignedTxnDirectory, forDefiUnsignedTxnDirectory } from '../constants/forDefi'
 import Web3 from 'web3'
+import { sleepms } from '../utils'
 
 export function saveUnsignedEvmTx(unsignedTx: UnsignedEvmTxJson, id: string): void {
   const fname = `${forDefiDirectory}/${forDefiUnsignedTxnDirectory}/${id}.unsignedTx.json`
@@ -77,4 +78,32 @@ export function getAbi(abiPath: string) {
       abi = abi.abi;
   }
   return abi;
+}
+
+export function waitFinalize(web3: Web3, options: WaitFinalizeOptions = waitFinalizeDefaults) {
+    return async <T>(address: string, func: () => Promise<T>): Promise<T> => {
+        let nonce = await web3.eth.getTransactionCount(address);
+        let res: T = await func();
+        while (await web3.eth.getTransactionCount(address) == nonce) {
+            await sleepms(options.sleepMS);
+        }
+        for (let i = 0; i < options.retries; i++) {
+            const block = await web3.eth.getBlockNumber();
+            while (await web3.eth.getBlockNumber() - block < options.extraBlocks) {
+                await sleepms(options.sleepMS);
+            }
+            // only end if the nonce didn't revert (and repeat up to 3 times)
+            if (await web3.eth.getTransactionCount(address) > nonce) break;
+            console.warn(`Nonce reverted after ${i + 1} retries, retrying again...`);
+        }
+        return res;
+    }
+}
+
+export const waitFinalizeDefaults: WaitFinalizeOptions = { extraBlocks: 2, retries: 3, sleepMS: 1000 };
+
+export interface WaitFinalizeOptions {
+    extraBlocks: number;
+    retries: number;
+    sleepMS: number;
 }

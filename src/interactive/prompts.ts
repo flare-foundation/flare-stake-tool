@@ -148,9 +148,9 @@ export const prompts = {
         type: 'list',
         name: 'isContinue',
         message: chalk.magenta('Do you wish to continue with this?'),
-        choices: ['yes', 'no'],
+        choices: ['Yes', 'No'],
         filter: (val: string) => {
-          return val == 'yes' ? true : false
+          return val == 'Yes' ? true : false
         }
       }
     ]
@@ -279,4 +279,55 @@ export const prompts = {
     ]
     return inquirer.prompt<{ transferAddress: string }>(questions)
   },
+  // wrap rewards when claiming staking rewards
+  wrapRewards: async () => {
+    const questions = [
+      {
+        type: 'list',
+        name: 'wrapRewards',
+        message: chalk.magenta('Should claimed rewards be wrapped?'),
+        choices: ['Yes', 'No'],
+        filter: (val: string) => {
+          return val == 'Yes' ? true : false
+        }
+      }
+    ]
+    return inquirer.prompt<{ wrapRewards: boolean }>(questions)
+  },
+  // recipient address to receive claimed staking rewards
+  recipientAddress: async (defaultAddress?: string) => {
+    const questions = [
+      {
+        type: 'input',
+        default: defaultAddress,
+        name: 'recipientAddress',
+        message: chalk.magenta('Please enter the recipient address (default address is reward owner):')
+      }
+    ]
+    return inquirer.prompt<{ recipientAddress: string }>(questions)
+  },
+  claimAmount: async () => {
+    const questions = [
+      {
+        type: 'input',
+        name: 'claimAmount',
+        message: chalk.magenta('Please enter the amount to claim:')
+      }
+    ]
+    return inquirer.prompt<{ claimAmount: number }>(questions)
+  },
+  claimAllUnclaimed: async (totalUnclaimed?: string, symbol?: string) => {
+    const questions = [
+      {
+        type: 'list',
+        name: 'claimAllUnclaimed',
+        message: chalk.magenta(`Do you want to claim all unclaimed rewards?`, totalUnclaimed ? "(total unclaimed: " + totalUnclaimed + " " + symbol + ")" : ""),
+        choices: ['Yes', 'No'],
+        filter: (val: string) => {
+          return val == 'Yes' ? true : false
+        }
+      }
+    ]
+    return inquirer.prompt<{ claimAllUnclaimed: boolean }>(questions)
+  }
 }

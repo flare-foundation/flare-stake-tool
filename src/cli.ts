@@ -34,7 +34,7 @@ import {
   saveUnsignedTxJson,
   adjustStartTime
 } from './utils'
-import { createOptOutTransaction, createWithdrawalTransaction, sendSignedEvmTransaction } from './forDefi/evmTx'
+import { createClaimTransaction, createOptOutTransaction, createWithdrawalTransaction, saveUnsignedClaimTx, sendSignedEvmTransaction, signEvmTransaction } from './forDefi/evmTx'
 import { log, logError, logInfo, logSuccess } from './output'
 import * as ledger from './ledger'
 import * as flare from './flare'
@@ -49,7 +49,7 @@ import { fetchMirrorFunds } from './contracts'
 const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0" // base derivation path for ledger
 
 // mapping from network to symbol
-const networkTokenSymbol: { [index: string]: string } = {
+export const networkTokenSymbol: { [index: string]: string } = {
   flare: 'FLR',
   songbird: 'SGB',
   costwo: 'C2FLR',
@@ -183,9 +183,9 @@ export function cli(program: Command): void {
         throw new Error('Option --blind must be a string');
       }
       if (type == "sign") {
-      if (typeof options.ctxFile !== 'string') {
-        throw new Error('Option --ctx-file must be a string');
-      }
+        if (typeof options.ctxFile !== 'string') {
+          throw new Error('Option --ctx-file must be a string');
+        }
         if (options.evmTx) {
           await signForDefi(options.transactionId, options.ctxFile, true);
         } else {
@@ -210,24 +210,37 @@ export function cli(program: Command): void {
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
-        await buildUnsignedWithdrawalTxJson(
-          ctx,
-          options.to as string,
-          options.amount as number,
-          options.transactionId as string,
-          options.nonce as number
-        )
+      await buildUnsignedWithdrawalTxJson(
+        ctx,
+        options.to as string,
+        options.amount as number,
+        options.transactionId as string,
+        options.nonce as number
+      )
     })
   // opt out
   program
-  .command("optOut").description("Opt out of airdrop on the C-chain")
-  .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-  .option("--nonce <nonce>", "Nonce of the constructed transaction")
-  .action(async (options: OptionValues) => {
-    options = getOptions(program, options)
-    const ctx = await contextFromOptions(options)
-    await buildUnsignedOptOutTxJson(ctx, options.transactionId as string, options.nonce as number)
-  })
+    .command("optOut").description("Opt out of airdrop on the c-chain")
+    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
+    .option("--nonce <nonce>", "Nonce of the constructed transaction")
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      const ctx = await contextFromOptions(options)
+      await buildUnsignedOptOutTxJson(ctx, options.transactionId as string, options.nonce as number)
+    })
+  // claim staking (ValidatorRewardManager) rewards
+  program
+    .command('claim')
+    .description('claim staking rewards')
+    .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
+    .option('-n,--nonce <nonce>', 'Nonce of the constructed transaction')
+    .option('-a, --amount <amount>', 'Amount to claim')
+    .option('-r, --recipient <recipient>', 'Address to send the rewards to')
+    .option('-w, --wrap', 'Wrap the rewards', false)
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      await processClaimTx(options, options.transactionId as string, options.amount as number, options.recipient as string, options.wrap as boolean, options.nonce as number)
+    })
 }
 
 /**
@@ -684,7 +697,7 @@ async function cliBuildAndSendTxUsingLedger(
       network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey!),
-      delegationFee: Number(params.delegationFee)  * 1e4, // default fee is 10%
+      delegationFee: Number(params.delegationFee) * 1e4, // default fee is 10%
       nodeId: params.nodeId!,
       popBLSPublicKey: futils.hexToBuffer(params.popBlsPublicKey!),
       popBLSSignature: futils.hexToBuffer(params.popBlsSignature!),
@@ -813,4 +826,23 @@ async function buildUnsignedOptOutTxJson(ctx: Context, id: string, nonce: number
   const forDefiHash = await createOptOutTransaction(ctx, id, nonce)
   logSuccess(`Transaction ${id} constructed`)
   logSuccess(`ForDefi hash: ${forDefiHash}`)
+}
+
+async function processClaimTx(options: OptionValues, id: string, amount: number, recipient: string, wrap: boolean, nonce: number): Promise<void> {
+  const ctx = await contextFromOptions(options)
+  const rawTx = await createClaimTransaction(ctx, amount, recipient, wrap, nonce)
+  if (options.getHacked) {
+    if (!ctx.cAddressHex || !ctx.privkHex) {
+      throw new Error('cAddressHex or private key is undefined or null')
+    }
+    const txId = await signEvmTransaction("privateKey", ctx, rawTx)
+    logSuccess(`Transaction with hash ${txId} built and sent to the network`)
+  } else if (options.ledger) {
+    const txId = await signEvmTransaction("ledger", ctx, rawTx, options.derivationPath as string)
+    logSuccess(`Transaction with hash ${txId} built and sent to the network`)
+  } else { // ForDefi
+    const forDefiHash = saveUnsignedClaimTx(rawTx, id)
+    logSuccess(`Transaction ${id} constructed`)
+    logSuccess(`ForDefi hash: ${forDefiHash}`)
+  }
 }
