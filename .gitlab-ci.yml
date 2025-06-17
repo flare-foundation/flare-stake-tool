@@ -24,6 +24,10 @@ variables:
     - result=$(grep -Pc "$PATTERN_SEMI" <<< "$CI_COMMIT_TAG") || true
     - yarn install --frozen-lockfile
     - yarn build
+    - if [ ! -d dist ] || [ ! -f dist/src/run.js ]; then echo "Dist folder or dist/src/run.js missing"; exit 1; fi;
+    - npm pack
+    - tar -xzf flarenetwork-flare-stake-tool-*.tgz
+    - if [ ! -d package/dist ] || [ ! -f package/dist/src/run.js ]; then echo "Dist folder or dist/src/run.js missing in tarball"; exit 1; fi;
     - if [ $result -eq 1 ]; then npm publish; else npm publish --tag beta; fi;
 
 stages:
