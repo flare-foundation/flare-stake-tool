@@ -107,6 +107,11 @@ export interface ValidatorPTxParams extends StakePTxParams {
   popBLSSignature: Uint8Array,
 }
 
+export interface TransferPTxParams extends TxParams {
+  amount: string,
+  recipientAddress: string,
+}
+
 export interface EvmTxParams extends TxParams {
   txType: number
 }
@@ -158,6 +163,8 @@ export interface DelegatorPTxDetails extends TxDetails, DelegatorPTxParams { }
 
 export interface ValidatorPTxDetails extends TxDetails, ValidatorPTxParams { }
 
+export interface TransferPTxDetails extends TxDetails, TransferPTxParams { }
+
 export interface EvmTxDetails extends TxDetails, EvmTxParams, EvmTx { }
 
 export interface TxSummary {
@@ -179,7 +186,7 @@ export interface PreSubmit {
 }
 
 export interface UnsignedTxData {
-  txDetails: ExportCTxDetails | ExportPTxDetails | ImportCTxDetails | ImportPTxDetails | DelegatorPTxDetails | ValidatorPTxDetails | EvmTxDetails,
+  txDetails: ExportCTxDetails | ExportPTxDetails | ImportCTxDetails | ImportPTxDetails | DelegatorPTxDetails | ValidatorPTxDetails | TransferPTxDetails| EvmTxDetails,
   unsignedTx: UnsignedTx | EVMUnsignedTx | UnsignedEvmLegacyTx | UnsignedEvmEIP1559Tx
 }
 

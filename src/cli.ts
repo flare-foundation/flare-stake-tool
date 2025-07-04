@@ -6,7 +6,8 @@ import {
   ExportCTxParams,
   TxDetails,
   ValidatorPTxParams,
-  DelegatorPTxParams
+  DelegatorPTxParams,
+  TransferPTxParams
 } from './flare/interfaces'
 import {
   pvm,
@@ -446,6 +447,33 @@ async function buildUnsignedTx(
       )
       return delegateTx
     }
+    case 'transfer': {
+      if (!params.amount) {
+      throw new Error(
+        `amount is required for transfer transaction. Use --amount <amount> to specify the amount`
+      )
+      }
+    if (!params.transferAddress) {
+      throw new Error(
+        `transferAddress is required for transfer transaction. Use --transfer-address <address> to specify the address`
+      )
+      }
+      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] });
+      const senderPAddressBytes = futils.bech32ToBytes(ctx.pAddressBech32!);
+      const recipientPAddressBytes = futils.bech32ToBytes(params.transferAddress);
+      const transferTx = pvm.newBaseTx(
+        context,
+        [senderPAddressBytes],
+        utxos,
+        [
+          TransferableOutput.fromNative(
+            context.avaxAssetID,
+            BigInt(params.amount),
+            [recipientPAddressBytes]
+          )
+        ])
+      return transferTx;
+    }
     default:
       throw new Error(`Unknown transaction type: ${transactionType}`)
   }
@@ -729,6 +757,29 @@ async function cliBuildAndSendTxUsingLedger(
     // let presubmit =  null (): Promise<boolean> => new Promise(() => false)
     await flare.addDelegator(tp, sign, true)
     return
+  } else if (transactionType === 'transfer') {
+    logInfo('Creating transfer transaction...')
+    if (!params.amount) {
+      throw new Error(
+        `amount is required for transfer transaction. Use --amount <amount> to specify the amount`
+      )
+    }
+    if (!params.transferAddress) {
+      throw new Error(
+        `transferAddress is required for transfer transaction. Use --transfer-address <address> to specify the address`
+      )
+    }
+    const tp: TransferPTxParams = {
+      network: ctx.config.hrp,
+      type: transactionType,
+      publicKey: getPublicKeyFromPair(ctx.publicKey!),
+      amount: params.amount,
+      recipientAddress: params.transferAddress,
+    }
+    await flare.internalTransfer(tp, sign);
+    return;
+  } else {
+    throw new Error(`Unknown transaction type ${transactionType}`)
   }
 }
 
