@@ -53,7 +53,7 @@ export const songbird: NetworkConfig = {
   networkID: 5,
   hrp: 'songbird',
   chainID: 19,
-  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
+  DurangoTime: new Date('2025-07-22T12:00:00Z')
 }
 
 export const flare: NetworkConfig = {
@@ -62,5 +62,5 @@ export const flare: NetworkConfig = {
   networkID: 14,
   hrp: 'flare',
   chainID: 14,
-  DurangoTime: new Date('3025-01-01T00:00:00Z')  // TODO: Update this date
+  DurangoTime: new Date('2025-08-05T12:00:00Z')
 }
