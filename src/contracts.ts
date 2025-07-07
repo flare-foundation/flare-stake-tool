@@ -39,7 +39,7 @@ async function getContractAddress(
     provider,
   );
 
-  const result = await contract.getContractAddressByName(contractName) as string;
+  const result = await (contract.getContractAddressByName as (name: string) => Promise<string>)(contractName);
   if (result !== zeroAddress()) return result;
 
   const defaultAddress = defaultContractAddresses[contractName]?.[network];
@@ -72,30 +72,33 @@ const fetchDelegateStake = async (
   const validatorsInfo = await validatorFunction(ctx) as GetCurrentValidatorsResponseFixed;
   const validatorsData = validatorsInfo.validators;
   let userStake = [];
+  if (!ctx.pAddressBech32) {
+    throw new Error("pAddressBech32 is not set in the context");
+  }
   for (let i = 0; i < validatorsData.length; i++) {
     const validatorData = validatorsData[i];
     // get validators
-    if (validatorData.validationRewardOwner && validatorData.validationRewardOwner.addresses.includes(ctx.pAddressBech32!)) {
-       const startDate = new Date(
-          parseInt(validatorData.startTime) * 1000,
-        );
-        const endDate = new Date(
-          parseInt(validatorData.endTime) * 1000,
-        );
-        userStake.push({
-          type: "validator",
-          nodeID: validatorData.nodeID,
-          stakeAmount:
-            parseFloat(validatorData.stakeAmount) / 1e9,
-          startTime: startDate,
-          endTime: endDate,
-        });
+    if (validatorData.validationRewardOwner && validatorData.validationRewardOwner.addresses.includes(ctx.pAddressBech32)) {
+      const startDate = new Date(
+        parseInt(validatorData.startTime) * 1000,
+      );
+      const endDate = new Date(
+        parseInt(validatorData.endTime) * 1000,
+      );
+      userStake.push({
+        type: "validator",
+        nodeID: validatorData.nodeID,
+        stakeAmount:
+          parseFloat(validatorData.stakeAmount) / 1e9,
+        startTime: startDate,
+        endTime: endDate,
+      });
     }
 
     // get delegators
-    for (let j = 0; j < (validatorData.delegators && validatorData.delegators?.length);j++) {
+    for (let j = 0; j < (validatorData.delegators && validatorData.delegators?.length); j++) {
       if (validatorData.delegators[j] &&
-        validatorData.delegators[j].rewardOwner.addresses.includes(ctx.pAddressBech32!)
+        validatorData.delegators[j].rewardOwner.addresses.includes(ctx.pAddressBech32)
       ) {
         const startDate = new Date(
           parseInt(validatorData.delegators[j].startTime) * 1000,

@@ -404,7 +404,10 @@ export async function finalizeAndConvertEvmTx(
   let chainId
   let accessList
   if (tx instanceof EvmLegacyTx) {
-    chainId = tx.v!
+    if (!tx.v) {
+      throw new Error('Legacy transaction must have v field defined')
+    }
+    chainId = tx.v
     accessList = null
   } else if (tx instanceof EvmEIP1559Tx) {
     chainId = tx.chainId
@@ -568,13 +571,12 @@ export async function signAndSubmitTx(
       signedTx = unsignedTx.getSignedTx().toBytes()
     }
     signedTxData.signedTx = utils.toHex(signedTx)
-
     let txSummary = {
       network: signedTxData.txDetails.network,
       type: signedTxData.txDetails.type,
       publicKey: signedTxData.txDetails.publicKey,
       unsignedTx: signedTxData.txDetails.unsignedTxHex,
-      unsignedTxHash: signedTxData.txDetails.unsignedTxHash!,
+      unsignedTxHash: signedTxData.txDetails.unsignedTxHash,
       signature: signedTxData.signature,
       signedTx: signedTxData.signedTx
     }
@@ -677,7 +679,10 @@ export async function submitTxHex(txHex: string): Promise<[string, string, boole
     let evmTx = TransactionFactory.fromSerializedData(utils.toBuffer(txHex))
     let chainId
     if (evmTx instanceof EvmLegacyTx) {
-      chainId = evmTx.v!
+      if (!evmTx.v) {
+        throw new Error('Legacy transaction must have v field defined')
+      }
+      chainId = evmTx.v
     } else {
       chainId = evmTx.chainId
     }

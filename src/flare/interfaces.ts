@@ -81,7 +81,7 @@ export interface ExportCTxParams extends TxParams {
 }
 
 export interface ExportPTxParams extends TxParams {
-  amount: BN
+  amount: BN | undefined
 }
 
 export interface ImportCTxParams extends TxParams {
@@ -172,7 +172,7 @@ export interface TxSummary {
   type: string,
   publicKey: string,
   unsignedTx: string,
-  unsignedTxHash: string,
+  unsignedTxHash: string | undefined,
   signature: string,
   signedTx: string
 }

@@ -292,7 +292,7 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
   const allOptions: OptionValues = { ...program.opts(), ...options }
   const network = networkFromOptions(allOptions)
   // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
-  if (allOptions.amount !== undefined) {
+  if (allOptions.amount) {
     if (typeof allOptions.amount !== 'string') {
       throw new Error('Option --amount must be a string');
     }
@@ -314,11 +314,20 @@ async function buildUnsignedTx(
   ctx: Context,
   params: FlareTxParams
 ): Promise<UnsignedTx> {
+  if (!ctx.cAddressHex) {
+    throw new Error('C-chain address is not set in the context file')
+  }
+  if (!ctx.pAddressBech32) {
+    throw new Error('P-chain bech32 address is not set in the context file')
+  }
+  if (!ctx.cAddressBech32) {
+    throw new Error('C-chain bech32 address is not set in the context file')
+  }
   const provider = new JsonRpcProvider(settings.URL[ctx.config.hrp] + '/ext/bc/C/rpc')
   const evmapi = new evm.EVMApi(settings.URL[ctx.config.hrp])
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
-  const txCount = await provider.getTransactionCount(ctx.cAddressHex!)
+  const txCount = await provider.getTransactionCount(ctx.cAddressHex)
   function getChainIdFromContext(sourceChain: 'X' | 'P' | 'C', context: FContext.Context) {
     return sourceChain === 'C'
       ? context.cBlockchainID
@@ -334,13 +343,18 @@ async function buildUnsignedTx(
           `fee is required for exportCP transaction. Use --fee <fee> to specify the fee`
         )
       }
+      if (!params.amount) {
+        throw new Error(
+          `amount is required for exportCP transaction. Use --amount <amount> to specify the amount`
+        )
+      }
       const nonce = params.nonce ?? txCount
       const exportTx = evm.newExportTx(
         context,
-        BigInt(params.amount!),
+        BigInt(params.amount),
         context.pBlockchainID,
-        futils.hexToBuffer(ctx.cAddressHex!),
-        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        futils.hexToBuffer(ctx.cAddressHex),
+        [futils.bech32ToBytes(ctx.pAddressBech32)],
         BigInt(params.fee),
         BigInt(nonce)
       )
@@ -349,31 +363,37 @@ async function buildUnsignedTx(
     case 'importCP': {
       const { utxos } = await pvmapi.getUTXOs({
         sourceChain: 'C',
-        addresses: [ctx.pAddressBech32!]
+        addresses: [ctx.pAddressBech32]
       })
 
       const importTx = pvm.newImportTx(
         context,
         getChainIdFromContext('C', context),
         utxos,
-        [futils.bech32ToBytes(ctx.pAddressBech32!)],
-        [futils.bech32ToBytes(ctx.cAddressBech32!)]
+        [futils.bech32ToBytes(ctx.pAddressBech32)],
+        [futils.bech32ToBytes(ctx.cAddressBech32)]
       )
       return importTx
     }
     case 'exportPC': {
       const { utxos } = await pvmapi.getUTXOs({
-        addresses: [ctx.pAddressBech32!]
+        addresses: [ctx.pAddressBech32]
       })
+
+      if (!params.amount) {
+        throw new Error(
+          `amount is required for exportPC transaction. Use --amount <amount> to specify the amount`
+        )
+      }
 
       const exportTx = pvm.newExportTx(
         context,
         getChainIdFromContext('C', context),
-        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        [futils.bech32ToBytes(ctx.pAddressBech32)],
         utxos,
         [
-          TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount!), [
-            futils.bech32ToBytes(ctx.pAddressBech32!)
+          TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+            futils.bech32ToBytes(ctx.pAddressBech32)
           ])
         ]
       )
@@ -387,13 +407,13 @@ async function buildUnsignedTx(
       }
       const { utxos } = await evmapi.getUTXOs({
         sourceChain: 'P',
-        addresses: [ctx.cAddressBech32!]
+        addresses: [ctx.cAddressBech32]
       })
 
       const exportTx = evm.newImportTx(
         context,
-        futils.hexToBuffer(ctx.cAddressHex!),
-        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        futils.hexToBuffer(ctx.cAddressHex),
+        [futils.bech32ToBytes(ctx.pAddressBech32)],
         utxos,
         getChainIdFromContext('P', context),
         BigInt(params.fee)
@@ -401,24 +421,49 @@ async function buildUnsignedTx(
       return exportTx
     }
     case 'stake': {
-      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
+      if (!params.amount) {
+        throw new Error(
+          `amount is required for stake transaction. Use --amount <amount> to specify the amount`
+        )
+      }
+      if (!params.nodeId) {
+        throw new Error(
+          `nodeId is required for stake transaction. Use --node-id <nodeId> to specify the node id`
+        )
+      }
+      if (!params.endTime) {
+        throw new Error(
+          `endTime is required for stake transaction. Use --end-time <endTime> to specify the end time`
+        )
+      }
+      if (!params.popBlsPublicKey) {
+        throw new Error(
+          `popBlsPublicKey is required for stake transaction. Use --pop-bls-public-key <popBlsPublicKey> to specify the BLS public key`
+        )
+      }
+      if (!params.popBlsSignature) {
+        throw new Error(
+          `popBlsSignature is required for stake transaction. Use --pop-bls-signature <popBlsSignature> to specify the BLS signature`
+        )
+      }
+      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
       const start = BigInt(adjustStartTime(params.startTime))
-      const end = BigInt(params.endTime!)
-      const nodeID = params.nodeId!
-      const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey!)
-      const blsSignature = futils.hexToBuffer(params.popBlsSignature!)
+      const end = BigInt(params.endTime)
+      const nodeID = params.nodeId
+      const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey)
+      const blsSignature = futils.hexToBuffer(params.popBlsSignature)
 
       const stakeTx = pvm.newAddPermissionlessValidatorTx(
         context,
         utxos,
-        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        [futils.bech32ToBytes(ctx.pAddressBech32)],
         nodeID,
         networkIDs.PrimaryNetworkID.toString(),
         start,
         end,
-        BigInt(params.amount!),
-        [futils.bech32ToBytes(ctx.pAddressBech32!)],
-        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        BigInt(params.amount),
+        [futils.bech32ToBytes(ctx.pAddressBech32)],
+        [futils.bech32ToBytes(ctx.pAddressBech32)],
         Number(params.delegationFee) * 1e4, // default fee is 10%
         undefined,
         1,
@@ -429,37 +474,53 @@ async function buildUnsignedTx(
       return stakeTx
     }
     case 'delegate': {
-      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] })
+      if (!params.amount) {
+        throw new Error(
+          `amount is required for stake transaction. Use --amount <amount> to specify the amount`
+        )
+      }
+      if (!params.nodeId) {
+        throw new Error(
+          `nodeId is required for stake transaction. Use --node-id <nodeId> to specify the node id`
+        )
+      }
+      if (!params.endTime) {
+        throw new Error(
+          `endTime is required for stake transaction. Use --end-time <endTime> to specify the end time`
+        )
+      }
+
+      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
       const start = BigInt(adjustStartTime(params.startTime))
-      const end = BigInt(params.endTime!)
-      const nodeID = params.nodeId!
+      const end = BigInt(params.endTime)
+      const nodeID = params.nodeId
 
       const delegateTx = pvm.newAddPermissionlessDelegatorTx(
         context,
         utxos,
-        [futils.bech32ToBytes(ctx.pAddressBech32!)],
+        [futils.bech32ToBytes(ctx.pAddressBech32)],
         nodeID,
         networkIDs.PrimaryNetworkID.toString(),
         start,
         end,
-        BigInt(params.amount!),
-        [futils.bech32ToBytes(ctx.pAddressBech32!)]
+        BigInt(params.amount),
+        [futils.bech32ToBytes(ctx.pAddressBech32)]
       )
       return delegateTx
     }
     case 'transfer': {
       if (!params.amount) {
-      throw new Error(
-        `amount is required for transfer transaction. Use --amount <amount> to specify the amount`
-      )
+        throw new Error(
+          `amount is required for transfer transaction. Use --amount <amount> to specify the amount`
+        )
       }
-    if (!params.transferAddress) {
-      throw new Error(
-        `transferAddress is required for transfer transaction. Use --transfer-address <address> to specify the address`
-      )
+      if (!params.transferAddress) {
+        throw new Error(
+          `transferAddress is required for transfer transaction. Use --transfer-address <address> to specify the address`
+        )
       }
-      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32!] });
-      const senderPAddressBytes = futils.bech32ToBytes(ctx.pAddressBech32!);
+      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] });
+      const senderPAddressBytes = futils.bech32ToBytes(ctx.pAddressBech32);
       const recipientPAddressBytes = futils.bech32ToBytes(params.transferAddress);
       const transferTx = pvm.newBaseTx(
         context,
@@ -582,7 +643,11 @@ export async function initCtxJsonFromOptions(
  * @returns Returns the address info
  */
 export function logAddressInfo(ctx: Context): void {
-  const [pubX, pubY] = ctx.publicKey!
+  if (!ctx.publicKey) {
+    logError('Public key is not set in the context file')
+    return
+  }
+  const [pubX, pubY] = ctx.publicKey
   const compressedPubKey = compressPublicKey(pubX, pubY).toString('hex')
   logInfo(`Addresses on the network "${ctx.config.hrp}"`)
   log(`P-chain address: ${ctx.pAddressBech32}`)
@@ -595,11 +660,16 @@ export function logAddressInfo(ctx: Context): void {
  * @param ctx - the context file aka ctx.json
  */
 export async function logBalanceInfo(ctx: Context): Promise<void> {
-  let cbalance = toBN((await ctx.web3.eth.getBalance(ctx.cAddressHex!)).toString())!.toString()
-  let pbalance = toBN(
+  if (!ctx.cAddressHex) {
+    throw new Error('C-chain address is not set in the context file')
+  }
+  if (!ctx.pAddressBech32) {
+    throw new Error('P-chain bech32 address is not set in the context file')
+  }
+  let cbalance = (await ctx.web3.eth.getBalance(ctx.cAddressHex)).toString()
+  let pbalance = (
     // NOTE: HRP seems the right string for this function
-    await getPBalance(ctx.config.hrp, ctx.pAddressBech32!)
-  )!.toString()
+    await getPBalance(ctx.config.hrp, ctx.pAddressBech32)).toString()
   cbalance = integerToDecimal(cbalance, 18)
   pbalance = integerToDecimal(pbalance, 9)
   const symbol = networkTokenSymbol[ctx.config.hrp]
@@ -670,13 +740,34 @@ async function cliBuildAndSendTxUsingLedger(
     if (request.isEvmTx) {
       return ledger.signEvmTransaction(_derivationPath, request.unsignedTxHex)
     } else if (await ledger.onlyHashSign()) { // ethereum or avalanche app
-      return ledger.signHash(_derivationPath, request.unsignedTxHash!)
-    } else {
-      if (ctx.network === 'localflare') { // non-blind signing doesn't work on localflare
-        return ledger.signHash(_derivationPath, request.unsignedTxHash!)
+      if (!request.unsignedTxHash) {
+        throw new Error('unsignedTxHash is required for blind signing with ethereum or avalanche app')
       }
-      return ledger.sign(_derivationPath, request.unsignedTxHex)
+      return ledger.signHash(_derivationPath, request.unsignedTxHash)
+    } else {
+      try {
+        return await ledger.sign(_derivationPath, request.unsignedTxHex)
+      } catch (e) {
+        if (
+          typeof e === 'object' &&
+          e &&
+          'errorMessage' in e &&
+          typeof e.errorMessage === 'string' &&
+          e.errorMessage.includes('Data is invalid : Unrecognized error code')
+        ) {
+          logInfo(`Non-blind signing for transaction type ${transactionType} on network ${ctx.network} is not supported by the Flare app. Blind signing with signing only the hash will be used instead.`)
+          if (!request.unsignedTxHash) {
+            throw new Error('unsignedTxHash is required for ledger signing')
+          }
+          return ledger.signHash(_derivationPath, request.unsignedTxHash);
+        } else {
+          throw new Error(`Ledger signing error: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
     }
+  }
+  if (!ctx.publicKey) {
+      throw new Error('Public key is not set in the context file')
   }
   if (transactionType === 'exportCP') {
     if (!params.amount) {
@@ -684,12 +775,14 @@ async function cliBuildAndSendTxUsingLedger(
         `amount is required for exportCP transaction. Use --amount <amount> to specify the amount`
       )
     }
+    const amount = toBN(params.amount);
+    if (!amount) throw new Error(`Amount is invalid: ${params.amount}`);
     let tp: ExportCTxParams = {
-      amount: toBN(params.amount)!,
-      exportFee: toBN(params.fee)!,
+      amount: amount,
+      exportFee: toBN(params.fee),
       network: ctx.config.hrp,
       type: transactionType,
-      publicKey: getPublicKeyFromPair(ctx.publicKey!)
+      publicKey: getPublicKeyFromPair(ctx.publicKey)
     }
     await flare.exportCP(tp, sign)
     return
@@ -697,41 +790,66 @@ async function cliBuildAndSendTxUsingLedger(
     let tp: ImportPTxParams = {
       network: ctx.config.hrp,
       type: transactionType,
-      publicKey: getPublicKeyFromPair(ctx.publicKey!)
+      publicKey: getPublicKeyFromPair(ctx.publicKey)
     }
     await flare.importCP(tp, sign)
     return
   } else if (transactionType === 'exportPC') {
     let tp: ExportPTxParams = {
-      amount: toBN(params.amount)!,
+      amount: toBN(params.amount),
       network: ctx.config.hrp,
       type: transactionType,
-      publicKey: getPublicKeyFromPair(ctx.publicKey!)
+      publicKey: getPublicKeyFromPair(ctx.publicKey)
     }
     await flare.exportPC(tp, sign)
     return
   } else if (transactionType === 'importPC') {
     let tp: ImportCTxParams = {
-      importFee: toBN(params.fee)!,
+      importFee: toBN(params.fee),
       network: ctx.config.hrp,
       type: transactionType,
-      publicKey: getPublicKeyFromPair(ctx.publicKey!)
+      publicKey: getPublicKeyFromPair(ctx.publicKey)
     }
     await flare.importPC(tp, sign)
     return
   } else if (transactionType === 'stake') {
     logInfo('Creating stake transaction...')
+    if (!params.amount) {
+      throw new Error(
+        `amount is required for stake transaction. Use --amount <amount> to specify the amount`
+      )
+    }
+    if (!params.nodeId) {
+      throw new Error(
+        `nodeId is required for stake transaction. Use --node-id <nodeId> to specify the node id`
+      )
+    }
+    if (!params.endTime) {
+      throw new Error(
+        `endTime is required for stake transaction. Use --end-time <endTime> to specify the end time`
+      )
+    }
+    if (!params.popBlsPublicKey) {
+      throw new Error(
+        `popBlsPublicKey is required for stake transaction. Use --pop-bls-public-key <popBlsPublicKey> to specify the BLS public key`
+      )
+    }
+    if (!params.popBlsSignature) {
+      throw new Error(
+        `popBlsSignature is required for stake transaction. Use --pop-bls-signature <popBlsSignature> to specify the BLS signature`
+      )
+    }
     let tp: ValidatorPTxParams = {
       network: ctx.config.hrp,
       type: transactionType,
-      publicKey: getPublicKeyFromPair(ctx.publicKey!),
+      publicKey: getPublicKeyFromPair(ctx.publicKey),
       delegationFee: Number(params.delegationFee) * 1e4, // default fee is 10%
-      nodeId: params.nodeId!,
-      popBLSPublicKey: futils.hexToBuffer(params.popBlsPublicKey!),
-      popBLSSignature: futils.hexToBuffer(params.popBlsSignature!),
-      amount: new BN(params.amount!),
+      nodeId: params.nodeId,
+      popBLSPublicKey: futils.hexToBuffer(params.popBlsPublicKey),
+      popBLSSignature: futils.hexToBuffer(params.popBlsSignature),
+      amount: new BN(params.amount),
       startTime: new BN(adjustStartTime(params.startTime)),
-      endTime: new BN(params.endTime!),
+      endTime: new BN(params.endTime),
 
       // unnecessary?
       useConsumableUTXOs: false,
@@ -741,14 +859,29 @@ async function cliBuildAndSendTxUsingLedger(
     return
   } else if (transactionType === 'delegate') {
     logInfo('Creating delegate transaction...')
+    if (!params.amount) {
+      throw new Error(
+        `amount is required for delegate transaction. Use --amount <amount> to specify the amount`
+      )
+    }
+    if (!params.nodeId) {
+      throw new Error(
+        `nodeId is required for delegate transaction. Use --node-id <nodeId> to specify the node id`
+      )
+    }
+    if (!params.endTime) {
+      throw new Error(
+        `endTime is required for delegate transaction. Use --end-time <endTime> to specify the end time`
+      )
+    }
     let tp: DelegatorPTxParams = {
       network: ctx.config.hrp,
       type: transactionType,
-      publicKey: getPublicKeyFromPair(ctx.publicKey!),
-      nodeId: params.nodeId!,
-      amount: new BN(params.amount!),
+      publicKey: getPublicKeyFromPair(ctx.publicKey),
+      nodeId: params.nodeId,
+      amount: new BN(params.amount),
       startTime: new BN(adjustStartTime(params.startTime)),
-      endTime: new BN(params.endTime!),
+      endTime: new BN(params.endTime),
 
       // unnecessary?
       useConsumableUTXOs: false,
@@ -772,7 +905,7 @@ async function cliBuildAndSendTxUsingLedger(
     const tp: TransferPTxParams = {
       network: ctx.config.hrp,
       type: transactionType,
-      publicKey: getPublicKeyFromPair(ctx.publicKey!),
+      publicKey: getPublicKeyFromPair(ctx.publicKey),
       amount: params.amount,
       recipientAddress: params.transferAddress,
     }

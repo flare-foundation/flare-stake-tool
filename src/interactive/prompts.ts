@@ -75,10 +75,11 @@ export const prompts = {
     return inquirer.prompt<{ publicKey: string }>(questions)
   },
 
-  amount: async (amountPurpose: string = '') => {
+  amount: async (amountPurpose: string = '', defaultAmount?: string) => {
     const questions = [
       {
         type: 'input',
+        default: defaultAmount,
         name: 'amount',
         message: chalk.magenta(`Enter amount ${amountPurpose}`) + ' ' + chalk.magenta(`(in FLR):`)
       }
