@@ -35,7 +35,7 @@ import {
   saveUnsignedTxJson,
   adjustStartTime
 } from './utils'
-import { createClaimTransaction, createOptOutTransaction, createWithdrawalTransaction, saveUnsignedClaimTx, sendSignedEvmTransaction, signEvmTransaction } from './forDefi/evmTx'
+import { createClaimTransaction, createCustomCChainTransaction, createOptOutTransaction, createSetAllowedClaimRecipientsTransaction, createSetClaimExecutorsTransaction, createWithdrawalTransaction, saveUnsignedClaimTx, sendSignedEvmTransaction, signEvmTransaction } from './forDefi/evmTx'
 import { log, logError, logInfo, logSuccess } from './output'
 import * as ledger from './ledger'
 import * as flare from './flare'
@@ -170,7 +170,7 @@ export function cli(program: Command): void {
       const ctx = await contextFromOptions(options);
       await cliSendSignedTxJson(ctx, options.transactionId as string);
     });
-  // forDefi signing
+  // ForDefi signing
   program
     .command("forDefi")
     .description("Sign with ForDefi")
@@ -200,7 +200,7 @@ export function cli(program: Command): void {
         }
       }
     });
-  // withdrawal (transfer) from C-chain
+  // withdrawal (transfer) from C-chain (ForDefi)
   program
     .command('withdrawal')
     .description('Withdraw funds from C-chain')
@@ -219,7 +219,7 @@ export function cli(program: Command): void {
         options.nonce as number
       )
     })
-  // opt out
+  // opt out (ForDefi)
   program
     .command("optOut").description("Opt out of airdrop on the c-chain")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
@@ -242,7 +242,62 @@ export function cli(program: Command): void {
       options = getOptions(program, options)
       await processClaimTx(options, options.transactionId as string, options.amount as number, options.recipient as string, options.wrap as boolean, options.nonce as number)
     })
-}
+  // set claim executor (ForDefi)
+  program
+    .command('setClaimExecutors')
+    .description('Set claim executors for claiming FSP rewards')
+    .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
+    .option('--nonce <nonce>', 'Nonce of the constructed transaction')
+    .option('--executors <executors...>', 'Addresses of the executors to set (space separated); empty string to remove all executors')
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      const ctx = await contextFromOptions(options)
+      await buildUnsignedSetClaimExecutorsTxJson(
+        ctx,
+        options.transactionId as string,
+        options.executors as string[],
+        options.nonce as number
+      )
+    })
+  // set allowed claim recipients (ForDefi)
+  program
+    .command('setAllowedClaimRecipients')
+    .description('Set allowed claim recipients for claiming FSP rewards')
+    .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
+    .option('--nonce <nonce>', 'Nonce of the constructed transaction')
+    .option('--recipients <recipients...>', 'Addresses of the allowed claim recipients (space separated)')
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      const ctx = await contextFromOptions(options)
+      await buildUnsignedSetAllowedClaimRecipientsTxJson(
+        ctx,
+        options.transactionId as string,
+        options.recipients as string[],
+        options.nonce as number
+      )
+    })
+  // custom c-chain transaction (ForDefi)
+  program
+    .command('customCChainTx')
+    .description('Custom C-chain transaction')
+    .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
+    .option('--nonce <nonce>', 'Nonce of the constructed transaction')
+    .option('--data <data>', 'Data to send in the transaction', '')
+    .option('--to <to>', 'Address to send the transaction to')
+    .option('--value <value>', 'Value to send in the transaction', '0')
+    .action(async (options: OptionValues) => {
+      options = getOptions(program, options)
+      const ctx = await contextFromOptions(options)
+      await buildUnsignedCustomCChainTxJson(
+        ctx,
+        options.transactionId as string,
+        options.data as string,
+        options.to as string,
+        options.value as string,
+        options.nonce as number
+      )
+    })
+  }
 
 /**
  * @description - returns context from the options that are passed
@@ -767,7 +822,7 @@ async function cliBuildAndSendTxUsingLedger(
     }
   }
   if (!ctx.publicKey) {
-      throw new Error('Public key is not set in the context file')
+    throw new Error('Public key is not set in the context file')
   }
   if (transactionType === 'exportCP') {
     if (!params.amount) {
@@ -1029,4 +1084,38 @@ async function processClaimTx(options: OptionValues, id: string, amount: number,
     logSuccess(`Transaction ${id} constructed`)
     logSuccess(`ForDefi hash: ${forDefiHash}`)
   }
+}
+
+async function buildUnsignedSetClaimExecutorsTxJson(
+  ctx: Context,
+  id: string,
+  executors: string[],
+  nonce: number
+): Promise<void> {
+  const forDefiHash = await createSetClaimExecutorsTransaction(ctx, id, executors, nonce);
+  logSuccess(`Transaction ${id} constructed`);
+  logSuccess(`ForDefi hash: ${forDefiHash}`);
+}
+
+async function buildUnsignedSetAllowedClaimRecipientsTxJson(
+  ctx: Context,
+  id: string,
+  recipients: string[],
+  nonce: number
+): Promise<void> {
+  const forDefiHash = await createSetAllowedClaimRecipientsTransaction(ctx, id, recipients, nonce);
+  logSuccess(`Transaction ${id} constructed`);
+  logSuccess(`ForDefi hash: ${forDefiHash}`);
+}
+async function buildUnsignedCustomCChainTxJson(
+  ctx: Context,
+  id: string,
+  data: string,
+  to: string,
+  value: string,
+  nonce: number
+): Promise<void> {
+  const forDefiHash = await createCustomCChainTransaction(ctx, id, to, data, value, nonce)
+  logSuccess(`Transaction ${id} constructed`);
+  logSuccess(`ForDefi hash: ${forDefiHash}`);
 }

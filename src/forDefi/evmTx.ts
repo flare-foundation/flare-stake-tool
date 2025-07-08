@@ -2,7 +2,7 @@ import { Transaction, TransactionLike, ZeroAddress, Wallet, ethers } from "ether
 import { prefix0x, toHex, unPrefix0x } from "../utils"
 import { saveUnsignedEvmTx, readSignedEvmTx, readUnsignedEvmTx, getWeb3Contract, waitFinalize } from './utils'
 import { Context, UnsignedEvmTxJson } from '../interfaces';
-import { distributionToDelegatorsABI, flareContractRegistryABI, flareContractRegistryAddress, validatorRewardManagerABI } from "../constants/contracts";
+import { claimSetupManagerABI, distributionToDelegatorsABI, flareContractRegistryABI, flareContractRegistryAddress, validatorRewardManagerABI } from "../constants/contracts";
 import { logInfo } from "../output";
 import * as ledger from '../ledger'
 import Web3 from "web3";
@@ -61,7 +61,7 @@ export async function createWithdrawalTransaction(ctx: Context, toAddress: strin
  * @param ctx - context
  * @param fileId - file id
  * @param nonce - nonce
- * @returns returns the FOrDefi hash of the transaction
+ * @returns returns the ForDefi hash of the transaction
  */
 export async function createOptOutTransaction(ctx: Context, fileId: string, nonce: number): Promise<string> {
 
@@ -244,7 +244,28 @@ export async function sendSignedEvmTransaction(ctx: Context, fileId: string): Pr
   const serializedSigned = ethersTx.serialized;
 
   // send signed tx to the network
-  const receipt = await waitFinalize3(ctx.cAddressHex, () => ctx.web3.eth.sendSignedTransaction(serializedSigned));
+  const receipt = await waitFinalize3(ctx.cAddressHex, () => ctx.web3.eth.sendSignedTransaction(serializedSigned)).catch((error: unknown) => {
+    if (
+      error &&
+      typeof error === 'object' &&
+      "innerError" in error &&
+      error.innerError &&
+      typeof error.innerError === 'object' &&
+      "message" in error.innerError
+    ) {
+      console.log(chalk.red(error.innerError.message))
+    } else if (
+      error &&
+      typeof error === 'object' &&
+      'reason' in error
+    ) {
+      console.log(chalk.red(error.reason))
+    } else {
+      console.log(chalk.red(error))
+      console.dir(error);
+    }
+    process.exit(1);
+  });
   // Validate receipt
   if (!receipt.transactionHash) {
     throw new Error('Transaction receipt missing transactionHash');
@@ -344,4 +365,185 @@ export async function getStateOfRewards(web3: Web3, owner: string): Promise<{
   const totalRewards = ethers.formatUnits(totalRewardsWei, 18);
   const claimedRewards = ethers.formatUnits(claimedRewardsWei, 18);
   return { unclaimedRewards, totalRewards, claimedRewards };
+}
+
+/**
+ * @description Creates the set executors transaction and stores unsigned transaction object in the file id
+ * @param ctx - context
+ * @param fileId - file id
+ * @param nonce - nonce
+ * @param executors - array of executors addresses
+ * @returns returns the ForDefi hash of the transaction
+ */
+export async function createSetClaimExecutorsTransaction(
+  ctx: Context,
+  fileId: string,
+  executors: string[],
+  nonce: number
+): Promise<string> {
+  const web3 = ctx.web3;
+  if (!ctx.cAddressHex) {
+    throw new Error("cAddressHex not found in context");
+  }
+
+  const flareContractRegistryWeb3Contract = getWeb3Contract(web3, flareContractRegistryAddress, flareContractRegistryABI);
+  const claimSetupManagerAddress: string = await flareContractRegistryWeb3Contract.methods.getContractAddressByName("ClaimSetupManager").call();
+  if (claimSetupManagerAddress == ZeroAddress) {
+    throw new Error("ClaimSetupManager contract address not found");
+  }
+  const txNonce = nonce ?? Number(await web3.eth.getTransactionCount(ctx.cAddressHex));
+  const claimSetupManagerWeb3Contract = getWeb3Contract(web3, claimSetupManagerAddress, claimSetupManagerABI);
+
+  // filter out empty strings (if removing executors)
+  executors = executors.filter(executor => executor.trim() !== '');
+
+  // check if executors are registered (and addresses are valid) and sum their fees
+  let totalFee = 0n;
+  for (const executor of executors) {
+    const executorInfo: [boolean, bigint] = await claimSetupManagerWeb3Contract.methods.getExecutorInfo(web3.utils.toChecksumAddress(executor)).call();
+    if (!executorInfo[0]) {
+      throw new Error(`Executor ${executor} is not registered`);
+    }
+    totalFee += executorInfo[1];
+  }
+  const fnToEncode = claimSetupManagerWeb3Contract.methods.setClaimExecutors(executors);
+  const rawTx: TransactionLike = {
+    nonce: txNonce,
+    gasPrice: 200_000_000_000,
+    gasLimit: 4_000_000,
+    to: claimSetupManagerWeb3Contract.options.address,
+    data: fnToEncode.encodeABI(),
+    chainId: ctx.config.networkID,
+    value: totalFee.toString()
+  }
+
+  // serialized unsigned transaction
+  const ethersTx = Transaction.from(rawTx)
+  const hash = unPrefix0x(ethersTx.unsignedHash);
+  const forDefiHash = Buffer.from(hash, 'hex').toString('base64');
+
+  const unsignedTx = <UnsignedEvmTxJson>{
+    transactionType: 'EVM',
+    rawTx: rawTx,
+    message: hash,
+    forDefiHash: forDefiHash
+  }
+  // save tx data
+  saveUnsignedEvmTx(unsignedTx, fileId);
+
+  return forDefiHash;
+}
+
+/**
+ * @description Creates the set allowed claim recipients transaction and stores unsigned transaction object in the file id
+ * @param ctx - context
+ * @param fileId - file id
+ * @param nonce - nonce
+ * @param recipients - array of allowed claim recipients addresses
+ * @returns returns the ForDefi hash of the transaction
+ */
+export async function createSetAllowedClaimRecipientsTransaction(
+  ctx: Context,
+  fileId: string,
+  recipients: string[],
+  nonce: number
+): Promise<string> {
+  const web3 = ctx.web3;
+  if (!ctx.cAddressHex) {
+    throw new Error("cAddressHex not found in context");
+  }
+
+  const flareContractRegistryWeb3Contract = getWeb3Contract(web3, flareContractRegistryAddress, flareContractRegistryABI);
+  const claimSetupManagerAddress: string = await flareContractRegistryWeb3Contract.methods.getContractAddressByName("ClaimSetupManager").call();
+  if (claimSetupManagerAddress == ZeroAddress) {
+    throw new Error("ClaimSetupManager contract address not found");
+  }
+  const txNonce = nonce ?? Number(await web3.eth.getTransactionCount(ctx.cAddressHex));
+  const claimSetupManagerWeb3Contract = getWeb3Contract(web3, claimSetupManagerAddress, claimSetupManagerABI);
+
+  // filter out empty strings (if removing recipients)
+  recipients = recipients.filter(recipient => recipient.trim() !== '');
+
+  const fnToEncode = claimSetupManagerWeb3Contract.methods.setAllowedClaimRecipients(recipients);
+  const rawTx: TransactionLike = {
+    nonce: txNonce,
+    gasPrice: 200_000_000_000,
+    gasLimit: 4_000_000,
+    to: claimSetupManagerWeb3Contract.options.address,
+    data: fnToEncode.encodeABI(),
+    chainId: ctx.config.networkID
+  }
+
+  // serialized unsigned transaction
+  const ethersTx = Transaction.from(rawTx)
+  const hash = unPrefix0x(ethersTx.unsignedHash);
+  const forDefiHash = Buffer.from(hash, 'hex').toString('base64');
+
+  const unsignedTx = <UnsignedEvmTxJson>{
+    transactionType: 'EVM',
+    rawTx: rawTx,
+    message: hash,
+    forDefiHash: forDefiHash
+  }
+
+  // save tx data
+  saveUnsignedEvmTx(unsignedTx, fileId);
+
+  return forDefiHash;
+}
+
+/**
+ * @description Creates a custom C-Chain transaction and stores unsigned transaction object in the file id
+ * @param ctx - context
+ * @param fileId - file id
+ * @param data - data field for the transaction
+ * @param toAddress - the recipient address
+ * @param value - value to be sent (in wei)
+ * @param nonce - nonce for the transaction
+ * @returns returns the ForDefi hash of the transaction
+ */
+export async function createCustomCChainTransaction(
+  ctx: Context,
+  fileId: string,
+  toAddress: string,
+  data: string,
+  value: string,
+  nonce: number,
+): Promise<string> {
+  const web3 = ctx.web3;
+  if (!ctx.cAddressHex) {
+    throw new Error("cAddressHex not found in context");
+  }
+
+  const txNonce = nonce ?? Number(await web3.eth.getTransactionCount(ctx.cAddressHex));
+
+  // check if address is valid
+  web3.utils.toChecksumAddress(toAddress);
+
+  const rawTx: TransactionLike = {
+    nonce: txNonce,
+    gasPrice: 200_000_000_000,
+    gasLimit: 4_000_000,
+    to: toAddress,
+    value: value,
+    data: data,
+    chainId: ctx.config.chainID
+  }
+
+  // serialized unsigned transaction
+  const ethersTx = Transaction.from(rawTx)
+  const hash = unPrefix0x(ethersTx.unsignedHash);
+  const forDefiHash = Buffer.from(hash, 'hex').toString('base64');
+
+  const unsignedTx = <UnsignedEvmTxJson>{
+    transactionType: 'EVM',
+    rawTx: rawTx,
+    message: hash,
+    forDefiHash: forDefiHash
+  }
+
+  // save tx data
+  saveUnsignedEvmTx(unsignedTx, fileId);
+
+  return forDefiHash;
 }
