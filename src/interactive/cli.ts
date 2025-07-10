@@ -119,12 +119,14 @@ export async function interactiveCli(baseargv: string[]) {
             const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE)
             argsExport.push('-f', `${exportFees.fees}`)
             // for exportCP we wait for the finalization before doing import
+            console.log('Please approve export transaction')
             await waitFinalize<any>(
               getContext(ctxNetwork, publicKey),
               program.parseAsync(argsExport)
             )
             console.log(chalk.green('Transaction finalized!'))
           } else {
+            console.log('Please approve export transaction')
             await program.parseAsync(argsExport)
           }
           const argsImport = [
