@@ -8,11 +8,13 @@ import {
   ContextFile,
   DelegationDetailsInterface,
   DerivedAddress,
-  ScreenConstantsInterface
+  ScreenConstantsInterface,
+  TransferDetailsInterface
 } from '../interfaces'
-import { contextEnv, getContext, getNetworkConfig } from '../context'
+import { contextEnv, getContext, getNetworkConfig, isDurango } from '../context'
 import { prompts } from './prompts'
 import {
+  integerToDecimal,
   publicKeyToBech32AddressString,
   publicKeyToEthereumAddressString,
   waitFinalize
@@ -22,6 +24,7 @@ import * as ledger from '../ledger'
 import { logInfo } from '../output'
 import { getStateOfRewards } from '../forDefi/evmTx'
 import Web3 from 'web3'
+import { getPBalance, getPTxDefaultFee } from '../flare/chain'
 
 const DEFAULT_EVM_TX_FEE = new BN(1)
 const DEFAULT_EVM_TX_BASE_FEE = new BN(25)
@@ -83,10 +86,21 @@ export async function interactiveCli(baseargv: string[]) {
         const {
           network: ctxNetwork,
           derivationPath: ctxDerivationPath,
-          publicKey
+          publicKey,
+          flareAddress: ctxPAddress
         } = readInfoFromCtx('ctx.json')
         if (ctxNetwork && ctxDerivationPath) {
-          const amount = await prompts.amount()
+          // if exportPC, default amount is total balance of P chain minus fees
+          let amount;
+          if (task.slice(0, 1) == 'P' && ctxPAddress) {
+            const exportFee = await getPTxDefaultFee(ctxNetwork)
+            const pBalance = await getPBalance(ctxNetwork, ctxPAddress)
+            const defaultAmount = pBalance.sub(exportFee)
+            const defaultAmountFLR = integerToDecimal(defaultAmount.toString(), 9)
+            amount = await prompts.amount('', defaultAmountFLR)
+          } else {
+            amount = await prompts.amount('')
+          }
           const argsExport = [
             ...baseargv.slice(0, 2),
             'transaction',
@@ -105,12 +119,14 @@ export async function interactiveCli(baseargv: string[]) {
             const exportFees = await prompts.fees(DEFAULT_EVM_TX_FEE)
             argsExport.push('-f', `${exportFees.fees}`)
             // for exportCP we wait for the finalization before doing import
+            console.log('Please approve export transaction')
             await waitFinalize<any>(
               getContext(ctxNetwork, publicKey),
               program.parseAsync(argsExport)
             )
             console.log(chalk.green('Transaction finalized!'))
           } else {
+            console.log('Please approve export transaction')
             await program.parseAsync(argsExport)
           }
           const argsImport = [
@@ -140,7 +156,23 @@ export async function interactiveCli(baseargv: string[]) {
         walletProperties.path
       ) {
         // explicitly throw error when ctx.json doesn't exist
-        const amount = await prompts.amount()
+        let amount;
+        const network = walletProperties.network
+        const ctx: Context = contextEnv(walletProperties.path, network)
+        const ctxPAddress = ctx.pAddressBech32
+        if (!ctxPAddress) {
+          throw new Error('Context does not have a valid pAddressBech32')
+        }
+        // if exportPC, default amount is total balance of P chain minus fees
+        if (task.slice(0, 1) == 'P' && ctxPAddress) {
+          const exportFee = await getPTxDefaultFee(network)
+          const pBalance = await getPBalance(network, ctxPAddress)
+          const defaultAmount = pBalance.sub(exportFee)
+          const defaultAmountFLR = integerToDecimal(defaultAmount.toString(), 9)
+          amount = await prompts.amount('', defaultAmountFLR)
+        } else {
+          amount = await prompts.amount('')
+        }
         const argsExport = [
           ...baseargv.slice(0, 2),
           'transaction',
@@ -182,6 +214,66 @@ export async function interactiveCli(baseargv: string[]) {
       }
     }
 
+    else if (task === 'transfer') {
+      // transfer funds between p-chain addresses
+      if (walletProperties.wallet == "ledger" && fileExists('ctx.json')) {
+        const {
+          network: ctxNetwork,
+          derivationPath: ctxDerivationPath,
+          publicKey: ctxPublicKey
+        } = readInfoFromCtx('ctx.json')
+        const ctxPAddress = 'P-' + publicKeyToBech32AddressString(ctxPublicKey, ctxNetwork)
+        if (ctxNetwork && ctxDerivationPath && ctxPAddress) {
+          const { amount, transferAddress } = await getDetailsForTransfer(task)
+          if (
+            ctxNetwork &&
+            ctxDerivationPath
+          ) {
+            const argsValidator = [
+              ...baseargv.slice(0, 2),
+              'transaction',
+              task,
+              '-a',
+              `${amount}`,
+              '--transfer-address',
+              `${transferAddress}`,
+              '--blind',
+              '--derivation-path',
+              ctxDerivationPath,
+              `--network`,
+              `${ctxNetwork}`,
+              '--ledger'
+            ]
+            await program.parseAsync(argsValidator)
+          } else {
+            console.log('Missing values for certain params')
+          }
+        }
+      } else if (
+        walletProperties.wallet == "privateKey" &&
+        walletProperties.network &&
+        walletProperties.path
+      ) {
+
+        const { amount, transferAddress } = await getDetailsForTransfer(task)
+        const argsValidator = [
+          ...baseargv.slice(0, 2),
+          'transaction',
+          task,
+          `--network=${walletProperties.network}`,
+          '-a',
+          `${amount}`,
+          '--transfer-address',
+          `${transferAddress}`,
+          `--env-path=${walletProperties.path}`,
+          '--get-hacked',
+        ]
+        await program.parseAsync(argsValidator)
+      } else {
+        console.log('only pvt key and ledger supported for staking right now')
+      }
+    }
+
     // Adding a validator
     else if ("stake" == task) {
       if (walletProperties.wallet == "ledger" && fileExists('ctx.json')) {
@@ -202,7 +294,7 @@ export async function interactiveCli(baseargv: string[]) {
             delegationFee,
             popBLSPublicKey,
             popBLSSignature
-          } = await getDetailsForDelegation(task)
+          } = await getDetailsForDelegation(task, isDurango(ctxNetwork))
           if (
             ctxNetwork &&
             ctxDerivationPath &&
@@ -254,7 +346,10 @@ export async function interactiveCli(baseargv: string[]) {
           delegationFee,
           popBLSPublicKey,
           popBLSSignature
-        } = await getDetailsForDelegation(task)
+        } = await getDetailsForDelegation(task, isDurango(walletProperties.network))
+        if (!popBLSPublicKey || !popBLSSignature) {
+          throw new Error('Missing popBLSPublicKey or popBLSSignature')
+        }
         const argsValidator = [
           ...baseargv.slice(0, 2),
           'transaction',
@@ -273,9 +368,9 @@ export async function interactiveCli(baseargv: string[]) {
           `--env-path=${walletProperties.path}`,
           '--get-hacked',
           `--pop-bls-public-key`,
-          popBLSPublicKey!,
+          popBLSPublicKey,
           `--pop-bls-signature`,
-          popBLSSignature!
+          popBLSSignature
         ]
         await program.parseAsync(argsValidator)
       } else {
@@ -296,7 +391,7 @@ export async function interactiveCli(baseargv: string[]) {
         if (ctxNetwork && ctxDerivationPath && ctxPAddress && ctxCAddress) {
 
           const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(
-            task
+            task, isDurango(ctxNetwork)
           )
           const argsDelegate = [
             ...baseargv.slice(0, 2),
@@ -328,7 +423,7 @@ export async function interactiveCli(baseargv: string[]) {
       ) {
 
         const { amount, nodeId, startTime, endTime } = await getDetailsForDelegation(
-          task
+          task, isDurango(walletProperties.network)
         )
         const argsDelegate = [
           ...baseargv.slice(0, 2),
@@ -496,7 +591,10 @@ export async function interactiveCli(baseargv: string[]) {
       ) {
         const ctx: Context = contextEnv(walletProperties.path, walletProperties.network)
         const ctxCAddress = ctx.cAddressHex
-        const { unclaimedRewards, totalRewards, claimedRewards } = await getStateOfRewards(ctx.web3, ctxCAddress!)
+        if (!ctxCAddress) {
+          throw new Error('Context does not have a valid cAddressHex')
+        }
+        const { unclaimedRewards, totalRewards, claimedRewards } = await getStateOfRewards(ctx.web3, ctxCAddress)
         const symbol = networkTokenSymbol[ctx.config.hrp]
         console.log(chalk.yellow(
           `State of rewards for ${ctxCAddress}:\n` +
@@ -593,6 +691,8 @@ function fileExists(filePath: string): boolean {
     fs.accessSync(filePath, fs.constants.F_OK)
     return true
   } catch (error) {
+    console.error(chalk.red(`File does not exist: ${filePath}`))
+    console.error(error)
     return false
   }
 }
@@ -680,16 +780,20 @@ function deleteFile() {
   }
 }
 
-async function getDetailsForDelegation(task: string): Promise<DelegationDetailsInterface> {
-  const amount = await prompts.amount()
+async function getDetailsForDelegation(task: string, isDurango: boolean): Promise<DelegationDetailsInterface> {
+  const amount = await prompts.amount('')
   const nodeId = await prompts.nodeId()
-  const startTime = await prompts.unixTime('start')
-  const endTime = await prompts.unixTime('end')
+  let startTime: string = '0'
+  if (!isDurango) {
+    const { time } = await prompts.unixTime('start')
+    startTime = time
+  }
+  const { time: endTime } = await prompts.unixTime('end')
   const delegationDetails = {
     amount: amount.amount,
     nodeId: nodeId.id,
-    startTime: startTime.time,
-    endTime: endTime.time
+    startTime: startTime,
+    endTime: endTime
   }
   if (task == 'stake') {
     const fee = await prompts.delegationFee()
@@ -703,6 +807,12 @@ async function getDetailsForDelegation(task: string): Promise<DelegationDetailsI
     }
   }
   return delegationDetails
+}
+
+async function getDetailsForTransfer(task: string): Promise<TransferDetailsInterface> {
+  const { amount } = await prompts.amount('')
+  const { transferAddress } = await prompts.transferAddress()
+  return { amount, transferAddress }
 }
 
 //async function getDetailsForValidation(task: string): Promise<DelegationDetailsInterface> {

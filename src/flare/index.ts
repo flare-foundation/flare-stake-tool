@@ -6,6 +6,7 @@ import {
   ImportCTxParams,
   ImportPTxParams,
   PStake,
+  TransferPTxParams,
   PreSubmit,
   Sign,
   SubmittedTxData,
@@ -238,6 +239,22 @@ export async function addValidator(
   }
   if (tx.submitted) {
     await _waitForStake(account, tx.id)
+  }
+  return tx.id
+}
+
+export async function internalTransfer(
+  params: TransferPTxParams,
+  sign: Sign,
+  presubmit?: PreSubmit
+): Promise<string> {
+  const account = _getAccount(params.network, params.publicKey)
+  const unsignedTx = await txs.buildBaseTx(account, params)
+  let tx = await _signAndSubmitTx(unsignedTx, sign, presubmit)
+  if (tx.submitted && !tx.confirmed) {
+    throw new Error(
+      `Transfer transaction ${tx.id} on P-chain not confirmed (status is ${tx.status})`
+    )
   }
   return tx.id
 }

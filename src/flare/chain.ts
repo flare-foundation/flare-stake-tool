@@ -115,9 +115,11 @@ export async function getPStakesTo(
 async function _parsePStake(network: string, stake: CurrentDelegatorData | CurrentValidatorData | PendingDelegatorData | PendingValidatorData, type: string): Promise<PStake> {
   let address: string
   if ("validationRewardOwner" in stake && stake.validationRewardOwner.addresses && stake.validationRewardOwner.addresses.length > 0) {
-      address = stake.validationRewardOwner.addresses[0]
+    address = stake.validationRewardOwner.addresses[0]
   } else if ("delegationRewardOwner" in stake && stake.delegationRewardOwner.addresses && stake.delegationRewardOwner.addresses.length > 0) {
-      address = stake.delegationRewardOwner.addresses[0]
+    address = stake.delegationRewardOwner.addresses[0]
+  } else if ("rewardOwner" in stake && stake.rewardOwner.addresses && stake.rewardOwner.addresses.length > 0) {
+    address = stake.rewardOwner.addresses[0]
   } else {
     let tx = await txs.getStakeTransaction(network, stake.txID)
     if (tx instanceof pvmSerial.AddDelegatorTx || tx instanceof pvmSerial.AddValidatorTx) {

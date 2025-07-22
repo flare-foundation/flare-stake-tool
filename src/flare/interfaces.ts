@@ -81,7 +81,7 @@ export interface ExportCTxParams extends TxParams {
 }
 
 export interface ExportPTxParams extends TxParams {
-  amount: BN
+  amount: BN | undefined
 }
 
 export interface ImportCTxParams extends TxParams {
@@ -105,6 +105,11 @@ export interface ValidatorPTxParams extends StakePTxParams {
   delegationFee: number,
   popBLSPublicKey: Uint8Array,
   popBLSSignature: Uint8Array,
+}
+
+export interface TransferPTxParams extends TxParams {
+  amount: string,
+  recipientAddress: string,
 }
 
 export interface EvmTxParams extends TxParams {
@@ -158,6 +163,8 @@ export interface DelegatorPTxDetails extends TxDetails, DelegatorPTxParams { }
 
 export interface ValidatorPTxDetails extends TxDetails, ValidatorPTxParams { }
 
+export interface TransferPTxDetails extends TxDetails, TransferPTxParams { }
+
 export interface EvmTxDetails extends TxDetails, EvmTxParams, EvmTx { }
 
 export interface TxSummary {
@@ -165,7 +172,7 @@ export interface TxSummary {
   type: string,
   publicKey: string,
   unsignedTx: string,
-  unsignedTxHash: string,
+  unsignedTxHash: string | undefined,
   signature: string,
   signedTx: string
 }
@@ -179,7 +186,7 @@ export interface PreSubmit {
 }
 
 export interface UnsignedTxData {
-  txDetails: ExportCTxDetails | ExportPTxDetails | ImportCTxDetails | ImportPTxDetails | DelegatorPTxDetails | ValidatorPTxDetails | EvmTxDetails,
+  txDetails: ExportCTxDetails | ExportPTxDetails | ImportCTxDetails | ImportPTxDetails | DelegatorPTxDetails | ValidatorPTxDetails | TransferPTxDetails| EvmTxDetails,
   unsignedTx: UnsignedTx | EVMUnsignedTx | UnsignedEvmLegacyTx | UnsignedEvmEIP1559Tx
 }
 
@@ -220,19 +227,7 @@ export interface CurrentValidatorData {
   delegationFee: string;
   uptime: string;
   connected: boolean;
-  delegators: {
-    txID: string;
-    startTime: string;
-    endTime: string;
-    stakeAmount: string;
-    nodeID: string;
-    delegationRewardOwner: {
-      locktime: string;
-      threshold: string;
-      addresses: string[];
-    };
-    potentialReward: string;
-  }[];
+  delegators: CurrentDelegatorData[];
 };
 
 export interface CurrentDelegatorData {
@@ -242,6 +237,11 @@ export interface CurrentDelegatorData {
   stakeAmount: string;
   nodeID: string;
   delegationRewardOwner: {
+    locktime: string;
+    threshold: string;
+    addresses: string[];
+  };
+  rewardOwner: {
     locktime: string;
     threshold: string;
     addresses: string[];
@@ -258,13 +258,7 @@ export interface PendingValidatorData {
     delegationFee: string;
     connected: boolean;
     weight: string;
-  delegators: {
-    txID: string;
-    startTime: string;
-    endTime: string;
-    stakeAmount: string;
-    nodeID: string;
-  }[];
+  delegators: PendingDelegatorData[];
 };
 
 export interface PendingDelegatorData {
