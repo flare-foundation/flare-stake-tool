@@ -36,7 +36,7 @@ export interface UnsignedTxJson {
   serialization: string
   signatureRequests: SignatureRequest[]
   unsignedTransactionBuffer: string // hex
-  usedFee?: string // c-chain fee (don't know why is not logged inside buffer)
+  usedFee?: string // C-chain fee (don't know why is not logged inside buffer)
   txDetails?: string // JSON of the unsigned transaction
   forDefiTxId?: string
   forDefiHash?: string
@@ -70,6 +70,7 @@ export interface FlareTxParams {
   threshold?: string
   popBlsPublicKey?: string
   popBlsSignature?: string
+  transferAddress?: string
 }
 
 interface EvmTxData {
@@ -136,4 +137,10 @@ export interface ContractAddressesInterface {
     songbird: string
     coston: string
   }
+}
+
+
+export interface TransferDetailsInterface {
+  amount: string
+  transferAddress: string
 }

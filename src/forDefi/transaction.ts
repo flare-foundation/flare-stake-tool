@@ -27,7 +27,7 @@ interface ForDefiResponse {
 
 interface VaultResponse {
   id: string;
-  public_key_compressed: string;
+  public_key_compressed?: string;
 }
 
 /**
@@ -191,7 +191,10 @@ export async function getVaultPublickey(vaultId: string): Promise<string> {
   const responseJson = await response.json() as VaultResponse;
 
   let pubKey = responseJson.public_key_compressed;
-
+  // vault invalid or wrong environment (token) is used
+  if (!pubKey) {
+    throw new Error('public_key_compressed not found in vault response');
+  }
   let pubKeyHex = Buffer.from(pubKey, "base64").toString("hex");
 
   return pubKeyHex;
@@ -220,6 +223,9 @@ async function createVault(vaultName: string, tokenPath: string): Promise<string
   const responseJson = await response.json() as VaultResponse;
   console.log(responseJson);
   let pubKey = responseJson.public_key_compressed;
+  if (!pubKey) {
+    throw new Error('public_key_compressed not found in vault response');
+  }
   let pubKeyHex = Buffer.from(pubKey, "base64").toString("hex");
   console.log(pubKeyHex);
 

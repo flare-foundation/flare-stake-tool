@@ -62,7 +62,10 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
     let transaction: TxInput
     let chainId: number
     if (tx instanceof LegacyTransaction) {
-        chainId = Number(tx.v!)
+        if (tx.v === undefined) {
+          throw new Error("Legacy transaction must have v field defined")
+        }
+        chainId = Number(tx.v)
         transaction = {
             ...btx,
             gasPrice: tx.gasPrice.toString(16),

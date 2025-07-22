@@ -75,10 +75,11 @@ export const prompts = {
     return inquirer.prompt<{ publicKey: string }>(questions)
   },
 
-  amount: async (amountPurpose: string = '') => {
+  amount: async (amountPurpose: string = '', defaultAmount?: string) => {
     const questions = [
       {
         type: 'input',
+        default: defaultAmount,
         name: 'amount',
         message: chalk.magenta(`Enter amount ${amountPurpose}`) + ' ' + chalk.magenta(`(in FLR):`)
       }
@@ -267,6 +268,17 @@ export const prompts = {
       }
     ]
     return inquirer.prompt<{ popBLSSignature: string }>(questions)
+  },
+  transferAddress: async () => {
+    const questions = [
+      {
+        type: 'input',
+        name: 'transferAddress',
+        message:
+          chalk.magenta('Enter destination P-chain address:')
+      }
+    ]
+    return inquirer.prompt<{ transferAddress: string }>(questions)
   },
   // wrap rewards when claiming staking rewards
   wrapRewards: async () => {

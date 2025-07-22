@@ -19,11 +19,14 @@ import {
   ImportPTxDetails,
   ImportPTxParams,
   PreSubmit,
+  TransferPTxDetails,
+  TransferPTxParams,
   Sign,
   SubmittedTxData,
   UnsignedTxData,
   ValidatorPTxDetails,
-  ValidatorPTxParams} from './interfaces'
+  ValidatorPTxParams
+} from './interfaces'
 import BN from 'bn.js'
 import {
   evm,
@@ -286,6 +289,35 @@ export async function buildAddValidatorTx(
   }
 }
 
+export async function buildBaseTx(
+  account: Account,
+  params: TransferPTxParams
+): Promise<UnsignedTxData> {
+  const context = await getContext(account.network)
+  const pvmapi = new pvm.PVMApi(settings.URL[account.network])
+  const pAddressString = account.pAddress
+  const pAddressBytes = futils.bech32ToBytes(pAddressString)
+  const { utxos } = await pvmapi.getUTXOs({ addresses: [pAddressString] })
+  const pChainTransferAddressBytes = futils.bech32ToBytes(params.recipientAddress)
+  const unsignedTx = pvm.newBaseTx(
+    context,
+    [pAddressBytes],
+    utxos,
+    [
+      TransferableOutput.fromNative(
+        context.avaxAssetID,
+        BigInt(params.amount),
+        [pChainTransferAddressBytes]
+      )
+    ])
+  const unsignedTxHex = _unsignedTxToHex(unsignedTx)
+  return {
+    txDetails: { ...params, unsignedTxHex } as TransferPTxDetails,
+    unsignedTx
+  }
+
+}
+
 function _unsignedTxToHex(unsignedTx: UnsignedTx | EVMUnsignedTx): string {
   return utils.toHex(unsignedTx.toBytes())
 }
@@ -372,7 +404,10 @@ export async function finalizeAndConvertEvmTx(
   let chainId
   let accessList
   if (tx instanceof EvmLegacyTx) {
-    chainId = tx.v!
+    if (!tx.v) {
+      throw new Error('Legacy transaction must have v field defined')
+    }
+    chainId = tx.v
     accessList = null
   } else if (tx instanceof EvmEIP1559Tx) {
     chainId = tx.chainId
@@ -447,7 +482,7 @@ export async function signAndSubmitTx(
   } else if (unsignedTx instanceof UnsignedTx) {
     unsignedTxHash = utils.toHex(messageHashFromUnsignedTx(unsignedTx))
   } else {
-    throw new Error(`Can not issue transaction of type ${typeof unsignedTx}`)
+    throw new Error(`Can't issue transaction of type ${typeof unsignedTx}`)
   }
 
   let signatureResponse = await sign({
@@ -536,13 +571,12 @@ export async function signAndSubmitTx(
       signedTx = unsignedTx.getSignedTx().toBytes()
     }
     signedTxData.signedTx = utils.toHex(signedTx)
-
     let txSummary = {
       network: signedTxData.txDetails.network,
       type: signedTxData.txDetails.type,
       publicKey: signedTxData.txDetails.publicKey,
       unsignedTx: signedTxData.txDetails.unsignedTxHex,
-      unsignedTxHash: signedTxData.txDetails.unsignedTxHash!,
+      unsignedTxHash: signedTxData.txDetails.unsignedTxHash,
       signature: signedTxData.signature,
       signedTx: signedTxData.signedTx
     }
@@ -587,7 +621,7 @@ export async function signAndSubmitTx(
       const pvmapi = new pvm.PVMApi(settings.URL[network])
       result = await _waitForPTxConfirmation(pvmapi, id)
     } else {
-          throw new Error(`Can not issue transaction of type ${typeof unsignedTx}`)
+      throw new Error(`Can not issue transaction of type ${typeof unsignedTx}`)
     }
     status = result[0]
     confirmed = result[1]
@@ -645,7 +679,10 @@ export async function submitTxHex(txHex: string): Promise<[string, string, boole
     let evmTx = TransactionFactory.fromSerializedData(utils.toBuffer(txHex))
     let chainId
     if (evmTx instanceof EvmLegacyTx) {
-      chainId = evmTx.v!
+      if (!evmTx.v) {
+        throw new Error('Legacy transaction must have v field defined')
+      }
+      chainId = evmTx.v
     } else {
       chainId = evmTx.chainId
     }

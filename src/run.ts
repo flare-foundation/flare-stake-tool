@@ -24,7 +24,8 @@ function getArgv() {
     command === "exportPC" ||
     command === "importPC" ||
     command === "stake" ||
-    command === "delegate"
+    command === "delegate" ||
+    command === "transfer"
   ) {
     return [...baseArgv.slice(0, 2), "transaction", ...baseArgv.slice(2)];
   } else if (

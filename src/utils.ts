@@ -103,6 +103,10 @@ export function dateToDateTimeString(date: Date): string {
   return date.toLocaleString()
 }
 
+export function adjustStartTime(startTime: any): number {
+  return Number(startTime) || Math.round(Date.now() / 1000)
+}
+
 export async function waitWhile(
   condition: () => Promise<boolean>,
   timeoutMs: number,
@@ -460,9 +464,12 @@ export function isAlreadySentToChain(id: string): boolean {
 //// finalization
 //
 export async function waitFinalize<T>(ctx: Context, prms: Promise<T>): Promise<T> {
-  const txcount1 = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex!)
+  if (!ctx.web3 || !ctx.cAddressHex) {
+    throw new Error('Web3 or contract address is not initialized in the context')
+  }
+  const txcount1 = await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)
   const resp = await prms
-  while ((await ctx.web3.eth.getTransactionCount(ctx.cAddressHex!)) == txcount1) {
+  while ((await ctx.web3.eth.getTransactionCount(ctx.cAddressHex)) == txcount1) {
     await sleepms(1000)
   }
   return resp

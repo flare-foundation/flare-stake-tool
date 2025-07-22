@@ -139,12 +139,12 @@ export function context(
 
   // derive private key in both cb58 and hex if only one is provided
   if (privkHex !== undefined && privkHex !== "") {
-   privkHex = unPrefix0x(privkHex);
-   const privkBuf = Buffer.from(privkHex, "hex");
-   privkCB58 = utils.base58check.encode(privkBuf);
+    privkHex = unPrefix0x(privkHex);
+    const privkBuf = Buffer.from(privkHex, "hex");
+    privkCB58 = utils.base58check.encode(privkBuf);
   } else if (privkCB58 !== undefined && privkCB58 !== "") {
-   const privkBuf = Buffer.from(utils.base58check.decode(privkCB58));
-   privkHex = privkBuf.toString("hex");
+    const privkBuf = Buffer.from(utils.base58check.decode(privkCB58));
+    privkHex = privkBuf.toString("hex");
   }
 
   // derive the public key coords if private key is present and check that they match
@@ -156,8 +156,13 @@ export function context(
   }
   if (privkHex) {
     const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(privkHex, 'hex'))
-    if (publicKey && (!publicKeyPair![0].equals(pubX) || !publicKeyPair![1].equals(pubY))) {
-      throw Error('provided private key does not match the public key')
+    if (publicKey) {
+      if (!publicKeyPair) {
+        throw Error('public key pair is not defined')
+      }
+      if (!publicKeyPair[0].equals(pubX) || !publicKeyPair[1].equals(pubY)) {
+        throw Error('provided private key does not match the public key')
+      }
     }
     publicKeyPair = [pubX, pubY]
     if (!publicKey) {
@@ -185,7 +190,7 @@ export function context(
     const cAccount = web3.eth.accounts.privateKeyToAccount(prefixPrivkHex)
     const _cAddressHex = cAccount.address
     if (cAddressHex && cAddressHex.toLowerCase() !== _cAddressHex.toLowerCase()) {
-      throw Error('c-chain address does not match private key')
+      throw Error('C-chain address does not match private key')
     }
     cAddressHex = _cAddressHex
   }
@@ -203,4 +208,10 @@ export function context(
     chainID: chainID,
     network: network
   }
+}
+
+export function isDurango(network: string): boolean {
+  const cfg = getNetworkConfig(network)
+  if (!cfg) return false
+  return Date.now() >= cfg.DurangoTime.getTime()
 }

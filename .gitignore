@@ -106,3 +106,7 @@ ForDefiTxnFiles/
 
 .DS_Store
 .vscode/launch.json
+
+
+# private keys
+pk*
