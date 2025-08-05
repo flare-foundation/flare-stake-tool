@@ -690,9 +690,8 @@ function fileExists(filePath: string): boolean {
   try {
     fs.accessSync(filePath, fs.constants.F_OK)
     return true
-  } catch (error) {
-    console.error(chalk.red(`File does not exist: ${filePath}`))
-    console.error(error)
+  } catch {
+    console.error(chalk.red(`File ${filePath} doesn't exist`))
     return false
   }
 }
@@ -733,9 +732,9 @@ function createChoicesFromAddress(pathList: DerivedAddress[]): string[] {
 
 async function getCtxStatus(wallet: string): Promise<boolean> {
   let isCreateCtx = true
-  const isFileExist: boolean = fileExists('ctx.json')
+  const fileExist: boolean = fileExists('ctx.json')
 
-  if (isFileExist) {
+  if (fileExist) {
     const {
       wallet: ctxWallet,
       network: ctxNetwork,
