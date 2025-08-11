@@ -33,7 +33,8 @@ import {
   addFlagForSentSignedTx,
   readSignedTxJson,
   saveUnsignedTxJson,
-  adjustStartTime
+  adjustStartTime,
+  adjustStartTimeForDefi
 } from './utils'
 import { createClaimTransaction, createCustomCChainTransaction, createOptOutTransaction, createSetAllowedClaimRecipientsTransaction, createSetClaimExecutorsTransaction, createWithdrawalTransaction, saveUnsignedClaimTx, sendSignedEvmTransaction, signEvmTransaction } from './forDefi/evmTx'
 import { log, logError, logInfo, logSuccess } from './output'
@@ -502,7 +503,7 @@ async function buildUnsignedTx(
         )
       }
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
-      const start = BigInt(adjustStartTime(params.startTime))
+      const start = BigInt(adjustStartTimeForDefi(params.startTime))
       const end = BigInt(params.endTime)
       const nodeID = params.nodeId
       const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey)
@@ -546,7 +547,7 @@ async function buildUnsignedTx(
       }
 
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
-      const start = BigInt(adjustStartTime(params.startTime))
+      const start = BigInt(adjustStartTimeForDefi(params.startTime))
       const end = BigInt(params.endTime)
       const nodeID = params.nodeId
 

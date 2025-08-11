@@ -107,6 +107,10 @@ export function adjustStartTime(startTime: any): number {
   return Number(startTime) || Math.round(Date.now() / 1000)
 }
 
+export function adjustStartTimeForDefi(startTime: any): number {
+  return Number(startTime) || 1
+}
+
 export async function waitWhile(
   condition: () => Promise<boolean>,
   timeoutMs: number,
