@@ -266,7 +266,7 @@ export async function addDelegator(ctx: Context, params: FlareTxParams) {
   const pk = Buffer.concat(ctx.publicKey).toString('hex')
   const account = _getAccount(ctx.network, pk)
   let stakes = await chain.getPStakes(account.network)
-  await _checkNumberOfStakes(account, params.nodeId, new BN(adjustStartTime.toString()), new BN(params.endTime), stakes)
+  await _checkNumberOfStakes(account, params.nodeId, new BN(start.toString()), new BN(params.endTime), stakes)
   await _checkNodeId(account, params.nodeId, stakes)
 
   const tx = pvm.newAddPermissionlessDelegatorTx(
