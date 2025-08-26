@@ -20,7 +20,7 @@ import {
   networkIDs
 } from '@flarenetwork/flarejs'
 import { Context, ContextFile, FlareTxParams, SignedTxJson, UnsignedTxJson } from './interfaces'
-import { contextEnv, contextFile, getContext, networkFromContextFile } from './context'
+import { contextEnv, contextFile, getContext, isDurango, networkFromContextFile } from './context'
 import {
   compressPublicKey,
   integerToDecimal,
@@ -36,7 +36,17 @@ import {
   adjustStartTime,
   adjustStartTimeForDefi
 } from './utils'
-import { createClaimTransaction, createCustomCChainTransaction, createOptOutTransaction, createSetAllowedClaimRecipientsTransaction, createSetClaimExecutorsTransaction, createWithdrawalTransaction, saveUnsignedClaimTx, sendSignedEvmTransaction, signEvmTransaction } from './forDefi/evmTx'
+import {
+  createClaimTransaction,
+  createCustomCChainTransaction,
+  createOptOutTransaction,
+  createSetAllowedClaimRecipientsTransaction,
+  createSetClaimExecutorsTransaction,
+  createWithdrawalTransaction,
+  saveUnsignedClaimTx,
+  sendSignedEvmTransaction,
+  signEvmTransaction
+} from './forDefi/evmTx'
 import { log, logError, logInfo, logSuccess } from './output'
 import * as ledger from './ledger'
 import * as flare from './flare'
@@ -44,7 +54,15 @@ import * as settings from './settings'
 import { getPBalance } from './flare/chain'
 import { JsonRpcProvider } from 'ethers'
 import { BN } from 'bn.js'
-import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC, internalTransfer } from './transaction'
+import {
+  addDelegator,
+  addValidator,
+  exportCP,
+  exportPC,
+  importCP,
+  importPC,
+  internalTransfer
+} from './transaction'
 import { getSignature, sendToForDefi } from './forDefi/transaction'
 import { fetchMirrorFunds } from './contracts'
 
@@ -114,7 +132,9 @@ export function cli(program: Command): void {
   // transaction construction and sending
   program
     .command('transaction')
-    .description('Move funds from one chain to another or to another P-chain address, stake, and delegate')
+    .description(
+      'Move funds from one chain to another or to another P-chain address, stake, and delegate'
+    )
     .argument(
       '<importCP|exportCP|importPC|exportPC|delegate|stake>',
       'Type of a cross chain transaction'
@@ -138,6 +158,9 @@ export function cli(program: Command): void {
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
+      if (isDurango(ctx.network as string)) {
+        options.startTime = '0'
+      }
       if (options.getHacked) {
         // for future development: users should get notified before the program gets access to their private keys
         await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
@@ -154,53 +177,49 @@ export function cli(program: Command): void {
           type,
           ctx,
           options.transactionId as string,
-          options as FlareTxParams,
-        );
+          options as FlareTxParams
+        )
       }
     })
   // signed transaction sending
   program
-    .command("send")
-    .description("Send signed transaction json to the node")
-    .option(
-      "-i, --transaction-id <transaction-id>",
-      "Id of the transaction to send to the network",
-    )
+    .command('send')
+    .description('Send signed transaction json to the node')
+    .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to send to the network')
     .action(async (options: OptionValues) => {
-      options = getOptions(program, options);
-      const ctx = await contextFromOptions(options);
-      await cliSendSignedTxJson(ctx, options.transactionId as string);
-    });
+      options = getOptions(program, options)
+      const ctx = await contextFromOptions(options)
+      await cliSendSignedTxJson(ctx, options.transactionId as string)
+    })
   // ForDefi signing
   program
-    .command("forDefi")
-    .description("Sign with ForDefi")
-    .argument("<sign|fetch>", "Type of a forDefi transaction")
-    .option(
-      "-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .option("--evm-tx", "Regular EVM transaction")
+    .command('forDefi')
+    .description('Sign with ForDefi')
+    .argument('<sign|fetch>', 'Type of a forDefi transaction')
+    .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
+    .option('--evm-tx', 'Regular EVM transaction')
     .action(async (type: string, options: OptionValues) => {
-      options = getOptions(program, options);
+      options = getOptions(program, options)
       if (typeof options.transactionId !== 'string') {
-        throw new Error('Option --blind must be a string');
+        throw new Error('Option --blind must be a string')
       }
-      if (type == "sign") {
+      if (type == 'sign') {
         if (typeof options.ctxFile !== 'string') {
-          throw new Error('Option --ctx-file must be a string');
+          throw new Error('Option --ctx-file must be a string')
         }
         if (options.evmTx) {
-          await signForDefi(options.transactionId, options.ctxFile, true);
+          await signForDefi(options.transactionId, options.ctxFile, true)
         } else {
-          await signForDefi(options.transactionId, options.ctxFile);
+          await signForDefi(options.transactionId, options.ctxFile)
         }
-      } else if (type == "fetch") {
+      } else if (type == 'fetch') {
         if (options.evmTx) {
-          await fetchForDefiTx(options.transactionId, true);
+          await fetchForDefiTx(options.transactionId, true)
         } else {
-          await fetchForDefiTx(options.transactionId);
+          await fetchForDefiTx(options.transactionId)
         }
       }
-    });
+    })
   // withdrawal (transfer) from C-chain (ForDefi)
   program
     .command('withdrawal')
@@ -222,9 +241,10 @@ export function cli(program: Command): void {
     })
   // opt out (ForDefi)
   program
-    .command("optOut").description("Opt out of airdrop on the c-chain")
-    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .option("--nonce <nonce>", "Nonce of the constructed transaction")
+    .command('optOut')
+    .description('Opt out of airdrop on the c-chain')
+    .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
+    .option('--nonce <nonce>', 'Nonce of the constructed transaction')
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
@@ -241,7 +261,14 @@ export function cli(program: Command): void {
     .option('-w, --wrap', 'Wrap the rewards', false)
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
-      await processClaimTx(options, options.transactionId as string, options.amount as number, options.recipient as string, options.wrap as boolean, options.nonce as number)
+      await processClaimTx(
+        options,
+        options.transactionId as string,
+        options.amount as number,
+        options.recipient as string,
+        options.wrap as boolean,
+        options.nonce as number
+      )
     })
   // set claim executor (ForDefi)
   program
@@ -249,7 +276,10 @@ export function cli(program: Command): void {
     .description('Set claim executors for claiming FSP rewards')
     .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
     .option('--nonce <nonce>', 'Nonce of the constructed transaction')
-    .option('--executors <executors...>', 'Addresses of the executors to set (space separated); empty string to remove all executors')
+    .option(
+      '--executors <executors...>',
+      'Addresses of the executors to set (space separated); empty string to remove all executors'
+    )
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
@@ -266,7 +296,10 @@ export function cli(program: Command): void {
     .description('Set allowed claim recipients for claiming FSP rewards')
     .option('-i, --transaction-id <transaction-id>', 'Id of the transaction to finalize')
     .option('--nonce <nonce>', 'Nonce of the constructed transaction')
-    .option('--recipients <recipients...>', 'Addresses of the allowed claim recipients (space separated)')
+    .option(
+      '--recipients <recipients...>',
+      'Addresses of the allowed claim recipients (space separated)'
+    )
     .action(async (options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
@@ -298,7 +331,7 @@ export function cli(program: Command): void {
         options.nonce as number
       )
     })
-  }
+}
 
 /**
  * @description - returns context from the options that are passed
@@ -308,7 +341,10 @@ export function cli(program: Command): void {
 export async function contextFromOptions(options: OptionValues): Promise<Context> {
   if (options.ledger) {
     logInfo('Fetching account from ledger...')
-    const publicKey = await ledger.getPublicKey(options.derivationPath as string, options.network as string)
+    const publicKey = await ledger.getPublicKey(
+      options.derivationPath as string,
+      options.network as string
+    )
     const ctx = getContext(options.network as string, publicKey)
     return ctx
   } else if (options.envPath) {
@@ -329,10 +365,12 @@ export function networkFromOptions(options: OptionValues): string {
   let network = options.network as string
   if (network == undefined) {
     try {
-      network = networkFromContextFile(options.ctxFile as string);
+      network = networkFromContextFile(options.ctxFile as string)
     } catch (e: any) {
       network = 'flare'
-      logError(`Error ${e}. No network was passed and no context file was found. Defaulting to flare network`)
+      logError(
+        `Error ${e}. No network was passed and no context file was found. Defaulting to flare network`
+      )
     }
   }
   logInfo(`Using network: ${network}`)
@@ -350,9 +388,9 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
   // amount and fee are given in FLR, transform into nanoFLR (FLR = 1e9 nanoFLR)
   if (allOptions.amount) {
     if (typeof allOptions.amount !== 'string') {
-      throw new Error('Option --amount must be a string');
+      throw new Error('Option --amount must be a string')
     }
-    const cleanedAmount = allOptions.amount.replace(/,/g, '');
+    const cleanedAmount = allOptions.amount.replace(/,/g, '')
     allOptions.amount = decimalToInteger(cleanedAmount, 9).toString()
   }
   if (allOptions.fee) {
@@ -360,7 +398,6 @@ export function getOptions(program: Command, options: OptionValues): OptionValue
   }
   return { ...allOptions, network }
 }
-
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // transaction-type translators
@@ -575,21 +612,15 @@ async function buildUnsignedTx(
           `transferAddress is required for transfer transaction. Use --transfer-address <address> to specify the address`
         )
       }
-      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] });
-      const senderPAddressBytes = futils.bech32ToBytes(ctx.pAddressBech32);
-      const recipientPAddressBytes = futils.bech32ToBytes(params.transferAddress);
-      const transferTx = pvm.newBaseTx(
-        context,
-        [senderPAddressBytes],
-        utxos,
-        [
-          TransferableOutput.fromNative(
-            context.avaxAssetID,
-            BigInt(params.amount),
-            [recipientPAddressBytes]
-          )
+      const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
+      const senderPAddressBytes = futils.bech32ToBytes(ctx.pAddressBech32)
+      const recipientPAddressBytes = futils.bech32ToBytes(params.transferAddress)
+      const transferTx = pvm.newBaseTx(context, [senderPAddressBytes], utxos, [
+        TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+          recipientPAddressBytes
         ])
-      return transferTx;
+      ])
+      return transferTx
     }
     default:
       throw new Error(`Unknown transaction type: ${transactionType}`)
@@ -630,7 +661,7 @@ function getPublicKeyFromPair(keypair: [Buffer<ArrayBufferLike>, Buffer<ArrayBuf
 async function buildAndSendTxUsingPrivateKey(
   transactionType: string,
   ctx: Context,
-  params: FlareTxParams,
+  params: FlareTxParams
 ): Promise<{ txid: string; usedFee?: string }> {
   if (transactionType === 'exportCP') {
     return await exportCP(ctx, params)
@@ -723,9 +754,8 @@ export async function logBalanceInfo(ctx: Context): Promise<void> {
     throw new Error('P-chain bech32 address is not set in the context file')
   }
   let cbalance = (await ctx.web3.eth.getBalance(ctx.cAddressHex)).toString()
-  let pbalance = (
-    // NOTE: HRP seems the right string for this function
-    await getPBalance(ctx.config.hrp, ctx.pAddressBech32)).toString()
+  let pbalance = // NOTE: HRP seems the right string for this function
+    (await getPBalance(ctx.config.hrp, ctx.pAddressBech32)).toString()
   cbalance = integerToDecimal(cbalance, 18)
   pbalance = integerToDecimal(pbalance, 9)
   const symbol = networkTokenSymbol[ctx.config.hrp]
@@ -772,9 +802,9 @@ export async function logValidatorInfo(ctx: Context): Promise<void> {
  * @param ctx - context
  */
 export async function logMirrorFundInfo(ctx: Context): Promise<void> {
-  const mirroFundDetails = await fetchMirrorFunds(ctx);
-  logInfo(`Mirror fund details on the network "${ctx.config.hrp}"`);
-  log(JSON.stringify(mirroFundDetails, null, 2));
+  const mirroFundDetails = await fetchMirrorFunds(ctx)
+  logInfo(`Mirror fund details on the network "${ctx.config.hrp}"`)
+  log(JSON.stringify(mirroFundDetails, null, 2))
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -795,9 +825,12 @@ async function cliBuildAndSendTxUsingLedger(
   const sign = async (request: TxDetails): Promise<string> => {
     if (request.isEvmTx) {
       return ledger.signEvmTransaction(_derivationPath, request.unsignedTxHex)
-    } else if (await ledger.onlyHashSign()) { // ethereum or avalanche app
+    } else if (await ledger.onlyHashSign()) {
+      // ethereum or avalanche app
       if (!request.unsignedTxHash) {
-        throw new Error('unsignedTxHash is required for blind signing with ethereum or avalanche app')
+        throw new Error(
+          'unsignedTxHash is required for blind signing with ethereum or avalanche app'
+        )
       }
       return ledger.signHash(_derivationPath, request.unsignedTxHash)
     } else {
@@ -811,13 +844,15 @@ async function cliBuildAndSendTxUsingLedger(
           typeof e.errorMessage === 'string' &&
           e.errorMessage.includes('Data is invalid : Unrecognized error code')
         ) {
-          logInfo(`Non-blind signing for transaction type ${transactionType} on network ${ctx.network} is not supported by the Flare app. Blind signing with signing only the hash will be used instead.`)
+          logInfo(
+            `Non-blind signing for transaction type ${transactionType} on network ${ctx.network} is not supported by the Flare app. Blind signing with signing only the hash will be used instead.`
+          )
           if (!request.unsignedTxHash) {
             throw new Error('unsignedTxHash is required for ledger signing')
           }
-          return ledger.signHash(_derivationPath, request.unsignedTxHash);
+          return ledger.signHash(_derivationPath, request.unsignedTxHash)
         } else {
-          throw new Error(`Ledger signing error: ${e instanceof Error ? e.message : String(e)}`);
+          throw new Error(`Ledger signing error: ${e instanceof Error ? e.message : String(e)}`)
         }
       }
     }
@@ -831,8 +866,8 @@ async function cliBuildAndSendTxUsingLedger(
         `amount is required for exportCP transaction. Use --amount <amount> to specify the amount`
       )
     }
-    const amount = toBN(params.amount);
-    if (!amount) throw new Error(`Amount is invalid: ${params.amount}`);
+    const amount = toBN(params.amount)
+    if (!amount) throw new Error(`Amount is invalid: ${params.amount}`)
     let tp: ExportCTxParams = {
       amount: amount,
       exportFee: toBN(params.fee),
@@ -963,10 +998,10 @@ async function cliBuildAndSendTxUsingLedger(
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey),
       amount: params.amount,
-      recipientAddress: params.transferAddress,
+      recipientAddress: params.transferAddress
     }
-    await flare.internalTransfer(tp, sign);
-    return;
+    await flare.internalTransfer(tp, sign)
+    return
   } else {
     throw new Error(`Unknown transaction type ${transactionType}`)
   }
@@ -976,44 +1011,40 @@ async function cliBuildAndSaveUnsignedTxJson(
   transactionType: string,
   ctx: Context,
   id: string,
-  params: FlareTxParams,
+  params: FlareTxParams
 ): Promise<void> {
-  const unsignedTx: UnsignedTx = await buildUnsignedTx(
-    transactionType,
-    ctx,
-    params,
-  );
-  const txBuffer = Buffer.from(unsignedTx.toBytes()).toString('hex');
-  const txMessage = Buffer.from(messageHashFromUnsignedTx(unsignedTx)).toString('hex');
+  const unsignedTx: UnsignedTx = await buildUnsignedTx(transactionType, ctx, params)
+  const txBuffer = Buffer.from(unsignedTx.toBytes()).toString('hex')
+  const txMessage = Buffer.from(messageHashFromUnsignedTx(unsignedTx)).toString('hex')
   const unsignedTxJson: UnsignedTxJson = {
     transactionType,
-    signatureRequests: [{
-      message: txMessage,
-      signer: ''
-    }],
+    signatureRequests: [
+      {
+        message: txMessage,
+        signer: ''
+      }
+    ],
     unsignedTransactionBuffer: txBuffer,
-    serialization: JSON.stringify(unsignedTx.toJSON()),
+    serialization: JSON.stringify(unsignedTx.toJSON())
   }
-  const forDefiHash = saveUnsignedTxJson(unsignedTxJson, id);
-  logSuccess(`Unsigned transaction ${id} constructed`);
-  logSuccess(`ForDefi hash: ${forDefiHash}`);
+  const forDefiHash = saveUnsignedTxJson(unsignedTxJson, id)
+  logSuccess(`Unsigned transaction ${id} constructed`)
+  logSuccess(`ForDefi hash: ${forDefiHash}`)
 }
 
 async function cliSendSignedTxJson(ctx: Context, id: string): Promise<void> {
   if (isAlreadySentToChain(id)) {
-    throw new Error("Tx already sent to chain");
+    throw new Error('Tx already sent to chain')
   }
-  const signedTxnJson = readSignedTxJson(id);
-  let chainTxId;
-  if (signedTxnJson.transactionType === "EVM") {
+  const signedTxnJson = readSignedTxJson(id)
+  let chainTxId
+  if (signedTxnJson.transactionType === 'EVM') {
     chainTxId = await sendSignedEvmTransaction(ctx, id)
   } else {
-    chainTxId = await sendSignedTxJson(ctx, signedTxnJson);
+    chainTxId = await sendSignedTxJson(ctx, signedTxnJson)
   }
-  addFlagForSentSignedTx(id);
-  logSuccess(
-    `Signed transaction ${id} with hash ${chainTxId} sent to the node`,
-  );
+  addFlagForSentSignedTx(id)
+  logSuccess(`Signed transaction ${id} with hash ${chainTxId} sent to the node`)
 }
 
 async function cliBuildAndSendTxUsingPrivateKey(
@@ -1033,21 +1064,18 @@ async function cliBuildAndSendTxUsingPrivateKey(
 async function signForDefi(
   transaction: string,
   ctx: string,
-  evmTx: boolean = false,
+  evmTx: boolean = false
 ): Promise<void> {
-  const txid = await sendToForDefi(transaction, ctx, evmTx);
-  logSuccess(`Transaction with hash ${txid} sent to the ForDefi`);
+  const txid = await sendToForDefi(transaction, ctx, evmTx)
+  logSuccess(`Transaction with hash ${txid} sent to the ForDefi`)
 }
 
-async function fetchForDefiTx(
-  transaction: string,
-  evmTx: boolean = false,
-): Promise<void> {
+async function fetchForDefiTx(transaction: string, evmTx: boolean = false): Promise<void> {
   if (isAlreadySentToChain(transaction)) {
-    throw new Error("Tx already sent to chain");
+    throw new Error('Tx already sent to chain')
   }
-  const signature = await getSignature(transaction, evmTx);
-  logSuccess(`Success! Signature: ${signature}`);
+  const signature = await getSignature(transaction, evmTx)
+  logSuccess(`Success! Signature: ${signature}`)
 }
 
 async function buildUnsignedWithdrawalTxJson(
@@ -1068,19 +1096,27 @@ async function buildUnsignedOptOutTxJson(ctx: Context, id: string, nonce: number
   logSuccess(`ForDefi hash: ${forDefiHash}`)
 }
 
-async function processClaimTx(options: OptionValues, id: string, amount: number, recipient: string, wrap: boolean, nonce: number): Promise<void> {
+async function processClaimTx(
+  options: OptionValues,
+  id: string,
+  amount: number,
+  recipient: string,
+  wrap: boolean,
+  nonce: number
+): Promise<void> {
   const ctx = await contextFromOptions(options)
   const rawTx = await createClaimTransaction(ctx, amount, recipient, wrap, nonce)
   if (options.getHacked) {
     if (!ctx.cAddressHex || !ctx.privkHex) {
       throw new Error('cAddressHex or private key is undefined or null')
     }
-    const txId = await signEvmTransaction("privateKey", ctx, rawTx)
+    const txId = await signEvmTransaction('privateKey', ctx, rawTx)
     logSuccess(`Transaction with hash ${txId} built and sent to the network`)
   } else if (options.ledger) {
-    const txId = await signEvmTransaction("ledger", ctx, rawTx, options.derivationPath as string)
+    const txId = await signEvmTransaction('ledger', ctx, rawTx, options.derivationPath as string)
     logSuccess(`Transaction with hash ${txId} built and sent to the network`)
-  } else { // ForDefi
+  } else {
+    // ForDefi
     const forDefiHash = saveUnsignedClaimTx(rawTx, id)
     logSuccess(`Transaction ${id} constructed`)
     logSuccess(`ForDefi hash: ${forDefiHash}`)
@@ -1093,9 +1129,9 @@ async function buildUnsignedSetClaimExecutorsTxJson(
   executors: string[],
   nonce: number
 ): Promise<void> {
-  const forDefiHash = await createSetClaimExecutorsTransaction(ctx, id, executors, nonce);
-  logSuccess(`Transaction ${id} constructed`);
-  logSuccess(`ForDefi hash: ${forDefiHash}`);
+  const forDefiHash = await createSetClaimExecutorsTransaction(ctx, id, executors, nonce)
+  logSuccess(`Transaction ${id} constructed`)
+  logSuccess(`ForDefi hash: ${forDefiHash}`)
 }
 
 async function buildUnsignedSetAllowedClaimRecipientsTxJson(
@@ -1104,9 +1140,9 @@ async function buildUnsignedSetAllowedClaimRecipientsTxJson(
   recipients: string[],
   nonce: number
 ): Promise<void> {
-  const forDefiHash = await createSetAllowedClaimRecipientsTransaction(ctx, id, recipients, nonce);
-  logSuccess(`Transaction ${id} constructed`);
-  logSuccess(`ForDefi hash: ${forDefiHash}`);
+  const forDefiHash = await createSetAllowedClaimRecipientsTransaction(ctx, id, recipients, nonce)
+  logSuccess(`Transaction ${id} constructed`)
+  logSuccess(`ForDefi hash: ${forDefiHash}`)
 }
 async function buildUnsignedCustomCChainTxJson(
   ctx: Context,
@@ -1117,6 +1153,6 @@ async function buildUnsignedCustomCChainTxJson(
   nonce: number
 ): Promise<void> {
   const forDefiHash = await createCustomCChainTransaction(ctx, id, to, data, value, nonce)
-  logSuccess(`Transaction ${id} constructed`);
-  logSuccess(`ForDefi hash: ${forDefiHash}`);
+  logSuccess(`Transaction ${id} constructed`)
+  logSuccess(`ForDefi hash: ${forDefiHash}`)
 }
