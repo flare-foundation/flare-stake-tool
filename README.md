@@ -165,7 +165,7 @@ Where:
 
 When the staking period ends, the nodes automatically stop acting as validators and the staked amount is returned to the P-chain account.
 
-To check whether a validator has been added successfully, fetch lists of both pending and current validators with this command:
+To check whether a validator has been added successfully, fetch lists of current validators with this command:
 
 ```bash
 flare-stake-tool info validators --network <network> --ledger
@@ -273,8 +273,8 @@ flare-stake-tool interactive
 curl -s -X POST --data '{ "jsonrpc":"2.0", "id" :1, "method" :"info.getNodeID" }' -H 'content-type:application/json;' RPC-URL:PORT/ext/info
 ```
 
-### Check the pending validators (To see if the stake or delegation was successful):
+### Check the current validators (To see if the stake or delegation was successful):
 
 ```bash
-curl -s --location --request POST 'RPC-URL:PORT/ext/bc/P' --header 'Content-Type: application/json' --data-raw '{ "jsonrpc": "2.0",     "method": "platform.getPendingValidators",     "params": {         "subnetID": null,         "nodeIDs": []     },     "id": 1 }' | jq .
+curl -s --location --request POST 'RPC-URL:PORT/ext/bc/P' --header 'Content-Type: application/json' --data-raw '{ "jsonrpc": "2.0",     "method": "platform.getCurrentValidators",     "params": {         "subnetID": null,         "nodeIDs": []     },     "id": 1 }' | jq .
 ```
