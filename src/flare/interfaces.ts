@@ -216,7 +216,17 @@ export interface CurrentValidatorData {
   stakeAmount: string;
   nodeID: string;
   weight: string;
-  validationRewardOwner: {
+  validationRewardOwner?: {
+    locktime: string;
+    threshold: string;
+    addresses: string[];
+  };
+  delegationRewardOwner?: {
+    locktime: string;
+    threshold: string;
+    addresses: string[];
+  };
+  rewardOwner?: {
     locktime: string;
     threshold: string;
     addresses: string[];
@@ -236,35 +246,15 @@ export interface CurrentDelegatorData {
   endTime: string;
   stakeAmount: string;
   nodeID: string;
-  delegationRewardOwner: {
+  delegationRewardOwner?: {
     locktime: string;
     threshold: string;
     addresses: string[];
   };
-  rewardOwner: {
+  rewardOwner?: {
     locktime: string;
     threshold: string;
     addresses: string[];
   };
   potentialReward: string;
-}
-
-export interface PendingValidatorData {
-    txID: string;
-    startTime: string;
-    endTime: string;
-    stakeAmount: string;
-    nodeID: string;
-    delegationFee: string;
-    connected: boolean;
-    weight: string;
-  delegators: PendingDelegatorData[];
-};
-
-export interface PendingDelegatorData {
-    txID: string;
-    startTime: string;
-    endTime: string;
-    stakeAmount: string;
-    nodeID: string;
 }

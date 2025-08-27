@@ -57,14 +57,7 @@ const fetchValidatorInfo = async (ctx: Context) => {
   return validator;
 };
 
-// fetches pending validator info
-const fetchPendingValidatorInfo = async (ctx: Context) => {
-  const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
-  const pendingValidator = await pvmapi.getPendingValidators()
-  return pendingValidator;
-};
-
-// fetches the delegation stake (from both current and pending validator) for the current user
+// fetches the delegation stake (from both current validator) for the current user
 const fetchDelegateStake = async (
   ctx: Context,
   validatorFunction: (ctx: Context) => any,
@@ -158,21 +151,12 @@ export async function fetchMirrorFunds(ctx: Context) {
     ctx,
     fetchValidatorInfo,
   );
-  const delegationToPendingValidator = await fetchDelegateStake(
-    ctx,
-    fetchPendingValidatorInfo,
-  );
-  const totalDelegatedAmount =
-    getTotalFromDelegation(delegationToCurrentValidator)
-    +
-    getTotalFromDelegation(delegationToPendingValidator);
+  const totalDelegatedAmount = getTotalFromDelegation(delegationToCurrentValidator);
+
   const totalInFLR = parseFloat(totalDelegatedAmount.toString());
   return {
     "Total Mirrored Amount": `${totalInFLR} FLR`,
-    "Mirror Funds Details": [
-      ...delegationToCurrentValidator,
-      ...delegationToPendingValidator,
-    ],
+    "Mirror Funds Details": delegationToCurrentValidator
   };
 }
 
