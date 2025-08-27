@@ -21,3 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 * Querying pending validators is no longer supported since API `getPendingValidators` is no longer available.
+
+## [[v4.1.5](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.1.5)] - 2025-08-27
+
+### Fixed
+
+* Fix bug in delegation when using a private key.
