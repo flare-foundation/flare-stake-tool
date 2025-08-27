@@ -444,23 +444,14 @@ export function isAlreadySentToChain(id: string): boolean {
 // */
 //export async function delegationAddressCount(ctx: Context) {
 //  const current = await ctx.pchain.getCurrentValidators();
-//  const pending = await ctx.pchain.getPendingValidators();
-//  const pendingValidtaor = JSON.parse(JSON.stringify(pending));
 //  const pCurrent = JSON.parse(JSON.stringify(current));
 //  const currentDelegationDetails = countpAddressInDelegation(
 //    pCurrent.validators,
 //    ctx.pAddressBech32!,
 //  );
-//  const pendingDelegationDetails = countpAddressInDelegation(
-//    pendingValidtaor.validators,
-//    ctx.pAddressBech32!,
-//  );
 //  return {
-//    count: currentDelegationDetails.count + pendingDelegationDetails.count,
-//    validatorNodeId: [
-//      ...currentDelegationDetails.validatorNodeIds,
-//      ...pendingDelegationDetails.validatorNodeIds,
-//    ],
+//    count: currentDelegationDetails.count,
+//    validatorNodeId: currentDelegationDetails.validatorNodeIds
 //  };
 //}
 //

@@ -5,7 +5,7 @@ import * as txs from './txs'
 import BN from 'bn.js'
 import { pvm, evm, utils as futils, Utxo, pvmSerial } from '@flarenetwork/flarejs'
 import Web3 from 'web3'
-import { CurrentDelegatorData, CurrentValidatorData, PendingDelegatorData, PendingValidatorData, PStake } from './interfaces'
+import { CurrentDelegatorData, CurrentValidatorData, PStake } from './interfaces'
 import { getContext } from './context'
 
 export function getWeb3(network: string): Web3 {
@@ -53,7 +53,6 @@ export async function getPStake(network: string, pAddress: string): Promise<BN> 
 export async function getPStakes(network: string): Promise<Array<PStake>> {
   let stakes = Array<PStake>()
   stakes = stakes.concat(await getCurrentPStakes(network))
-  stakes = stakes.concat(await getPendingPStakes(network))
   return stakes
 }
 
@@ -69,20 +68,6 @@ export async function getCurrentPStakes(network: string): Promise<Array<PStake>>
         stakes.push(await _parsePStake(network, delegator, 'delegator'))
       }
     }
-  }
-  return stakes
-}
-
-
-export async function getPendingPStakes(network: string): Promise<Array<PStake>> {
-  const pvmapi = new pvm.PVMApi(settings.URL[network])
-  const { validators, delegators } = await pvmapi.getPendingValidators()
-  const stakes = Array<PStake>()
-  for (let validator of validators) {
-    stakes.push(await _parsePStake(network, validator, 'validator'))
-  }
-  for (let delegator of delegators) {
-    stakes.push(await _parsePStake(network, delegator, 'delegator'))
   }
   return stakes
 }
@@ -112,13 +97,13 @@ export async function getPStakesTo(
   return stakes.filter((s) => nodeIds.includes(s.nodeId))
 }
 
-async function _parsePStake(network: string, stake: CurrentDelegatorData | CurrentValidatorData | PendingDelegatorData | PendingValidatorData, type: string): Promise<PStake> {
+async function _parsePStake(network: string, stake: CurrentDelegatorData | CurrentValidatorData, type: string): Promise<PStake> {
   let address: string
-  if ("validationRewardOwner" in stake && stake.validationRewardOwner.addresses && stake.validationRewardOwner.addresses.length > 0) {
+  if ("validationRewardOwner" in stake && stake.validationRewardOwner && stake.validationRewardOwner.addresses && stake.validationRewardOwner.addresses.length > 0) {
     address = stake.validationRewardOwner.addresses[0]
-  } else if ("delegationRewardOwner" in stake && stake.delegationRewardOwner.addresses && stake.delegationRewardOwner.addresses.length > 0) {
+  } else if ("delegationRewardOwner" in stake && stake.delegationRewardOwner && stake.delegationRewardOwner.addresses && stake.delegationRewardOwner.addresses.length > 0) {
     address = stake.delegationRewardOwner.addresses[0]
-  } else if ("rewardOwner" in stake && stake.rewardOwner.addresses && stake.rewardOwner.addresses.length > 0) {
+  } else if ("rewardOwner" in stake && stake.rewardOwner && stake.rewardOwner.addresses && stake.rewardOwner.addresses.length > 0) {
     address = stake.rewardOwner.addresses[0]
   } else {
     let tx = await txs.getStakeTransaction(network, stake.txID)
