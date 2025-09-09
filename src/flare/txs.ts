@@ -163,6 +163,7 @@ export async function buildImportPTx(
 ): Promise<UnsignedTxData> {
   const context = await getContext(account.network)
   const pvmapi = new pvm.PVMApi(settings.URL[account.network])
+  const feeState = await pvmapi.getFeeState()
   const pAddressString = account.pAddress
   const pAddress = futils.bech32ToBytes(pAddressString)
   const { utxos } = await pvmapi.getUTXOs({
@@ -170,12 +171,15 @@ export async function buildImportPTx(
     sourceChain: 'C'
   })
 
-  const unsignedTx = pvm.newImportTx(
-    context,
-    context.cBlockchainID,
-    utxos,
-    [pAddress],
-    [pAddress]
+  const unsignedTx = pvm.e.newImportTx(
+    {
+      feeState,
+      sourceChainId: context.cBlockchainID,
+      utxos,
+      fromAddressesBytes: [pAddress],
+      toAddressesBytes: [pAddress]
+    },
+    context
   )
   const amount = await chain.getCPBalance(account.network, account.pAddress)
   const importFee = await chain.getPTxDefaultFee(account.network)
@@ -197,6 +201,7 @@ export async function buildExportPTx(
 ): Promise<UnsignedTxData> {
   const context = await getContext(account.network)
   const pvmapi = new pvm.PVMApi(settings.URL[account.network])
+  const feeState = await pvmapi.getFeeState()
   const pAddressString = account.pAddress
   const pAddress = futils.bech32ToBytes(pAddressString)
 
@@ -214,9 +219,16 @@ export async function buildExportPTx(
     pAddress
   ])
 
-  const unsignedTx = pvm.newExportTx(context, context.cBlockchainID, [pAddress], utxos, [
-    output
-  ])
+  const unsignedTx = pvm.e.newExportTx(
+    {
+      feeState,
+      destinationChainId: context.cBlockchainID,
+      fromAddressesBytes: [pAddress],
+      utxos,
+      outputs: [output]
+    },
+    context
+  )
   const unsignedTxHex = _unsignedTxToHex(unsignedTx)
   return {
     txDetails: { ...params, exportFee, unsignedTxHex } as ExportPTxDetails,
@@ -230,20 +242,24 @@ export async function buildAddDelegatorTx(
 ): Promise<UnsignedTxData> {
   const context = await getContext(account.network)
   const pvmapi = new pvm.PVMApi(settings.URL[account.network])
+  const feeState = await pvmapi.getFeeState()
   const pAddressString = account.pAddress
   const pAddress = futils.bech32ToBytes(pAddressString)
   const { utxos } = await pvmapi.getUTXOs({ addresses: [pAddressString] })
 
-  const unsignedTx = pvm.newAddPermissionlessDelegatorTx(
-    context,
-    utxos,
-    [pAddress],
-    params.nodeId,
-    networkIDs.PrimaryNetworkID.toString(),
-    BigInt(params.startTime.toString()),
-    BigInt(params.endTime.toString()),
-    BigInt(params.amount.toString()),
-    [pAddress]
+  const unsignedTx = pvm.e.newAddPermissionlessDelegatorTx(
+    {
+      feeState,
+      utxos,
+      fromAddressesBytes: [pAddress],
+      nodeId: params.nodeId,
+      subnetId: networkIDs.PrimaryNetworkID.toString(),
+      start: BigInt(params.startTime.toString()),
+      end: BigInt(params.endTime.toString()),
+      weight: BigInt(params.amount.toString()),
+      rewardAddresses: [pAddress]
+    },
+    context
   )
   const unsignedTxHex = _unsignedTxToHex(unsignedTx)
   return {
@@ -258,29 +274,29 @@ export async function buildAddValidatorTx(
 ): Promise<UnsignedTxData> {
   const context = await getContext(account.network)
   const pvmapi = new pvm.PVMApi(settings.URL[account.network])
+  const feeState = await pvmapi.getFeeState()
   const pAddressString = account.pAddress
   const pAddress = futils.bech32ToBytes(pAddressString)
   const { utxos } = await pvmapi.getUTXOs({ addresses: [pAddressString] })
 
-  const unsignedTx = pvm.newAddPermissionlessValidatorTx(
-    context,
-    utxos,
-    [pAddress],
-    params.nodeId,
-    networkIDs.PrimaryNetworkID.toString(),
-    BigInt(params.startTime.toString()),
-    BigInt(params.endTime.toString()),
-    BigInt(params.amount.toString()),
-    [pAddress],
-    [pAddress],
-    params.delegationFee,
+  const unsignedTx = pvm.e.newAddPermissionlessValidatorTx(
     {
-      changeAddresses: [pAddress]
+      feeState,
+      utxos,
+      delegatorRewardsOwner: [pAddress],
+      nodeId: params.nodeId,
+      subnetId: networkIDs.PrimaryNetworkID.toString(),
+      start: BigInt(params.startTime.toString()),
+      end: BigInt(params.endTime.toString()),
+      weight: BigInt(params.amount.toString()),
+      rewardAddresses: [pAddress],
+      fromAddressesBytes: [pAddress],
+      shares: params.delegationFee,
+      changeAddressesBytes: [pAddress],
+      publicKey: params.popBLSPublicKey,
+      signature: params.popBLSSignature
     },
-    1,
-    0n,
-    params.popBLSPublicKey,
-    params.popBLSSignature
+    context
   )
   const unsignedTxHex = _unsignedTxToHex(unsignedTx)
   return {
@@ -295,27 +311,29 @@ export async function buildBaseTx(
 ): Promise<UnsignedTxData> {
   const context = await getContext(account.network)
   const pvmapi = new pvm.PVMApi(settings.URL[account.network])
+  const feeState = await pvmapi.getFeeState()
   const pAddressString = account.pAddress
   const pAddressBytes = futils.bech32ToBytes(pAddressString)
   const { utxos } = await pvmapi.getUTXOs({ addresses: [pAddressString] })
-  const pChainTransferAddressBytes = futils.bech32ToBytes(params.recipientAddress)
-  const unsignedTx = pvm.newBaseTx(
-    context,
-    [pAddressBytes],
-    utxos,
-    [
-      TransferableOutput.fromNative(
-        context.avaxAssetID,
-        BigInt(params.amount),
-        [pChainTransferAddressBytes]
-      )
-    ])
+  const recipientAddressBytes = futils.bech32ToBytes(params.recipientAddress)
+  const unsignedTx = pvm.e.newBaseTx(
+    {
+      feeState,
+      fromAddressesBytes: [pAddressBytes],
+      utxos,
+      outputs: [
+        TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+          recipientAddressBytes
+        ])
+      ]
+    },
+    context
+  )
   const unsignedTxHex = _unsignedTxToHex(unsignedTx)
   return {
     txDetails: { ...params, unsignedTxHex } as TransferPTxDetails,
     unsignedTx
   }
-
 }
 
 function _unsignedTxToHex(unsignedTx: UnsignedTx | EVMUnsignedTx): string {
@@ -531,7 +549,7 @@ export async function signAndSubmitTx(
           v += 8 + 2 * parseInt(settings.CHAIN_ID[network], 16)
         }
         tx = EvmLegacyTx.fromTxData({
-          ...(unsignedTx.toJSON()),
+          ...unsignedTx.toJSON(),
           v: BigInt(v.toString()),
           r: BigInt(expandedSignature.r.toString()),
           s: BigInt(expandedSignature.s.toString())
