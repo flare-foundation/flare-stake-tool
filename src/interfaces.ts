@@ -70,7 +70,8 @@ export interface FlareTxParams {
   threshold?: string
   popBlsPublicKey?: string
   popBlsSignature?: string
-  transferAddress?: string
+  transferAddress?: string,
+  feeMultiplier?: string
 }
 
 interface EvmTxData {

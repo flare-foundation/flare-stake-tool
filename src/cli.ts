@@ -156,6 +156,7 @@ export function cli(program: Command): void {
     .option('--pop-bls-signature <popBlsSignature>', 'BLS Signature')
     .option('--transfer-address <transfer-address>', 'P-chain address to transfer funds to')
     .option('--threshold <threshold>', 'Threshold of the constructed transaction', '1')
+    .option('-m, --fee-multiplier <feeMultiplier>', 'Multiplier for the fee price (default: 2)', '2')
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
@@ -421,6 +422,7 @@ async function buildUnsignedTx(
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const txCount = await provider.getTransactionCount(ctx.cAddressHex)
   const feeState = await pvmapi.getFeeState()
+  feeState.price = feeState.price * BigInt(params.feeMultiplier || '2');
   const { etnaTime } = await infoapi.getUpgradesInfo()
 
   const isEtnaForkActive = new Date() > new Date(etnaTime)
