@@ -7,13 +7,15 @@ import {
   addTxSignatures,
   TransferableOutput,
   Context as FContext,
-  networkIDs
+  networkIDs,
+  UnsignedTx
 } from '@flarenetwork/flarejs'
 import { Context, FlareTxParams } from './interfaces'
 import { adjustStartTime } from './utils'
 import * as chain from './flare/chain'
 import { _checkNodeId, _checkNumberOfStakes, _getAccount } from './flare'
 import { BN } from 'bn.js'
+import { isEtnaActive } from './flare/context'
 
 const FLR = 1e9 // one FLR in nanoFLR
 
@@ -77,22 +79,34 @@ export async function importCP(ctx: Context, params: FlareTxParams) {
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
   const feeState = await pvmapi.getFeeState()
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
+  const isEtnaForkActive = await isEtnaActive(ctx.config.hrp)
 
   const { utxos } = await pvmapi.getUTXOs({
     sourceChain: 'C',
     addresses: [ctx.pAddressBech32]
   })
 
-  const importTx = pvm.e.newImportTx(
-    {
-      feeState,
-      fromAddressesBytes: [futils.bech32ToBytes(ctx.cAddressBech32)],
-      sourceChainId: getChainIdFromContext('C', context),
-      toAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
-      utxos
-    },
-    context
-  )
+  let importTx: UnsignedTx
+  if (isEtnaForkActive) {
+    importTx = pvm.e.newImportTx(
+      {
+        feeState,
+        fromAddressesBytes: [futils.bech32ToBytes(ctx.cAddressBech32)],
+        sourceChainId: getChainIdFromContext('C', context),
+        toAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
+        utxos
+      },
+      context
+    )
+  } else {
+    importTx = pvm.newImportTx(
+      context,
+      getChainIdFromContext('C', context),
+      utxos,
+      [futils.bech32ToBytes(ctx.pAddressBech32)],
+      [futils.bech32ToBytes(ctx.cAddressBech32)]
+    )
+  }
 
   await addTxSignatures({
     unsignedTx: importTx,
@@ -115,25 +129,41 @@ export async function exportPC(ctx: Context, params: FlareTxParams) {
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const feeState = await pvmapi.getFeeState()
+  const isEtnaForkActive = await isEtnaActive(ctx.config.hrp)
 
   const { utxos } = await pvmapi.getUTXOs({
     addresses: [ctx.pAddressBech32]
   })
 
-  const exportTx = pvm.e.newExportTx(
-    {
-      destinationChainId: getChainIdFromContext('C', context),
-      feeState,
-      fromAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
-      outputs: [
+  let exportTx: UnsignedTx
+  if (isEtnaForkActive) {
+    exportTx = pvm.e.newExportTx(
+      {
+        destinationChainId: getChainIdFromContext('C', context),
+        feeState,
+        fromAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
+        outputs: [
+          TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+            futils.bech32ToBytes(ctx.pAddressBech32)
+          ])
+        ],
+        utxos
+      },
+      context
+    )
+  } else {
+    exportTx = pvm.newExportTx(
+      context,
+      getChainIdFromContext('C', context),
+      [futils.bech32ToBytes(ctx.pAddressBech32)],
+      utxos,
+      [
         TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
           futils.bech32ToBytes(ctx.pAddressBech32)
         ])
-      ],
-      utxos
-    },
-    context
-  )
+      ]
+    )
+  }
 
   await addTxSignatures({
     unsignedTx: exportTx,
@@ -213,6 +243,7 @@ export async function addValidator(ctx: Context, params: FlareTxParams) {
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const feeState = await pvmapi.getFeeState()
+  const isEtnaForkActive = await isEtnaActive(ctx.config.hrp)
 
   const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
   const start = BigInt(adjustStartTime(params.startTime))
@@ -232,24 +263,46 @@ export async function addValidator(ctx: Context, params: FlareTxParams) {
     stakes
   )
 
-  const tx = pvm.e.newAddPermissionlessValidatorTx(
-    {
-      end,
-      delegatorRewardsOwner: [futils.bech32ToBytes(ctx.pAddressBech32)],
-      feeState,
-      fromAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
-      nodeId,
-      publicKey,
-      rewardAddresses: [futils.bech32ToBytes(ctx.pAddressBech32)],
-      shares: Number(params.delegationFee) * 1e4, // default fee is 10%
-      signature,
-      start,
-      subnetId: networkIDs.PrimaryNetworkID.toString(),
+  let tx: UnsignedTx
+  if (isEtnaForkActive) {
+    tx = pvm.e.newAddPermissionlessValidatorTx(
+      {
+        end,
+        delegatorRewardsOwner: [futils.bech32ToBytes(ctx.pAddressBech32)],
+        feeState,
+        fromAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
+        nodeId,
+        publicKey,
+        rewardAddresses: [futils.bech32ToBytes(ctx.pAddressBech32)],
+        shares: Number(params.delegationFee) * 1e4, // default fee is 10%
+        signature,
+        start,
+        subnetId: networkIDs.PrimaryNetworkID.toString(),
+        utxos,
+        weight: BigInt(params.amount)
+      },
+      context
+    )
+  } else {
+    tx = pvm.newAddPermissionlessValidatorTx(
+      context,
       utxos,
-      weight: BigInt(params.amount)
-    },
-    context
-  )
+      [futils.bech32ToBytes(ctx.pAddressBech32)],
+      nodeId,
+      networkIDs.PrimaryNetworkID.toString(),
+      start,
+      end,
+      BigInt(params.amount),
+      [futils.bech32ToBytes(ctx.pAddressBech32)],
+      [futils.bech32ToBytes(ctx.pAddressBech32)],
+      Number(params.delegationFee) * 1e4, // default fee is 10%
+      undefined,
+      1,
+      0n,
+      publicKey,
+      signature
+    )
+  }
 
   await addTxSignatures({
     unsignedTx: tx,
@@ -283,6 +336,7 @@ export async function addDelegator(ctx: Context, params: FlareTxParams) {
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const feeState = await pvmapi.getFeeState()
+  const isEtnaForkActive = await isEtnaActive(ctx.config.hrp)
 
   const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
   const start = BigInt(adjustStartTime(params.startTime))
@@ -301,20 +355,35 @@ export async function addDelegator(ctx: Context, params: FlareTxParams) {
   )
   await _checkNodeId(account, params.nodeId, stakes)
 
-  const tx = pvm.e.newAddPermissionlessDelegatorTx(
-    {
-      end,
-      feeState,
-      fromAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
-      nodeId,
-      rewardAddresses: [futils.bech32ToBytes(ctx.pAddressBech32)],
-      start,
-      subnetId: networkIDs.PrimaryNetworkID.toString(),
+  let tx: UnsignedTx
+  if (isEtnaForkActive) {
+    tx = pvm.e.newAddPermissionlessDelegatorTx(
+      {
+        end,
+        feeState,
+        fromAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
+        nodeId,
+        rewardAddresses: [futils.bech32ToBytes(ctx.pAddressBech32)],
+        start,
+        subnetId: networkIDs.PrimaryNetworkID.toString(),
+        utxos,
+        weight: BigInt(params.amount)
+      },
+      context
+    )
+  } else {
+    tx = pvm.newAddPermissionlessDelegatorTx(
+      context,
       utxos,
-      weight: BigInt(params.amount)
-    },
-    context
-  )
+      [futils.bech32ToBytes(ctx.pAddressBech32)],
+      nodeId,
+      networkIDs.PrimaryNetworkID.toString(),
+      start,
+      end,
+      BigInt(params.amount),
+      [futils.bech32ToBytes(ctx.pAddressBech32)]
+    )
+  }
 
   await addTxSignatures({
     unsignedTx: tx,
@@ -340,23 +409,34 @@ export async function internalTransfer(ctx: Context, params: FlareTxParams) {
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const feeState = await pvmapi.getFeeState()
+  const isEtnaForkActive = await isEtnaActive(ctx.config.hrp)
 
   const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
   const senderPAddressBytes = futils.bech32ToBytes(ctx.pAddressBech32)
   const recipientPAddressBytes = futils.bech32ToBytes(params.transferAddress)
-  const tx = pvm.e.newBaseTx(
-    {
-      feeState,
-      fromAddressesBytes: [senderPAddressBytes],
-      outputs: [
-        TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
-          recipientPAddressBytes
-        ])
-      ],
-      utxos
-    },
-    context
-  )
+
+  let tx: UnsignedTx
+  if (isEtnaForkActive) {
+    tx = pvm.e.newBaseTx(
+      {
+        feeState,
+        fromAddressesBytes: [senderPAddressBytes],
+        outputs: [
+          TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+            recipientPAddressBytes
+          ])
+        ],
+        utxos
+      },
+      context
+    )
+  } else {
+    tx = pvm.newBaseTx(context, [senderPAddressBytes], utxos, [
+      TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+        recipientPAddressBytes,
+      ]),
+    ])
+  }
 
   await addTxSignatures({
     unsignedTx: tx,

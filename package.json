@@ -33,7 +33,7 @@
     "@ethereumjs/common": "^4.1.0",
     "@ethereumjs/rlp": "^5.0.1",
     "@ethereumjs/tx": "^5.0.0",
-    "@flarenetwork/flarejs": "^4.1.1",
+    "@flarenetwork/flarejs": "^4.1.1-rc0",
     "@ledgerhq/hw-app-eth": "^6.42.0",
     "@ledgerhq/hw-transport-node-hid": "^6.29.5",
     "@ledgerhq/hw-transport-webhid": "^6.29.4",
