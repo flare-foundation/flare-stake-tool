@@ -17,10 +17,11 @@ import {
   Context as FContext,
   UnsignedTx,
   messageHashFromUnsignedTx,
-  networkIDs
+  networkIDs,
+  info
 } from '@flarenetwork/flarejs'
 import { Context, ContextFile, FlareTxParams, SignedTxJson, UnsignedTxJson } from './interfaces'
-import { contextEnv, contextFile, getContext, isDurango, networkFromContextFile } from './context'
+import { contextEnv, contextFile, getContext, networkFromContextFile } from './context'
 import {
   compressPublicKey,
   integerToDecimal,
@@ -155,12 +156,10 @@ export function cli(program: Command): void {
     .option('--pop-bls-signature <popBlsSignature>', 'BLS Signature')
     .option('--transfer-address <transfer-address>', 'P-chain address to transfer funds to')
     .option('--threshold <threshold>', 'Threshold of the constructed transaction', '1')
+    .option('-m, --fee-multiplier <feeMultiplier>', 'Multiplier for the fee price (default: 2)', '2')
     .action(async (type: string, options: OptionValues) => {
       options = getOptions(program, options)
       const ctx = await contextFromOptions(options)
-      if (isDurango(ctx.network as string)) {
-        options.startTime = '0'
-      }
       if (options.getHacked) {
         // for future development: users should get notified before the program gets access to their private keys
         await cliBuildAndSendTxUsingPrivateKey(type, ctx, options as FlareTxParams)
@@ -419,8 +418,15 @@ async function buildUnsignedTx(
   const provider = new JsonRpcProvider(settings.URL[ctx.config.hrp] + '/ext/bc/C/rpc')
   const evmapi = new evm.EVMApi(settings.URL[ctx.config.hrp])
   const pvmapi = new pvm.PVMApi(settings.URL[ctx.config.hrp])
+  const infoapi = new info.InfoApi(settings.URL[ctx.config.hrp])
   const context = await FContext.getContextFromURI(settings.URL[ctx.config.hrp])
   const txCount = await provider.getTransactionCount(ctx.cAddressHex)
+  const feeState = await pvmapi.getFeeState()
+  feeState.price = feeState.price * BigInt(params.feeMultiplier || '2');
+  const { etnaTime } = await infoapi.getUpgradesInfo()
+
+  const isEtnaForkActive = new Date() > new Date(etnaTime)
+
   function getChainIdFromContext(sourceChain: 'X' | 'P' | 'C', context: FContext.Context) {
     return sourceChain === 'C'
       ? context.cBlockchainID
@@ -459,13 +465,27 @@ async function buildUnsignedTx(
         addresses: [ctx.pAddressBech32]
       })
 
-      const importTx = pvm.newImportTx(
-        context,
-        getChainIdFromContext('C', context),
-        utxos,
-        [futils.bech32ToBytes(ctx.pAddressBech32)],
-        [futils.bech32ToBytes(ctx.cAddressBech32)]
-      )
+      let importTx: UnsignedTx
+      if (isEtnaForkActive) {
+        importTx = pvm.e.newImportTx(
+          {
+            feeState,
+            fromAddressesBytes: [futils.bech32ToBytes(ctx.cAddressBech32)],
+            sourceChainId: getChainIdFromContext('C', context),
+            toAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
+            utxos
+          },
+          context
+        )
+      } else {
+        importTx = pvm.newImportTx(
+          context,
+          getChainIdFromContext('C', context),
+          utxos,
+          [futils.bech32ToBytes(ctx.pAddressBech32)],
+          [futils.bech32ToBytes(ctx.cAddressBech32)]
+        )
+      }
       return importTx
     }
     case 'exportPC': {
@@ -479,17 +499,35 @@ async function buildUnsignedTx(
         )
       }
 
-      const exportTx = pvm.newExportTx(
-        context,
-        getChainIdFromContext('C', context),
-        [futils.bech32ToBytes(ctx.pAddressBech32)],
-        utxos,
-        [
-          TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
-            futils.bech32ToBytes(ctx.pAddressBech32)
-          ])
-        ]
-      )
+      let exportTx: UnsignedTx
+      if (isEtnaForkActive) {
+        exportTx = pvm.e.newExportTx(
+          {
+            destinationChainId: getChainIdFromContext('C', context),
+            feeState,
+            fromAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
+            outputs: [
+              TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+                futils.bech32ToBytes(ctx.pAddressBech32)
+              ])
+            ],
+            utxos
+          },
+          context
+        )
+      } else {
+        exportTx = pvm.newExportTx(
+          context,
+          getChainIdFromContext('C', context),
+          [futils.bech32ToBytes(ctx.pAddressBech32)],
+          utxos,
+          [
+            TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+              futils.bech32ToBytes(ctx.pAddressBech32)
+            ])
+          ]
+        )
+      }
       return exportTx
     }
     case 'importPC': {
@@ -542,28 +580,50 @@ async function buildUnsignedTx(
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
       const start = BigInt(adjustStartTimeForDefi(params.startTime))
       const end = BigInt(params.endTime)
-      const nodeID = params.nodeId
-      const blsPublicKey = futils.hexToBuffer(params.popBlsPublicKey)
-      const blsSignature = futils.hexToBuffer(params.popBlsSignature)
+      const nodeId = params.nodeId
+      const publicKey = futils.hexToBuffer(params.popBlsPublicKey)
+      const signature = futils.hexToBuffer(params.popBlsSignature)
 
-      const stakeTx = pvm.newAddPermissionlessValidatorTx(
-        context,
-        utxos,
-        [futils.bech32ToBytes(ctx.pAddressBech32)],
-        nodeID,
-        networkIDs.PrimaryNetworkID.toString(),
-        start,
-        end,
-        BigInt(params.amount),
-        [futils.bech32ToBytes(ctx.pAddressBech32)],
-        [futils.bech32ToBytes(ctx.pAddressBech32)],
-        Number(params.delegationFee) * 1e4, // default fee is 10%
-        undefined,
-        1,
-        0n,
-        blsPublicKey,
-        blsSignature
-      )
+      let stakeTx: UnsignedTx
+      if (isEtnaForkActive) {
+        stakeTx = pvm.e.newAddPermissionlessValidatorTx(
+          {
+            end,
+            delegatorRewardsOwner: [futils.bech32ToBytes(ctx.pAddressBech32)],
+            feeState,
+            fromAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
+            nodeId,
+            publicKey,
+            rewardAddresses: [futils.bech32ToBytes(ctx.pAddressBech32)],
+            shares: Number(params.delegationFee) * 1e4, // default fee is 10%
+            signature,
+            start,
+            subnetId: networkIDs.PrimaryNetworkID.toString(),
+            utxos,
+            weight: BigInt(params.amount)
+          },
+          context
+        )
+      } else {
+        stakeTx = pvm.newAddPermissionlessValidatorTx(
+          context,
+          utxos,
+          [futils.bech32ToBytes(ctx.pAddressBech32)],
+          nodeId,
+          networkIDs.PrimaryNetworkID.toString(),
+          start,
+          end,
+          BigInt(params.amount),
+          [futils.bech32ToBytes(ctx.pAddressBech32)],
+          [futils.bech32ToBytes(ctx.pAddressBech32)],
+          Number(params.delegationFee) * 1e4, // default fee is 10%
+          undefined,
+          1,
+          0n,
+          publicKey,
+          signature
+        )
+      }
       return stakeTx
     }
     case 'delegate': {
@@ -586,19 +646,37 @@ async function buildUnsignedTx(
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
       const start = BigInt(adjustStartTimeForDefi(params.startTime))
       const end = BigInt(params.endTime)
-      const nodeID = params.nodeId
+      const nodeId = params.nodeId
 
-      const delegateTx = pvm.newAddPermissionlessDelegatorTx(
-        context,
-        utxos,
-        [futils.bech32ToBytes(ctx.pAddressBech32)],
-        nodeID,
-        networkIDs.PrimaryNetworkID.toString(),
-        start,
-        end,
-        BigInt(params.amount),
-        [futils.bech32ToBytes(ctx.pAddressBech32)]
-      )
+      let delegateTx: UnsignedTx
+      if (isEtnaForkActive) {
+        delegateTx = pvm.e.newAddPermissionlessDelegatorTx(
+          {
+            end,
+            feeState,
+            fromAddressesBytes: [futils.bech32ToBytes(ctx.pAddressBech32)],
+            nodeId,
+            rewardAddresses: [futils.bech32ToBytes(ctx.pAddressBech32)],
+            start,
+            subnetId: networkIDs.PrimaryNetworkID.toString(),
+            utxos,
+            weight: BigInt(params.amount)
+          },
+          context
+        )
+      } else {
+        delegateTx = pvm.newAddPermissionlessDelegatorTx(
+          context,
+          utxos,
+          [futils.bech32ToBytes(ctx.pAddressBech32)],
+          nodeId,
+          networkIDs.PrimaryNetworkID.toString(),
+          start,
+          end,
+          BigInt(params.amount),
+          [futils.bech32ToBytes(ctx.pAddressBech32)]
+        )
+      }
       return delegateTx
     }
     case 'transfer': {
@@ -615,11 +693,29 @@ async function buildUnsignedTx(
       const { utxos } = await pvmapi.getUTXOs({ addresses: [ctx.pAddressBech32] })
       const senderPAddressBytes = futils.bech32ToBytes(ctx.pAddressBech32)
       const recipientPAddressBytes = futils.bech32ToBytes(params.transferAddress)
-      const transferTx = pvm.newBaseTx(context, [senderPAddressBytes], utxos, [
-        TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
-          recipientPAddressBytes
+
+      let transferTx: UnsignedTx
+      if (isEtnaForkActive) {
+        transferTx = pvm.e.newBaseTx(
+          {
+            feeState,
+            fromAddressesBytes: [senderPAddressBytes],
+            outputs: [
+              TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+                recipientPAddressBytes
+              ])
+            ],
+            utxos
+          },
+          context
+        )
+      } else {
+        transferTx = pvm.newBaseTx(context, [senderPAddressBytes], utxos, [
+          TransferableOutput.fromNative(context.avaxAssetID, BigInt(params.amount), [
+            recipientPAddressBytes
+          ])
         ])
-      ])
+      }
       return transferTx
     }
     default:
