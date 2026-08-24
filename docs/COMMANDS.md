@@ -133,7 +133,7 @@ Register a new permissionless validator using locked P-chain funds.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-n <nodeId>`, `-a <amount>` (≥10,000 FLR), `-e <endTime>` (unix seconds), `--delegation-fee <pct>` (default 10), `--pop-bls-public-key <hex>`, `--pop-bls-signature <hex>`, optional `-s <startTime>` |
+| Inputs | `-n <nodeId>`, `-a <amount>` (≥10,000 FLR), `-e <endTime>` (unix seconds), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>`, `--pop-bls-signature <hex>`, optional `-s <startTime>` |
 | Side effects | Locks the staked amount on the P-chain for the duration. Funds return to the staking address on `endTime`. |
 | Output | Tx hash, "sent to the network" |
 | Failures | "Insufficient funds" if P-balance < stake amount. Validator already registered. Invalid BLS signature. End time before start time or after the configured maximum. |

@@ -130,7 +130,7 @@ export function cli(program: Command): void {
     .option("-s, --start-time <start-time>", "Start time of the staking/delegating process")
     .option("-e, --end-time <end-time>", "End time of the staking/delegating process")
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
-    .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator", "10")
+    .option("--delegation-fee <delegation-fee>", "Delegation fee defined by the deployed validator", "20")
     .option("--pop-bls-public-key <popBlsPublicKey>", "BLS Public Key")
     .option("--pop-bls-signature <popBlsSignature>", "BLS Signature")
     .option("--transfer-address <transfer-address>", "P-chain address to transfer funds to")
@@ -542,7 +542,7 @@ async function buildUnsignedTx(transactionType: string, ctx: Context, params: Fl
             nodeId,
             publicKey,
             rewardAddresses: [futils.bech32ToBytes(ctx.pAddressBech32)],
-            shares: Number(params.delegationFee) * 1e4, // default fee is 10%
+            shares: Number(params.delegationFee) * 1e4, // default fee is 20%
             signature,
             start,
             subnetId: networkIDs.PrimaryNetworkID.toString(),
@@ -563,7 +563,7 @@ async function buildUnsignedTx(transactionType: string, ctx: Context, params: Fl
           BigInt(params.amount),
           [futils.bech32ToBytes(ctx.pAddressBech32)],
           [futils.bech32ToBytes(ctx.pAddressBech32)],
-          Number(params.delegationFee) * 1e4, // default fee is 10%
+          Number(params.delegationFee) * 1e4, // default fee is 20%
           undefined,
           1,
           0n,
@@ -949,7 +949,7 @@ async function cliBuildAndSendTxUsingLedger(
       network: ctx.config.hrp,
       type: transactionType,
       publicKey: getPublicKeyFromPair(ctx.publicKey),
-      delegationFee: Number(params.delegationFee) * 1e4, // default fee is 10%
+      delegationFee: Number(params.delegationFee) * 1e4, // default fee is 20%
       nodeId: params.nodeId,
       popBLSPublicKey: futils.hexToBuffer(params.popBlsPublicKey),
       popBLSSignature: futils.hexToBuffer(params.popBlsSignature),

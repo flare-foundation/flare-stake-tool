@@ -262,7 +262,7 @@ export async function addValidator(ctx: Context, params: FlareTxParams) {
         nodeId,
         publicKey,
         rewardAddresses: [futils.bech32ToBytes(ctx.pAddressBech32)],
-        shares: Number(params.delegationFee) * 1e4, // default fee is 10%
+        shares: Number(params.delegationFee) * 1e4, // default fee is 20%
         signature,
         start,
         subnetId: networkIDs.PrimaryNetworkID.toString(),
@@ -283,7 +283,7 @@ export async function addValidator(ctx: Context, params: FlareTxParams) {
       BigInt(params.amount),
       [futils.bech32ToBytes(ctx.pAddressBech32)],
       [futils.bech32ToBytes(ctx.pAddressBech32)],
-      Number(params.delegationFee) * 1e4, // default fee is 10%
+      Number(params.delegationFee) * 1e4, // default fee is 20%
       undefined,
       1,
       0n,
