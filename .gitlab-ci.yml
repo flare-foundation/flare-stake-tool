@@ -1,5 +1,5 @@
 include:
-  - component: $CI_SERVER_FQDN/flarenetwork/infra-public/ci-components/dependency-track@~latest
+  - component: gitlab.com/flarenetwork/ci-components-private/dependency-track@2
 
 # Pipeline strategy:
 # * MRs and branch pushes → lint/format/build/test
