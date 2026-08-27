@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 curl -X POST https://flare-api.flare.network/ext/bc/P \
     -H "content-type:application/json;" \
     -d "{

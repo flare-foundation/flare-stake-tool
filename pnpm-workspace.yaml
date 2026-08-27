@@ -1,2 +1,21 @@
 minimumReleaseAge: 10080
-nodeOptions: --no-warnings
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - '@reduxjs/toolkit@2.8.2'
+  - 'chokidar@4.0.3'
+  - 'reselect@5.1.1'
+  - 'semver@6.3.1'
+  - 'undici-types@6.19.8'
+overrides:
+  chalk: 4.1.2
+allowBuilds:
+  '@stellar/stellar-sdk': true
+  blake-hash: true
+  esbuild: true
+  keccak: true
+  node-hid: true
+  node-pty: true
+  protobufjs: true
+  secp256k1: true
+  tiny-secp256k1: true
+  usb: true

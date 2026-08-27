@@ -1,142 +1,39 @@
-include:
-  - component: gitlab.com/flarenetwork/ci-components-private/dependency-track@2
-
-# Pipeline strategy:
-# * MRs and branch pushes → lint/format/build/test
-# * Tag push → publish jobs only
-# Integration tests are run locally only (see CONTRIBUTING.md).
-# The "open MRs && push" case is excluded to avoid duplicate (branch + MR) pipelines.
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"
-      when: never
-    - if: $CI_COMMIT_BRANCH
-    - if: $CI_COMMIT_TAG
-
-# Reusable rules: run on MR + branch pushes (not tags).
-.test-rules: &test-rules
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
-
-variables:
-  PATTERN_FULL: '^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?:[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'
-  PATTERN_SEMI: '^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$'
-  AUTH_TOKEN: $NPM_AUTH_TOKEN
-
-.check-tag_template:
-  script:
-    - result=$(grep -Pc "$PATTERN_FULL" <<< $CI_COMMIT_TAG) || true
-    - if [ $result -eq 0 ]; then echo "Tag has wrong format"; exit 1; fi #TODO: link to spec
-
-.compare-versions_template:
-  script:
-    - apt-get update
-    - apt-get install jq -y
-    - pver=$(echo "v$(jq -r .version package.json)")
-    - if [ $pver != $CI_COMMIT_TAG ]; then echo "Tag and package.json versions do not match"; exit 1; fi;
-
-# https://docs.npmjs.com/trusted-publishers#gitlab-cicd-configuration
-.publish-npm_template:
-  image: node:24
-  id_tokens:
-    NPM_ID_TOKEN:
-      aud: "npm:registry.npmjs.org"
-    SIGSTORE_ID_TOKEN:
-      aud: sigstore
-  script:
-    - apt-get update
-    - apt-get install -y gettext
-    - result=$(grep -Pc "$PATTERN_SEMI" <<< "$CI_COMMIT_TAG") || true
-    - corepack enable pnpm
-    - pnpm install --frozen-lockfile
-    - pnpm build
-    - if [ ! -d dist ] || [ ! -f dist/run.js ]; then echo "Dist folder or dist/run.js missing"; exit 1; fi;
-    - npm pack
-    - tar -xzf flarenetwork-flare-stake-tool-*.tgz
-    - if [ ! -d package/dist ] || [ ! -f package/dist/run.js ]; then echo "Dist folder or dist/run.js missing in tarball"; exit 1; fi;
-    - if [ $result -eq 1 ]; then npm publish; else npm publish --tag beta; fi;
-
 stages:
-  - check
-  - build
   - test
   - sbom
-  - publish
 
-lint:
-  stage: check
-  image: node:24
-  <<: *test-rules
-  before_script:
-    - corepack enable pnpm
-    - pnpm install --frozen-lockfile
-  script:
-    - pnpm lint:check
-
-format:
-  stage: check
-  image: node:24
-  <<: *test-rules
-  before_script:
-    - corepack enable pnpm
-    - pnpm install --frozen-lockfile
-  script:
-    - pnpm format:check
-
-build:
-  stage: build
-  image: node:24
-  <<: *test-rules
-  before_script:
-    - corepack enable pnpm
-    - pnpm install --frozen-lockfile
-  script:
-    - pnpm build
-
-test:
-  stage: test
-  image: node:24
-  <<: *test-rules
-  before_script:
-    - corepack enable pnpm
-    - pnpm install --frozen-lockfile
-  script:
-    - pnpm test:coverage
-  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+default:
+  tags:
+    - flarenetwork
   artifacts:
-    when: always
-    paths:
-      - coverage/
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage/cobertura-coverage.xml
+    expire_in: 3 days
 
-# Integration tests are not run in CI. They require Docker (docker-compose
-# spinning up 5 validator containers) and local volume mounts that don't
-# work cleanly under GitLab's docker-in-docker shared runners. Run them
-# locally with `pnpm test:integration`. See CONTRIBUTING.md.
+# Pipeline strategy:
+# * MRs and branch pushes → lint/typecheck/test
+# * Tag push → same jobs run as a gate; the actual npm publish + attestation
+#   happens from GitHub (see .github/workflows/release.yaml).
+# Integration tests are run locally only (see CONTRIBUTING.md).
 
-check-tag:
-  stage: publish
-  extends: .check-tag_template
-  rules:
-    - if: '$CI_COMMIT_TAG'
-
-compare-versions:
-  stage: publish
-  extends: .compare-versions_template
-  needs:
-    - job: check-tag
-  rules:
-    - if: '$CI_COMMIT_TAG'
-
-publish-npm:
-  stage: publish
-  extends: .publish-npm_template
-  needs:
-    - job: compare-versions
-  rules:
-    - if: '$CI_COMMIT_TAG'
+include:
+  - component: gitlab.com/flarenetwork/ci-components-private/lgtm@2
+  - component: gitlab.com/flarenetwork/ci-components-private/dependency-track@2
+  - template: Jobs/Secret-Detection.latest.gitlab-ci.yml
+  - component: gitlab.com/flarenetwork/ci-components-private/lint-shell@2
+  - component: gitlab.com/flarenetwork/ci-components-private/lint-pnpm@2
+    inputs:
+      node_version: '24.19'
+      tags: [flarenetwork-md]
+      before_script_additional: |
+        apt-get update && apt-get install -y --no-install-recommends python3 make g++
+      lint_commands: |
+        pnpm lint:check
+        pnpm format:check
+        pnpm typecheck
+  - component: gitlab.com/flarenetwork/ci-components-private/test-pnpm@2
+    inputs:
+      node_version: '24.19'
+      tags: [flarenetwork-md]
+      before_script_additional: |
+        apt-get update && apt-get install -y --no-install-recommends python3 make g++
+      test_commands: |
+        pnpm test:coverage
