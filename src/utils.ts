@@ -157,7 +157,7 @@ export function privateKeyToEncodedPublicKey(privateKey: string, compress: boole
   return keyPair.getPublic().encode("hex", compress);
 }
 
-export function privateKeyToPublicKey(privateKey: Buffer): Buffer[] {
+export function privateKeyToPublicKey(privateKey: Buffer): [Buffer, Buffer] {
   const keyPair = ec.keyFromPrivate(privateKey).getPublic();
   const x = keyPair.getX().toBuffer(undefined, 32);
   const y = keyPair.getY().toBuffer(undefined, 32);

@@ -8,7 +8,7 @@
   "scripts": {
     "tsc": "tsc",
     "build": "rimraf dist/ && tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "mocha",
     "test:coverage": "nyc mocha",
     "test:integration": "mocha --config .mocharc.integration.yml",
