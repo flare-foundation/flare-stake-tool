@@ -4,7 +4,6 @@ import { saveUnsignedEvmTx, readSignedEvmTx, readUnsignedEvmTx, getWeb3Contract,
 import { Context, UnsignedEvmTxJson } from "../interfaces";
 import {
   claimSetupManagerABI,
-  distributionToDelegatorsABI,
   flareContractRegistryABI,
   flareContractRegistryAddress,
   validatorRewardManagerABI,
@@ -14,34 +13,10 @@ import * as ledger from "../ledger";
 import Web3 from "web3";
 import { networkTokenSymbol } from "../cli";
 import chalk from "chalk";
+import { EvmFees, normalizeAddressList } from "../constants/fees";
 
-/**
- * Gas price for C-chain EVM transactions, in wei.
- *
- * Fixed rather than estimated from the chain: a ForDefi transaction may be
- * constructed independently by several signers, and all of them have to arrive
- * at the same transaction hash, so nothing in the signed payload may depend on
- * chain state at build time.
- *
- * The Flare C-chain base fee floor is 500 gwei, and a transaction is rejected
- * outright ("max fee per gas less than block base fee") if its gas price is
- * below the base fee of the block it lands in.
- */
-const EVM_TX_GAS_PRICE = 2_000_000_000_000;
-
-/**
- * Gas limits for the calls whose cost does not depend on user input.
- *
- * Unused gas is refunded, but `gasPrice * gasLimit` still has to be covered by
- * the sender's balance before the transaction runs, so an oversized limit can
- * reject a claim from an account that could comfortably afford the actual fee.
- *
- * The calls that take an address array, and the ones that call into an address
- * the user chooses, keep the blanket limit: their cost grows with the argument.
- */
-const CLAIM_GAS_LIMIT = 800_000;
-const OPT_OUT_GAS_LIMIT = 200_000;
-const DEFAULT_GAS_LIMIT = 4_000_000;
+/** Signature of the Ledger call, so it can be substituted in tests. */
+type DeviceSigner = (derivationPath: string, unsignedTxHex: string) => Promise<string>;
 
 /**
  * @description Creates the withdrawal transaction and stores unsigned trx object in the file id
@@ -57,7 +32,8 @@ export async function createWithdrawalTransaction(
   toAddress: string,
   amount: number,
   fileId: string,
-  nonce: number
+  nonce: number,
+  fees: EvmFees
 ): Promise<string> {
   const web3 = ctx.web3;
   if (!ctx.cAddressHex) {
@@ -72,74 +48,13 @@ export async function createWithdrawalTransaction(
 
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: EVM_TX_GAS_PRICE,
-    gasLimit: DEFAULT_GAS_LIMIT,
+    type: fees.type,
+    maxFeePerGas: fees.maxFeePerGas,
+    maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+    gasLimit: fees.gasLimit,
     to: toAddress,
     value: amountWei.toString(),
     chainId: ctx.config.chainID,
-  };
-
-  // serialized unsigned transaction
-  const ethersTx = Transaction.from(rawTx);
-  const hash = unPrefix0x(ethersTx.unsignedHash);
-  const forDefiHash = Buffer.from(hash, "hex").toString("base64");
-
-  const unsignedTx = <UnsignedEvmTxJson>{
-    transactionType: "EVM",
-    rawTx: rawTx,
-    message: hash,
-    forDefiHash: forDefiHash,
-  };
-  // save tx data
-  saveUnsignedEvmTx(unsignedTx, fileId);
-
-  return forDefiHash;
-}
-
-/**
- * @description Creates the opt out transaction and stores unsigned transaction object in the file id
- * @param ctx - context
- * @param fileId - file id
- * @param nonce - nonce
- * @returns returns the ForDefi hash of the transaction
- */
-export async function createOptOutTransaction(ctx: Context, fileId: string, nonce: number): Promise<string> {
-  const web3 = ctx.web3;
-  if (!ctx.cAddressHex) {
-    throw new Error("cAddressHex not found in context");
-  }
-
-  const flareContractRegistryWeb3Contract = getWeb3Contract(
-    web3,
-    flareContractRegistryAddress,
-    flareContractRegistryABI
-  );
-  const distributionToDelegatorsAddress: string =
-    await flareContractRegistryWeb3Contract.methods.getContractAddressByName!("DistributionToDelegators").call();
-  if (distributionToDelegatorsAddress === ZeroAddress) {
-    throw new Error("Distribution contract address not found");
-  }
-  const txNonce = nonce ?? String(await ctx.web3.eth.getTransactionCount(ctx.cAddressHex));
-  const distributionWeb3Contract = getWeb3Contract(
-    ctx.web3,
-    distributionToDelegatorsAddress,
-    distributionToDelegatorsABI
-  );
-  const fnToEncode = distributionWeb3Contract.methods.optOutOfAirdrop!();
-
-  // check if address is already opt out candidate
-  const isOptOutCandidate = await distributionWeb3Contract.methods.optOutCandidate!(ctx.cAddressHex).call();
-  if (isOptOutCandidate) {
-    throw new Error("Already an opt out candidate");
-  }
-
-  const rawTx: TransactionLike = {
-    nonce: txNonce,
-    gasPrice: EVM_TX_GAS_PRICE,
-    gasLimit: OPT_OUT_GAS_LIMIT,
-    to: distributionWeb3Contract.options.address!,
-    data: fnToEncode.encodeABI(),
-    chainId: ctx.config.networkID,
   };
 
   // serialized unsigned transaction
@@ -174,6 +89,7 @@ export async function createClaimTransaction(
   amount: number,
   recipientAddress: string,
   wrap: boolean,
+  fees: EvmFees,
   nonce?: number
 ): Promise<TransactionLike> {
   logInfo("Creating claim transaction...");
@@ -223,27 +139,12 @@ export async function createClaimTransaction(
   }
 
   const fnToEncode = validatorRewardManagerContract.methods.claim!(owner, recipientAddress, amountWei, wrap);
-  // const lastBlock = await web3.eth.getBlockNumber() - 3n;
-  // let gasPrice: bigint;
-  // try {
-  //   const feeHistory = await web3.eth.getFeeHistory(50, lastBlock, [0]);
-  //   const baseFee = feeHistory.baseFeePerGas as any as bigint[];
-  //   // get max fee of the last 50 blocks
-  //   let maxFee = 0n;
-  //   for (const fee of baseFee) {
-  //     if (fee > maxFee) {
-  //       maxFee = fee;
-  //     }
-  //   }
-  //   gasPrice = maxFee * 10n;
-  // } catch (e) {
-  //   gasPrice = await web3.eth.getGasPrice() * 10n;
-  // }
-
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: EVM_TX_GAS_PRICE,
-    gasLimit: CLAIM_GAS_LIMIT,
+    type: fees.type,
+    maxFeePerGas: fees.maxFeePerGas,
+    maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+    gasLimit: fees.gasLimit,
     to: validatorRewardManagerContract.options.address!,
     data: fnToEncode.encodeABI(),
     chainId: ctx.config.networkID,
@@ -277,6 +178,21 @@ export function saveUnsignedClaimTx(rawTx: TransactionLike, fileId: string): str
 }
 
 /**
+ * @description Reattaches a ForDefi signature to the unsigned transaction it was
+ * produced over, giving the bytes to broadcast. The transaction is rebuilt from
+ * the stored fields without forcing a type, so a file written by an older
+ * version keeps the envelope its signature was made over.
+ * @param rawTx - the stored unsigned transaction
+ * @param signature - the signature returned by ForDefi
+ * @returns the signed, serialized transaction
+ */
+export function rebuildSignedEvmTx(rawTx: TransactionLike, signature: string): string {
+  const ethersTx = Transaction.from(rawTx);
+  ethersTx.signature = prefix0x(signature);
+  return ethersTx.serialized;
+}
+
+/**
  * @description - sends the EVM transaction to the blockchain
  * @param ctx - context
  * @param fileId - id of the file containing the unsigned transaction
@@ -297,10 +213,7 @@ export async function sendSignedEvmTransaction(ctx: Context, fileId: string): Pr
   // read signature
   const signature = signedTxJson.signature;
 
-  // create raw signed tx
-  const ethersTx = Transaction.from(unsignedTxJson.rawTx as TransactionLike);
-  ethersTx.signature = prefix0x(signature);
-  const serializedSigned = ethersTx.serialized;
+  const serializedSigned = rebuildSignedEvmTx(unsignedTxJson.rawTx as TransactionLike, signature);
 
   // send signed tx to the network
   const receipt = await waitFinalize3(ctx.cAddressHex, () =>
@@ -330,6 +243,74 @@ export async function sendSignedEvmTransaction(ctx: Context, fileId: string): Pr
   return toHex(receipt.transactionHash);
 }
 
+/**
+ * @description Signs a C-chain EVM transaction without submitting it. Split out
+ * from signEvmTransaction so the signing itself can be exercised without a node:
+ * this is the code where the Ledger and private key paths once disagreed on the
+ * transaction type, and so on the hash.
+ * @param type - which signer to use
+ * @param ctx - context, needing only the private key for the privateKey path
+ * @param unsignedTx - the transaction to sign, carrying its own type
+ * @param derivationPath - required for Ledger signing
+ * @param signWithDevice - the device signing call, injectable so the Ledger
+ *   branch can be exercised without hardware; defaults to the real Ledger
+ * @returns the signed, serialized transaction
+ */
+export async function buildSignedEvmTx(
+  type: "ledger" | "privateKey",
+  ctx: Context,
+  unsignedTx: TransactionLike,
+  derivationPath?: string,
+  signWithDevice: DeviceSigner = ledger.signEvmTransaction
+): Promise<string> {
+  const ethersTx = evmTxToSign(unsignedTx);
+
+  if (type === "ledger") {
+    if (!derivationPath) throw new Error("Derivation path required for Ledger signing");
+    const signature = await signWithDevice(derivationPath, ethersTx.unsignedSerialized);
+    return attachEvmSignature(ethersTx, signature);
+  }
+  if (!ctx.privkHex) throw new Error("No private key found in context");
+  const wallet = new Wallet(ctx.privkHex);
+  // Sign the same tx object the Ledger branch does. Rebuilding it from
+  // unsignedTx here dropped the resolved type, and ethers then inferred
+  // EIP-2930, so the two signing paths hashed the same transaction differently.
+  return await wallet.signTransaction(ethersTx);
+}
+
+/**
+ * @description Builds the transaction exactly as it will be signed, which is
+ * also what gets serialized and shown to a signing device. Both signing paths go
+ * through this, so neither can drift onto a different envelope than the other.
+ * @param unsignedTx - the transaction fields, optionally carrying a type
+ * @returns the transaction to sign; type defaults to legacy when unset
+ */
+export function evmTxToSign(unsignedTx: TransactionLike): Transaction {
+  // Default to legacy transaction (configurable via unsignedTx.type)
+  const txType = unsignedTx.type ?? 0;
+  return Transaction.from({ ...unsignedTx, type: txType });
+}
+
+/**
+ * @description Attaches a 65-byte signature, as returned by a signing device,
+ * to a transaction and serializes it.
+ * @param tx - the transaction that was signed
+ * @param signature - r, s and v concatenated, with or without a 0x prefix
+ * @returns the signed, serialized transaction
+ */
+export function attachEvmSignature(tx: Transaction, signature: string): string {
+  const sig = signature.startsWith("0x") ? signature.slice(2) : signature;
+  if (sig.length < 130 || sig.length > 132) {
+    throw new Error(`Invalid signature length: ${sig.length / 2} bytes`);
+  }
+  tx.signature = {
+    r: `0x${sig.slice(0, 64)}`,
+    s: `0x${sig.slice(64, 128)}`,
+    v: parseInt(sig.slice(128, 130), 16), // v is typically 27 or 28
+  };
+  return tx.serialized;
+}
+
 export async function signEvmTransaction(
   type: "ledger" | "privateKey",
   ctx: Context,
@@ -342,32 +323,8 @@ export async function signEvmTransaction(
   const web3 = ctx.web3;
   const waitFinalize3 = waitFinalize(web3);
 
-  // Default to legacy transaction (configurable via unsignedTx.type)
-  const txType = unsignedTx.type ?? 0;
-  const ethersTx = Transaction.from({ ...unsignedTx, type: txType });
-  let signedTxHex: string;
+  const signedTxHex = await buildSignedEvmTx(type, ctx, unsignedTx, derivationPath);
 
-  if (type === "ledger") {
-    if (!derivationPath) throw new Error("Derivation path required for Ledger signing");
-    const serializedUnsignedTx = ethersTx.unsignedSerialized;
-    const signature = await ledger.signEvmTransaction(derivationPath, serializedUnsignedTx);
-    const sig = signature.startsWith("0x") ? signature.slice(2) : signature;
-    if (sig.length < 130 || sig.length > 132) {
-      throw new Error(`Invalid signature length: ${sig.length / 2} bytes`);
-    }
-    const parsedSignature = {
-      r: `0x${sig.slice(0, 64)}`,
-      s: `0x${sig.slice(64, 128)}`,
-      v: parseInt(sig.slice(128, 130), 16), // v is typically 27 or 28
-    };
-    ethersTx.signature = parsedSignature;
-    signedTxHex = ethersTx.serialized;
-  } else if (type === "privateKey") {
-    if (!ctx.privkHex) throw new Error("No private key found in context");
-    const wallet = new Wallet(ctx.privkHex);
-    const ethersTx = Transaction.from(unsignedTx);
-    signedTxHex = await wallet.signTransaction(ethersTx);
-  }
   // send signed tx to the network
   const receipt = await waitFinalize3(ctx.cAddressHex, () => web3.eth.sendSignedTransaction(signedTxHex)).catch(
     (error: unknown) => {
@@ -446,7 +403,8 @@ export async function createSetClaimExecutorsTransaction(
   ctx: Context,
   fileId: string,
   executors: string[],
-  nonce: number
+  nonce: number,
+  fees: EvmFees
 ): Promise<string> {
   const web3 = ctx.web3;
   if (!ctx.cAddressHex) {
@@ -466,8 +424,7 @@ export async function createSetClaimExecutorsTransaction(
   const txNonce = nonce ?? Number(await web3.eth.getTransactionCount(ctx.cAddressHex));
   const claimSetupManagerWeb3Contract = getWeb3Contract(web3, claimSetupManagerAddress, claimSetupManagerABI);
 
-  // filter out empty strings (if removing executors)
-  executors = executors.filter((executor) => executor.trim() !== "");
+  executors = normalizeAddressList(executors);
 
   // check if executors are registered (and addresses are valid) and sum their fees
   let totalFee = 0n;
@@ -483,8 +440,10 @@ export async function createSetClaimExecutorsTransaction(
   const fnToEncode = claimSetupManagerWeb3Contract.methods.setClaimExecutors!(executors);
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: EVM_TX_GAS_PRICE,
-    gasLimit: DEFAULT_GAS_LIMIT,
+    type: fees.type,
+    maxFeePerGas: fees.maxFeePerGas,
+    maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+    gasLimit: fees.gasLimit,
     to: claimSetupManagerWeb3Contract.options.address!,
     data: fnToEncode.encodeABI(),
     chainId: ctx.config.networkID,
@@ -520,7 +479,8 @@ export async function createSetAllowedClaimRecipientsTransaction(
   ctx: Context,
   fileId: string,
   recipients: string[],
-  nonce: number
+  nonce: number,
+  fees: EvmFees
 ): Promise<string> {
   const web3 = ctx.web3;
   if (!ctx.cAddressHex) {
@@ -540,14 +500,15 @@ export async function createSetAllowedClaimRecipientsTransaction(
   const txNonce = nonce ?? Number(await web3.eth.getTransactionCount(ctx.cAddressHex));
   const claimSetupManagerWeb3Contract = getWeb3Contract(web3, claimSetupManagerAddress, claimSetupManagerABI);
 
-  // filter out empty strings (if removing recipients)
-  recipients = recipients.filter((recipient) => recipient.trim() !== "");
+  recipients = normalizeAddressList(recipients);
 
   const fnToEncode = claimSetupManagerWeb3Contract.methods.setAllowedClaimRecipients!(recipients);
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: EVM_TX_GAS_PRICE,
-    gasLimit: DEFAULT_GAS_LIMIT,
+    type: fees.type,
+    maxFeePerGas: fees.maxFeePerGas,
+    maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+    gasLimit: fees.gasLimit,
     to: claimSetupManagerWeb3Contract.options.address!,
     data: fnToEncode.encodeABI(),
     chainId: ctx.config.networkID,
@@ -587,7 +548,8 @@ export async function createCustomCChainTransaction(
   toAddress: string,
   data: string,
   value: string,
-  nonce: number
+  nonce: number,
+  fees: EvmFees
 ): Promise<string> {
   const web3 = ctx.web3;
   if (!ctx.cAddressHex) {
@@ -601,8 +563,10 @@ export async function createCustomCChainTransaction(
 
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: EVM_TX_GAS_PRICE,
-    gasLimit: DEFAULT_GAS_LIMIT,
+    type: fees.type,
+    maxFeePerGas: fees.maxFeePerGas,
+    maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+    gasLimit: fees.gasLimit,
     to: toAddress,
     value: value,
     data: data,
