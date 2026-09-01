@@ -76,7 +76,15 @@ export interface FlareTxParams {
 
 interface EvmTxData {
   nonce: number;
-  gasPrice: number;
+  type?: number | undefined;
+  /**
+   * Set only on transactions written by versions that omitted the type field.
+   * ethers resolves those to EIP-2930 (type 1), which is what they were signed
+   * as, so the field must stay absent rather than be defaulted to 0.
+   */
+  gasPrice?: number | undefined;
+  maxFeePerGas?: number | undefined;
+  maxPriorityFeePerGas?: number | undefined;
   gasLimit: number;
   to: string;
   value?: string | bigint | undefined;

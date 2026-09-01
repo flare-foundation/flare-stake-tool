@@ -40,7 +40,6 @@ import {
 import {
   createClaimTransaction,
   createCustomCChainTransaction,
-  createOptOutTransaction,
   createSetAllowedClaimRecipientsTransaction,
   createSetClaimExecutorsTransaction,
   createWithdrawalTransaction,
@@ -53,6 +52,7 @@ import * as ledger from "./ledger";
 import * as flare from "./flare";
 import * as settings from "./settings";
 import { getPBalance } from "./flare/chain";
+import { EvmFees, normalizeAddressList, resolveEvmFees } from "./constants/fees";
 import { JsonRpcProvider } from "ethers";
 import { BN } from "bn.js";
 import { addDelegator, addValidator, exportCP, exportPC, importCP, importPC, internalTransfer } from "./transaction";
@@ -79,7 +79,19 @@ export function cli(program: Command): void {
     .option("--derivation-path <derivation-path>", "Ledger address derivation path", BASE_DERIVATION_PATH)
     .option("--ctx-file <file>", "Context file as returned by init-ctx", "ctx.json")
     .option("--env-path <path>", "Path to the .env file")
-    .option("--get-hacked", "Use the .env file with the exposed private key");
+    .option("--get-hacked", "Use the .env file with the exposed private key")
+    .option(
+      "--max-fee-per-gas <gwei>",
+      "C-chain EVM max fee per gas, in gwei. A ceiling, not a price: the transaction pays base fee plus tip"
+    )
+    .option("--priority-fee-per-gas <gwei>", "C-chain EVM priority fee (tip) per gas, in gwei")
+    .option("--gas-limit <units>", "C-chain EVM gas limit")
+    .addHelpText(
+      "after",
+      "\nC-chain fee options are fixed values rather than chain estimates, so that every ForDefi\n" +
+        "signer of a transaction arrives at the same hash. All signers of one transaction must\n" +
+        "pass the same values."
+    );
   // interactive mode
   program
     .command("interactive")
@@ -208,19 +220,9 @@ export function cli(program: Command): void {
         options.to as string,
         options.amount as number,
         options.transactionId as string,
-        options.nonce as number
+        options.nonce as number,
+        resolveEvmFees("withdrawal", options)
       );
-    });
-  // opt out (ForDefi)
-  program
-    .command("optOut")
-    .description("Opt out of airdrop on the c-chain")
-    .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
-    .option("--nonce <nonce>", "Nonce of the constructed transaction")
-    .action(async (options: OptionValues) => {
-      options = getOptions(program, options);
-      const ctx = await contextFromOptions(options);
-      await buildUnsignedOptOutTxJson(ctx, options.transactionId as string, options.nonce as number);
     });
   // claim staking (ValidatorRewardManager) rewards
   program
@@ -255,11 +257,13 @@ export function cli(program: Command): void {
     .action(async (options: OptionValues) => {
       options = getOptions(program, options);
       const ctx = await contextFromOptions(options);
+      const executors = normalizeAddressList(options.executors as string[] | undefined);
       await buildUnsignedSetClaimExecutorsTxJson(
         ctx,
         options.transactionId as string,
-        options.executors as string[],
-        options.nonce as number
+        executors,
+        options.nonce as number,
+        resolveEvmFees("setClaimExecutors", options, executors.length)
       );
     });
   // set allowed claim recipients (ForDefi)
@@ -272,11 +276,13 @@ export function cli(program: Command): void {
     .action(async (options: OptionValues) => {
       options = getOptions(program, options);
       const ctx = await contextFromOptions(options);
+      const recipients = normalizeAddressList(options.recipients as string[] | undefined);
       await buildUnsignedSetAllowedClaimRecipientsTxJson(
         ctx,
         options.transactionId as string,
-        options.recipients as string[],
-        options.nonce as number
+        recipients,
+        options.nonce as number,
+        resolveEvmFees("setAllowedClaimRecipients", options, recipients.length)
       );
     });
   // custom c-chain transaction (ForDefi)
@@ -297,7 +303,8 @@ export function cli(program: Command): void {
         options.data as string,
         options.to as string,
         options.value as string,
-        options.nonce as number
+        options.nonce as number,
+        resolveEvmFees("custom", options)
       );
     });
 }
@@ -1086,15 +1093,10 @@ async function buildUnsignedWithdrawalTxJson(
   to: string,
   amount: number,
   id: string,
-  nonce: number
+  nonce: number,
+  fees: EvmFees
 ): Promise<void> {
-  const forDefiHash = await createWithdrawalTransaction(ctx, to, amount, id, nonce);
-  logSuccess(`Transaction ${id} constructed`);
-  logSuccess(`ForDefi hash: ${forDefiHash}`);
-}
-
-async function buildUnsignedOptOutTxJson(ctx: Context, id: string, nonce: number): Promise<void> {
-  const forDefiHash = await createOptOutTransaction(ctx, id, nonce);
+  const forDefiHash = await createWithdrawalTransaction(ctx, to, amount, id, nonce, fees);
   logSuccess(`Transaction ${id} constructed`);
   logSuccess(`ForDefi hash: ${forDefiHash}`);
 }
@@ -1108,7 +1110,7 @@ async function processClaimTx(
   nonce: number
 ): Promise<void> {
   const ctx = await contextFromOptions(options);
-  const rawTx = await createClaimTransaction(ctx, amount, recipient, wrap, nonce);
+  const rawTx = await createClaimTransaction(ctx, amount, recipient, wrap, resolveEvmFees("claim", options), nonce);
   if (options.getHacked) {
     if (!ctx.cAddressHex || !ctx.privkHex) {
       throw new Error("cAddressHex or private key is undefined or null");
@@ -1130,9 +1132,10 @@ async function buildUnsignedSetClaimExecutorsTxJson(
   ctx: Context,
   id: string,
   executors: string[],
-  nonce: number
+  nonce: number,
+  fees: EvmFees
 ): Promise<void> {
-  const forDefiHash = await createSetClaimExecutorsTransaction(ctx, id, executors, nonce);
+  const forDefiHash = await createSetClaimExecutorsTransaction(ctx, id, executors, nonce, fees);
   logSuccess(`Transaction ${id} constructed`);
   logSuccess(`ForDefi hash: ${forDefiHash}`);
 }
@@ -1141,9 +1144,10 @@ async function buildUnsignedSetAllowedClaimRecipientsTxJson(
   ctx: Context,
   id: string,
   recipients: string[],
-  nonce: number
+  nonce: number,
+  fees: EvmFees
 ): Promise<void> {
-  const forDefiHash = await createSetAllowedClaimRecipientsTransaction(ctx, id, recipients, nonce);
+  const forDefiHash = await createSetAllowedClaimRecipientsTransaction(ctx, id, recipients, nonce, fees);
   logSuccess(`Transaction ${id} constructed`);
   logSuccess(`ForDefi hash: ${forDefiHash}`);
 }
@@ -1153,9 +1157,10 @@ async function buildUnsignedCustomCChainTxJson(
   data: string,
   to: string,
   value: string,
-  nonce: number
+  nonce: number,
+  fees: EvmFees
 ): Promise<void> {
-  const forDefiHash = await createCustomCChainTransaction(ctx, id, to, data, value, nonce);
+  const forDefiHash = await createCustomCChainTransaction(ctx, id, to, data, value, nonce, fees);
   logSuccess(`Transaction ${id} constructed`);
   logSuccess(`ForDefi hash: ${forDefiHash}`);
 }

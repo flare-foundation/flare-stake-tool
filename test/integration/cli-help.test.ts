@@ -20,7 +20,6 @@ describe("CLI smoke tests (no network)", () => {
     "send",
     "forDefi",
     "withdrawal",
-    "optOut",
     "claim",
     "setClaimExecutors",
     "setAllowedClaimRecipients",

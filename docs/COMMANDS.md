@@ -219,19 +219,6 @@ Submit a C-chain transaction that withdraws FLR from a contract escrow.
 
 ---
 
-## optOut
-
-Opt out of an airdrop by calling the DistributionToDelegators contract.
-
-| Aspect | Detail |
-|---|---|
-| Inputs | None (uses configured C-chain address) |
-| Side effects | EVM tx that flips an opt-out flag for the address |
-| Output | Tx hash |
-| Failures | Already opted out. Contract not deployed on this network. |
-
----
-
 ## claim
 
 Claim accrued staking rewards from the ValidatorRewardManager contract.

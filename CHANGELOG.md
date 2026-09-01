@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [[v4.4.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.4.0)] - 2026-09-01
+
+### Removed
+
+* The `optOut` command, along with the airdrop opt-out transaction builder and the `DistributionToDelegators` ABI. The airdrop distribution ran 36 monthly periods from 2023-02-15 and the last one ended 2026-01-30, so opting out no longer has any effect. `DistributionToDelegators` is not even registered on Songbird or Coston, where the command already failed.
+
+### Changed
+
+* C-chain transactions are now EIP-1559 (type 2). `maxFeePerGas` is a ceiling rather than a price: a transaction pays `baseFee + maxPriorityFeePerGas` at inclusion and the unused part of the ceiling is never charged. This lets the tool carry enough headroom to survive a base fee spike without paying for that headroom on every call, which a legacy gas price cannot do. `maxPriorityFeePerGas` defaults to 200 gwei.
+* The fee ceiling is 8000 gwei for `claim`, `withdrawal`, and custom C-chain transactions, and 4000 gwei for `setClaimExecutors` and `setAllowedClaimRecipients`. The ceiling is never charged, but the sender has to hold `maxFeePerGas * gasLimit` for the transaction to run, so it is reserved wherever a transaction may have to land during a fee spike and trimmed only for the two commands that rewrite a stored list and can simply be rerun. 4000 gwei is still eight times the 500 gwei base fee floor.
+* Gas limits are now set per operation rather than shared: `claim` 600,000, `withdrawal` 500,000, custom C-chain transactions 1,000,000. A sender's balance has to cover `maxFeePerGas * gasLimit` before the transaction runs, so the gas limit bounds how much headroom the fee ceiling can carry.
+* `setClaimExecutors` and `setAllowedClaimRecipients` size their gas limit from the number of addresses being set: `max(1,000,000, 150,000 + 75,000 per address)`. This stays reproducible because the list is an argument every signer passes rather than something read from the chain. The floor covers clearing whatever list was stored previously, which the arguments do not reveal, and holds for any stored list within the supported 50-address bound below.
+* `setClaimExecutors` and `setAllowedClaimRecipients` now refuse more than 50 addresses, including when `--gas-limit` is passed. The floor above can only be guaranteed to clear a stored list if that list is itself bounded, and these calls replace the stored list rather than adding to it, so a longer one cannot be assembled in several calls either. 50 is far beyond normal use.
+* Fee values remain fixed constants rather than chain estimates, so that several ForDefi signers building the same transaction independently still arrive at the same hash.
+
+### Added
+
+* `--max-fee-per-gas <gwei>`, `--priority-fee-per-gas <gwei>`, and `--gas-limit <units>` for the C-chain commands, to raise the ceiling during congestion or lower it when the up-front balance requirement is a problem. All ForDefi signers of one transaction must pass the same values.
+
+### Fixed
+
+* `setClaimExecutors` and `setAllowedClaimRecipients` sized their gas limit from the raw argument list while the transaction was encoded from the same list with blank entries removed. Twelve addresses plus a discarded blank produced the same call as twelve addresses but a different gas limit, and so a different hash. The list is now normalized once, before both sizing and encoding.
+* The private key signing path built its transaction from a copy that dropped the resolved transaction type. The Ledger path signed type 0 while the private key and ForDefi paths signed EIP-2930 (type 1), so the same transaction hashed differently depending on who signed it. Unsigned transaction files written by earlier versions still carry no type field and still resolve to type 1, so they remain valid.
+
 ## [[v4.3.3](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.3.3)] - 2026-09-01
 
 ### Fixed

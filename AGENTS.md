@@ -7,7 +7,7 @@ Aider, etc.). Read this before making any non-trivial change.
 
 `@flarenetwork/flare-stake-tool` is a CLI for managing assets between
 Flare's C-chain (EVM) and P-chain (validator/staking platform). It also
-wraps several reward-related C-chain contracts (claim, opt-out,
+wraps several reward-related C-chain contracts (claim,
 set-executors). It is published to npm and consumed via `npx` or a global
 install. Hardware-wallet support: Ledger and Trezor.
 
@@ -30,7 +30,7 @@ src/
     pubk.ts                 Public key + bech32/checksum address utilities
   forDefi/
     transaction.ts          ForDefi sign/fetch flow (custodial signing API)
-    evmTx.ts                EVM tx builders for withdrawal/optOut/claim/setClaim*
+    evmTx.ts                EVM tx builders for withdrawal/claim/setClaim*
   ledger/                   Ledger device transports and signing per app (avalanche/eth/flare)
   trezor/                   Trezor signing
   interactive/              inquirer-driven menu CLI
