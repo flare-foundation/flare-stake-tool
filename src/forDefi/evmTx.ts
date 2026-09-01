@@ -16,6 +16,34 @@ import { networkTokenSymbol } from "../cli";
 import chalk from "chalk";
 
 /**
+ * Gas price for C-chain EVM transactions, in wei.
+ *
+ * Fixed rather than estimated from the chain: a ForDefi transaction may be
+ * constructed independently by several signers, and all of them have to arrive
+ * at the same transaction hash, so nothing in the signed payload may depend on
+ * chain state at build time.
+ *
+ * The Flare C-chain base fee floor is 500 gwei, and a transaction is rejected
+ * outright ("max fee per gas less than block base fee") if its gas price is
+ * below the base fee of the block it lands in.
+ */
+const EVM_TX_GAS_PRICE = 2_000_000_000_000;
+
+/**
+ * Gas limits for the calls whose cost does not depend on user input.
+ *
+ * Unused gas is refunded, but `gasPrice * gasLimit` still has to be covered by
+ * the sender's balance before the transaction runs, so an oversized limit can
+ * reject a claim from an account that could comfortably afford the actual fee.
+ *
+ * The calls that take an address array, and the ones that call into an address
+ * the user chooses, keep the blanket limit: their cost grows with the argument.
+ */
+const CLAIM_GAS_LIMIT = 800_000;
+const OPT_OUT_GAS_LIMIT = 200_000;
+const DEFAULT_GAS_LIMIT = 4_000_000;
+
+/**
  * @description Creates the withdrawal transaction and stores unsigned trx object in the file id
  * @param ctx - context
  * @param toAddress - the to address
@@ -44,8 +72,8 @@ export async function createWithdrawalTransaction(
 
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: 200_000_000_000,
-    gasLimit: 4_000_000,
+    gasPrice: EVM_TX_GAS_PRICE,
+    gasLimit: DEFAULT_GAS_LIMIT,
     to: toAddress,
     value: amountWei.toString(),
     chainId: ctx.config.chainID,
@@ -107,8 +135,8 @@ export async function createOptOutTransaction(ctx: Context, fileId: string, nonc
 
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: 200_000_000_000,
-    gasLimit: 4_000_000,
+    gasPrice: EVM_TX_GAS_PRICE,
+    gasLimit: OPT_OUT_GAS_LIMIT,
     to: distributionWeb3Contract.options.address!,
     data: fnToEncode.encodeABI(),
     chainId: ctx.config.networkID,
@@ -214,8 +242,8 @@ export async function createClaimTransaction(
 
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: 200_000_000_000,
-    gasLimit: 4_000_000,
+    gasPrice: EVM_TX_GAS_PRICE,
+    gasLimit: CLAIM_GAS_LIMIT,
     to: validatorRewardManagerContract.options.address!,
     data: fnToEncode.encodeABI(),
     chainId: ctx.config.networkID,
@@ -455,8 +483,8 @@ export async function createSetClaimExecutorsTransaction(
   const fnToEncode = claimSetupManagerWeb3Contract.methods.setClaimExecutors!(executors);
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: 200_000_000_000,
-    gasLimit: 4_000_000,
+    gasPrice: EVM_TX_GAS_PRICE,
+    gasLimit: DEFAULT_GAS_LIMIT,
     to: claimSetupManagerWeb3Contract.options.address!,
     data: fnToEncode.encodeABI(),
     chainId: ctx.config.networkID,
@@ -518,8 +546,8 @@ export async function createSetAllowedClaimRecipientsTransaction(
   const fnToEncode = claimSetupManagerWeb3Contract.methods.setAllowedClaimRecipients!(recipients);
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: 200_000_000_000,
-    gasLimit: 4_000_000,
+    gasPrice: EVM_TX_GAS_PRICE,
+    gasLimit: DEFAULT_GAS_LIMIT,
     to: claimSetupManagerWeb3Contract.options.address!,
     data: fnToEncode.encodeABI(),
     chainId: ctx.config.networkID,
@@ -573,8 +601,8 @@ export async function createCustomCChainTransaction(
 
   const rawTx: TransactionLike = {
     nonce: txNonce,
-    gasPrice: 200_000_000_000,
-    gasLimit: 4_000_000,
+    gasPrice: EVM_TX_GAS_PRICE,
+    gasLimit: DEFAULT_GAS_LIMIT,
     to: toAddress,
     value: value,
     data: data,
