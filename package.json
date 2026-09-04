@@ -8,6 +8,7 @@
   "scripts": {
     "tsc": "tsc",
     "build": "rimraf dist/ && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "mocha",
     "test:coverage": "nyc mocha",
     "test:integration": "mocha --config .mocharc.integration.yml",
@@ -97,25 +98,8 @@
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.32.0"
   },
-  "pnpm": {
-    "overrides": {
-      "chalk": "4.1.2"
-    },
-    "onlyBuiltDependencies": [
-      "@stellar/stellar-sdk",
-      "blake-hash",
-      "keccak",
-      "node-hid",
-      "protobufjs",
-      "secp256k1",
-      "tiny-secp256k1",
-      "usb",
-      "esbuild",
-      "node-pty"
-    ]
-  },
   "engines": {
     "node": ">=24.0.0"
   },
-  "packageManager": "pnpm@10.33.2+sha512.a90faf6feeab71ad6c6e57f94e0fe1a12f5dcc22cd754db40ae9593eb6a3e0b6b12e3540218bb37ae083404b1f2ce6db2a4121e979829b4aff94b99f49da1cf8"
+  "packageManager": "pnpm@11.24.0+sha512.bd27e345e976dcb0be0b7a1228217b049a817e21b1f355c90dbe7dc46671895a8bc1e6d06c24554505ea93ea0b45f489a27ec1bfbc8de6a9659fca0f16fa0000"
 }

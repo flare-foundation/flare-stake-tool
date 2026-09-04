@@ -118,7 +118,13 @@ pnpm test:integration
 
 ## Release process
 
-Releases are published to npm via GitLab CI when a semver git tag (e.g.
-`v4.2.3`) is pushed. The pipeline validates the tag format, checks that
-`package.json` version matches the tag, builds the project, and publishes to the
-npm registry using OIDC trusted publishers.
+Development happens on GitLab, which mirrors to the public GitHub repo
+([flare-foundation/flare-stake-tool](https://github.com/flare-foundation/flare-stake-tool)).
+Releases are published to npm from the GitHub mirror: pushing a semver git tag
+(e.g. `v4.2.3`) triggers [`.github/workflows/release.yaml`](.github/workflows/release.yaml),
+which runs the test suite, verifies the build, and publishes to the npm
+registry via [`flare-foundation/npm-release-action`](https://github.com/flare-foundation/npm-release-action)
+using OIDC trusted publishing and npm provenance attestation. The action
+enforces that the tag matches `package.json`'s version and picks the `latest`
+or `beta` dist-tag based on whether the tag is stable (`vX.Y.Z`) or a
+prerelease (`vX.Y.Z-rc.N` / `-alpha.N`).

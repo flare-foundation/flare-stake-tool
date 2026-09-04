@@ -141,7 +141,7 @@ export function context(
     publicKey = "04" + Buffer.concat(publicKeyPair).toString("hex"); // standardize
   }
   if (privkHex) {
-    const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(privkHex, "hex")) as [Buffer, Buffer];
+    const [pubX, pubY] = privateKeyToPublicKey(Buffer.from(privkHex, "hex"));
     if (publicKey) {
       if (!publicKeyPair) {
         throw Error("public key pair is not defined");

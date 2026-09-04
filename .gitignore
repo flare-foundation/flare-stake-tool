@@ -108,6 +108,7 @@ ForDefiTxnFiles/
 
 .DS_Store
 .vscode/launch.json
+.idea
 
 
 # private keys
