@@ -6,6 +6,10 @@ trustPolicyExclude:
   - 'reselect@5.1.1'
   - 'semver@6.3.1'
   - 'undici-types@6.19.8'
+# 867-entry lockfile x full packuments (trustPolicy: no-downgrade forces full
+# metadata); pnpm's 60s default is too tight for 10 MB packuments on CI runners.
+fetchTimeout: 300000
+networkConcurrency: 5
 overrides:
   chalk: 4.1.2
 allowBuilds:
