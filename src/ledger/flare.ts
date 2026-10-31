@@ -1,8 +1,7 @@
 import { FlareApp, ResponseAddress, ResponseSign } from "@zondax/ledger-flare";
 import { ledgerService } from "@ledgerhq/hw-app-eth";
 import TransportNodeHid from "@ledgerhq/hw-transport-node-hid";
-import * as pubk from "../flare/pubk";
-import * as utils from "../utils";
+import { toBuffer, toHex } from "./bytes";
 import { EthAddress, Signature } from "./interfaces";
 
 export async function isFlareApp() {
@@ -12,25 +11,6 @@ export async function isFlareApp() {
     flare = info.appName === "Flare Network";
   });
   return flare;
-}
-export async function getAddressAndPubKey(
-  bip44Path: string,
-  hrp: string
-): Promise<{ publicKey: string; address: string }> {
-  let account: ResponseAddress | undefined;
-  await _connect(async (app) => {
-    account = await app.getAddressAndPubKey(bip44Path, hrp);
-  });
-  if (!account) {
-    throw Error("Failed to obtain public key from ledger");
-  } else if (account.errorMessage !== "No errors") {
-    throw Error(`Failed to obtain public key from ledger: ${account.errorMessage}, code ${account.returnCode}`);
-  }
-  //let publicKey = pubk.normalizePublicKey(utils.toHex(account!.compressed_pk));
-  return {
-    publicKey: account.compressed_pk.toString("hex"),
-    address: account.bech32_address,
-  };
 }
 
 export async function getPublicKey(bip44Path: string, hrp: string): Promise<string> {
@@ -43,7 +23,7 @@ export async function getPublicKey(bip44Path: string, hrp: string): Promise<stri
   } else if (account.errorMessage !== "No errors") {
     throw Error(`Failed to obtain public key from ledger: ${account.errorMessage}, code ${account.returnCode}`);
   }
-  const publicKey = pubk.normalizePublicKey(utils.toHex(account.compressed_pk));
+  const publicKey = toHex(account.compressed_pk, false);
   return publicKey;
 }
 
@@ -58,25 +38,8 @@ export async function getCAddress(bip44Path: string, display: boolean): Promise<
   return account.address;
 }
 
-export async function getPAddress(bip44Path: string, hrp: string, display: boolean): Promise<string> {
-  let account: ResponseAddress | undefined;
-  await _connect(async (app) => {
-    if (display) {
-      account = await app.showAddressAndPubKey(bip44Path, hrp);
-    } else {
-      account = await app.getAddressAndPubKey(bip44Path, hrp);
-    }
-  });
-  if (!account) {
-    throw Error("Failed to obtain public key from ledger");
-  } else if (account.errorMessage !== "No errors") {
-    throw Error(`Failed to obtain public key from ledger: ${account.errorMessage}, code ${account.returnCode}`);
-  }
-  return account.bech32_address;
-}
-
 export async function sign(bip44Path: string, tx: string): Promise<string> {
-  const txBuffer = utils.toBuffer(tx);
+  const txBuffer = toBuffer(tx);
   let response: ResponseSign | undefined;
   await _connect(async (app) => {
     response = await app.sign(bip44Path, txBuffer);
@@ -91,7 +54,7 @@ export async function sign(bip44Path: string, tx: string): Promise<string> {
 
 export async function signEvmTransaction(bip44Path: string, txHex: string): Promise<string> {
   let response: Signature | undefined;
-  const rawTx = utils.toHex(txHex, false);
+  const rawTx = toHex(txHex, false);
   const resolution = await ledgerService.resolveTransaction(rawTx, {}, {});
   await _connect(async (app) => {
     response = await app.signEVMTransaction(bip44Path, rawTx, resolution);
@@ -102,9 +65,9 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
   if (!response.r || !response.s || !response.v) {
     throw new Error("Failed to get signature from ledger device");
   }
-  const r = Buffer.from(utils.toHex(response.r, false), "hex");
-  const s = Buffer.from(utils.toHex(response.s, false), "hex");
-  let recoveryParam = parseInt(utils.toHex(response.v, false), 16);
+  const r = Buffer.from(toHex(response.r, false), "hex");
+  const s = Buffer.from(toHex(response.s, false), "hex");
+  let recoveryParam = parseInt(toHex(response.v, false), 16);
   if (recoveryParam === 0 || recoveryParam === 1) {
     recoveryParam += 27;
   } else if (recoveryParam > 28) {
@@ -112,12 +75,12 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
   }
 
   const v = Buffer.from(recoveryParam.toString(16), "hex");
-  const signature = utils.toHex(Buffer.concat([r, s, v]), false);
+  const signature = toHex(Buffer.concat([r, s, v]), false);
   return signature;
 }
 
 export async function signHash(bip44Path: string, message: string): Promise<string> {
-  const messageBuffer = utils.toBuffer(message);
+  const messageBuffer = toBuffer(message);
   let response: ResponseSign | undefined;
   await _connect(async (app) => {
     response = await app.signHash(bip44Path, messageBuffer);

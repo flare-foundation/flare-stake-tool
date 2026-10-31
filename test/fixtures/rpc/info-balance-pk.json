@@ -1,0 +1,60 @@
+{
+  "recordedAt": "2026-10-29T10:05:43.835Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/C/rpc",
+      "method": "eth_getBalance",
+      "params": [
+        "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+        "latest"
+      ],
+      "response": {
+        "result": "0x314dc6448d8da357d8c1a6c40000"
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getBalance",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ]
+      },
+      "response": {
+        "result": {
+          "balance": "8000000099979035673",
+          "unlocked": "8000000099979035673",
+          "lockedStakeable": "0",
+          "lockedNotStakeable": "0",
+          "balances": {
+            "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K": "8000000099979035673"
+          },
+          "unlockeds": {
+            "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K": "8000000099979035673"
+          },
+          "lockedStakeables": {},
+          "lockedNotStakeables": {},
+          "utxoIDs": [
+            {
+              "txID": "xyuHVqJsaMptKpuudr32Fr6tx2VbyogjqfmsSouc7BYNBJYQD",
+              "outputIndex": 1
+            },
+            {
+              "txID": "2fGJrGdihE3RhmcWmgEV1BkVxJBwFMCGcmw8YjZA4CdTyuLWup",
+              "outputIndex": 0
+            },
+            {
+              "txID": "1LtRZTD6WjVAfNCP85yy1fm3bu5znmEyuEeJr6sUXcBZCEA4b",
+              "outputIndex": 1
+            },
+            {
+              "txID": "YbA3Gqoc29oGH1JatHzLfaumcMXYY5eUjL7pmRVKtvULtDGfR",
+              "outputIndex": 0
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

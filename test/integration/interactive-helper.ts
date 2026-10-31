@@ -55,7 +55,7 @@ export function spawnInteractive(args: string[] = ["interactive"], cwd: string =
     cols: 120,
     rows: 30,
     cwd,
-    env: process.env as Record<string, string>,
+    env: process.env,
   });
 
   const session: InteractiveSession = {

@@ -1,0 +1,23 @@
+{
+  "spec": {
+    "name": "info-validators-pk",
+    "kind": "cli",
+    "args": [
+      "info",
+      "validators",
+      "--env-path",
+      "test.env",
+      "--get-hacked",
+      "--network",
+      "localflare"
+    ],
+    "needsEnv": true
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nValidators on the network \"localflare\"\n[\n  {\n    \"txID\": \"Q1tN7vdxbhquKasPh4fuz9T4WhLCqZWUKQcBAZorLBeKBX7UQ\",\n    \"startTime\": \"1780272000\",\n    \"endTime\": \"1811808000\",\n    \"weight\": \"8000000000000000000\",\n    \"nodeID\": \"NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg\",\n    \"validationRewardOwner\": {\n      \"locktime\": \"0\",\n      \"threshold\": \"1\",\n      \"addresses\": [\n        \"P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6\"\n      ]\n    },\n    \"delegationRewardOwner\": {\n      \"locktime\": \"0\",\n      \"threshold\": \"1\",\n      \"addresses\": [\n        \"P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6\"\n      ]\n    },\n    \"potentialReward\": \"0\",\n    \"accruedDelegateeReward\": \"0\",\n    \"delegationFee\": \"0.0000\",\n    \"uptime\": \"100.0000\",\n    \"connected\": true,\n    \"signer\": {\n      \"publicKey\": \"0xa75054f6d9ea8419775ca88730ff01f068a538dae1ccb9eeee4324c7928ee79b42746e2568809b6c7d8f124eb966629e\",\n      \"proofOfPossession\": \"0xa945d9805ce5f817c706e9765e8802ef422cfde97a046dbb2cf9279f773abedf66e56081dcbc813cce7d8fd36049f80a062946b94645c0f1a73b878c1c4a98a9d6824326e4633c764eb6f8f1d387ebdde3d60674fdab56fffae290f98b5bd8e2\"\n    },\n    \"delegatorCount\": \"0\",\n    \"delegatorWeight\": \"0\",\n    \"delegators\": []\n  }\n]\n",
+    "stderr": "",
+    "txIds": [],
+    "submissions": []
+  }
+}

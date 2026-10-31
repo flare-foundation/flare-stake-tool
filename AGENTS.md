@@ -9,37 +9,43 @@ Aider, etc.). Read this before making any non-trivial change.
 Flare's C-chain (EVM) and P-chain (validator/staking platform). It also
 wraps several reward-related C-chain contracts (claim,
 set-executors). It is published to npm and consumed via `npx` or a global
-install. Hardware-wallet support: Ledger and Trezor.
+install. Hardware-wallet support: Ledger (Flare, Avalanche and Ethereum apps).
 
 ## Layout
 
 ```
 src/
-  cli.ts                    Commander entrypoint, action handlers, option parsing
-  run.ts                    Entry script (called by bin/flare-stake-tool)
-  transaction.ts            exportCP/importCP/exportPC/importPC/stake/delegate/transfer using a private key
-  context.ts                Build a Context (web3, addresses, keys) from options or env
-  contracts.ts              FlareContractRegistry lookups and validator/stake info queries
-  utils.ts                  Hex/unit conversions, key crypto, file IO for tx JSON
-  output.ts                 chalk-colored logging
-  flare/
-    chain.ts                P-chain queries, fee estimation, EIP-1559 fees
-    context.ts              Etna fork activation check
-    index.ts                High-level export/import/move flows used by the ledger path
-    txs.ts                  Transaction builders (atomic exports/imports, stake, delegate)
-    pubk.ts                 Public key + bech32/checksum address utilities
-  forDefi/
-    transaction.ts          ForDefi sign/fetch flow (custodial signing API)
-    evmTx.ts                EVM tx builders for withdrawal/claim/setClaim*
-  ledger/                   Ledger device transports and signing per app (avalanche/eth/flare)
-  trezor/                   Trezor signing
-  interactive/              inquirer-driven menu CLI
-  ui/                       MUI components (legacy/experimental — unused at runtime)
-  constants/                Network configs, contract addresses, ABIs
-test/                       Mocha unit tests (utils, pubk, settings, network configs)
-test/integration/           Mocha integration tests against docker-compose local network
-docker-compose.yml          5-validator localflare network (go-flare v1.13.0)
-local/staker[1-5].{key,crt} Test staking certs for the local validators
+  run.ts                    Entry script: alias rewrite (exportCP → transaction exportCP), banner in interactive mode, Commander dispatch
+  cli.ts                    Commander definitions; each action parses options, resolves env + signer and calls app/
+  cli/options.ts            Typed option parsing (FLR → nFLR/wei bigint, durations, percentages), signer and env resolution
+  app/env.ts                Network resolution (--network, else ctx.json, else flare) and the ctx.json file
+  app/transactions.ts       Pre-flight checks (max 3 nodes, validator exists/period, Helicon gate) + the pipeline
+  app/send.ts               send -i: attach an external signature to a stored transaction and submit
+  app/info.ts               addresses / balance / validators
+  app/fordefi.ts            ForDefi API client (sign/fetch); request shape and auth header are frozen
+  core/types.ts             TxRequest, UnsignedTxBundle, BuildPolicy, Signer, Outcome
+  core/pipeline.ts          build → sign → attach → submit → confirm; the only implementation
+  core/builders/pchain.ts   One builder per P-chain/atomic tx type (flarejs 5.2.0 object-style builders)
+  core/builders/evm.ts      C-chain EVM builders (claim, withdrawal, setClaim*, custom) with the frozen rawTx shape
+  core/signing/             Signature normalization (v 0/1/27/28/EIP-155) and credential attachment incl. the Helicon authority credential
+  core/files.ts             Frozen unsigned/signed JSON file formats under ForDefiTxnFiles/
+  core/submit.ts            Issue + wait per chain (P: getTxStatus, C atomic: getAtomicTxStatus, EVM: receipt)
+  signers/privateKey.ts     --get-hacked --env-path: in-process signing
+  signers/ledger.ts         --ledger: LedgerSigner over a LedgerDevice (real device in src/ledger, fake via FLARE_FAKE_LEDGER_KEY for tests)
+  signers/file.ts           default + -i <id>: writes the unsigned file and stops (ForDefi / manual signing)
+  chain/network.ts          The single network table (ids, hrp, URLs, symbol) + node URL / API key overrides
+  chain/clients.ts          flarejs APIs, ethers provider, cached Context, Helicon gate
+  chain/keys.ts             Key/address derivation (flarejs secp256k1 + ethers)
+  chain/units.ts            parseFlr/formatFlr, percentages → shares, durations
+  chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
+  chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
+  ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum)
+  interactive/              inquirer menu calling app/ directly
+  constants/fees.ts         Fixed EIP-1559 fees per C-chain operation
+  constants/screen.ts       Menu labels
+test/unit/                  Mocha unit tests (pure functions, signers, builders without a node)
+test/characterization/      Record/replay goldens for every signing path (offline)
+test/integration/           Mocha integration tests against an externally running localflare
 ```
 
 ## Build / test / lint
@@ -56,33 +62,35 @@ pnpm format:check       # prettier @flarenetwork/prettier-config-flare
 
 Node 24+ required (enforced via `engines`).
 
-## Three signing paths (do not confuse them)
+## One pipeline, three signers
 
-The same logical operation (e.g., `exportCP`) has **three parallel
-implementations**, selected by command-line flag:
+Every transaction goes through `core/pipeline.ts`: the request is built once
+(`core/builders`), signed by the selected signer, the signature is attached to
+every credential the account owns, and the transaction is submitted and
+confirmed. The signer is chosen by flag:
 
-1. **`--get-hacked --env-path <file>`** — read private key from env file,
-   sign locally, submit immediately. Code path: `cliBuildAndSendTxUsingPrivateKey`
-   → `src/transaction.ts`. Calls flarejs `evm.newExportTxFromBaseFee` directly.
-2. **`--ledger`** — sign on a Ledger device, submit immediately. Code path:
-   `cliBuildAndSendTxUsingLedger` → `src/flare/index.ts` → `src/flare/txs.ts`.
-3. **default (no signing flag) + `-i <id>`** — build an unsigned tx file at
-   `ForDefiTxnFiles/UnsignedTxns/<id>.unsignedTx.json`. The user signs the
-   message hash externally, writes the signature back to a `<id>.signedTx.json`
-   file under `ForDefiTxnFiles/SignedTxns/`, then runs `send -i <id>` to submit.
-   This is the path ForDefi (custodial signing) uses.
+1. **`--get-hacked --env-path <file>`** — `PrivateKeySigner`, signs in process.
+2. **`--ledger`** — `LedgerSigner`; Flare app signs the full transaction and
+   falls back to hash signing for transaction types it does not know, the
+   Avalanche app signs the hash, the Ethereum app is accepted for C-chain EVM
+   transactions only.
+3. **default + `-i <id>`** — `ExternalFileSigner` writes
+   `ForDefiTxnFiles/UnsignedTxns/<id>.unsignedTx.json` and stops; after the
+   message hash is signed externally and written to
+   `SignedTxns/<id>.signedTx.json`, `send -i <id>` finishes the job.
 
-These paths use **different flarejs functions** with subtly different
-semantics. Changing one is unlikely to be applicable to the others.
+The file signer builds with `FILE_SIGNER_POLICY` (P-chain fee price pinned to
+1000, start time 1, explicit `-f` required) so that several ForDefi signers
+building independently get the same hash. Do not let chain state or the clock
+leak into a file-path build.
 
 ## Unit conventions (read carefully)
 
-- `-a` (amount) and `-f` (fee) are in **FLR**.
-- `getOptions()` in `src/cli.ts` (~line 352) **multiplies them by 1e9** before
-  passing them to action handlers. Downstream code (`transaction.ts`,
-  `flare/txs.ts`, etc.) sees them in **nFLR**.
-- The CLI prompt in interactive mode says "in FLR" — this is correct because
-  the user input flows through `getOptions()` like any other.
+- `-a` (amount) and `-f` (fee) are in **FLR** on every path; `cli/options.ts`
+  converts them with `parseFlr` to **nFLR** (bigint) for P-chain/atomic
+  requests and to **wei** for C-chain commands. Nothing downstream sees FLR.
+- `-e`, `-s` and `--period` accept unix seconds or durations (`2d12h`);
+  `parseEndTime` resolves a duration against now.
 - The `--env-path` file uses `PRIVATE_KEY_HEX` (hex) and/or `PRIVATE_KEY_CB58`
   (base58check).
 - Network minimums (P-chain) differ per network — validator self-bond /
@@ -93,18 +101,28 @@ semantics. Changing one is unlikely to be applicable to the others.
   See `dateToDateTimeLocalString`/`integerToDecimal` for display formatting
   (offset 18 for C-chain, 9 for P-chain).
 
-## Pinned dependencies (don't bump without checking)
+## Dependencies: real constraints
 
-- `@flarenetwork/flarejs@4.1.1` — newer versions have breaking changes; this
-  is the version known to work with `module: CommonJS`. ESM resolution is
-  blocked.
-- `chalk@4.1.2` — pinned; chalk 5+ is ESM-only.
-- `inquirer@8.0` — newer versions are ESM-only.
-- `@ledgerhq/cryptoassets@13.33.0` — pinned via `pnpm.overrides` for security
-  reasons.
-- `tsconfig.json` has `module: CommonJS` (not Node20) and **no
-  `verbatimModuleSyntax`**. ESM migration is deferred until flarejs supports
-  Node20 module resolution.
+Everything not listed here follows Renovate; `pnpm audit --audit-level=high`
+runs in CI and must stay clean.
+
+- `@flarenetwork/flarejs` is pinned **exactly** (`5.2.0`). 5.x removed the
+  positional pre-Etna `pvm.*` builders; the object-style builders
+  (`pvm.newImportTx({...}, context)`, formerly `pvm.e.*`) are the only ones.
+  It ships a CommonJS build, but its typings do not resolve under
+  `module: node16/nodenext`, so the project stays on `module: CommonJS`.
+- CommonJS-only majors, because of the point above: `commander` 14 (15 is
+  ESM-only), `inquirer` 8 (9+ is ESM-only), `figlet` 1.11 (1.12 is ESM-only).
+  Colours use Node's built-in `util.styleText` (no chalk).
+- Ledger: `@zondax/ledger-flare` 1.x and `@avalabs/hw-app-avalanche` 1.x are
+  the last lines on the classic `@ledgerhq/hw-transport` API; their 2.x lines
+  moved to Ledger's Device Management Kit and need a rewrite of the Ledger
+  module. `@ledgerhq/cryptoassets` has a `>=13.33.0` floor in
+  `pnpm-workspace.yaml` overrides (security).
+- `eslint` stays on 9.x until `@flarenetwork/eslint-config-flare` supports 10.
+- `typescript` stays on 5.x; TypeScript 7 (Go compiler) needs
+  `typescript-eslint` support first.
+- `tsconfig.json` has `module: CommonJS` and **no `verbatimModuleSyntax`**.
 - `rootDir: "src"` is set in `tsconfig.build.json` only, not the base
   `tsconfig.json`. The base tsconfig includes both `src` and `test` for
   type-checking; setting `rootDir` there would cause TS6059 "file is not
@@ -114,34 +132,61 @@ semantics. Changing one is unlikely to be applicable to the others.
   native binaries, but pnpm strips the executable bit from the
   `spawn-helper` binary during extraction. The interactive test harness
   re-`chmod +x`s it before the first spawn — keep that workaround.
+- Coverage uses `c8` (`.c8rc.json`), not nyc.
 
-## Etna fork awareness
+## Fork awareness
 
-`src/flare/context.ts:isEtnaActive(network)` returns whether the network has
-passed Durango+Etna activation. Some tx builders (especially in
-`src/flare/txs.ts`) branch on this to choose between pre-Etna and post-Etna
-formats. When adding a new transaction type, check whether the format
-changed at Etna.
+Etna (dynamic P-chain fees) is active on every Flare network, so the P-chain
+builders use the Etna object-style flarejs builders only; there are no
+pre-Etna code paths or runtime fork checks left. Helicon (auto-renewed
+validators, go-flare v1.15) is the only fork gate: the two auto-renewed
+validator commands check `info.upgrades` (`heliconTime`) and refuse to build
+when it is missing or in the future (public nodes on 1.14 return no field).
 
 ## Local network for integration tests
 
+Integration tests run against an **externally started** Helicon-capable
+localflare; they do not start or stop anything. Start it from the go-flare
+checkout (`avalanchego/scripts/localflare.sh`: five nodes, HTTP ports
+9650/9652/9654/9656/9658, network ID 162, Helicon active at genesis):
+
 ```bash
-docker-compose up -d   # 5 validators, go-flare v1.13.0, built-in localflare genesis
-docker-compose down -v # CRITICAL: -v removes volumes; without it, stale UTXO
-                       # state between runs causes cryptic "couldn't unmarshal"
-                       # parse errors and "no UTXOs available to import" failures.
+LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
 ```
 
-- Network ID: `162`
-- Initial validator: `NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg` (matches
-  `local/staker1.{key,crt}`)
-- Funded test accounts: ewoq private key
+- `LOCALFLARE_RPC_URL` (default `http://localhost:9650`) is the node the CLI
+  talks to; `LOCALFLARE_NODE_URLS` lists all nodes so the stake tests can pick
+  one that is not validating yet (`test/integration/local-network.ts`).
+- The CLI itself honours `FLARE_RPC_URL=<base url>` / `--rpc-url` for any
+  network name: it replaces the API/RPC base URL while keeping the network's
+  hrp and ids. The test harness relies on it; together with `FLARE_API_KEY` /
+  `--api-key` it also reaches staging deployments and private nodes behind
+  Flare's API gateway. The key travels as the `x-apikey` header on every
+  request of every client (`chain/clients.ts` assembles the flarejs Context
+  itself, because `Context.getContextFromURI` would build keyless clients), and
+  a copied endpoint URL with `?x-apikey=` works as the URL. `interactive` reads
+  the two flags from argv (`cli/node.ts`), as it is dispatched before Commander.
+- The signing suites create a fresh account funded from the ewoq key for every
+  run (`test/integration/accounts.ts`), so they are rerun-safe and independent
+  of the max-three-validators rule, and all end times are relative to now.
+- Funded test account: ewoq private key
   `56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027` is
   publicly known and funded on **both** the C-chain (huge balance) and the
-  X-chain. **Safe for local test networks only — never mainnet.**
-- v1.13 ships a built-in localflare genesis. The custom `genesis.json` was
-  removed; do not reintroduce it (v1.13 rejects custom genesis for reserved
-  network IDs like 162).
+  P-chain. **Safe for local test networks only — never mainnet.**
+- `docker-compose.yml` (go-flare v1.13.0, no Helicon) is kept only as a
+  reference until a Helicon image is published; the harness no longer uses it.
+
+## Characterization goldens (offline)
+
+`test/characterization/` locks the exact bytes every signing path produces.
+`pnpm test:record-fixtures` runs ~45 scenarios against a live localflare with
+all JSON-RPC traffic proxied through `rpc-replay.ts`, saving per-scenario
+fixtures (`test/fixtures/rpc/`) and goldens (`test/golden/`: unsigned tx
+bytes, message hash, ForDefi hash, submitted signed bytes, tx ids). `pnpm test`
+replays every golden offline; a difference means behaviour changed. An
+intentional change must update the golden **in the same commit** as the
+CHANGELOG and `docs/COMMANDS.md` entry. Re-record only when the scenario
+inputs change, never to make a failing golden pass.
 
 ## Tests as executable specifications
 
@@ -168,20 +213,25 @@ it — both example-based and property-based where applicable.
   resolving transitive types through pnpm's symlinked `node_modules` (e.g.
   `web3-eth` from `web3`'s exports), producing hundreds of `no-unsafe-*` lint
   errors in CI.
-- **Don't change the FLR→nFLR conversion in `getOptions()`** without updating
-  every action handler that consumes `params.amount` / `params.fee` — they
-  assume nFLR.
+- **Don't change `FILE_SIGNER_POLICY`** (fee price 1000, start time 1,
+  explicit fee) without a CHANGELOG entry: ForDefi signers building the same
+  transaction independently must keep getting the same hash.
+- **Don't change the unsigned/signed JSON formats** in `core/files.ts`; they
+  are a contract with external signers and old files must keep loading.
 
 ## Common gotchas
 
-- "exportCP works once but the second one fails with 'unknown type ID'" →
-  stale local network state. Run `docker-compose down -v` before retrying.
 - "no UTXOs available to import" right after an export → atomic mempool
-  propagation lag. Add a small delay (3s) between exportPC and importPC.
-- "tx already sent to chain" from `send` → `addFlagForSentSignedTx` set
+  propagation lag. The interactive flows poll for the pending UTXO; scripts
+  should wait a few seconds between an export and the matching import.
+- A stake test skips with "no free node": every localflare node is currently
+  validating (the minimum period is 15 minutes, test stakes last 1 hour).
+- "Tx already sent to chain" from `send` → `markSentToChain` set
   `isSentToChain` in the signed tx JSON; delete the file or use a new id.
 - ForDefi auth requires `private.pem` and `token` files at the cwd; both are
-  in `.gitignore`. The hardcoded ForDefi URL is in `src/constants/forDefi.ts`.
+  in `.gitignore`. The ForDefi host is in `src/app/fordefi.ts`.
+- `FLARE_FAKE_LEDGER_KEY=<hex>` makes `--ledger` use a software key instead
+  of a device (tests only).
 
 ## Release process
 

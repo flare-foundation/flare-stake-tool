@@ -1,0 +1,30 @@
+{
+  "recordedAt": "2026-10-29T10:08:17.321Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.issueTx",
+      "params": {
+        "tx": "0x000000000022000000a200000000000000000000000000000000000000000000000000000000000000000000000234ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000000003b9aca000000000000000000000000010000000146a9c04f4bf783aa69daabd519dcf36978168b6634ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000917d593edec000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000016c933f2cbdef725c1066a0a8a4477f275a94a611e33c62b80f933c82364f7d920000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500000918117dbe640000000100000000000000000000000100000009000000010b8bbe02905ec4f3c5342352e8c7a0a8777cdb704791364d645b7a98d5904fc740905bc7f13af3c6ee9f216cf11ea9ebf0995aba0bd09f3e750028b04c5f358a000ea3b403"
+      },
+      "response": {
+        "result": {
+          "txID": "rBeD174usN8GqqKkENVUKzuefEmKSJVMRzXLUrF3Usdj9UoSj"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "rBeD174usN8GqqKkENVUKzuefEmKSJVMRzXLUrF3Usdj9UoSj"
+      },
+      "response": {
+        "result": {
+          "status": "Committed"
+        }
+      }
+    }
+  ]
+}

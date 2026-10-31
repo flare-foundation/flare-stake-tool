@@ -1,0 +1,34 @@
+{
+  "spec": {
+    "name": "send-withdrawal",
+    "kind": "send",
+    "args": [
+      "send",
+      "-i",
+      "withdrawal-file",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "unsignedFrom": "withdrawal-file",
+    "txFileId": "withdrawal-file",
+    "evm": true
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nSigned transaction withdrawal-file with hash 0xe2d8fc6f8dca495f19230bba8f3f92a3de28caf01675fa874ed67ff004a653cf sent to the node\n",
+    "stderr": "",
+    "txIds": [
+      "0xe2d8fc6f8dca495f19230bba8f3f92a3de28caf01675fa874ed67ff004a653cf"
+    ],
+    "submissions": [
+      {
+        "path": "/ext/bc/C/rpc",
+        "method": "eth_sendRawTransaction",
+        "params": [
+          "0x02f87781a207852e90edd000860746a52880008307a120948db97c7cece249c2b98bdc0226cc4c2a57bf52fc880de0b6b3a764000080c001a0b70d30d5272649f4c38368557cbaefedc25c4230cfc1f6ed55cca6229e174da9a0508118211da6550c11d3c74a938fcc5c28f061c1fd572b0c4f7e030c6e7813af"
+        ]
+      }
+    ]
+  }
+}

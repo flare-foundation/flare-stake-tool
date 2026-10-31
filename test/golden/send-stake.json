@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "name": "send-stake",
+    "kind": "send",
+    "args": [
+      "send",
+      "-i",
+      "stake-file",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "unsignedFrom": "stake-file",
+    "txFileId": "stake-file"
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nSigned transaction stake-file with hash 92LoLKo9Kz13WPzZjJvyZFnoRnfVnPMC62xVeZKH18BytkAej sent to the node\n",
+    "stderr": "",
+    "txIds": [
+      "92LoLKo9Kz13WPzZjJvyZFnoRnfVnPMC62xVeZKH18BytkAej"
+    ],
+    "submissions": [
+      {
+        "path": "/ext/bc/P",
+        "method": "platform.issueTx",
+        "params": {
+          "tx": "0x000000000019000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000076f059a6aa545f76d000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000247b9f87fb2df0d67913ab0bbed63c99116aba175617ab2b9ffcb0ff5ae780ea70000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000056f059a6b977093450000000100000000a16b48c8a99eea994164814c8a895e3ec4a4ac65cd3f3dab400909889d3fd25a0000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000005000009175d461b08000000010000000000000000aa18d3991cf637aa6c162f5e95cf163f69cd82910000000000000001000000006ae46c84000009184e72a00000000000000000000000000000000000000000000000000000000000000000000000001ca926858ebfba247e6d759e40bc82f92c20f359769e3538d58562bf30077f5e4c62b3b149f11b8e68a2f5599acd782de2b48df13f6e0167e2f40cc7c02cf81bf4a2c0b1b686395a56690deb6b5876c0a654ac41253455f41a6c65ac2fbf712d980d9012375edf73efb341d0961ac09197bf5f807192b6cd9f44c9e9032b0e035e4d07ba7eebccf434688610a2f51bc4920000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009184e72a000000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000b000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000b000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000186a0000000020000000900000001c5fca2954556136d1490e707770cbde7c2593ec27a0778b62ece7038f9e530e34eede4572e71afc0b46dfd3aaec6cf9ebf1907f9c81dc182e4ccad35c443472e000000000900000001c5fca2954556136d1490e707770cbde7c2593ec27a0778b62ece7038f9e530e34eede4572e71afc0b46dfd3aaec6cf9ebf1907f9c81dc182e4ccad35c443472e004323ae92"
+        }
+      }
+    ]
+  }
+}

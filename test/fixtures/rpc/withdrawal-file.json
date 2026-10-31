@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-10-29T10:12:48.342Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/C/rpc",
+      "method": "eth_getTransactionCount",
+      "params": [
+        "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+        "latest"
+      ],
+      "response": {
+        "result": "0x7"
+      }
+    }
+  ]
+}

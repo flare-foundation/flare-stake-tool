@@ -1,0 +1,134 @@
+import { expect } from "chai";
+import crypto from "crypto";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { fetchForDefiSignature, getVaultPublicKey, sendToForDefi, type FetchLike } from "../../src/app/fordefi";
+import {
+  readSignedTxJson,
+  readUnsignedTxJson,
+  saveUnsignedTxJson,
+  type UnsignedAtomicTxJson,
+} from "../../src/core/files";
+import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+
+/** The ForDefi client reads ./token and ./private.pem from the working directory and talks to api.fordefi.com. */
+describe("app/fordefi", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "fordefi-test-"));
+  const originalCwd = process.cwd();
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const unsigned: UnsignedAtomicTxJson = {
+    transactionType: "exportCP",
+    signatureRequests: [{ message: "e8b2557ea240f0265b2d1ec0cf9ca3b6689b5c392a7d9b98d43bb8f681635e44", signer: "" }],
+    unsignedTransactionBuffer: "0000",
+    serialization: "{}",
+  };
+  const vaultId = "1dafbe27-cdb1-4c8c-9ea6-fdf43f5d7242";
+  const context = {
+    wallet: "publicKey" as const,
+    publicKey: EWOQ_PUBLIC_KEY_COMPRESSED,
+    network: "localflare",
+    vaultId,
+  };
+  const calls: { url: string; init: RequestInit }[] = [];
+
+  function fakeFetch(responses: Record<string, unknown>): FetchLike {
+    return ((url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      const key = `${init.method} ${new URL(url).pathname}`;
+      const body = responses[key];
+      if (body === undefined) throw new Error(`unexpected request ${key}`);
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    }) as FetchLike;
+  }
+
+  before(() => {
+    process.chdir(cwd);
+    fs.writeFileSync("token", "secret-token\n");
+    fs.writeFileSync("private.pem", privateKey.export({ type: "pkcs8", format: "pem" }));
+    saveUnsignedTxJson(unsigned, "tx1");
+  });
+
+  after(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it("reads the vault's compressed public key", async () => {
+    const fetchImpl = fakeFetch({
+      [`GET /api/v1/vaults/${vaultId}`]: {
+        id: vaultId,
+        public_key_compressed: Buffer.from(EWOQ_PUBLIC_KEY_COMPRESSED, "hex").toString("base64"),
+      },
+    });
+    expect(await getVaultPublicKey(vaultId, fetchImpl)).to.equal(EWOQ_PUBLIC_KEY_COMPRESSED);
+    expect(calls.at(-1)?.init.headers).to.deep.include({ Authorization: "Bearer secret-token" });
+  });
+
+  it("posts the message hash as a black-box signature request, signed with the API key, and records the ForDefi id", async () => {
+    const fetchImpl = fakeFetch({
+      [`GET /api/v1/vaults/${vaultId}`]: {
+        id: vaultId,
+        public_key_compressed: Buffer.from(EWOQ_PUBLIC_KEY_COMPRESSED, "hex").toString("base64"),
+      },
+      "POST /api/v1/transactions": { id: "fordefi-tx-42" },
+    });
+    expect(await sendToForDefi("tx1", context, fetchImpl)).to.equal("fordefi-tx-42");
+    const post = calls.at(-1)!;
+    const body = JSON.parse(post.init.body as string);
+    expect(body).to.deep.equal({
+      vault_id: vaultId,
+      signer_type: "api_signer",
+      type: "black_box_signature",
+      details: {
+        format: "hash_binary",
+        hash_binary: Buffer.from(unsigned.signatureRequests[0]!.message, "hex").toString("base64"),
+      },
+    });
+    const headers = post.init.headers as Record<string, string>;
+    const payload = `/api/v1/transactions|${headers["X-Timestamp"]}|${post.init.body as string}`;
+    expect(crypto.createVerify("SHA256").update(payload).verify(publicKey, headers["X-Signature"]!, "base64")).to.equal(
+      true
+    );
+    expect(readUnsignedTxJson("tx1").forDefiTxId).to.equal("fordefi-tx-42");
+  });
+
+  it("refuses a vault whose key is not the context's public key", async () => {
+    const fetchImpl = fakeFetch({
+      [`GET /api/v1/vaults/${vaultId}`]: {
+        id: vaultId,
+        public_key_compressed: Buffer.from("02" + "11".repeat(32), "hex").toString("base64"),
+      },
+    });
+    try {
+      await sendToForDefi("tx1", context, fetchImpl);
+      expect.fail("should have thrown");
+    } catch (error) {
+      expect((error as Error).message).to.match(/public key does not match the vault/);
+    }
+  });
+
+  it("fetches the signature and writes the signed file", async () => {
+    const signature = Buffer.from("ab".repeat(65), "hex");
+    const fetchImpl = fakeFetch({
+      "GET /api/v1/transactions/fordefi-tx-42": {
+        id: "fordefi-tx-42",
+        signatures: [{ data: signature.toString("base64") }],
+      },
+    });
+    expect(await fetchForDefiSignature("tx1", fetchImpl)).to.equal("ab".repeat(65));
+    const signed = readSignedTxJson("tx1");
+    expect(signed.signature).to.equal("ab".repeat(65));
+    expect(signed.forDefiTxId).to.equal("fordefi-tx-42");
+  });
+
+  it("reports a transaction that is not signed yet", async () => {
+    const fetchImpl = fakeFetch({ "GET /api/v1/transactions/fordefi-tx-42": { id: "fordefi-tx-42", signatures: [] } });
+    try {
+      await fetchForDefiSignature("tx1", fetchImpl);
+      expect.fail("should have thrown");
+    } catch (error) {
+      expect((error as Error).message).to.match(/not signed yet/);
+    }
+  });
+});

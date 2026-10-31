@@ -1,14 +1,11 @@
 import { expect } from "chai";
-import { runCli, makeTempDir, cleanupTempDir, writeTestEnv } from "./cli-helper";
-import { startLocalNetwork, stopLocalNetwork, getNodeInfo, VALIDATOR2_RPC_URL, type NodeInfo } from "./local-network";
+import { runCli, makeTempDir, cleanupTempDir } from "./cli-helper";
+import { createFundedAccount, type FundedAccount } from "./accounts";
+import { fromNow, getCurrentValidators, pickFreeNode, waitForLocalNetwork, type NodeInfo } from "./local-network";
 
 const NETWORK = "localflare";
-const EXISTING_VALIDATOR = "NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg";
 // Genesis allocation 1 P-address (a known funded address that exists on the network)
 const ANOTHER_P_ADDRESS = "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6";
-// End times before genesis validator's endTime (~2026-06-01)
-const DELEGATE_END_TIME = "1779571200"; // 2026-05-23
-const STAKE_END_TIME = "1779484800"; // 2026-05-22
 
 // Amounts are in FLR (the CLI converts to nFLR internally via getOptions)
 const FEE = "1";
@@ -16,73 +13,71 @@ const EXPORT_AMOUNT = "100000";
 const DELEGATE_AMOUNT = "10000"; // network minimum
 const STAKE_AMOUNT = "10000"; // network minimum
 const TRANSFER_AMOUNT = "1";
-const SMALL_AMOUNT = "1";
+// leaves room for the 1 FLR total import fee on the way back
+const SMALL_AMOUNT = "10";
+const STAKE_DURATION_S = 60 * 60; // localflare minimum is 15 minutes
+const DELEGATE_DURATION_S = 30 * 60;
 
 describe("CLI signing commands (with network)", function () {
   this.timeout(300_000);
 
   let tempDir: string;
   let envPath: string;
+  let account: FundedAccount;
+  let delegateTarget: string;
 
   before(async () => {
-    await startLocalNetwork();
+    await waitForLocalNetwork();
     tempDir = makeTempDir();
-    envPath = writeTestEnv(tempDir);
+    account = await createFundedAccount();
+    envPath = account.writeEnv(tempDir);
+    // Delegate to the validator with the latest end time (the genesis validator), so the
+    // delegation period always fits inside its validation period.
+    const validators = await getCurrentValidators();
+    const target = [...validators].sort((a, b) => Number(b.endTime) - Number(a.endTime))[0];
+    if (!target) throw new Error("no current validators on the local network");
+    delegateTarget = target.nodeID;
   });
 
   after(() => {
-    stopLocalNetwork();
     cleanupTempDir(tempDir);
   });
+
+  const sign = ["--get-hacked", "--env-path", () => envPath, "--network", NETWORK] as const;
+  const signArgs = (): string[] => sign.map((a) => (typeof a === "function" ? a() : a));
 
   // Tests share state intentionally: exportCP funds the P-chain that
   // subsequent tests (importCP, delegate, exportPC) operate on.
 
   it("exportCP: moves 100,000 FLR from C-chain to P-chain", () => {
-    const result = runCli(
-      [
-        "transaction",
-        "exportCP",
-        "-a",
-        EXPORT_AMOUNT,
-        "-f",
-        FEE,
-        "--get-hacked",
-        "--env-path",
-        envPath,
-        "--network",
-        NETWORK,
-      ],
-      { timeoutMs: 90_000 }
-    );
-    expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
-    expect(result.stdout.toLowerCase()).to.include("sent to the network");
-  });
-
-  it("importCP: completes the C→P import", () => {
-    const result = runCli(["transaction", "importCP", "--get-hacked", "--env-path", envPath, "--network", NETWORK], {
+    const result = runCli(["transaction", "exportCP", "-a", EXPORT_AMOUNT, "-f", FEE, ...signArgs()], {
       timeoutMs: 90_000,
     });
     expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
   });
 
-  it("delegate: delegates 10,000 FLR to genesis validator", () => {
+  it("importCP: completes the C→P import", async () => {
+    // the atomic export has to reach the P-chain's shared memory first
+    await new Promise((r) => setTimeout(r, 3_000));
+    const result = runCli(["transaction", "importCP", ...signArgs()], { timeoutMs: 90_000 });
+    expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
+    expect(result.stdout.toLowerCase()).to.include("sent to the network");
+  });
+
+  it("delegate: delegates 10,000 FLR to a current validator", async () => {
+    await new Promise((r) => setTimeout(r, 2_000));
     const result = runCli(
       [
         "transaction",
         "delegate",
         "-n",
-        EXISTING_VALIDATOR,
+        delegateTarget,
         "-a",
         DELEGATE_AMOUNT,
         "-e",
-        DELEGATE_END_TIME,
-        "--get-hacked",
-        "--env-path",
-        envPath,
-        "--network",
-        NETWORK,
+        fromNow(DELEGATE_DURATION_S),
+        ...signArgs(),
       ],
       { timeoutMs: 90_000 }
     );
@@ -90,8 +85,12 @@ describe("CLI signing commands (with network)", function () {
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
   });
 
-  it("stake: registers validator2 as a new validator", async () => {
-    const node: NodeInfo = await getNodeInfo(VALIDATOR2_RPC_URL);
+  it("stake: registers a free node as a new validator", async function () {
+    await new Promise((r) => setTimeout(r, 2_000));
+    const node: NodeInfo | undefined = await pickFreeNode();
+    if (!node) {
+      this.skip();
+    }
     expect(node.nodeID).to.match(/^NodeID-/);
     const result = runCli(
       [
@@ -102,18 +101,14 @@ describe("CLI signing commands (with network)", function () {
         "-a",
         STAKE_AMOUNT,
         "-e",
-        STAKE_END_TIME,
+        fromNow(STAKE_DURATION_S),
         "--delegation-fee",
         "10",
         "--pop-bls-public-key",
         node.blsPublicKey,
         "--pop-bls-signature",
         node.blsProofOfPossession,
-        "--get-hacked",
-        "--env-path",
-        envPath,
-        "--network",
-        NETWORK,
+        ...signArgs(),
       ],
       { timeoutMs: 90_000 }
     );
@@ -121,32 +116,19 @@ describe("CLI signing commands (with network)", function () {
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
   });
 
-  it("transfer: sends 1 FLR to another P-chain address", () => {
+  it("transfer: sends 1 FLR to another P-chain address", async () => {
+    await new Promise((r) => setTimeout(r, 2_000));
     const result = runCli(
-      [
-        "transaction",
-        "transfer",
-        "-a",
-        TRANSFER_AMOUNT,
-        "--transfer-address",
-        ANOTHER_P_ADDRESS,
-        "--get-hacked",
-        "--env-path",
-        envPath,
-        "--network",
-        NETWORK,
-      ],
+      ["transaction", "transfer", "-a", TRANSFER_AMOUNT, "--transfer-address", ANOTHER_P_ADDRESS, ...signArgs()],
       { timeoutMs: 90_000 }
     );
     expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
   });
 
-  it("exportPC: moves 1 FLR from P-chain back to C-chain", () => {
-    const result = runCli(
-      ["transaction", "exportPC", "-a", SMALL_AMOUNT, "--get-hacked", "--env-path", envPath, "--network", NETWORK],
-      { timeoutMs: 90_000 }
-    );
+  it("exportPC: moves 10 FLR from P-chain back to C-chain", async () => {
+    await new Promise((r) => setTimeout(r, 2_000));
+    const result = runCli(["transaction", "exportPC", "-a", SMALL_AMOUNT, ...signArgs()], { timeoutMs: 90_000 });
     expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
   });
@@ -154,11 +136,27 @@ describe("CLI signing commands (with network)", function () {
   it("importPC: completes the P→C import", async () => {
     // Atomic exports from P need a moment to propagate to C-chain's atomic mempool
     await new Promise((r) => setTimeout(r, 3_000));
-    const result = runCli(
-      ["transaction", "importPC", "-f", FEE, "--get-hacked", "--env-path", envPath, "--network", NETWORK],
-      { timeoutMs: 90_000 }
-    );
+    const result = runCli(["transaction", "importPC", "-f", FEE, ...signArgs()], { timeoutMs: 90_000 });
     expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
+  });
+
+  it("delegate: rejects an unknown node id", () => {
+    const result = runCli(
+      [
+        "transaction",
+        "delegate",
+        "-n",
+        "NodeID-111111111111111111116DBWJs",
+        "-a",
+        DELEGATE_AMOUNT,
+        "-e",
+        fromNow(DELEGATE_DURATION_S),
+        ...signArgs(),
+      ],
+      { timeoutMs: 90_000 }
+    );
+    expect(result.exitCode).to.not.equal(0);
+    expect(result.stderr.toLowerCase()).to.include("unknown node id");
   });
 });

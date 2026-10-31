@@ -20,9 +20,14 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--ctx-file <file>` | Context file path (default `ctx.json`) |
 | `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58` |
 | `--get-hacked` | Use the env file's private key for direct in-process signing |
+| `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted |
+| `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes (or env `FLARE_API_KEY`) |
 
-`-a`/`-f` (amount/fee) are in **FLR**. `getOptions()` multiplies by 1e9 to
-convert to nFLR before the action runs.
+`-a`/`-f` (amount/fee) are in **FLR** on every signing path. Times (`-e`,
+`-s`, `--period`) are unix seconds or durations such as `2d12h` (units w, d, h,
+m, s); an end time given as a duration is added to now and the resolved value is
+printed. Every path prints the transaction id and waits until the transaction
+is accepted.
 
 ---
 
@@ -43,7 +48,7 @@ network. It does **not** contain the private key.
 
 ---
 
-## info \<addresses\|balance\|network\|validators\>
+## info \<addresses\|balance\|validators\>
 
 Read-only queries against the configured network. Requires either a
 context file (`--ctx-file ctx.json`), `--ledger`, or
@@ -60,11 +65,6 @@ Output the C-chain (in wei → display as FLR with 18 decimals) and P-chain
 (in nFLR → display as FLR with 9 decimals) balances for the configured
 addresses.
 
-### info network
-
-Output the configured network name and its key parameters (network ID, HRP,
-chain ID, RPC URL).
-
 ### info validators
 
 Output the list of current validators on the P-chain. Each entry includes
@@ -78,8 +78,8 @@ Move FLR from the C-chain to the P-chain (atomic export step).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-a <amount>` (FLR, required), `-f <fee>` (FLR, optional — defaults to network base fee) |
-| Side effects | Submits an atomic export tx on the C-chain; UTXO appears on P-chain after a delay |
+| Inputs | `-a <amount>` (FLR, required), `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated from the base fee when omitted; required for the unsigned-file path) |
+| Side effects | Submits an atomic export tx on the C-chain; exactly `amount` is exported and the fee is paid from the C-chain account. The P-chain import fee is paid from the imported funds on import. |
 | Output | Tx hash, "sent to the network" |
 | Failures | "insufficient funds" if C-chain balance < amount + fee. Network parse errors if amount serialization changes between go-flare versions. |
 
@@ -107,7 +107,7 @@ Move FLR from the P-chain to the C-chain (reverse of exportCP).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-a <amount>` (FLR, optional — defaults to entire P-chain balance minus fee) |
+| Inputs | `-a <amount>` (FLR, optional on every path — defaults to the entire P-chain balance minus the base fee) |
 | Side effects | Submits an atomic export tx on the P-chain |
 | Output | Tx hash, "sent to the network" |
 | Failures | "Export amount is smaller than or equal to zero" if P-balance ≤ exportFee |
@@ -120,7 +120,7 @@ Complete the P→C transfer started by `exportPC`. Reads pending UTXOs.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-f <fee>` (FLR, optional). |
+| Inputs | `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, required for the unsigned-file path). |
 | Side effects | Submits an atomic import tx on the C-chain |
 | Output | Tx hash, "sent to the network" |
 | Failures | "tx has no imported inputs" if exportPC hasn't propagated to the C-chain atomic mempool yet (3s delay typically suffices on local) |
@@ -129,14 +129,14 @@ Complete the P→C transfer started by `exportPC`. Reads pending UTXOs.
 
 ## transaction stake
 
-Register a new permissionless validator using locked P-chain funds.
+Register a new fixed-term validator using locked P-chain funds. (For validators that renew automatically see `addAutoRenewedValidator`.)
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-n <nodeId>`, `-a <amount>` (≥10,000 FLR), `-e <endTime>` (unix seconds), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>`, `--pop-bls-signature <hex>`, optional `-s <startTime>` |
+| Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `-e <endTime>` (unix seconds or duration from now), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>`, `--pop-bls-signature <hex>`, optional `-s <startTime>` |
 | Side effects | Locks the staked amount on the P-chain for the duration. Funds return to the staking address on `endTime`. |
 | Output | Tx hash, "sent to the network" |
-| Failures | "Insufficient funds" if P-balance < stake amount. Validator already registered. Invalid BLS signature. End time before start time or after the configured maximum. |
+| Failures | "Insufficient funds" if P-balance < stake amount. Validator already registered. Invalid BLS signature. End time before start time or after the configured maximum. The account already stakes to three other nodes in an overlapping period (checked on every path). |
 
 `startTime` defaults to current time + small offset. `pop-bls-*` come from
 the running node (`info.getNodeID` JSON-RPC).
@@ -149,10 +149,10 @@ Delegate P-chain funds to an existing validator.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-n <nodeId>`, `-a <amount>` (≥10,000 FLR), `-e <endTime>`, optional `-s <startTime>` |
+| Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `-e <endTime>` (unix seconds or duration from now), optional `-s <startTime>` |
 | Side effects | Locks the delegated amount until endTime; rewards accrue per the validator's delegation fee |
 | Output | Tx hash, "sent to the network" |
-| Failures | Validator not found / not currently active. Insufficient P-chain funds. End time outside the validator's active window. |
+| Failures | "Unknown node id" when the node is not a current validator. End time after the validator's current period (for auto-renewed validators: the current cycle). Insufficient P-chain funds. The max-three-nodes rule (every path). |
 
 ---
 
@@ -169,6 +169,40 @@ Move FLR between two P-chain addresses (P → P).
 
 ---
 
+## transaction addAutoRenewedValidator
+
+Register an auto-renewed validator (Helicon upgrade, ACP-236). There is no end
+time: validation starts at the current chain time and is renewed every
+`--period` until the period is set to 0, as long as the node keeps the required
+uptime.
+
+| Aspect | Detail |
+|---|---|
+| Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `--period <seconds\|duration>` (e.g. `14d`; within the network's minimum and maximum validation duration), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>`, `--pop-bls-signature <hex>`, optional `--owner-address <P-…>...` (the validator authority allowed to change the configuration later; default: own address), optional `--auto-compound-shares <millionths>` (share of rewards restaked each cycle; rewards are 0 on Flare networks, so it has no effect) |
+| Side effects | Locks the stake on the P-chain. The stake returns to the staking address at the end of the cycle in which auto-renewal was stopped. |
+| Output | Tx hash, "sent to the network" |
+| Failures | "Auto-renewed validators (Helicon upgrade) are not active on <network>". Validator already registered. Period outside the allowed range. Invalid BLS signature. The max-three-nodes rule. |
+
+The configuration can only be changed by the validator authority; this tool
+supports a single-address authority with threshold 1.
+
+---
+
+## transaction setAutoRenewedValidatorConfig
+
+Change the period of an auto-renewed validator, or stop its renewal.
+
+| Aspect | Detail |
+|---|---|
+| Inputs | `-n <nodeId>` or `--validator-tx-id <txID>` (the id of the transaction that added the validator; it stays the same across renewals), `--period <seconds\|duration>` (new period from the next cycle on; `0` stops auto-renewal and returns the stake at the end of the current cycle), optional `--auto-compound-shares` |
+| Side effects | Submits the configuration transaction, signed by the inputs' owner and by the validator authority (the same key in this tool). On the unsigned-file path the single signature in the signed file is used for both. |
+| Output | Tx hash, "sent to the network" |
+| Failures | Helicon not active. The node is not a current auto-renewed validator. The configured account is not in the validator authority. Period below the network minimum (other than 0). |
+
+There is no way to exit before the end of the current cycle.
+
+---
+
 ## send
 
 Submit a previously-built signed transaction to the network.
@@ -179,9 +213,9 @@ Submit a previously-built signed transaction to the network.
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
 | Side effects | Submits the signed tx to the appropriate VM API; sets `isSentToChain: true` in the JSON file |
 | Output | "Transaction with hash ... sent to the node" |
-| Failures | "Tx already sent to chain" (the flag was already set). Missing or malformed signed tx file. |
+| Failures | "Tx already sent to chain" (the flag was already set). Missing or malformed signed tx file. The signature does not belong to the configured account (`ctx.json`, `--ledger` or `--env-path`). |
 
-The signed tx file is produced by:
+`v` in the signature may be `00`/`01` or `1b`/`1c`. The signed tx file is produced by:
 1. `transaction <op> -i <id>` (no `--ledger`/`--get-hacked`) writes
    `<id>.unsignedTx.json` with a message hash to sign
 2. External signer (Ledger, ForDefi, manual) signs the message hash
@@ -208,14 +242,14 @@ Not exercised in the integration tests (requires real ForDefi credentials).
 
 ## withdrawal
 
-Submit a C-chain transaction that withdraws FLR from a contract escrow.
+Transfer FLR from the configured C-chain address to another address.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | Recipient, amount, optional wrap flag |
-| Side effects | Sends an EVM tx |
-| Output | Tx hash |
-| Failures | Insufficient C-balance. Contract revert. |
+| Inputs | `-t <address>`, `-a <amount>` (FLR), optional `--nonce` |
+| Side effects | With `--get-hacked` or `--ledger`: sends the EVM tx and waits for the receipt. Otherwise writes the unsigned EVM tx file for `send -i`. |
+| Output | Tx hash, or the ForDefi hash of the unsigned file |
+| Failures | Insufficient C-balance. Invalid (badly checksummed) address. |
 
 ---
 
@@ -226,9 +260,9 @@ Claim accrued staking rewards from the ValidatorRewardManager contract.
 | Aspect | Detail |
 |---|---|
 | Inputs | `-r <recipient>`, `-a <amount>` (default = full unclaimed), `--wrap` (default false) |
-| Side effects | EVM tx that transfers earned FLR to the recipient |
-| Output | Tx hash |
-| Failures | No unclaimed rewards. Amount > unclaimed rewards. Contract not deployed. |
+| Side effects | With `--get-hacked` or `--ledger`: sends the EVM tx and waits for the receipt. Otherwise writes the unsigned EVM tx file for `send -i`. |
+| Output | Tx hash, or the ForDefi hash of the unsigned file |
+| Failures | No unclaimed rewards. Amount > unclaimed rewards. Contract not deployed on the network. |
 
 ---
 
@@ -240,9 +274,9 @@ configured C-chain address (ClaimSetupManager contract).
 | Aspect | Detail |
 |---|---|
 | Inputs | List of executor addresses |
-| Side effects | EVM tx that updates the executors mapping; pays an executor-registration fee |
-| Output | Tx hash |
-| Failures | An executor in the list is not registered on-chain. Insufficient C-balance for the fee. |
+| Side effects | Builds the EVM tx (value = sum of the executors' fees); signed and sent with `--get-hacked`/`--ledger`, otherwise written as an unsigned file for `send -i` |
+| Output | Tx hash, or the ForDefi hash of the unsigned file |
+| Failures | An executor in the list is not registered on-chain. More than 50 addresses. Insufficient C-balance for the fee. |
 
 ---
 
@@ -254,9 +288,9 @@ contract).
 | Aspect | Detail |
 |---|---|
 | Inputs | List of recipient addresses |
-| Side effects | EVM tx |
-| Output | Tx hash |
-| Failures | Insufficient C-balance. Contract not deployed. |
+| Side effects | Builds the EVM tx; signed and sent with `--get-hacked`/`--ledger`, otherwise written as an unsigned file for `send -i` |
+| Output | Tx hash, or the ForDefi hash of the unsigned file |
+| Failures | More than 50 addresses. Insufficient C-balance. Contract not deployed. |
 
 ---
 
@@ -266,18 +300,20 @@ Submit an arbitrary C-chain transaction (low-level escape hatch).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | Recipient, value, raw data |
-| Side effects | EVM tx |
-| Output | Tx hash |
+| Inputs | `--to <address>`, `--value <wei>`, `--data <hex>`, optional `--nonce` |
+| Side effects | Builds the EVM tx; signed and sent with `--get-hacked`/`--ledger`, otherwise written as an unsigned file for `send -i` |
+| Output | Tx hash, or the ForDefi hash of the unsigned file |
 | Failures | Standard EVM failure modes (insufficient balance, gas, revert). |
 
 ---
 
 ## interactive
 
-Menu-driven CLI using `inquirer`. Wraps the same commands above with prompts.
-The prompts label amounts as "in FLR" and pass values through the same
-`getOptions()` conversion, so semantics match the direct CLI.
+Menu-driven CLI using `inquirer`. Builds the same requests as the commands
+above and runs them through the same pipeline, so semantics match the direct
+CLI. Amounts are entered in FLR, times as unix seconds or durations. The node
+is chosen as for the other commands (`--rpc-url`, `--api-key` or the
+environment variables), the network from the menu.
 
 | Aspect | Detail |
 |---|---|

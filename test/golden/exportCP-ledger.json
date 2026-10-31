@@ -1,0 +1,27 @@
+{
+  "spec": {
+    "name": "exportCP-ledger",
+    "kind": "ledger",
+    "args": [
+      "exportCP",
+      "{\"amount\":\"10\",\"fee\":\"1\"}"
+    ]
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "Transaction with hash KHvXkHkbBPxa1ZgNDfLmtrcjc2D5VeN1UNBd1hujfpbBipHvn built and sent to the network\n",
+    "stderr": "",
+    "txIds": [
+      "KHvXkHkbBPxa1ZgNDfLmtrcjc2D5VeN1UNBd1hujfpbBipHvn"
+    ],
+    "submissions": [
+      {
+        "path": "/ext/bc/C/avax",
+        "method": "avax.issueTx",
+        "params": {
+          "tx": "0x000000000001000000a29fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac60000000000000000000000000000000000000000000000000000000000000000000000018db97c7cece249c2b98bdc0226cc4c2a57bf52fc000000028fa6ae0034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000000000000040000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540be400000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000100000009000000017adca1362d2ff2e447a03f475d48797f690833433777fd5c79d2b4a45c6f3d255a64076ed8a03316b1c0e62e4bce3c83ed9f0fdf6f57857c58b92d32a89c31ca001a228883"
+        }
+      }
+    ]
+  }
+}

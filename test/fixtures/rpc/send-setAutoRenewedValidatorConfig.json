@@ -1,0 +1,42 @@
+{
+  "recordedAt": "2026-10-29T12:56:31.352Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.issueTx",
+      "params": {
+        "tx": "0x000000000029000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700002461391f133c000000000000000000000001000000019ce5b5c42ee72a717cdb0360993102fafa57ef8f000000018d410eacf33b41e75ede2e1319a518eaf167f414d6eeacd90cfb1df5856848d50000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500002461398a505c0000000100000000000000008d410eacf33b41e75ede2e1319a518eaf167f414d6eeacd90cfb1df5856848d50000000a00000001000000000000000000000000000004b00000000200000009000000018bddccedb9b8efdc19ca0dba9aceffddbcb93464b4b2765bd9f902592ed1515e2d988509e76112aad03e765b6f0339db7871fe31ac000a768e83a98f50e18a950100000009000000018bddccedb9b8efdc19ca0dba9aceffddbcb93464b4b2765bd9f902592ed1515e2d988509e76112aad03e765b6f0339db7871fe31ac000a768e83a98f50e18a950197137354"
+      },
+      "response": {
+        "result": {
+          "txID": "uJKjqViKevryqJ8PqkcEzeHcWwUsDfLVsoUEtGPp3rJAjuozy"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "uJKjqViKevryqJ8PqkcEzeHcWwUsDfLVsoUEtGPp3rJAjuozy"
+      },
+      "response": {
+        "result": {
+          "status": "Processing"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "uJKjqViKevryqJ8PqkcEzeHcWwUsDfLVsoUEtGPp3rJAjuozy"
+      },
+      "response": {
+        "result": {
+          "status": "Committed"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,270 @@
+{
+  "recordedAt": "2026-10-29T10:08:24.818Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getAssetDescription",
+      "params": {
+        "assetID": "AVAX"
+      },
+      "response": {
+        "result": {
+          "assetID": "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K",
+          "name": "Avalanche",
+          "symbol": "AVAX",
+          "denomination": "9"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000",
+          "createSubnetTxFee": "100000000",
+          "transformSubnetTxFee": "100000000",
+          "createBlockchainTxFee": "100000000",
+          "addPrimaryNetworkValidatorFee": "0",
+          "addPrimaryNetworkDelegatorFee": "0",
+          "addSubnetValidatorFee": "1000000",
+          "addSubnetDelegatorFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "X"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "qG35QGqZ11Mvh8CxCmVVi22juDH3d4GXYFyLeX3W3aWLXWnVb"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "P"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "11111111111111111111111111111111LpoYY"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "C"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getNetworkID",
+      "response": {
+        "result": {
+          "networkID": "162"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeConfig",
+      "response": {
+        "result": {
+          "weights": [
+            1,
+            1000,
+            1000,
+            4
+          ],
+          "maxCapacity": 1000000,
+          "maxPerSecond": 100000,
+          "targetPerSecond": 50000,
+          "minPrice": 250,
+          "excessConversionConstant": 2164043
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/C/rpc",
+      "method": "eth_chainId",
+      "params": [],
+      "response": {
+        "result": "0xa2"
+      }
+    },
+    {
+      "path": "/ext/bc/C/rpc",
+      "method": "eth_getTransactionCount",
+      "params": [
+        "0x8db97c7cece249c2b98bdc0226cc4c2a57bf52fc",
+        "latest"
+      ],
+      "response": {
+        "result": "0x5"
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeState",
+      "response": {
+        "result": {
+          "capacity": 983348,
+          "excess": 16652,
+          "price": 251,
+          "timestamp": "2026-10-29T11:08:24+01:00"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.upgrades",
+      "response": {
+        "result": {
+          "apricotPhase1Time": "1970-01-01T00:00:00Z",
+          "apricotPhase2Time": "1970-01-01T00:00:00Z",
+          "apricotPhase3Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4MinPChainHeight": 0,
+          "apricotPhase5Time": "1970-01-01T00:00:00Z",
+          "songbirdTransitionTime": "0001-01-01T00:00:00Z",
+          "apricotPhasePre6Time": "1970-01-01T00:00:00Z",
+          "apricotPhase6Time": "1970-01-01T00:00:00Z",
+          "apricotPhasePost6Time": "1970-01-01T00:00:00Z",
+          "banffTime": "1970-01-01T00:00:00Z",
+          "cortinaTime": "1970-01-01T00:00:00Z",
+          "cortinaXChainStopVertexID": "11111111111111111111111111111111LpoYY",
+          "durangoTime": "1970-01-01T00:00:00Z",
+          "etnaTime": "1970-01-01T00:00:00Z",
+          "fortunaTime": "1970-01-01T00:00:00Z",
+          "graniteTime": "1970-01-01T00:00:00Z",
+          "graniteEpochDuration": 300000000000,
+          "heliconTime": "1970-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getUTXOs",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ],
+        "encoding": "hex"
+      },
+      "response": {
+        "result": {
+          "numFetched": "2",
+          "utxos": [
+            "0x0000a16b48c8a99eea994164814c8a895e3ec4a4ac65cd3f3dab400909889d3fd25a0000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009175d461b08000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c8284f30c",
+            "0x000047b9f87fb2df0d67913ab0bbed63c99116aba175617ab2b9ffcb0ff5ae780ea70000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000076f059a6b97709345000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29cfca4f209"
+          ],
+          "endIndex": {
+            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
+            "utxo": "u1Qpk9ymecQJ87uTRXvy5CFAnFduVqA2RGewdfm3Q2APFBTvX"
+          },
+          "encoding": "hex"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getCurrentValidators",
+      "response": {
+        "result": {
+          "validators": [
+            {
+              "txID": "o4PT8VorhMvaTX63DRzk7v1p5dNjVrmWWb4w7JcB2sH2VMyKb",
+              "startTime": "1793268502",
+              "endTime": "1793354884",
+              "weight": "10000000000000",
+              "nodeID": "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "10.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xadb0203ebc76627d28fb9440272a2701b85f5c5d4266352686ea42666f5026f1fdabab59529932f1eddb317a6f7435f9",
+                "proofOfPossession": "0x926a1c21953babb12189ec88bfab5cb0060b385efa04c51abe4a3bc42266f80eebb84bcfaacfc8f075560ab444bda8de17bf9013ec20a80dfdfda4ae047a0b39669d153dcee94eb964fe194f5d55c5bba5939ff9ba07b728b6733d696c33ac5a"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            },
+            {
+              "txID": "Q1tN7vdxbhquKasPh4fuz9T4WhLCqZWUKQcBAZorLBeKBX7UQ",
+              "startTime": "1780272000",
+              "endTime": "1811808000",
+              "weight": "8000000000000000000",
+              "nodeID": "NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "0.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xa75054f6d9ea8419775ca88730ff01f068a538dae1ccb9eeee4324c7928ee79b42746e2568809b6c7d8f124eb966629e",
+                "proofOfPossession": "0xa945d9805ce5f817c706e9765e8802ef422cfde97a046dbb2cf9279f773abedf66e56081dcbc813cce7d8fd36049f80a062946b94645c0f1a73b878c1c4a98a9d6824326e4633c764eb6f8f1d387ebdde3d60674fdab56fffae290f98b5bd8e2"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

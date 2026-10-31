@@ -1,22 +1,7 @@
 import EthApp, { ledgerService } from "@ledgerhq/hw-app-eth";
 import TransportNodeHid from "@ledgerhq/hw-transport-node-hid";
-import * as pubk from "../flare/pubk";
-import * as utils from "../utils";
+import { toHex } from "./bytes";
 import { EthAddress, Signature } from "./interfaces";
-
-export async function isEthereumApp() {
-  let eth = false;
-  await _connect(async (app) => {
-    try {
-      const info = await app.getAppConfiguration();
-      console.log(info);
-      eth = true;
-    } catch (e: unknown) {
-      console.log(e);
-    }
-  });
-  return eth;
-}
 
 export async function getPublicKey(bip44Path: string): Promise<string> {
   let response: EthAddress | undefined;
@@ -26,7 +11,7 @@ export async function getPublicKey(bip44Path: string): Promise<string> {
   if (!response || !response.publicKey) {
     throw new Error("Failed to obtain public key from ledger");
   }
-  return pubk.normalizePublicKey(response.publicKey);
+  return response.publicKey;
 }
 
 export async function getCAddress(bip44Path: string, display: boolean): Promise<string> {
@@ -40,19 +25,8 @@ export async function getCAddress(bip44Path: string, display: boolean): Promise<
   return response.address;
 }
 
-export async function getPAddress(bip44Path: string, hrp: string, display: boolean): Promise<string> {
-  let response: EthAddress | undefined;
-  await _connect(async (app) => {
-    response = await app.getAddress(bip44Path, display);
-  });
-  if (!response || !response.publicKey) {
-    throw new Error("Failed to obtain P-chain address from ledger");
-  }
-  return pubk.publicKeyToPAddress(hrp, response.publicKey);
-}
-
 export async function signPersonalMessage(bip44Path: string, message: string): Promise<string> {
-  const messageHex = utils.toHex(Buffer.from(message, "utf-8"), false);
+  const messageHex = toHex(Buffer.from(message, "utf-8"), false);
   let response: Signature | undefined;
   await _connect(async (app) => {
     response = await app.signPersonalMessage(bip44Path, messageHex);
@@ -63,15 +37,15 @@ export async function signPersonalMessage(bip44Path: string, message: string): P
   if (!response.r || !response.s || !response.v) {
     throw new Error("Failed to get signature from ledger device");
   }
-  const r = Buffer.from(utils.toHex(response.r, false), "hex");
-  const s = Buffer.from(utils.toHex(response.s, false), "hex");
+  const r = Buffer.from(toHex(response.r, false), "hex");
+  const s = Buffer.from(toHex(response.s, false), "hex");
   const v = Buffer.from(response.v.toString(16), "hex");
-  const signature = utils.toHex(Buffer.concat([r, s, v]), false);
+  const signature = toHex(Buffer.concat([r, s, v]), false);
   return signature;
 }
 
 export async function signEvmTransaction(bip44Path: string, txHex: string): Promise<string> {
-  const rawTx = utils.toHex(txHex, false);
+  const rawTx = toHex(txHex, false);
   const resolution = await ledgerService.resolveTransaction(rawTx, {}, {});
   let response: Signature | undefined;
   await _connect(async (app) => {
@@ -83,16 +57,16 @@ export async function signEvmTransaction(bip44Path: string, txHex: string): Prom
   if (!response.r || !response.s || !response.v) {
     throw new Error("Failed to get signature from ledger device");
   }
-  const r = Buffer.from(utils.toHex(response.r, false), "hex");
-  const s = Buffer.from(utils.toHex(response.s, false), "hex");
-  let recoveryParam = parseInt(utils.toHex(response.v, false), 16);
+  const r = Buffer.from(toHex(response.r, false), "hex");
+  const s = Buffer.from(toHex(response.s, false), "hex");
+  let recoveryParam = parseInt(toHex(response.v, false), 16);
   if (recoveryParam === 0 || recoveryParam === 1) {
     recoveryParam += 27;
   } else if (recoveryParam > 28) {
     recoveryParam = recoveryParam % 2 === 1 ? 27 : 28;
   }
   const v = Buffer.from(recoveryParam.toString(16), "hex");
-  const signature = utils.toHex(Buffer.concat([r, s, v]), false);
+  const signature = toHex(Buffer.concat([r, s, v]), false);
   return signature;
 }
 
@@ -103,7 +77,7 @@ async function _connect(execute: (app: EthApp) => Promise<void>): Promise<void> 
     // Two ledger packages have slightly different Transport type definitions
     // (abortTimeoutMs optional vs explicitly undefined-able under exactOptionalPropertyTypes).
     // The runtime contract is identical.
-    eth = new EthApp(transport as unknown as ConstructorParameters<typeof EthApp>[0]);
+    eth = new EthApp(transport);
     await execute(eth);
   } finally {
     if (eth && eth.transport) {

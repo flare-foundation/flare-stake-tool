@@ -1,0 +1,41 @@
+{
+  "spec": {
+    "name": "delegate-pk",
+    "kind": "cli",
+    "args": [
+      "transaction",
+      "delegate",
+      "-n",
+      "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ",
+      "-a",
+      "10000",
+      "-e",
+      "1793275684",
+      "-s",
+      "1700000000",
+      "--env-path",
+      "test.env",
+      "--get-hacked",
+      "--network",
+      "localflare"
+    ],
+    "needsEnv": true
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nTransaction with hash 29xUdx1NCNJncoBAyfLwBfTbvMJqdox3fojqiXtj1tijYzjm1b built and sent to the network\n",
+    "stderr": "",
+    "txIds": [
+      "29xUdx1NCNJncoBAyfLwBfTbvMJqdox3fojqiXtj1tijYzjm1b"
+    ],
+    "submissions": [
+      {
+        "path": "/ext/bc/P",
+        "method": "platform.issueTx",
+        "params": {
+          "tx": "0x00000000001a000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000076f05883a08214606000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000017f8e9def1dd62d4fb41b14e6019721d1cde77a367c03845f45d1cf9b6ac8a51a0000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000056f05915256b38e84000000010000000000000000de31b4d8b22991d51aa6aa1fc733f23a851a8c94000000006553f100000000006ae33724000009184e72a00000000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009184e72a000000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000b000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000100000009000000011c57616d63fe489f8d8e323b5b18ea83b23bdf65fbc5fd89a98866455eff31b0207f93e136cbe57b1f52294bd36012635308d4ab0f48e0b871f65569de1f5a640196e10222"
+        }
+      }
+    ]
+  }
+}

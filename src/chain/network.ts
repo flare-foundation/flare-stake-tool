@@ -1,0 +1,125 @@
+/**
+ * The single source of truth for network parameters. Everything else (node
+ * URLs, hrp, EVM chain id, token symbol) derives from this table.
+ */
+export type NetworkName = "flare" | "songbird" | "costwo" | "coston" | "localflare";
+
+export interface NetworkConfig {
+  readonly name: NetworkName;
+  /** Avalanche-style network id (P-chain). */
+  readonly networkId: number;
+  /** Bech32 human-readable part of P/C-chain addresses. */
+  readonly hrp: string;
+  /** EVM chain id of the C-chain. */
+  readonly chainId: number;
+  /** Node base URL, no trailing slash (e.g. https://flare-api.flare.network). */
+  readonly apiUrl: string;
+  /** C-chain JSON-RPC endpoint. */
+  readonly rpcUrl: string;
+  /** API key sent as the `x-apikey` header with every request, for nodes that require one. */
+  readonly apiKey: string | undefined;
+  /** Native token symbol, for display only. */
+  readonly symbol: string;
+}
+
+/** Node settings given on the command line; they win over the environment variables. */
+export interface NodeOverrides {
+  /** Node base URL, or a full endpoint URL such as `https://host/ext/info?x-apikey=KEY`. */
+  apiUrl?: string | undefined;
+  apiKey?: string | undefined;
+}
+
+export interface ParsedNodeUrl {
+  apiUrl: string;
+  /** The `x-apikey` query parameter, when the URL carried one. */
+  apiKey: string | undefined;
+}
+
+interface Definition {
+  networkId: number;
+  chainId: number;
+  apiUrl: string;
+  symbol: string;
+}
+
+const DEFINITIONS: Record<NetworkName, Definition> = {
+  flare: { networkId: 14, chainId: 14, apiUrl: "https://flare-api.flare.network", symbol: "FLR" },
+  songbird: { networkId: 5, chainId: 19, apiUrl: "https://songbird-api.flare.network", symbol: "SGB" },
+  costwo: { networkId: 114, chainId: 114, apiUrl: "https://coston2-api.flare.network", symbol: "C2FLR" },
+  coston: { networkId: 7, chainId: 16, apiUrl: "https://coston-api.flare.network", symbol: "CFLR" },
+  localflare: { networkId: 162, chainId: 162, apiUrl: "http://localhost:9650", symbol: "LFLR" },
+};
+
+export const NETWORK_NAMES = Object.keys(DEFINITIONS) as readonly NetworkName[];
+export const DEFAULT_NETWORK: NetworkName = "flare";
+
+/** Environment variable that replaces the node base URL of whichever network is selected. */
+export const RPC_URL_ENV = "FLARE_RPC_URL";
+/** Environment variable holding the API key of a node that requires one. */
+export const API_KEY_ENV = "FLARE_API_KEY";
+/** Header (and query parameter) through which Flare's API gateways take the key. */
+export const API_KEY_HEADER = "x-apikey";
+
+export function isNetworkName(value: unknown): value is NetworkName {
+  return typeof value === "string" && Object.hasOwn(DEFINITIONS, value);
+}
+
+const nonEmpty = (value: string | undefined): string | undefined => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+};
+
+/**
+ * Turns a node URL into the base URL the clients are built on. A full endpoint
+ * URL as copied from a node's documentation (`https://host/ext/info?x-apikey=KEY`)
+ * is accepted: the `/ext/...` API path is dropped and an `x-apikey` query
+ * parameter becomes the API key.
+ */
+export function parseNodeUrl(input: string): ParsedNodeUrl {
+  let url: URL;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    throw new Error(`Invalid node URL "${input}"; expected a base URL such as https://coston2-api.flare.network`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`Invalid node URL "${input}"; only http and https are supported`);
+  }
+  const apiKey = nonEmpty(url.searchParams.get(API_KEY_HEADER) ?? undefined);
+  url.search = "";
+  url.hash = "";
+  url.pathname = url.pathname.replace(/\/ext(\/.*)?$/, "");
+  return { apiUrl: url.href.replace(/\/+$/, ""), apiKey };
+}
+
+/**
+ * Resolves a network by name. The node URL and API key come from the
+ * overrides (`--rpc-url`, `--api-key`), else from `FLARE_RPC_URL` and
+ * `FLARE_API_KEY` (or `env[...]`), else from the URL's own `x-apikey` query
+ * parameter; the hrp, ids and symbol stay those of the network. That is how
+ * staging deployments and private nodes are reached, and how the test harness
+ * points the tool at a replay server.
+ */
+export function networkConfig(
+  name: string,
+  env: NodeJS.ProcessEnv = process.env,
+  overrides: NodeOverrides = {}
+): NetworkConfig {
+  if (!isNetworkName(name)) {
+    throw new Error(`Unknown network "${name}"; expected one of ${NETWORK_NAMES.join(", ")}`);
+  }
+  const definition = DEFINITIONS[name];
+  const urlInput = nonEmpty(overrides.apiUrl) ?? nonEmpty(env[RPC_URL_ENV]);
+  const node = urlInput === undefined ? undefined : parseNodeUrl(urlInput);
+  const apiUrl = node?.apiUrl ?? definition.apiUrl;
+  return {
+    name,
+    networkId: definition.networkId,
+    hrp: name,
+    chainId: definition.chainId,
+    apiUrl,
+    rpcUrl: `${apiUrl}/ext/bc/C/rpc`,
+    apiKey: nonEmpty(overrides.apiKey) ?? nonEmpty(env[API_KEY_ENV]) ?? node?.apiKey,
+    symbol: definition.symbol,
+  };
+}

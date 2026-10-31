@@ -1,59 +1,51 @@
 import { Command } from "commander";
-import chalk from "chalk";
-import clear from "clear";
+import { styleText } from "node:util";
 import figlet from "figlet";
 import { cli } from "./cli";
+import { describeError } from "./output";
 import { interactiveCli } from "./interactive/cli";
+import { ATOMIC_TX_TYPES } from "./core/types";
 import { version } from "../package.json";
 
-function cliInfo(isClear: boolean = false) {
-  if (isClear) {
-    clear();
-  }
-  console.log(chalk.white(figlet.textSync("Flare Stake CLI")));
-  console.log(chalk.green(`Version: ${version}`));
+const INFO_ALIASES = ["addresses", "balance", "validators"];
+
+function banner(): void {
+  process.stdout.write("\x1Bc");
+  console.log(styleText("white", figlet.textSync("Flare Stake CLI")));
+  console.log(styleText("green", `Version: ${version}`));
 }
 
 const baseArgv = process.argv;
 const command = baseArgv[2];
 
-function getArgv() {
-  if (
-    command === "exportCP" ||
-    command === "importCP" ||
-    command === "exportPC" ||
-    command === "importPC" ||
-    command === "stake" ||
-    command === "delegate" ||
-    command === "transfer"
-  ) {
-    return [...baseArgv.slice(0, 2), "transaction", ...baseArgv.slice(2)];
-  } else if (command === "addresses" || command === "network" || command === "balance" || command === "validators") {
-    return [...baseArgv.slice(0, 2), "info", ...baseArgv.slice(2)];
-  } else {
-    return baseArgv;
+/** Lets `flare-stake-tool exportCP ...` stand for `transaction exportCP ...`, and `balance` for `info balance`. */
+function expandAliases(argv: string[]): string[] {
+  const name = argv[2];
+  if (name !== undefined && (ATOMIC_TX_TYPES as readonly string[]).includes(name)) {
+    return [...argv.slice(0, 2), "transaction", ...argv.slice(2)];
   }
+  if (name !== undefined && INFO_ALIASES.includes(name)) {
+    return [...argv.slice(0, 2), "info", ...argv.slice(2)];
+  }
+  return argv;
 }
 
 if (command === "interactive" || command === "-i") {
-  cliInfo(true);
+  banner();
   interactiveCli(baseArgv)
     .then(() => {
-      console.log(`Finished execution`);
+      console.log("Finished execution");
     })
-    .catch((error) => {
-      console.log(chalk.red("E"), error);
+    .catch((error: unknown) => {
+      console.error(styleText("red", `Error: ${describeError(error)}`));
+      process.exit(1);
     });
 } else {
-  cliInfo();
-  const program = new Command("Flare Stake Tool");
+  const program = new Command("flare-stake-tool");
+  program.version(version);
   cli(program);
-  program.parseAsync(getArgv()).catch((err) => {
-    if (err instanceof Error) {
-      console.error(chalk.red(`Error: ${err.message}`));
-    } else {
-      console.error(chalk.red(`Error: ${String(err)}`));
-    }
+  program.parseAsync(expandAliases(baseArgv)).catch((error: unknown) => {
+    console.error(styleText("red", `Error: ${describeError(error)}`));
     process.exit(1);
   });
 }

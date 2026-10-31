@@ -1,0 +1,39 @@
+{
+  "spec": {
+    "name": "exportCP-file",
+    "kind": "cli",
+    "args": [
+      "transaction",
+      "exportCP",
+      "-a",
+      "10",
+      "-f",
+      "1",
+      "-i",
+      "exportCP-file",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "txFileId": "exportCP-file"
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nUnsigned transaction exportCP-file constructed\nForDefi hash: 6LJVfqJA8CZbLR7Az5yjtmibXDkqfZuY1Du49oFjXkQ=\n",
+    "stderr": "",
+    "txIds": [],
+    "submissions": [],
+    "unsignedTxJson": {
+      "transactionType": "exportCP",
+      "signatureRequests": [
+        {
+          "message": "e8b2557ea240f0265b2d1ec0cf9ca3b6689b5c392a7d9b98d43bb8f681635e44",
+          "signer": ""
+        }
+      ],
+      "unsignedTransactionBuffer": "000000000001000000a29fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac60000000000000000000000000000000000000000000000000000000000000000000000018db97c7cece249c2b98bdc0226cc4c2a57bf52fc000000028fa6ae0034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000000000000020000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540be400000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c",
+      "serialization": "{\"codecId\":\"0\",\"vm\":\"EVM\",\"txBytes\":\"0x000000000001000000a29fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac60000000000000000000000000000000000000000000000000000000000000000000000018db97c7cece249c2b98bdc0226cc4c2a57bf52fc000000028fa6ae0034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000000000000020000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540be400000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c\",\"utxos\":[],\"addressMaps\":[[[\"0x8db97c7cece249c2b98bdc0226cc4c2a57bf52fc\",0]]],\"credentials\":[[\"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\"]]}",
+      "forDefiHash": "6LJVfqJA8CZbLR7Az5yjtmibXDkqfZuY1Du49oFjXkQ="
+    }
+  }
+}

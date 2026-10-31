@@ -31,6 +31,7 @@ include:
         pnpm lint:check
         pnpm format:check
         pnpm typecheck
+        pnpm audit --audit-level=high
   - component: gitlab.com/flarenetwork/ci-components-private/test-pnpm@2
     inputs:
       node_version: '24.19'

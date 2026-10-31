@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [[v5.0.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.0.0)] - 2026-10-29
+
+### Changed
+
+* **One transaction pipeline for every signing path.** Each transaction type is now built once (`src/core/builders`), signed by one of three interchangeable signers (private key, Ledger, external signature file), and submitted and confirmed by one piece of code, instead of three parallel implementations that had drifted apart. The unsigned/signed transaction file formats, the ForDefi request and every command and flag are unchanged. Behaviour that differed between the paths has been unified:
+  * `-f`/`--fee` for `exportCP` and `importPC` is the total fee in FLR on every path. The private key path previously compared it with the per-gas base fee (in a different unit), so the value given was effectively always replaced by a chain estimate; it now pays exactly the fee given, and estimates from the base fee only when `-f` is omitted. The unsigned-file path still requires `-f` so that every signer builds the same transaction.
+  * `exportCP` exports exactly the amount given on every path. The Ledger path used to add the P-chain base fee to the exported amount; the P-chain import fee is now paid from the imported funds on every path, as it already was for the other two.
+  * `exportPC -a` is optional on every path (default: the whole P-chain balance minus the base fee), as the documentation already said.
+  * The checks that an account stakes to at most three distinct nodes and that a delegation targets a current validator, within its validation period, run on every path, including the unsigned-file path.
+  * Every path waits for the transaction to be accepted and prints its id. The Ledger path printed nothing; the private key and file paths returned before the transaction was accepted.
+  * `send -i` accepts signatures with `v` as `00`/`01` or `1b`/`1c` (both were documented, only the first worked), checks that the signature belongs to the configured account before submitting, and fills the authority credential of Helicon configuration transactions.
+  * `--delegation-fee` is converted exactly (`0.07` % is 700 shares; floating point used to give `700.0000000000001`), and `--nonce` is stored as a number in unsigned EVM files (the transaction hash is unchanged).
+  * `claim`, `withdrawal`, `setClaimExecutors`, `setAllowedClaimRecipients` and `customCChainTx` can be signed with `--get-hacked` or `--ledger` as well as through the unsigned-file flow, and use the C-chain's chain id on every network. `claim`, `setClaimExecutors` and `setAllowedClaimRecipients` used the P-chain network id, which differs from the chain id on Songbird (5 vs 19) and Coston (7 vs 16).
+  * The Ledger Ethereum app is used for C-chain transactions only. For P-chain and atomic transactions it signed an EIP-191 personal message over the hash, which the node never accepts; the tool now says so and asks for the Flare app.
+  * `init-ctx` honours `--derivation-path`, stores the P-chain address in `flareAddress` (it stored the C-chain address), and accepts `--vault-id` so a ForDefi context no longer has to be edited by hand.
+  * Addresses are validated with a strict EIP-55 checksum (a mixed-case address with a wrong checksum is rejected rather than corrected).
+  * The banner is printed only in interactive mode, so command output is plain text, and `--version` is available.
+  * The interactive menu calls the same functions as the command line instead of re-parsing generated command lines, and gained entries for auto-renewed validators.
+  * In interactive mode an action that fails no longer ends the session: the error is printed and the menu is shown again. Connecting a wallet retries after an error as well.
+* Upgraded `@flarenetwork/flarejs` from 4.1.1 to 5.2.0 (pinned exactly). The P-chain transaction builders now use the Etna object-style API only; the pre-Etna builders were removed from the library and the corresponding dead branches (and the per-transaction `info.upgrades` call that selected them) from the tool. Etna has been active on all Flare networks since 2025, so built transactions are byte-identical, which the new characterization goldens verify.
+* The interactive menu no longer asks for a start time when staking or delegating; since the Durango upgrade the chain sets it.
+* Dependencies brought up to date: Ledger packages (`@ledgerhq/hw-app-eth` 7, `@ledgerhq/hw-transport-node-hid` 6.33, `@avalabs/hw-app-avalanche` 1.1, the last line on the classic transport API), `commander` 14, `dotenv` 18, `ethers` 6.17, `inquirer` 8.2, and the whole development toolchain (ESLint 9.39, typescript-eslint 8.72, mocha 12, tsx, prettier, chai, fast-check). `chalk` and `clear` were replaced by Node's built-in `util.styleText` and an escape sequence; `nyc` by `c8`. Remaining transitive advisories are closed by bounded `pnpm-workspace.yaml` overrides, `pnpm audit --audit-level=high` runs in CI, and `pnpm audit` is down from 122 findings (2 critical, 61 high) to 3 (none above moderate).
+
+### Removed
+
+* `info network` (it printed only a header) and the undocumented `info mirror` (it only listed the address's P-chain stakes), together with the interactive menu entries for them.
+* Dead code that no command reached: the React/MUI UI module, the Trezor module, the EVM transaction helpers in the Ledger signing module, unused Ledger helpers, the `local` network alias and browser-only utilities; and the dependencies they pulled in (`@emotion/*`, `@mui/*`, `@metamask/detect-provider`, `@ledgerhq/hw-transport-webhid`, `@trezor/connect-web`, `@ethereumjs/{tx,common,rlp}`, `buffer`, `node-fetch`, the unused ethers v5 alias). This removes both critical and most high-severity advisories reported by `pnpm audit`.
+* The no-op `--blind` and `--threshold` options are still accepted for compatibility but do nothing (they never did).
+
+### Added
+
+* Auto-renewed validators (Helicon upgrade, ACP-236): `transaction addAutoRenewedValidator` registers a validator without an end time that is renewed every `--period`, and `transaction setAutoRenewedValidatorConfig` changes the period or stops the renewal (`--period 0`). Both work on every signing path; the configuration transaction's validator-authority credential is signed by the same key, also when the signature comes from an unsigned-file flow. `info validators` summarises the cycle end, next period and authority of auto-renewed validators. The commands refuse to run on networks where Helicon is not active.
+* `--end-time`, `--start-time` and `--period` accept human-readable durations such as `2d12h` or `90m` (units w, d, h, m, s) as well as unix seconds or plain seconds; an end time given as a duration is added to now, and the resolved absolute value is printed. On the unsigned-file path every co-signer must pass that absolute value.
+* `--rpc-url <url>` (or `FLARE_RPC_URL`) points any network name at a different node, and `--api-key <key>` (or `FLARE_API_KEY`) sends an API key as the `x-apikey` header with every request, for staging deployments and private nodes behind Flare's API gateway; a copied endpoint URL with `?x-apikey=` works as the URL. The network name keeps deciding the hrp and chain ids. A gateway refusal (HTTP 401/403 or an HTML error page) is reported with a hint about the key instead of a raw dump.
+* Offline characterization tests: `pnpm test` replays 44 recorded scenarios (every transaction type on the private key, Ledger and unsigned-file paths, plus the C-chain commands and `send`) against JSON-RPC fixtures and checks the produced bytes, hashes and submitted transactions; `pnpm test:record-fixtures` re-records them against a running localflare.
+* Integration tests now target an externally running Helicon-capable localflare (`LOCALFLARE_RPC_URL`, default `http://localhost:9650`) instead of starting docker-compose, use a fresh funded account per run and relative end times, so they can be rerun at any time.
+
 ## [[v4.4.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.4.0)] - 2026-09-01
 
 ### Removed

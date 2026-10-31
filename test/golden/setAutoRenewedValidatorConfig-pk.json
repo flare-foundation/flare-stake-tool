@@ -1,0 +1,41 @@
+{
+  "spec": {
+    "name": "setAutoRenewedValidatorConfig-pk",
+    "kind": "cli",
+    "args": [
+      "transaction",
+      "setAutoRenewedValidatorConfig",
+      "-n",
+      "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
+      "--period",
+      "0",
+      "--env-path",
+      "test.env",
+      "--get-hacked",
+      "--network",
+      "localflare"
+    ],
+    "needsEnv": true,
+    "account": {
+      "privateKeyHex": "bce6223be202e33a5589843f7e74c18e3826430ddf209e06b983a8f8de7b5d4a",
+      "publicKeyHex": "021cb4e4167c716d555976a9e69eef395a8f2d00cdaf02cb71a5cc1f5704ef3290"
+    }
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "Transaction with hash 2Qt3xkebFsCNcGK3b9X4w3TKvkXeusrm5ZFZhGcHGAtkPj2eTA built and sent to the network\n",
+    "stderr": "",
+    "txIds": [
+      "2Qt3xkebFsCNcGK3b9X4w3TKvkXeusrm5ZFZhGcHGAtkPj2eTA"
+    ],
+    "submissions": [
+      {
+        "path": "/ext/bc/P",
+        "method": "platform.issueTx",
+        "params": {
+          "tx": "0x000000000029000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700002461390443f4000000000000000000000001000000019ce5b5c42ee72a717cdb0360993102fafa57ef8f0000000176c0232b67cabaac6989c1ae6f5f6ec5aa2465b21ddcccace104ca9c971373540000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500002461391f133c0000000100000000000000008d410eacf33b41e75ede2e1319a518eaf167f414d6eeacd90cfb1df5856848d50000000a000000010000000000000000000000000000000000000002000000090000000128e49f7e044a13607dd1039731aeca0a87c5cc83aea91781983b939b53aa58b13194aaa4beb5ac470786618f2bd9c9f6bf8d6599ad1ffaf6913c5a42491d1c2100000000090000000128e49f7e044a13607dd1039731aeca0a87c5cc83aea91781983b939b53aa58b13194aaa4beb5ac470786618f2bd9c9f6bf8d6599ad1ffaf6913c5a42491d1c210030131e4a"
+        }
+      }
+    ]
+  }
+}

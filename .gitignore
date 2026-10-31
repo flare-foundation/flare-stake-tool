@@ -114,3 +114,5 @@ ForDefiTxnFiles/
 
 # private keys
 pk*
+.*-pk*
+.test-pk*

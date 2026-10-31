@@ -1,0 +1,20 @@
+{
+  "all": true,
+  "include": [
+    "src/**/*.ts",
+    "dist/**/*.js"
+  ],
+  "exclude": [
+    "dist/constants/screen.js"
+  ],
+  "reporter": [
+    "text",
+    "text-summary",
+    "html",
+    "lcov",
+    "cobertura"
+  ],
+  "reports-dir": "coverage",
+  "check-coverage": false,
+  "exclude-after-remap": true
+}

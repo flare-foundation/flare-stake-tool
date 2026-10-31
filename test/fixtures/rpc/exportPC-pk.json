@@ -1,0 +1,203 @@
+{
+  "recordedAt": "2026-10-29T10:08:08.560Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getAssetDescription",
+      "params": {
+        "assetID": "AVAX"
+      },
+      "response": {
+        "result": {
+          "assetID": "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K",
+          "name": "Avalanche",
+          "symbol": "AVAX",
+          "denomination": "9"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000",
+          "createSubnetTxFee": "100000000",
+          "transformSubnetTxFee": "100000000",
+          "createBlockchainTxFee": "100000000",
+          "addPrimaryNetworkValidatorFee": "0",
+          "addPrimaryNetworkDelegatorFee": "0",
+          "addSubnetValidatorFee": "1000000",
+          "addSubnetDelegatorFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "X"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "qG35QGqZ11Mvh8CxCmVVi22juDH3d4GXYFyLeX3W3aWLXWnVb"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "P"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "11111111111111111111111111111111LpoYY"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "C"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getNetworkID",
+      "response": {
+        "result": {
+          "networkID": "162"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeConfig",
+      "response": {
+        "result": {
+          "weights": [
+            1,
+            1000,
+            1000,
+            4
+          ],
+          "maxCapacity": 1000000,
+          "maxPerSecond": 100000,
+          "targetPerSecond": 50000,
+          "minPrice": 250,
+          "excessConversionConstant": 2164043
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeState",
+      "response": {
+        "result": {
+          "capacity": 991824,
+          "excess": 8176,
+          "price": 250,
+          "timestamp": "2026-10-29T11:08:05+01:00"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.upgrades",
+      "response": {
+        "result": {
+          "apricotPhase1Time": "1970-01-01T00:00:00Z",
+          "apricotPhase2Time": "1970-01-01T00:00:00Z",
+          "apricotPhase3Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4MinPChainHeight": 0,
+          "apricotPhase5Time": "1970-01-01T00:00:00Z",
+          "songbirdTransitionTime": "0001-01-01T00:00:00Z",
+          "apricotPhasePre6Time": "1970-01-01T00:00:00Z",
+          "apricotPhase6Time": "1970-01-01T00:00:00Z",
+          "apricotPhasePost6Time": "1970-01-01T00:00:00Z",
+          "banffTime": "1970-01-01T00:00:00Z",
+          "cortinaTime": "1970-01-01T00:00:00Z",
+          "cortinaXChainStopVertexID": "11111111111111111111111111111111LpoYY",
+          "durangoTime": "1970-01-01T00:00:00Z",
+          "etnaTime": "1970-01-01T00:00:00Z",
+          "fortunaTime": "1970-01-01T00:00:00Z",
+          "graniteTime": "1970-01-01T00:00:00Z",
+          "graniteEpochDuration": 300000000000,
+          "heliconTime": "1970-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getUTXOs",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ],
+        "encoding": "hex"
+      },
+      "response": {
+        "result": {
+          "numFetched": "6",
+          "utxos": [
+            "0x0000a946cd1f454e42559ce1c4da78e626898ead43dce7f1b4bc50ae7463510ad8d20000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000070000000217947b7c000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c175f24dd",
+            "0x0000d0f2b9347c5d918c1093667c32980f83853b1cc820e4cbfb8d8a27a0b2cf0d540000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000070000000253cccba8000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29cf9311d90",
+            "0x00007f1ca1d0da0cee27fe1469249929a167f8e97a7ef0f81b569a8b8659cffc3d8e0000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009184e72a000000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c6ffadd0c",
+            "0x0000da943ac6f657585e4110f007e7bfd4c560a51ae07dcf3c668ca52ab2b758c0830000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009184e0130d4000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0b66b0b8",
+            "0x000000c74e044dc10ac89cbd7081815eabf5b158b7c72e31bb174f7adb6a5427b7ed0000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009184e72a000000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c85f86cac",
+            "0x000047b9f87fb2df0d67913ab0bbed63c99116aba175617ab2b9ffcb0ff5ae780ea70000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000076f059a6b97709345000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29cfca4f209"
+          ],
+          "endIndex": {
+            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
+            "utxo": "u1Qpk9ymecQJ87uTRXvy5CFAnFduVqA2RGewdfm3Q2APFBTvX"
+          },
+          "encoding": "hex"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.issueTx",
+      "params": {
+        "tx": "0x000000000012000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002173632c4000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c00000002a946cd1f454e42559ce1c4da78e626898ead43dce7f1b4bc50ae7463510ad8d20000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000050000000217947b7c0000000100000000d0f2b9347c5d918c1093667c32980f83853b1cc820e4cbfb8d8a27a0b2cf0d540000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000050000000253cccba80000000100000000000000009fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac60000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540be400000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000020000000900000001446fb8f87662aba2566d4fa98f794570f09eafa76231f39b8ba973e543ae7d62452bf5470ee9aa2badd25471719d3279e42e7acff39e916b2936c3a3c2474b8b000000000900000001446fb8f87662aba2566d4fa98f794570f09eafa76231f39b8ba973e543ae7d62452bf5470ee9aa2badd25471719d3279e42e7acff39e916b2936c3a3c2474b8b006b853821"
+      },
+      "response": {
+        "result": {
+          "txID": "2rDJVs2murw5aFFnhPsyC4bBugXkQPwZkMtF1WdWBfC4BXhEJK"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "2rDJVs2murw5aFFnhPsyC4bBugXkQPwZkMtF1WdWBfC4BXhEJK"
+      },
+      "response": {
+        "result": {
+          "status": "Committed"
+        }
+      }
+    }
+  ]
+}
