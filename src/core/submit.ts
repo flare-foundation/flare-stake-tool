@@ -27,6 +27,21 @@ const C_CHAIN_REFUSED = new Set(["Dropped", "Rejected"]);
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/**
+ * A status lookup for a transaction the node has already taken. The transaction
+ * may still land when the lookup fails, so the error names it.
+ */
+async function statusOf<T>(txId: string, lookup: () => Promise<T>): Promise<T> {
+  try {
+    return await lookup();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Transaction ${txId} was submitted, but its status could not be read: ${reason}`, {
+      cause: error,
+    });
+  }
+}
+
 export async function submitAndConfirm(
   bundle: UnsignedTxBundle,
   env: Env,
@@ -42,7 +57,7 @@ export async function submitAndConfirm(
     }
     options.onIssued?.(hash);
     while (Date.now() < deadline) {
-      const receipt = await env.clients.provider.getTransactionReceipt(hash);
+      const receipt = await statusOf(hash, () => env.clients.provider.getTransactionReceipt(hash));
       if (receipt) {
         if (receipt.status !== 1) {
           // mined, so on chain (its nonce is used), but the call failed
@@ -60,7 +75,7 @@ export async function submitAndConfirm(
     const { txID } = await env.clients.evm.issueSignedTx(signedTx);
     options.onIssued?.(txID);
     while (Date.now() < deadline) {
-      const { status } = await env.clients.evm.getAtomicTxStatus(txID);
+      const { status } = await statusOf(txID, () => env.clients.evm.getAtomicTxStatus(txID));
       if (status === "Accepted") return { txId: txID, chainStatus: status };
       if (C_CHAIN_REFUSED.has(status)) {
         throw new TxNotAcceptedError(`Transaction ${txID} was ${status.toLowerCase()} by the C-chain`);
@@ -73,7 +88,7 @@ export async function submitAndConfirm(
   const { txID } = await env.clients.pvm.issueSignedTx(signedTx);
   options.onIssued?.(txID);
   while (Date.now() < deadline) {
-    const { status, reason } = await env.clients.pvm.getTxStatus({ txID });
+    const { status, reason } = await statusOf(txID, () => env.clients.pvm.getTxStatus({ txID }));
     if (status === "Committed") return { txId: txID, chainStatus: status };
     if (P_CHAIN_REFUSED.has(status)) {
       throw new TxNotAcceptedError(

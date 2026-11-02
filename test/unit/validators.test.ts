@@ -74,11 +74,28 @@ describe("chain/validators", () => {
       weight: "1",
       validationRewardOwner: owner([target]),
     }));
-    expect(() => checkNodeLimit(three, account, "NodeID-D", 2000n, 3000n)).to.throw(
+    // (account, node, end time, now)
+    expect(() => checkNodeLimit(three, account, "NodeID-D", 3000n, 2000n)).to.throw(
       /already has active stakes to 3 different nodes/
     );
-    expect(() => checkNodeLimit(three, account, "NodeID-A", 2000n, 3000n)).to.not.throw();
-    expect(() => checkNodeLimit(three, account, "NodeID-D", 9001n, 9500n)).to.not.throw(); // after they end
-    expect(() => checkNodeLimit(three.slice(0, 2), account, "NodeID-D", 2000n, 3000n)).to.not.throw();
+    expect(() => checkNodeLimit(three, account, "NodeID-A", 3000n, 2000n)).to.not.throw();
+    expect(() => checkNodeLimit(three, account, "NodeID-D", 9500n, 9001n)).to.not.throw(); // after they end
+    expect(() => checkNodeLimit(three.slice(0, 2), account, "NodeID-D", 3000n, 2000n)).to.not.throw();
+  });
+
+  it("counts the period from now, since the chain starts a stake when it accepts it (a later --start-time is not used)", () => {
+    const account = { ...accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "flare"), pAddress: target };
+    const three: CurrentValidator[] = ["NodeID-A", "NodeID-B", "NodeID-C"].map((nodeID) => ({
+      txID: nodeID,
+      nodeID,
+      startTime: "1000",
+      endTime: "9000",
+      weight: "1",
+      validationRewardOwner: owner([target]),
+    }));
+    // A fourth node until 20000, asked for at 2000 with a start time after 9000: the stake would start at 2000.
+    expect(() => checkNodeLimit(three, account, "NodeID-D", 20_000n, 2000n)).to.throw(
+      /already has active stakes to 3 different nodes/
+    );
   });
 });

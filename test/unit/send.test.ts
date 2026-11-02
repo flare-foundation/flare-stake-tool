@@ -19,14 +19,17 @@ interface ScriptedNode {
   statuses: string[];
   /** When set, issuing fails like a node refusing the transaction outright. */
   issueError?: string;
+  /** When set, every status poll fails like a node that cannot be reached. */
+  pollError?: string;
   /** Whether the file was already marked when the first status poll came in. */
   markedAtFirstPoll?: boolean;
 }
 
 function scriptedEnv(node: ScriptedNode, id: string, cwd: string): Env {
-  const poll = () => {
+  const poll = (): Promise<string> => {
     node.markedAtFirstPoll ??= isAlreadySentToChain(id, cwd);
-    return node.statuses.length > 1 ? node.statuses.shift()! : node.statuses[0]!;
+    if (node.pollError) return Promise.reject(new Error(node.pollError));
+    return Promise.resolve(node.statuses.length > 1 ? node.statuses.shift()! : node.statuses[0]!);
   };
   const issue = () =>
     node.issueError
@@ -34,8 +37,8 @@ function scriptedEnv(node: ScriptedNode, id: string, cwd: string): Env {
       : Promise.resolve({ txID: "2TxIdFromTheScriptedNode" });
   const clients = {
     verifyNetwork: () => Promise.resolve(),
-    pvm: { issueSignedTx: issue, getTxStatus: () => Promise.resolve({ status: poll(), reason: "" }) },
-    evm: { issueSignedTx: issue, getAtomicTxStatus: () => Promise.resolve({ status: poll() }) },
+    pvm: { issueSignedTx: issue, getTxStatus: async () => ({ status: await poll(), reason: "" }) },
+    evm: { issueSignedTx: issue, getAtomicTxStatus: async () => ({ status: await poll() }) },
   };
   return { network: networkConfig("localflare", {}), clients: clients as unknown as Clients };
 }
@@ -81,6 +84,26 @@ describe("app/send: the isSentToChain mark", () => {
       () => expect.fail("a rerun must not submit again"),
       (error: unknown) => expect(String(error)).to.include("Tx already sent to chain")
     );
+  });
+
+  it("stays set and names the transaction when its status cannot be read, on the P-chain and the C-chain", async () => {
+    for (const [scenario, id] of [
+      ["delegate-file", "p"],
+      ["exportCP-file", "c"],
+    ] as const) {
+      writeSigned(scenario, id, cwd);
+      const issued: string[] = [];
+      const env = scriptedEnv({ statuses: ["Processing"], pollError: "fetch failed" }, id, cwd);
+      await sendSignedTransaction(id, env, undefined, cwd, { ...FAST, onIssued: (txId) => issued.push(txId) }).then(
+        () => expect.fail("the status lookup should fail"),
+        (error: unknown) =>
+          expect(String(error)).to.include(
+            "Transaction 2TxIdFromTheScriptedNode was submitted, but its status could not be read: fetch failed"
+          )
+      );
+      expect(issued, scenario).to.deep.equal(["2TxIdFromTheScriptedNode"]); // reported before the wait
+      expect(isAlreadySentToChain(id, cwd), scenario).to.equal(true);
+    }
   });
 
   it("is removed when the P-chain aborts or drops the transaction, which may then be sent again", async () => {

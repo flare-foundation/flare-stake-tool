@@ -13,6 +13,8 @@ interface SeenRequest {
 interface FakeNode {
   url: string;
   seen: SeenRequest[];
+  /** Makes the next request for this method fail, like a node that is briefly unavailable. */
+  failNext(method: string): void;
   close(): Promise<void>;
 }
 
@@ -62,6 +64,7 @@ function answer(method: string, params: unknown): unknown {
 /** A JSON-RPC node (single and batched requests) that records the x-apikey header of every request. */
 function startFakeNode(): Promise<FakeNode> {
   const seen: SeenRequest[] = [];
+  const failing = new Set<string>();
   const server = http.createServer((req, res) => {
     let body = "";
     req.setEncoding("utf8");
@@ -72,6 +75,9 @@ function startFakeNode(): Promise<FakeNode> {
       const parsed = JSON.parse(body) as JsonRpcRequest | JsonRpcRequest[];
       const responses = (Array.isArray(parsed) ? parsed : [parsed]).map((request) => {
         seen.push({ path: req.url ?? "", method: request.method, apiKey });
+        if (failing.delete(request.method)) {
+          return { jsonrpc: "2.0", id: request.id, error: { code: -32000, message: "temporarily unavailable" } };
+        }
         try {
           return { jsonrpc: "2.0", id: request.id, result: answer(request.method, request.params) };
         } catch (error) {
@@ -88,6 +94,7 @@ function startFakeNode(): Promise<FakeNode> {
       resolve({
         url: `http://127.0.0.1:${port}`,
         seen,
+        failNext: (method) => failing.add(method),
         close: () => new Promise((done) => server.close(() => done())),
       });
     });
@@ -179,6 +186,26 @@ describe("chain/clients", () => {
         await clients.context();
         await clients.isHeliconActive();
         expect(node.seen.length).to.equal(requests);
+      } finally {
+        clients.provider.destroy();
+      }
+    });
+
+    it("asks again for the Context and the upgrades after a failed lookup", async () => {
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: node.url }));
+      try {
+        node.failNext("avm.getAssetDescription");
+        node.failNext("info.upgrades");
+        await clients.context().then(
+          () => expect.fail("the Context lookup should fail"),
+          (error: unknown) => expect(String(error)).to.include("temporarily unavailable")
+        );
+        await clients.isHeliconActive().then(
+          () => expect.fail("the upgrades lookup should fail"),
+          (error: unknown) => expect(String(error)).to.include("temporarily unavailable")
+        );
+        expect((await clients.context()).avaxAssetID).to.equal(ASSET_ID);
+        expect(await clients.isHeliconActive()).to.equal(true);
       } finally {
         clients.provider.destroy();
       }

@@ -81,8 +81,11 @@ confirmed. The signer is chosen by flag:
 
 The file signer builds with `FILE_SIGNER_POLICY` (P-chain fee price pinned to
 1000, start time 1, explicit `-f` required) so that several ForDefi signers
-building independently get the same hash. Do not let chain state or the clock
-leak into a file-path build.
+building independently get the same hash. Do not let other chain state or the
+clock leak into a file-path build. The account's UTXOs are the one inherent
+exception: builds agree only while the UTXO set is unchanged (flarejs also
+checks UTXO timelocks against the local clock, so a timelock expiring between
+two builds changes the inputs as well).
 
 ## Unit conventions (read carefully)
 

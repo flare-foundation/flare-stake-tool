@@ -23,6 +23,8 @@ import { runTransaction } from "./app/transactions";
 import {
   BASE_DERIVATION_PATH,
   END_TIME,
+  START_TIME,
+  START_TIME_NOT_USED_WARNING,
   globalOptions,
   pastEndTimeWarning,
   parseAtomicTxRequest,
@@ -214,7 +216,12 @@ function reportOutcome(outcome: Outcome, symbol: string): void {
 
 function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFlow: boolean): void {
   for (const { name, time } of times) {
-    const warning = name === END_TIME ? pastEndTimeWarning(time.value) : undefined;
+    const warning =
+      name === END_TIME
+        ? pastEndTimeWarning(time.value)
+        : name === START_TIME
+          ? START_TIME_NOT_USED_WARNING
+          : undefined;
     if (warning) logWarning(warning);
     if (!time.relative) continue;
     logInfo(`${name}: ${time.value} (${new Date(Number(time.value) * 1000).toISOString()})`);

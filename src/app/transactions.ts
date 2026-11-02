@@ -9,15 +9,22 @@ import { buildTransaction } from "../core/builders";
 import { ESTIMATED_FEE_BASE_FEE_MULTIPLIER } from "../core/builders/pchain";
 import { atomicTxFee } from "../core/fee";
 import { executeTransaction } from "../core/pipeline";
+import type { ConfirmOptions } from "../core/submit";
 import { IMMEDIATE_SIGNER_POLICY, type Env, type Outcome, type Signer, type TxRequest } from "../core/types";
+import { logIssued } from "../output";
 
 /** A P-chain account may stake to at most this many distinct nodes in overlapping periods. */
 export const MAX_NODES_PER_ACCOUNT = 3;
 
-export async function runTransaction(req: TxRequest, env: Env, signer: Signer): Promise<Outcome> {
+export async function runTransaction(
+  req: TxRequest,
+  env: Env,
+  signer: Signer,
+  confirm: ConfirmOptions = { onIssued: logIssued }
+): Promise<Outcome> {
   await env.clients.verifyNetwork();
   await preflight(req, env, await signer.account());
-  return executeTransaction(req, env, signer);
+  return executeTransaction(req, env, signer, confirm);
 }
 
 /**
@@ -52,12 +59,12 @@ async function preflight(req: TxRequest, env: Env, account: Account): Promise<vo
   switch (req.type) {
     case "stake": {
       const validators = await currentValidators(env);
-      checkNodeLimit(validators, account, req.nodeId, req.startTime, req.endTime);
+      checkNodeLimit(validators, account, req.nodeId, req.endTime);
       return;
     }
     case "delegate": {
       const validators = await currentValidators(env);
-      checkNodeLimit(validators, account, req.nodeId, req.startTime, req.endTime);
+      checkNodeLimit(validators, account, req.nodeId, req.endTime);
       const target = validators.find((v) => v.nodeID === req.nodeId);
       if (!target) {
         throw new Error("Unknown node id");
@@ -72,7 +79,7 @@ async function preflight(req: TxRequest, env: Env, account: Account): Promise<vo
     case "addAutoRenewedValidator": {
       await requireHelicon(env);
       const validators = await currentValidators(env);
-      checkNodeLimit(validators, account, req.nodeId, undefined, undefined);
+      checkNodeLimit(validators, account, req.nodeId, undefined);
       return;
     }
     case "setAutoRenewedValidatorConfig":
@@ -91,18 +98,18 @@ async function requireHelicon(env: Env): Promise<void> {
 
 /**
  * Refuses a stake or delegation to a fourth distinct node while stakes to three
- * other nodes overlap the requested period.
+ * other nodes overlap its period. The period starts now whatever start time the
+ * transaction carries: since Durango the chain starts a stake when it accepts it.
  */
 export function checkNodeLimit(
   validators: CurrentValidator[],
   account: Account,
   nodeId: string,
-  startTime: bigint | undefined,
-  endTime: bigint | undefined
+  endTime: bigint | undefined,
+  nowSeconds: bigint = BigInt(Math.floor(Date.now() / 1000))
 ): void {
-  const start = startTime ?? BigInt(Math.floor(Date.now() / 1000));
   const overlapping = stakesOf(validators, account.pAddress).filter(
-    (stake) => stake.endTime >= start && (endTime === undefined || stake.startTime <= endTime)
+    (stake) => stake.endTime >= nowSeconds && (endTime === undefined || stake.startTime <= endTime)
   );
   const nodeIds = new Set(overlapping.map((stake) => stake.nodeId.toLowerCase()));
   if (nodeIds.size >= MAX_NODES_PER_ACCOUNT && !nodeIds.has(nodeId.toLowerCase())) {

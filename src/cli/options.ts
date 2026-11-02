@@ -24,8 +24,17 @@ import { nodeOverrides } from "./node";
 
 export const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0";
 export const DEFAULT_DELEGATION_FEE_PERCENT = "20";
-/** Label of the end time among the resolved times reported to the user. */
+/** Labels of the end and start time among the resolved times reported to the user. */
 export const END_TIME = "End time";
+export const START_TIME = "Start time";
+
+/**
+ * Since Durango the chain starts a stake or delegation when it accepts the
+ * transaction and does not use the start time written into it.
+ */
+export const START_TIME_NOT_USED_WARNING =
+  "--start-time does not delay the stake: the network starts it when it accepts the transaction " +
+  "(since the Durango upgrade), whatever start time the transaction carries";
 
 export interface GlobalOptions {
   network?: string;
@@ -186,7 +195,7 @@ export function parseAtomicTxRequest(
     const text = optionalString(options["startTime"]);
     if (text === undefined || text === "0") return undefined;
     const time = parseTime(text);
-    resolvedTimes.push({ name: "Start time", time });
+    resolvedTimes.push({ name: START_TIME, time });
     return time.value;
   };
   const shares = (): number =>

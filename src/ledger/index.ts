@@ -17,24 +17,20 @@ const SUPPORTED_APPS: Record<string, LedgerAppName> = {
   Ethereum: "Ethereum",
 };
 
-let detectedApp: Promise<LedgerAppName> | undefined;
-
-/** Which app is open on the device; asked once per process (a failed attempt is retried). */
-export function detectApp(): Promise<LedgerAppName> {
-  detectedApp ??= (async () => {
-    const name = await flare.openAppName();
-    const app = SUPPORTED_APPS[name];
-    if (!app) {
-      throw new Error(
-        `A supported app (Flare, Avalanche or Ethereum) is not running on the connected Ledger device (open app: ${name || "none"})`
-      );
-    }
-    return app;
-  })().catch((error: unknown) => {
-    detectedApp = undefined;
-    throw error;
-  });
-  return detectedApp;
+/**
+ * Which app is open on the device. Asked again for every operation (one request
+ * to the device), so that the user can switch apps between operations, as an
+ * error asking them to open another app tells them to.
+ */
+export async function detectApp(openAppName: () => Promise<string> = flare.openAppName): Promise<LedgerAppName> {
+  const name = await openAppName();
+  const app = SUPPORTED_APPS[name];
+  if (!app) {
+    throw new Error(
+      `A supported app (Flare, Avalanche or Ethereum) is not running on the connected Ledger device (open app: ${name || "none"})`
+    );
+  }
+  return app;
 }
 
 export const ETHEREUM_APP_P_CHAIN =

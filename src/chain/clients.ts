@@ -14,11 +14,11 @@ export interface Clients {
   readonly evm: evm.EVMApi;
   readonly info: info.InfoApi;
   readonly provider: JsonRpcProvider;
-  /** flarejs Context (chain ids, asset id, fee config), fetched once, after `verifyNetwork`. */
+  /** flarejs Context (chain ids, asset id, fee config), fetched once (again after a failure), after `verifyNetwork`. */
   context(): Promise<Context.Context>;
   /** Fails unless the node is on the selected network (see `assertNodeNetwork`); asks the node once. */
   verifyNetwork(): Promise<void>;
-  /** `info.upgrades`, fetched once. */
+  /** `info.upgrades`, fetched once (again after a failure). */
   upgrades(): Promise<UpgradesInfo>;
   isHeliconActive(): Promise<boolean>;
 }
@@ -73,6 +73,20 @@ export async function fetchContext(apis: ContextApis): Promise<Context.Context> 
   });
 }
 
+/**
+ * A lookup asked once and then answered from its cached promise. A failed lookup
+ * is forgotten, so the next call asks again (interactive sessions reuse the
+ * clients after an error).
+ */
+function cachedUntilFailure<T>(lookup: () => Promise<T>): () => Promise<T> {
+  let cached: Promise<T> | undefined;
+  return () =>
+    (cached ??= lookup().catch((error: unknown) => {
+      cached = undefined;
+      throw error;
+    }));
+}
+
 export function createClients(network: NetworkConfig): Clients {
   // The API key travels as a header, never in the URL, so it stays out of logs and error messages.
   const headers = network.apiKey === undefined ? undefined : { [API_KEY_HEADER]: network.apiKey };
@@ -88,13 +102,8 @@ export function createClients(network: NetworkConfig): Clients {
   const connection = new FetchRequest(network.rpcUrl);
   if (network.apiKey !== undefined) connection.setHeader(API_KEY_HEADER, network.apiKey);
 
-  // One getNetworkID lookup serves both the network check and the Context; a failed lookup is retried.
-  let networkId: ReturnType<info.InfoApi["getNetworkId"]> | undefined;
-  const nodeNetworkId = (): ReturnType<info.InfoApi["getNetworkId"]> =>
-    (networkId ??= infoApi.getNetworkId().catch((error: unknown) => {
-      networkId = undefined;
-      throw error;
-    }));
+  // One getNetworkID lookup serves both the network check and the Context.
+  const nodeNetworkId = cachedUntilFailure(() => infoApi.getNetworkId());
   const verifyNetwork = async (): Promise<void> => {
     assertNodeNetwork(network, Number((await nodeNetworkId()).networkID));
   };
@@ -104,19 +113,17 @@ export function createClients(network: NetworkConfig): Clients {
     info: { getBlockchainId: (alias) => infoApi.getBlockchainId(alias), getNetworkId: nodeNetworkId },
   };
 
-  let context: Promise<Context.Context> | undefined;
-  let upgrades: Promise<UpgradesInfo> | undefined;
+  const context = cachedUntilFailure(() => verifyNetwork().then(() => fetchContext(contextApis)));
+  const upgrades = cachedUntilFailure(() => infoApi.getUpgradesInfo());
   return {
     network,
     pvm: pvmApi,
     evm: evmApi,
     info: infoApi,
     provider: new JsonRpcProvider(connection, network.chainId, { staticNetwork: true }),
-    context: () => (context ??= verifyNetwork().then(() => fetchContext(contextApis))),
+    context,
     verifyNetwork,
-    upgrades: () => (upgrades ??= infoApi.getUpgradesInfo()),
-    isHeliconActive: async function () {
-      return heliconActive(await this.upgrades());
-    },
+    upgrades,
+    isHeliconActive: async () => heliconActive(await upgrades()),
   };
 }

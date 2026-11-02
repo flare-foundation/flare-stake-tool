@@ -6,6 +6,7 @@ import { expect } from "chai";
 import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
+import { detectApp } from "../../src/ledger/index";
 import { FAKE_LEDGER_KEY_ENV, fakeLedgerDevice, ledgerDevice } from "../../src/signers/ledger";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 
@@ -86,6 +87,28 @@ describe("ledger", () => {
     it("refuses a path that is not m/44'/coin'/account'/change/index", () => {
       for (const bad of ["m/44'/60'/0'", "44'/60'/0'/0/0", "m/44'/60'/0'/0/0/1"]) {
         expect(() => splitAvalanchePath(bad), bad).to.throw(/Unsupported derivation path/);
+      }
+    });
+  });
+
+  describe("detectApp", () => {
+    it("asks the device on every call, so that switching apps between operations takes effect", async () => {
+      const open = ["Ethereum", "Flare Network", "Avalanche"];
+      const openAppName = () => Promise.resolve(open.shift()!);
+      expect(await detectApp(openAppName)).to.equal("Ethereum");
+      expect(await detectApp(openAppName)).to.equal("Flare");
+      expect(await detectApp(openAppName)).to.equal("Avalanche");
+    });
+
+    it("names the open app when it is not supported", async () => {
+      for (const [name, shown] of [
+        ["Bitcoin", "Bitcoin"],
+        ["", "none"],
+      ]) {
+        await detectApp(() => Promise.resolve(name!)).then(
+          () => expect.fail(`detected an app for "${name}"`),
+          (error: unknown) => expect(String(error)).to.include(`(open app: ${shown})`)
+        );
       }
     });
   });

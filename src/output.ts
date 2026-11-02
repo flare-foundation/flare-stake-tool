@@ -20,6 +20,11 @@ export function logSuccess(msg: string) {
   console.log(styleText("green", msg));
 }
 
+/** Printed as soon as the node takes a transaction, so that its id is known even if the wait for it fails. */
+export function logIssued(txId: string) {
+  logInfo(`Transaction ${txId} submitted, waiting for the chain to accept it`);
+}
+
 /**
  * The fee line of an atomic transaction: "Fee paid: …" once it is sent, "Fee: …"
  * for an unsigned file (what it will burn when sent); undefined for EVM transactions.

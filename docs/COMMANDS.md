@@ -148,8 +148,11 @@ Register a new fixed-term validator using locked P-chain funds. (For validators 
 | Output | Tx hash, "sent to the network" |
 | Failures | "Insufficient funds" if P-balance < stake amount. Validator already registered. Invalid BLS signature. End time before start time or after the configured maximum. The account already stakes to three other nodes in an overlapping period (checked on every path). |
 
-`startTime` defaults to current time + small offset. `pop-bls-*` come from
-the running node (`info.getNodeID` JSON-RPC).
+`-s <startTime>` does not delay the stake: since the Durango upgrade the network
+starts a stake when it accepts the transaction (the tool warns when `-s` is
+given). Without `-s` the transaction carries the current time, or `1` on the
+unsigned-file path. `pop-bls-*` come from the running node (`info.getNodeID`
+JSON-RPC).
 
 ---
 
@@ -163,6 +166,8 @@ Delegate P-chain funds to an existing validator.
 | Side effects | Locks the delegated amount until endTime; rewards accrue per the validator's delegation fee |
 | Output | Tx hash, "sent to the network" |
 | Failures | "Unknown node id" when the node is not a current validator. End time after the validator's current period (for auto-renewed validators: the current cycle). Insufficient P-chain funds. The max-three-nodes rule (every path). |
+
+As for `stake`, `-s <startTime>` does not delay the delegation; it starts when the network accepts the transaction.
 
 ---
 
@@ -221,7 +226,7 @@ Submit a previously-built signed transaction to the network.
 |---|---|
 | Inputs | `-i <id>` |
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
-| Side effects | Submits the signed tx to the appropriate VM API; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
+| Side effects | Submits the signed tx to the appropriate VM API and prints its id; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
 | Output | "Transaction with hash ... sent to the node" |
 | Failures | "Tx already sent to chain" (the flag was already set). Missing or malformed signed tx file. The signature does not belong to the configured account (`ctx.json`, `--ledger` or `--env-path`). |
 
@@ -231,6 +236,12 @@ Submit a previously-built signed transaction to the network.
 2. External signer (Ledger, ForDefi, manual) signs the message hash
 3. Caller writes the signature into `<id>.signedTx.json`
 4. `send -i <id>` submits
+
+Co-signers who rebuild the transaction with the same command get the same
+hash only while the account's P-chain UTXOs are the same: the inputs are the
+UTXOs the node reports at build time, so funds arriving or leaving in between
+(a stake ending, a transfer, a timelocked UTXO unlocking) change the
+transaction. Rebuild and compare again in that case.
 
 ---
 

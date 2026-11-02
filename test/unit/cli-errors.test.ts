@@ -56,4 +56,14 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stdout).to.not.include("Warning");
     expect(result.exitCode).to.equal(1); // the closed node, not the warning, ends the command
   });
+
+  it("warns on stderr that --start-time does not delay a stake", () => {
+    expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
+    const result = runCli(
+      ["delegate", "-n", "NodeID-x", "-a", "1", "-s", "2d", "-e", "14d", "-i", "t1", "--network", "costwo"],
+      { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } }
+    );
+    expect(result.stderr).to.include("Warning: --start-time does not delay the stake");
+    expect(result.stdout).to.not.include("Warning");
+  });
 });
