@@ -9,7 +9,7 @@ import {
 } from "../core/files";
 import { attachSignature } from "../core/signing/attach";
 import { normalizeSignature, recoverPublicKey } from "../core/signing/signature";
-import { TxNotAcceptedError, submitAndConfirm, type ConfirmOptions } from "../core/submit";
+import { SubmittedTxError, TxNotAcceptedError, submitAndConfirm, type ConfirmOptions } from "../core/submit";
 import type { Env } from "../core/types";
 import { logIssued } from "../output";
 import { Transaction } from "ethers";
@@ -43,8 +43,16 @@ export async function sendSignedTransaction(
     return await submitAndConfirm(bundle, env, {
       ...confirm,
       onIssued: (txId) => {
-        markSentToChain(id, cwd);
-        confirm.onIssued?.(txId);
+        confirm.onIssued?.(txId); // the id first, so that it is known even if the file cannot be marked
+        try {
+          markSentToChain(id, cwd);
+        } catch (error) {
+          throw new SubmittedTxError(
+            txId,
+            `Transaction ${txId} was submitted, but signed transaction ${id} could not be marked as sent`,
+            error
+          );
+        }
       },
     });
   } catch (error) {

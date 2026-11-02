@@ -25,20 +25,31 @@ const DEFAULTS = { timeoutMs: 90_000, pollMs: 1_000 };
 const P_CHAIN_REFUSED = new Set(["Aborted", "Dropped", "Rejected"]);
 const C_CHAIN_REFUSED = new Set(["Dropped", "Rejected"]);
 
+/**
+ * A failure after the node took the transaction, which may still land: the
+ * message names it. `context` is the message without the underlying error, so
+ * that a formatter can rewrite that error (see `describeError`) and keep it.
+ */
+export class SubmittedTxError extends Error {
+  override readonly name = "SubmittedTxError";
+  readonly txId: string;
+  readonly context: string;
+
+  constructor(txId: string, context: string, cause: unknown) {
+    super(`${context}: ${cause instanceof Error ? cause.message : String(cause)}`, { cause });
+    this.txId = txId;
+    this.context = context;
+  }
+}
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/**
- * A status lookup for a transaction the node has already taken. The transaction
- * may still land when the lookup fails, so the error names it.
- */
+/** A status lookup for a transaction the node has already taken. */
 async function statusOf<T>(txId: string, lookup: () => Promise<T>): Promise<T> {
   try {
     return await lookup();
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Transaction ${txId} was submitted, but its status could not be read: ${reason}`, {
-      cause: error,
-    });
+    throw new SubmittedTxError(txId, `Transaction ${txId} was submitted, but its status could not be read`, error);
   }
 }
 

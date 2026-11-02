@@ -211,6 +211,25 @@ describe("chain/clients", () => {
       }
     });
 
+    it("shares one pending lookup between concurrent callers, and one retry after it failed", async () => {
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: node.url }));
+      const count = (method: string) => node.seen.filter((r) => r.method === method).length;
+      try {
+        node.failNext("info.getNetworkID");
+        const failed = await Promise.allSettled([clients.verifyNetwork(), clients.context(), clients.context()]);
+        expect(failed.map((r) => r.status)).to.deep.equal(["rejected", "rejected", "rejected"]);
+        expect(count("info.getNetworkID")).to.equal(1);
+        expect(count("avm.getAssetDescription")).to.equal(0);
+
+        await Promise.all([clients.verifyNetwork(), clients.context(), clients.context()]);
+        await clients.context();
+        expect(count("info.getNetworkID")).to.equal(2);
+        expect(count("avm.getAssetDescription")).to.equal(1);
+      } finally {
+        clients.provider.destroy();
+      }
+    });
+
     it("asks the node for its network once, shared by the network check and the Context", async () => {
       const clients = createClients(networkConfig("costwo", {}, { apiUrl: node.url }));
       try {

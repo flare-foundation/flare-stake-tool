@@ -226,7 +226,7 @@ Submit a previously-built signed transaction to the network.
 |---|---|
 | Inputs | `-i <id>` |
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
-| Side effects | Submits the signed tx to the appropriate VM API and prints its id; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
+| Side effects | Submits the signed tx to the appropriate VM API and prints its id on stderr; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
 | Output | "Transaction with hash ... sent to the node" |
 | Failures | "Tx already sent to chain" (the flag was already set). Missing or malformed signed tx file. The signature does not belong to the configured account (`ctx.json`, `--ledger` or `--env-path`). |
 

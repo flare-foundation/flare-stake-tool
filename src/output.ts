@@ -1,6 +1,7 @@
 import { styleText } from "node:util";
 import { API_KEY_ENV } from "./chain/network";
 import { formatFlr } from "./chain/units";
+import { SubmittedTxError } from "./core/submit";
 import type { Outcome } from "./core/types";
 import { API_KEY_FLAG, RPC_URL_FLAG } from "./cli/node";
 
@@ -20,9 +21,13 @@ export function logSuccess(msg: string) {
   console.log(styleText("green", msg));
 }
 
-/** Printed as soon as the node takes a transaction, so that its id is known even if the wait for it fails. */
+/**
+ * Printed as soon as the node takes a transaction, so that its id is known even
+ * if the wait for it fails. Progress goes to stderr, like warnings, so that
+ * stdout holds only results.
+ */
 export function logIssued(txId: string) {
-  logInfo(`Transaction ${txId} submitted, waiting for the chain to accept it`);
+  console.error(styleText("blue", `Transaction ${txId} submitted, waiting for the chain to accept it`));
 }
 
 /**
@@ -49,6 +54,9 @@ const NODE_HINT = `; check ${RPC_URL_FLAG} and the API key (${API_KEY_FLAG} or $
  * fails to parse the page as JSON. Both get a hint instead of the raw dump.
  */
 export function describeError(error: unknown): string {
+  if (error instanceof SubmittedTxError) {
+    return `${error.context}: ${describeError(error.cause)}`;
+  }
   const message = error instanceof Error ? error.message : String(error);
   const refused = /server response (40[13]) ([^(]*?)\s*(?:\(|$)/.exec(message);
   if (refused) {
