@@ -39,7 +39,10 @@ include:
       before_script_additional: |
         apt-get update && apt-get install -y --no-install-recommends python3 make g++
         pnpm config set cache-dir "$CI_PROJECT_DIR/.pnpm-cache"
+      # The characterization goldens and CLI tests run the built CLI (dist/run.js),
+      # and .c8rc.json maps coverage of dist/ back to src/.
       test_commands: |
+        pnpm build
         pnpm test:coverage
 
 # Cache pnpm's lockfile supply-chain verdict alongside the store.
