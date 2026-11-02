@@ -87,8 +87,10 @@ leak into a file-path build.
 ## Unit conventions (read carefully)
 
 - `-a` (amount) and `-f` (fee) are in **FLR** on every path; `cli/options.ts`
-  converts them with `parseFlr` to **nFLR** (bigint) for P-chain/atomic
-  requests and to **wei** for C-chain commands. Nothing downstream sees FLR.
+  converts them with `parseFlr` to **nFLR** (bigint, 9 decimals) for
+  P-chain/atomic requests and with `parseFlrToWei` to **wei** (18 decimals)
+  for C-chain commands. Extra non-zero decimals and commas are errors, never
+  silently dropped. Nothing downstream sees FLR.
 - `-e`, `-s` and `--period` accept unix seconds or durations (`2d12h`);
   `parseEndTime` resolves a duration against now.
 - The `--env-path` file uses `PRIVATE_KEY_HEX` (hex) and/or `PRIVATE_KEY_CB58`

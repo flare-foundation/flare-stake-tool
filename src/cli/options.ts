@@ -8,10 +8,10 @@ import { getBytes } from "ethers";
 import type { Account } from "../chain/keys";
 import {
   isDurationInput,
-  nFlrToWei,
   parseDuration,
   parseEndTime,
   parseFlr,
+  parseFlrToWei,
   parsePercentToShares,
 } from "../chain/units";
 import { normalizeAddressList, resolveEvmFees, type EvmOperation } from "../constants/fees";
@@ -24,6 +24,8 @@ import { nodeOverrides } from "./node";
 
 export const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0";
 export const DEFAULT_DELEGATION_FEE_PERCENT = "20";
+/** Label of the end time among the resolved times reported to the user. */
+export const END_TIME = "End time";
 
 export interface GlobalOptions {
   network?: string;
@@ -115,6 +117,30 @@ function parseShares(value: unknown): number | undefined {
   return Number(text);
 }
 
+/** `--nonce`: a non-negative integer, or undefined when not given. */
+export function parseNonce(value: unknown): number | undefined {
+  const text = optionalString(value);
+  if (text === undefined) return undefined;
+  const nonce = Number(text);
+  if (!/^\d+$/.test(text) || !Number.isSafeInteger(nonce)) {
+    throw new Error(`--nonce must be a non-negative integer, got "${text}"`);
+  }
+  return nonce;
+}
+
+/**
+ * A warning for an end time that is not in the future, such as `-e 1209600`
+ * meant as 14 days (a plain integer is a unix time). The network rejects it;
+ * the command still runs so that the node gives the authoritative answer.
+ */
+export function pastEndTimeWarning(endTime: bigint, nowMs: number = Date.now()): string | undefined {
+  if (endTime > BigInt(Math.floor(nowMs / 1000))) return undefined;
+  return (
+    `End time ${endTime} (${new Date(Number(endTime) * 1000).toISOString()}) is not in the future; ` +
+    "a plain integer is a unix time, use a duration such as 14d for a period from now"
+  );
+}
+
 export interface ParsedTime {
   value: bigint;
   /** True when the user gave a duration that was resolved against the clock. */
@@ -139,7 +165,7 @@ export function parseAtomicTxRequest(
   const resolvedTimes: { name: string; time: ParsedTime }[] = [];
   const endTime = (): bigint => {
     const time = parseTime(required(options["endTime"], "endTime", "--end-time <endTime>", type));
-    resolvedTimes.push({ name: "End time", time });
+    resolvedTimes.push({ name: END_TIME, time });
     return time.value;
   };
   const startTime = (): bigint | undefined => {
@@ -166,14 +192,11 @@ export function parseAtomicTxRequest(
 
   let request: TxRequest;
   switch (type) {
-    case "exportCP":
-      request = {
-        type,
-        amount: amount(),
-        fee: fee(),
-        nonce: optionalString(options["nonce"]) ? BigInt(options["nonce"] as string) : undefined,
-      };
+    case "exportCP": {
+      const nonce = parseNonce(options["nonce"]);
+      request = { type, amount: amount(), fee: fee(), nonce: nonce === undefined ? undefined : BigInt(nonce) };
       break;
+    }
     case "importCP":
       request = { type };
       break;
@@ -240,16 +263,13 @@ export function parseAtomicTxRequest(
 }
 
 export function parseEvmTxRequest(operation: EvmOperation, options: OptionValues): TxRequest {
-  const nonce = optionalString(options["nonce"]) !== undefined ? Number(options["nonce"]) : undefined;
-  if (nonce !== undefined && !Number.isSafeInteger(nonce)) {
-    throw new Error("--nonce must be an integer");
-  }
+  const nonce = parseNonce(options["nonce"]);
   switch (operation) {
     case "withdrawal":
       return {
         type: "withdrawal",
         to: required(options["to"], "to", "--to <address>", "withdrawal"),
-        amount: nFlrToWei(parseFlr(required(options["amount"], "amount", "--amount <amount>", "withdrawal"))),
+        amount: parseFlrToWei(required(options["amount"], "amount", "--amount <amount>", "withdrawal")),
         nonce,
         fees: resolveEvmFees("withdrawal", options),
       };
@@ -257,7 +277,7 @@ export function parseEvmTxRequest(operation: EvmOperation, options: OptionValues
       return {
         type: "claim",
         recipient: required(options["recipient"], "recipient", "--recipient <address>", "claim"),
-        amount: optionalString(options["amount"]) ? nFlrToWei(parseFlr(options["amount"] as string)) : undefined,
+        amount: optionalString(options["amount"]) ? parseFlrToWei(options["amount"] as string) : undefined,
         wrap: Boolean(options["wrap"]),
         nonce,
         fees: resolveEvmFees("claim", options),

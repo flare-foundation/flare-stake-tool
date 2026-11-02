@@ -9,7 +9,7 @@ import type { NodeOverrides } from "../chain/network";
 import {
   formatFlr,
   formatWei,
-  nFlrToWei,
+  parseFlrToWei,
   parseDuration,
   parseEndTime,
   parseFlr,
@@ -29,10 +29,10 @@ import {
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
 import { runTransaction } from "../app/transactions";
 import type { Env, Outcome, Signer, TxRequest } from "../core/types";
-import { describeError, log, logError, logInfo, logSuccess } from "../output";
+import { describeError, log, logError, logInfo, logSuccess, logWarning } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
-import { DEFAULT_DELEGATION_FEE_PERCENT, BASE_DERIVATION_PATH } from "../cli/options";
+import { DEFAULT_DELEGATION_FEE_PERCENT, BASE_DERIVATION_PATH, pastEndTimeWarning } from "../cli/options";
 import { nodeOverridesFromArgv } from "../cli/node";
 import { prompts } from "./prompts";
 
@@ -169,10 +169,18 @@ function report(outcome: Outcome): void {
   }
 }
 
+/** Asks for an end time and warns (as the command line does) when it is not in the future. */
+async function askEndTime(): Promise<bigint> {
+  const endTime = parseEndTime((await prompts.unixTime("end")).time);
+  const warning = pastEndTimeWarning(endTime);
+  if (warning) logWarning(warning);
+  return endTime;
+}
+
 async function askStake(): Promise<TxRequest> {
   const { amount } = await prompts.amount("");
   const { id } = await prompts.nodeId();
-  const { time } = await prompts.unixTime("end");
+  const endTime = await askEndTime();
   const { fee } = await prompts.delegationFee();
   const { popBLSPublicKey } = await prompts.popBLSPublicKey();
   const { popBLSSignature } = await prompts.popBLSSignature();
@@ -180,7 +188,7 @@ async function askStake(): Promise<TxRequest> {
     type: "stake",
     nodeId: id,
     amount: parseFlr(amount),
-    endTime: parseEndTime(time),
+    endTime,
     delegationFeeShares: parsePercentToShares(fee || DEFAULT_DELEGATION_FEE_PERCENT),
     blsPublicKey: hexBytes(popBLSPublicKey),
     blsSignature: hexBytes(popBLSSignature),
@@ -190,8 +198,8 @@ async function askStake(): Promise<TxRequest> {
 async function askDelegate(): Promise<TxRequest> {
   const { amount } = await prompts.amount("");
   const { id } = await prompts.nodeId();
-  const { time } = await prompts.unixTime("end");
-  return { type: "delegate", nodeId: id, amount: parseFlr(amount), endTime: parseEndTime(time) };
+  const endTime = await askEndTime();
+  return { type: "delegate", nodeId: id, amount: parseFlr(amount), endTime };
 }
 
 async function askAutoRenewedValidator(): Promise<TxRequest> {
@@ -290,7 +298,7 @@ async function claim(session: Session): Promise<void> {
     return;
   }
   const { claimAllUnclaimed } = await prompts.claimAllUnclaimed(formatWei(rewards.unclaimedWei), symbol);
-  const amount = claimAllUnclaimed ? undefined : nFlrToWei(parseFlr(String((await prompts.claimAmount()).claimAmount)));
+  const amount = claimAllUnclaimed ? undefined : parseFlrToWei(String((await prompts.claimAmount()).claimAmount));
   const { wrapRewards } = await prompts.wrapRewards();
   const { recipientAddress } = await prompts.recipientAddress(session.account.cAddress);
   report(

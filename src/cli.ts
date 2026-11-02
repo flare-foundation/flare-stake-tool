@@ -4,7 +4,7 @@
  * no transaction logic lives here.
  */
 import { Command, type OptionValues } from "commander";
-import { accountFromPublicKey, normalizePublicKey } from "./chain/keys";
+import { accountFromPublicKey } from "./chain/keys";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES, type Outcome } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
@@ -22,7 +22,9 @@ import { sendSignedTransaction } from "./app/send";
 import { runTransaction } from "./app/transactions";
 import {
   BASE_DERIVATION_PATH,
+  END_TIME,
   globalOptions,
+  pastEndTimeWarning,
   parseAtomicTxRequest,
   parseEvmTxRequest,
   resolveAccount,
@@ -32,7 +34,7 @@ import {
   type ParsedTime,
 } from "./cli/options";
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION } from "./cli/node";
-import { log, logError, logInfo, logSuccess } from "./output";
+import { log, logInfo, logSuccess, logWarning } from "./output";
 import { FAKE_LEDGER_KEY_ENV, ledgerDevice } from "./signers/ledger";
 import * as ledger from "./ledger";
 
@@ -210,6 +212,8 @@ function reportOutcome(outcome: Outcome): void {
 
 function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFlow: boolean): void {
   for (const { name, time } of times) {
+    const warning = name === END_TIME ? pastEndTimeWarning(time.value) : undefined;
+    if (warning) logWarning(warning);
     if (!time.relative) continue;
     logInfo(`${name}: ${time.value} (${new Date(Number(time.value) * 1000).toISOString()})`);
     if (fileFlow) {
@@ -295,13 +299,7 @@ async function initCtx(options: GlobalOptions & OptionValues): Promise<void> {
     };
   } else if (typeof options["publicKey"] === "string") {
     const publicKey = options["publicKey"];
-    try {
-      normalizePublicKey(publicKey);
-    } catch (error) {
-      logError(error instanceof Error ? error.message : String(error));
-      return;
-    }
-    const account = accountFromPublicKey(publicKey, env.network.hrp);
+    const account = accountFromPublicKey(publicKey, env.network.hrp); // throws on an invalid key: exit code 1
     context = {
       wallet: "publicKey",
       publicKey,
@@ -317,7 +315,12 @@ async function initCtx(options: GlobalOptions & OptionValues): Promise<void> {
   logSuccess("Context file created");
 }
 
+const INFO_TYPES = ["addresses", "balance", "validators"];
+
 async function info(type: string, options: GlobalOptions & OptionValues): Promise<void> {
+  if (!INFO_TYPES.includes(type)) {
+    throw new Error(`Unknown information type "${type}"; use ${INFO_TYPES.join(", ")}`);
+  }
   const env = resolveEnv(options);
   if (type === "validators") {
     const validators = await getValidators(env);
@@ -340,7 +343,5 @@ async function info(type: string, options: GlobalOptions & OptionValues): Promis
     logInfo(`Balances on the network "${env.network.name}"`);
     log(`C-chain ${account.cAddress}: ${formatWei(balances.cChainWei)} ${env.network.symbol}`);
     log(`P-chain ${account.pAddress}: ${formatFlr(balances.pChainNFlr)} ${env.network.symbol}`);
-  } else {
-    logError(`Unknown information type ${type}`);
   }
 }

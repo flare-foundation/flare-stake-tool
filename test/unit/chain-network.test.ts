@@ -6,6 +6,7 @@ import {
   isNetworkName,
   networkConfig,
   parseNodeUrl,
+  redactApiKey,
 } from "../../src/chain/network";
 
 describe("chain/network", () => {
@@ -54,6 +55,23 @@ describe("chain/network", () => {
     expect(config.rpcUrl).to.equal("http://10.0.0.5:9650/ext/bc/C/rpc");
     expect(config).to.include({ name: "flare", hrp: "flare", networkId: 14, chainId: 14 });
     expect(networkConfig("flare", { FLARE_RPC_URL: "  " }).apiUrl).to.equal("https://flare-api.flare.network");
+  });
+
+  describe("redactApiKey", () => {
+    it("masks the x-apikey query value, whatever its case or position, and keeps the rest", () => {
+      expect(redactApiKey("https://h/ext/info?x-apikey=SECRET")).to.equal("https://h/ext/info?x-apikey=***");
+      expect(redactApiKey("https://h/?a=1&X-APIKEY=SECRET&b=2")).to.equal("https://h/?a=1&X-APIKEY=***&b=2");
+      expect(redactApiKey("https://h/ext/info")).to.equal("https://h/ext/info");
+    });
+
+    it("keeps the key out of parseNodeUrl's errors", () => {
+      for (const bad of ["ftp://h/ext/info?x-apikey=SECRET", "not a url?x-apikey=SECRET"]) {
+        expect(() => parseNodeUrl(bad), bad)
+          .to.throw(/Invalid node URL/)
+          .with.property("message")
+          .that.does.not.include("SECRET");
+      }
+    });
   });
 
   describe("assertNodeNetwork", () => {

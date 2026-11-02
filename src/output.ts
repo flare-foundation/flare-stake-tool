@@ -18,6 +18,11 @@ export function logSuccess(msg: string) {
   console.log(styleText("green", msg));
 }
 
+/** Warnings go to stderr so that stdout (transaction ids, hashes) stays parseable. */
+export function logWarning(msg: string) {
+  console.error(styleText("yellow", `Warning: ${msg}`));
+}
+
 const NODE_HINT = `; check ${RPC_URL_FLAG} and the API key (${API_KEY_FLAG} or ${API_KEY_ENV})`;
 
 /**

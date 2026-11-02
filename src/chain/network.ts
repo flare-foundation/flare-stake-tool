@@ -69,6 +69,11 @@ const nonEmpty = (value: string | undefined): string | undefined => {
   return trimmed ? trimmed : undefined;
 };
 
+/** Masks the value of an `x-apikey` query parameter, so that a URL can go into an error message. */
+export function redactApiKey(text: string): string {
+  return text.replace(new RegExp(`([?&]${API_KEY_HEADER}=)[^&#\\s"]*`, "gi"), "$1***");
+}
+
 /**
  * Turns a node URL into the base URL the clients are built on. A full endpoint
  * URL as copied from a node's documentation (`https://host/ext/info?x-apikey=KEY`)
@@ -80,10 +85,12 @@ export function parseNodeUrl(input: string): ParsedNodeUrl {
   try {
     url = new URL(input.trim());
   } catch {
-    throw new Error(`Invalid node URL "${input}"; expected a base URL such as https://coston2-api.flare.network`);
+    throw new Error(
+      `Invalid node URL "${redactApiKey(input)}"; expected a base URL such as https://coston2-api.flare.network`
+    );
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`Invalid node URL "${input}"; only http and https are supported`);
+    throw new Error(`Invalid node URL "${redactApiKey(input)}"; only http and https are supported`);
   }
   const apiKey = nonEmpty(url.searchParams.get(API_KEY_HEADER) ?? undefined);
   url.search = "";

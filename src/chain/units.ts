@@ -10,10 +10,11 @@ const DECIMAL_RE = /^(\d+)(?:\.(\d+))?$/;
 
 /**
  * Parses a non-negative decimal string into an integer with `decimals`
- * fractional digits; digits beyond `decimals` are truncated, as the previous
- * `decimalToInteger` did. A comma is refused rather than read as a thousands
- * separator (as up to 4.x): "1,5" meant as 1.5 became 15, and "1,500" is
- * ambiguous between 1.5 and 1500 even when written in groups of three.
+ * fractional digits. Digits beyond `decimals` are refused unless they are
+ * zeros; up to 4.x they were silently dropped, so 0.0000000001 FLR became 0.
+ * A comma is refused rather than read as a thousands separator (as up to
+ * 4.x): "1,5" meant as 1.5 became 15, and "1,500" is ambiguous between 1.5
+ * and 1500 even when written in groups of three.
  */
 export function parseDecimal(input: string, decimals: number): bigint {
   const cleaned = input.trim();
@@ -28,7 +29,11 @@ export function parseDecimal(input: string, decimals: number): bigint {
     throw new Error(`Invalid amount "${input}": expected a non-negative decimal number`);
   }
   const whole = match[1]!;
-  const fraction = (match[2] ?? "").slice(0, decimals).padEnd(decimals, "0");
+  const digits = match[2] ?? "";
+  if (/[1-9]/.test(digits.slice(decimals))) {
+    throw new Error(`Invalid amount "${input}": at most ${decimals} decimal places are supported`);
+  }
+  const fraction = digits.slice(0, decimals).padEnd(decimals, "0");
   return BigInt(whole + fraction);
 }
 
@@ -43,7 +48,10 @@ export function formatDecimal(value: bigint, decimals: number): string {
   return fraction === "" ? whole : `${whole}.${fraction}`;
 }
 
+/** FLR → nFLR (P-chain and atomic amounts and fees). */
 export const parseFlr = (input: string): bigint => parseDecimal(input, NFLR_DECIMALS);
+/** FLR → wei (C-chain EVM amounts), with the C-chain's full 18 decimals. */
+export const parseFlrToWei = (input: string): bigint => parseDecimal(input, WEI_DECIMALS);
 export const formatFlr = (nFlr: bigint): string => formatDecimal(nFlr, NFLR_DECIMALS);
 export const formatWei = (wei: bigint): string => formatDecimal(wei, WEI_DECIMALS);
 export const nFlrToWei = (nFlr: bigint): bigint => nFlr * 10n ** BigInt(WEI_DECIMALS - NFLR_DECIMALS);

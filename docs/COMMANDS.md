@@ -25,11 +25,16 @@ focuses on inputs / outputs / side effects / failure modes.
 
 `-a`/`-f` (amount/fee) are in **FLR** on every signing path, written with `.`
 as the decimal separator; commas are refused (`1,5` and `10,000` are errors,
-write `1.5` and `10000`). Times (`-e`,
+write `1.5` and `10000`). P-chain and atomic amounts and fees take at most 9
+decimals (nFLR); the C-chain amounts of `withdrawal` and `claim` take up to 18
+(wei). More non-zero decimals are an error rather than being cut off.
+`--nonce` is a non-negative integer. Times (`-e`,
 `-s`, `--period`) are unix seconds or durations such as `2d12h` (units w, d, h,
 m, s); an end time given as a duration is added to now and the resolved value is
-printed. Every path prints the transaction id and waits until the transaction
-is accepted.
+printed. A plain integer is a unix time, so an end time that is not in the
+future (such as `-e 1209600` meant as 14 days) gets a warning on stderr; the
+network then rejects the transaction. Every path prints the transaction id and
+waits until the transaction is accepted. Every error exits with code 1.
 
 ---
 
@@ -43,7 +48,7 @@ commands.
 | Inputs | One of: `-p <publicKey>`, `--ledger`, `--get-hacked --env-path <file>`. `--network <name>`. |
 | Side effects | Writes `ctx.json` in the current working directory |
 | Output | Success message |
-| Failures | Throws if `ctx.json` already exists |
+| Failures | Throws if `ctx.json` already exists, or if `-p` is not a valid secp256k1 public key (exit code 1, no file written) |
 
 The resulting file contains the public key, derived addresses, and the
 network. It does **not** contain the private key.
