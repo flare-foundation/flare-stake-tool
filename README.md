@@ -87,7 +87,7 @@ Each network name comes with a default public node. To use another node of that 
 flare-stake-tool info balance --network costwo --rpc-url https://<staging-node> --api-key <key> --ledger
 ```
 
-The key is sent as the `x-apikey` header with every request. A full endpoint URL as copied from the node's documentation, such as `https://<staging-node>/ext/info?x-apikey=<key>`, is accepted too: the API path is dropped and the key is taken from the query string. The same settings can be given once as the environment variables `FLARE_RPC_URL` and `FLARE_API_KEY` for every command, `interactive` included; the command-line options win over them. The network name still decides the address format and the chain ids, so pick the one the node belongs to.
+The key is sent as the `x-apikey` header with every request. A full endpoint URL as copied from the node's documentation, such as `https://<staging-node>/ext/info?x-apikey=<key>`, is accepted too: the API path is dropped and the key is taken from the query string. The same settings can be given once as the environment variables `FLARE_RPC_URL` and `FLARE_API_KEY` for every command, `interactive` included; the command-line options win over them. The network name still decides the address format and the chain ids, so pick the one the node belongs to; the tool checks the node's network ID against it and stops on a mismatch.
 
 ## App usage with ledger
 

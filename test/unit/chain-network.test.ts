@@ -1,5 +1,12 @@
 import { expect } from "chai";
-import { DEFAULT_NETWORK, NETWORK_NAMES, isNetworkName, networkConfig, parseNodeUrl } from "../../src/chain/network";
+import {
+  DEFAULT_NETWORK,
+  NETWORK_NAMES,
+  assertNodeNetwork,
+  isNetworkName,
+  networkConfig,
+  parseNodeUrl,
+} from "../../src/chain/network";
 
 describe("chain/network", () => {
   it("knows the five Flare networks with hrp equal to the name", () => {
@@ -47,6 +54,24 @@ describe("chain/network", () => {
     expect(config.rpcUrl).to.equal("http://10.0.0.5:9650/ext/bc/C/rpc");
     expect(config).to.include({ name: "flare", hrp: "flare", networkId: 14, chainId: 14 });
     expect(networkConfig("flare", { FLARE_RPC_URL: "  " }).apiUrl).to.equal("https://flare-api.flare.network");
+  });
+
+  describe("assertNodeNetwork", () => {
+    it("accepts the node of the selected network", () => {
+      for (const name of NETWORK_NAMES) {
+        const config = networkConfig(name, {});
+        expect(() => assertNodeNetwork(config, config.networkId), name).to.not.throw();
+      }
+    });
+
+    it("refuses a node of another network and names it when it is known", () => {
+      const flare = networkConfig("flare", {}, { apiUrl: "https://coston2-api.flare.network" });
+      expect(() => assertNodeNetwork(flare, 114)).to.throw(
+        "The node at https://coston2-api.flare.network is on network ID 114 (costwo), not flare (14); check --network, --rpc-url and FLARE_RPC_URL"
+      );
+      // songbird's network ID (5) is not its chain ID (19): only the network ID identifies the node
+      expect(() => assertNodeNetwork(networkConfig("songbird", {}), 19)).to.throw(/network ID 19, not songbird \(5\)/);
+    });
   });
 
   describe("parseNodeUrl", () => {

@@ -11,6 +11,7 @@ import type { Env, Outcome, Signer, TxRequest } from "../core/types";
 export const MAX_NODES_PER_ACCOUNT = 3;
 
 export async function runTransaction(req: TxRequest, env: Env, signer: Signer): Promise<Outcome> {
+  await env.clients.verifyNetwork();
   await preflight(req, env, await signer.account());
   return executeTransaction(req, env, signer);
 }

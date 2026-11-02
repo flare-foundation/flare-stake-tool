@@ -184,6 +184,37 @@ describe("chain/clients", () => {
       }
     });
 
+    it("asks the node for its network once, shared by the network check and the Context", async () => {
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: node.url }));
+      try {
+        await clients.verifyNetwork();
+        await clients.context();
+        await clients.verifyNetwork();
+        expect(node.seen.filter((r) => r.method === "info.getNetworkID")).to.have.length(1);
+      } finally {
+        clients.provider.destroy();
+      }
+    });
+
+    it("refuses a node on another network before building anything (stray FLARE_RPC_URL)", async () => {
+      // the fake node is a Coston2 node (network ID 114)
+      const clients = createClients(networkConfig("flare", { FLARE_RPC_URL: node.url }));
+      try {
+        const mismatch = /network ID 114 \(costwo\), not flare \(14\); check --network, --rpc-url and FLARE_RPC_URL/;
+        await clients.verifyNetwork().then(
+          () => expect.fail("verifyNetwork accepted a Coston2 node for flare"),
+          (error: unknown) => expect(String(error)).to.match(mismatch)
+        );
+        await clients.context().then(
+          () => expect.fail("context accepted a Coston2 node for flare"),
+          (error: unknown) => expect(String(error)).to.match(mismatch)
+        );
+        expect(node.seen.map((r) => r.method)).to.not.include("avm.getAssetDescription");
+      } finally {
+        clients.provider.destroy();
+      }
+    });
+
     it("sends no x-apikey header when no key is configured", async () => {
       const clients = createClients(networkConfig("costwo", {}, { apiUrl: node.url }));
       try {

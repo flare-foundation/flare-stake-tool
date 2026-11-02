@@ -93,6 +93,23 @@ export function parseNodeUrl(input: string): ParsedNodeUrl {
 }
 
 /**
+ * Refuses a node that belongs to a different network than the one selected by
+ * name. The hrp and chain ids come from the name while the transaction data
+ * comes from the node, so a stray `FLARE_RPC_URL` or `--rpc-url` would
+ * otherwise act on the node's network under the selected network's label.
+ */
+export function assertNodeNetwork(network: NetworkConfig, nodeNetworkId: number): void {
+  if (nodeNetworkId === network.networkId) {
+    return;
+  }
+  const actual = NETWORK_NAMES.find((name) => DEFINITIONS[name].networkId === nodeNetworkId);
+  throw new Error(
+    `The node at ${network.apiUrl} is on network ID ${nodeNetworkId}${actual ? ` (${actual})` : ""}, ` +
+      `not ${network.name} (${network.networkId}); check --network, --rpc-url and ${RPC_URL_ENV}`
+  );
+}
+
+/**
  * Resolves a network by name. The node URL and API key come from the
  * overrides (`--rpc-url`, `--api-key`), else from `FLARE_RPC_URL` and
  * `FLARE_API_KEY` (or `env[...]`), else from the URL's own `x-apikey` query

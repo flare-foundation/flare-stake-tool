@@ -10,11 +10,19 @@ const DECIMAL_RE = /^(\d+)(?:\.(\d+))?$/;
 
 /**
  * Parses a non-negative decimal string into an integer with `decimals`
- * fractional digits. Thousands separators (",") are ignored and digits beyond
- * `decimals` are truncated, as the previous `decimalToInteger` did.
+ * fractional digits; digits beyond `decimals` are truncated, as the previous
+ * `decimalToInteger` did. A comma is refused rather than read as a thousands
+ * separator (as up to 4.x): "1,5" meant as 1.5 became 15, and "1,500" is
+ * ambiguous between 1.5 and 1500 even when written in groups of three.
  */
 export function parseDecimal(input: string, decimals: number): bigint {
-  const cleaned = input.replace(/,/g, "").trim();
+  const cleaned = input.trim();
+  if (cleaned.includes(",")) {
+    throw new Error(
+      `Invalid amount "${input}": commas are not accepted, neither as decimal nor as thousands separator; ` +
+        `use "." for decimals, e.g. 1.5 or 10000`
+    );
+  }
   const match = DECIMAL_RE.exec(cleaned);
   if (!match) {
     throw new Error(`Invalid amount "${input}": expected a non-negative decimal number`);

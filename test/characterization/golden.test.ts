@@ -3,6 +3,7 @@ import fs from "fs";
 import { cleanupTempDir, makeTempDir } from "../helpers/cli";
 import { RpcReplayServer } from "./rpc-replay";
 import { evmContractStubs } from "./evm-stubs";
+import { localflareNetworkIdStub } from "./node-stubs";
 import { comparableOutcome, fixturePath, goldenPath, listGoldens, readGolden, runScenario } from "./scenarios";
 
 /** UPDATE_GOLDENS=name1,name2 (or "all") rewrites those goldens from the current code. */
@@ -40,7 +41,7 @@ describe("characterization goldens (offline replay)", function () {
       const server = await RpcReplayServer.start({
         mode: "replay",
         fixturePath: fixturePath(name),
-        stubs: evmContractStubs,
+        stubs: [...evmContractStubs, localflareNetworkIdStub],
       });
       const cwd = makeTempDir(`golden-${name}-`);
       try {

@@ -159,7 +159,10 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   one that is not validating yet (`test/integration/local-network.ts`).
 - The CLI itself honours `FLARE_RPC_URL=<base url>` / `--rpc-url` for any
   network name: it replaces the API/RPC base URL while keeping the network's
-  hrp and ids. The test harness relies on it; together with `FLARE_API_KEY` /
+  hrp and ids, and refuses a node whose `info.getNetworkID` is not that
+  network's (`Clients.verifyNetwork`, also run before the Context is built).
+  Goldens recorded without that call get it from
+  `test/characterization/node-stubs.ts`. The test harness relies on it; together with `FLARE_API_KEY` /
   `--api-key` it also reaches staging deployments and private nodes behind
   Flare's API gateway. The key travels as the `x-apikey` header on every
   request of every client (`chain/clients.ts` assembles the flarejs Context

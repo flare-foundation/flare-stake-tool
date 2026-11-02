@@ -20,10 +20,12 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--ctx-file <file>` | Context file path (default `ctx.json`) |
 | `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58` |
 | `--get-hacked` | Use the env file's private key for direct in-process signing |
-| `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted |
+| `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command |
 | `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes (or env `FLARE_API_KEY`) |
 
-`-a`/`-f` (amount/fee) are in **FLR** on every signing path. Times (`-e`,
+`-a`/`-f` (amount/fee) are in **FLR** on every signing path, written with `.`
+as the decimal separator; commas are refused (`1,5` and `10,000` are errors,
+write `1.5` and `10000`). Times (`-e`,
 `-s`, `--period`) are unix seconds or durations such as `2d12h` (units w, d, h,
 m, s); an end time given as a duration is added to now and the resolved value is
 printed. Every path prints the transaction id and waits until the transaction

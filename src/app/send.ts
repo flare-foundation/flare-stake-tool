@@ -21,6 +21,7 @@ export async function sendSignedTransaction(
   const signature = normalizeSignature(signed.signature);
   const account = expectedAccount ?? recoverAccount(bundle, signature, env.network.hrp);
   attachSignature(bundle, signature, account);
+  await env.clients.verifyNetwork();
   const result = await submitAndConfirm(bundle, env);
   markSentToChain(id, cwd);
   return result;

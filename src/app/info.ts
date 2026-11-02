@@ -8,6 +8,7 @@ export interface Balances {
 }
 
 export async function getBalances(env: Env, account: Account): Promise<Balances> {
+  await env.clients.verifyNetwork();
   const [cChainWei, pBalance] = await Promise.all([
     env.clients.provider.getBalance(account.cAddress),
     env.clients.pvm.getBalance({ addresses: [account.pAddress] }),
@@ -16,6 +17,7 @@ export async function getBalances(env: Env, account: Account): Promise<Balances>
 }
 
 export async function getValidators(env: Env): Promise<CurrentValidator[]> {
+  await env.clients.verifyNetwork();
   return currentValidators(env);
 }
 

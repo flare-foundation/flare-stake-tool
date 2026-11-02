@@ -1,5 +1,6 @@
 import { styleText } from "node:util";
 import inquirer from "inquirer";
+import { parseDuration } from "../chain/units";
 import { taskConstants, networkConstants, walletConstants, derivationModeConstants } from "../constants/screen";
 
 /**
@@ -119,23 +120,48 @@ export const prompts = {
     return inquirer.prompt<{ time: string }>(questions);
   },
 
-  period: async (defaultPeriod?: string) => {
+  // No default: for a configuration change, a default of 0 would stop the validator on a stray Enter.
+  period: async (purpose: "add" | "change") => {
+    const hint =
+      purpose === "change"
+        ? "(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)"
+        : "(seconds or a duration such as 14d)";
     const questions = [
       {
         type: "input",
-        default: defaultPeriod,
         name: "period",
         message:
           styleText("magenta", "Enter the validation period") +
           " " +
-          styleText(
-            "yellow",
-            "(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current period)"
-          ) +
+          styleText("yellow", hint) +
           styleText("magenta", ":"),
+        validate: (value: string) => {
+          try {
+            parseDuration(value);
+            return true;
+          } catch (error) {
+            return error instanceof Error ? error.message : String(error);
+          }
+        },
       },
     ];
     return inquirer.prompt<{ period: string }>(questions);
+  },
+
+  confirmStopAutoRenewal: async (cycleEnd?: string) => {
+    const questions = [
+      {
+        type: "confirm",
+        name: "stop",
+        default: false,
+        message: styleText(
+          "magenta",
+          `A period of 0 stops auto-renewal: the validator leaves at the end of its current cycle` +
+            `${cycleEnd ? ` (${cycleEnd})` : ""} and the stake is returned. Stop auto-renewal?`
+        ),
+      },
+    ];
+    return inquirer.prompt<{ stop: boolean }>(questions);
   },
 
   ctxFile: async () => {

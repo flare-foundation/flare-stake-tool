@@ -16,6 +16,7 @@ import {
   parsePercentToShares,
 } from "../chain/units";
 import { contractAddress, stateOfRewards } from "../chain/contracts";
+import { currentValidators } from "../chain/validators";
 import { resolveEvmFees } from "../constants/fees";
 import {
   DEFAULT_CTX_FILE,
@@ -141,13 +142,13 @@ async function runTask(task: string, session: Session): Promise<void> {
       break;
     case "setAutoRenewedValidatorConfig": {
       const { id } = await prompts.nodeId();
-      const { period } = await prompts.period("0");
+      const period = parseDuration((await prompts.period("change")).period);
+      if (period === 0n && !(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id))).stop) {
+        logInfo("Auto-renewal left unchanged.");
+        break;
+      }
       report(
-        await runTransaction(
-          { type: "setAutoRenewedValidatorConfig", nodeId: id, period: parseDuration(period) },
-          session.env,
-          session.signer
-        )
+        await runTransaction({ type: "setAutoRenewedValidatorConfig", nodeId: id, period }, session.env, session.signer)
       );
       break;
     }
@@ -196,7 +197,7 @@ async function askDelegate(): Promise<TxRequest> {
 async function askAutoRenewedValidator(): Promise<TxRequest> {
   const { amount } = await prompts.amount("");
   const { id } = await prompts.nodeId();
-  const { period } = await prompts.period();
+  const { period } = await prompts.period("add");
   const { fee } = await prompts.delegationFee();
   const { popBLSPublicKey } = await prompts.popBLSPublicKey();
   const { popBLSSignature } = await prompts.popBLSSignature();
@@ -209,6 +210,16 @@ async function askAutoRenewedValidator(): Promise<TxRequest> {
     blsPublicKey: hexBytes(popBLSPublicKey),
     blsSignature: hexBytes(popBLSSignature),
   };
+}
+
+/** End of the validator's current cycle, for the stop confirmation; undefined when it cannot be looked up. */
+async function cycleEndOf(env: Env, nodeId: string): Promise<string | undefined> {
+  try {
+    const validator = (await currentValidators(env, [nodeId])).find((v) => v.nodeID === nodeId);
+    return validator ? new Date(Number(validator.endTime) * 1000).toISOString() : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 const hexBytes = (hex: string): Uint8Array => Uint8Array.from(Buffer.from(hex.replace(/^0x/, ""), "hex"));

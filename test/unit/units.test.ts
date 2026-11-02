@@ -30,11 +30,17 @@ describe("chain/units", () => {
       expect(formatFlr(1n)).to.equal("0.000000001");
     });
 
-    it("truncates beyond the precision and ignores thousands separators", () => {
+    it("truncates beyond the precision", () => {
       expect(parseFlr("1.9999999999")).to.equal(1_999_999_999n);
-      expect(parseFlr("10,000")).to.equal(10_000_000_000_000n);
       expect(formatWei(1_000_000_000_000_000_000n)).to.equal("1");
       expect(nFlrToWei(1_500_000_000n)).to.equal(1_500_000_000_000_000_000n);
+    });
+
+    it("refuses commas, which up to 4.x were dropped as thousands separators ('1,5' became 15)", () => {
+      for (const bad of ["1,5", "0,5", "1,500", "10,000", "1,000.5", "1.000,5", ",5", "1,"]) {
+        expect(() => parseFlr(bad), bad).to.throw(/Invalid amount .*commas are not accepted/);
+      }
+      expect(() => parsePercentToShares("2,5")).to.throw(/commas are not accepted/);
     });
 
     it("rejects negative, empty and non-numeric input", () => {

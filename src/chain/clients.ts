@@ -4,7 +4,7 @@
  */
 import { Context, avm, evm, info, networkIDs, pvm } from "@flarenetwork/flarejs";
 import { FetchRequest, JsonRpcProvider } from "ethers";
-import { API_KEY_HEADER, type NetworkConfig } from "./network";
+import { API_KEY_HEADER, assertNodeNetwork, type NetworkConfig } from "./network";
 
 export type UpgradesInfo = Awaited<ReturnType<info.InfoApi["getUpgradesInfo"]>>;
 
@@ -14,18 +14,20 @@ export interface Clients {
   readonly evm: evm.EVMApi;
   readonly info: info.InfoApi;
   readonly provider: JsonRpcProvider;
-  /** flarejs Context (chain ids, asset id, fee config), fetched once. */
+  /** flarejs Context (chain ids, asset id, fee config), fetched once, after `verifyNetwork`. */
   context(): Promise<Context.Context>;
+  /** Fails unless the node is on the selected network (see `assertNodeNetwork`); asks the node once. */
+  verifyNetwork(): Promise<void>;
   /** `info.upgrades`, fetched once. */
   upgrades(): Promise<UpgradesInfo>;
   isHeliconActive(): Promise<boolean>;
 }
 
-/** The flarejs clients the Context is assembled from. */
+/** The flarejs lookups the Context is assembled from. */
 export interface ContextApis {
-  readonly pvm: pvm.PVMApi;
-  readonly avm: avm.AVMApi;
-  readonly info: info.InfoApi;
+  readonly pvm: Pick<pvm.PVMApi, "getFeeConfig">;
+  readonly avm: Pick<avm.AVMApi, "getAssetDescription" | "getTxFee">;
+  readonly info: Pick<info.InfoApi, "getBlockchainId" | "getNetworkId">;
 }
 
 /**
@@ -86,6 +88,22 @@ export function createClients(network: NetworkConfig): Clients {
   const connection = new FetchRequest(network.rpcUrl);
   if (network.apiKey !== undefined) connection.setHeader(API_KEY_HEADER, network.apiKey);
 
+  // One getNetworkID lookup serves both the network check and the Context; a failed lookup is retried.
+  let networkId: ReturnType<info.InfoApi["getNetworkId"]> | undefined;
+  const nodeNetworkId = (): ReturnType<info.InfoApi["getNetworkId"]> =>
+    (networkId ??= infoApi.getNetworkId().catch((error: unknown) => {
+      networkId = undefined;
+      throw error;
+    }));
+  const verifyNetwork = async (): Promise<void> => {
+    assertNodeNetwork(network, Number((await nodeNetworkId()).networkID));
+  };
+  const contextApis: ContextApis = {
+    pvm: pvmApi,
+    avm: avmApi,
+    info: { getBlockchainId: (alias) => infoApi.getBlockchainId(alias), getNetworkId: nodeNetworkId },
+  };
+
   let context: Promise<Context.Context> | undefined;
   let upgrades: Promise<UpgradesInfo> | undefined;
   return {
@@ -94,7 +112,8 @@ export function createClients(network: NetworkConfig): Clients {
     evm: evmApi,
     info: infoApi,
     provider: new JsonRpcProvider(connection, network.chainId, { staticNetwork: true }),
-    context: () => (context ??= fetchContext({ pvm: pvmApi, avm: avmApi, info: infoApi })),
+    context: () => (context ??= verifyNetwork().then(() => fetchContext(contextApis))),
+    verifyNetwork,
     upgrades: () => (upgrades ??= infoApi.getUpgradesInfo()),
     isHeliconActive: async function () {
       return heliconActive(await this.upgrades());
