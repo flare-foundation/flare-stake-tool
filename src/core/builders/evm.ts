@@ -6,8 +6,10 @@ import { normalizeAddressList, type EvmFees } from "../../constants/fees";
 import type { Env, EvmTxType, TxRequestOf, UnsignedTxBundle } from "../types";
 
 function evmBundle(txType: EvmTxType, rawTx: TransactionLike): UnsignedTxBundle {
-  // Build exactly what gets signed: the type defaults to legacy only for type-less files written by old versions.
-  const tx = Transaction.from({ ...rawTx, type: rawTx.type ?? 0 });
+  // Build exactly what gets signed. The builders always set the type (2, EIP-1559 fees); without one ethers would
+  // infer EIP-2930. Type-less files written by versions before 4.4.0 never come through here: `send` reloads them
+  // with bundleFromUnsignedTxJson, which keeps the envelope they were signed over.
+  const tx = Transaction.from({ ...rawTx, type: rawTx.type ?? 2 });
   return { kind: "evm", txType, tx, rawTx, digest: getBytes(tx.unsignedHash) };
 }
 

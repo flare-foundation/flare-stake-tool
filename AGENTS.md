@@ -239,7 +239,13 @@ it — both example-based and property-based where applicable.
 - ForDefi auth requires `private.pem` and `token` files at the cwd; both are
   in `.gitignore`. The ForDefi host is in `src/app/fordefi.ts`.
 - `FLARE_FAKE_LEDGER_KEY=<hex>` makes `--ledger` use a software key instead
-  of a device (tests only).
+  of a device (tests only). It is announced on stderr every time and refused on
+  flare and songbird, so it only works on costwo, coston and localflare.
+- `src/ledger/` talks to the device: `transport.ts` opens and always closes the
+  USB transport (`withApp`), `bytes.ts` normalizes signatures (`rsvHex`,
+  `evmSignatureHex`), and `index.ts` routes each call to the open app, which
+  is detected once with the dashboard APDU. None of it runs in the tests; check
+  changes on a real device (Flare, Avalanche and Ethereum apps).
 
 ## Release process
 
