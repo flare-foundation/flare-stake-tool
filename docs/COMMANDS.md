@@ -117,10 +117,10 @@ Move FLR from the P-chain to the C-chain (reverse of exportCP).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-a <amount>` (FLR, optional on every path — defaults to the entire P-chain balance minus the base fee) |
+| Inputs | `-a <amount>` (FLR, optional on every path — defaults to the entire spendable P-chain balance minus the exact fee of the export, so nothing is left behind) |
 | Side effects | Submits an atomic export tx on the P-chain |
 | Output | Tx hash, "sent to the network" |
-| Failures | "Export amount is smaller than or equal to zero" if P-balance ≤ exportFee |
+| Failures | "Export amount is smaller than or equal to zero" if the spendable P-chain balance does not cover the export fee |
 
 ---
 

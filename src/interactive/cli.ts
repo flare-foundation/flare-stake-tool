@@ -28,6 +28,7 @@ import {
   type ContextFile,
 } from "../app/env";
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
+import { maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
 import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
 import { describeError, describeFee, log, logError, logInfo, logSuccess, logWarning } from "../output";
@@ -280,12 +281,15 @@ async function moveCP(session: Session): Promise<void> {
 
 /** Export from the P-chain (default: everything minus the fee), wait, import on the C-chain. */
 async function movePC(session: Session): Promise<void> {
-  const [balances, context] = await Promise.all([
-    getBalances(session.env, session.account),
-    session.env.clients.context(),
-  ]);
-  const defaultAmount = balances.pChainNFlr - context.baseTxFee;
-  const { amount } = await prompts.amount("", defaultAmount > 0n ? formatFlr(defaultAmount) : undefined);
+  // Default: everything spendable minus the exact export fee, as `exportPC` without -a.
+  let defaultAmount: string | undefined;
+  try {
+    await session.env.clients.verifyNetwork();
+    defaultAmount = formatFlr(await maxExportPCAmount(session.env, session.account, session.signer.policy));
+  } catch {
+    defaultAmount = undefined; // nothing to export, or the node is unreachable: no default
+  }
+  const { amount } = await prompts.amount("", defaultAmount);
   log("Please approve export transaction");
   report(session, await runTransaction({ type: "exportPC", amount: parseFlr(amount) }, session.env, session.signer));
   await waitForPendingImport(session, "C");

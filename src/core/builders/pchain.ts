@@ -65,16 +65,109 @@ function requireFeeForPolicy(type: "exportCP" | "importPC", fee: bigint | undefi
   }
 }
 
+/** The node's page size for getUTXOs; a shorter page is the last one. */
+export const UTXO_PAGE_SIZE = 1024;
+
+type UtxoPage = Awaited<ReturnType<pvm.PVMApi["getUTXOs"]>>;
+type UtxoQuery = Parameters<pvm.PVMApi["getUTXOs"]>[0];
+
+/**
+ * Every UTXO of the query, following the node's pagination (`endIndex` as the
+ * next `startIndex`); a single call stops at 1024. The first request is the
+ * plain query, so an account with fewer UTXOs makes exactly the call it did
+ * before. A UTXO repeated at a page boundary is kept once.
+ */
+export async function allUtxos(getPage: (query: UtxoQuery) => Promise<UtxoPage>, query: UtxoQuery) {
+  const utxos: UtxoPage["utxos"] = [];
+  const seen = new Set<string>();
+  let page = await getPage(query);
+  for (;;) {
+    for (const utxo of page.utxos) {
+      const id = utxo.ID();
+      if (!seen.has(id)) {
+        seen.add(id);
+        utxos.push(utxo);
+      }
+    }
+    if (Number(page.numFetched) < UTXO_PAGE_SIZE || page.utxos.length === 0) {
+      return utxos;
+    }
+    page = await getPage({ ...query, startIndex: page.endIndex });
+  }
+}
+
 async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sourceChain?: "C") {
-  const [context, feeState, { utxos }] = await Promise.all([
+  const [context, feeState, utxos] = await Promise.all([
     env.clients.context(),
     env.clients.pvm.getFeeState(),
-    env.clients.pvm.getUTXOs({ addresses: [account.pAddress], ...(sourceChain ? { sourceChain } : {}) }),
+    allUtxos((query) => env.clients.pvm.getUTXOs(query), {
+      addresses: [account.pAddress],
+      ...(sourceChain ? { sourceChain } : {}),
+    }),
   ]);
   if (policy.feePrice !== "chain") {
     feeState.price = policy.feePrice;
   }
   return { context, feeState, utxos, from: [account.addressBytes] };
+}
+
+type PChainInputs = Awaited<ReturnType<typeof pChainInputs>>;
+
+/** AVAX the account can spend alone now: unlocked, not stake-locked, threshold 1 (getUTXOs only returns its own). */
+export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: string, nowSeconds: bigint): bigint {
+  let total = 0n;
+  for (const utxo of utxos) {
+    const info = futils.getUtxoInfo(utxo);
+    if (
+      info.assetId === avaxAssetID &&
+      info.threshold <= 1 &&
+      info.locktime <= nowSeconds &&
+      info.stakeableLocktime <= nowSeconds
+    ) {
+      total += info.amount;
+    }
+  }
+  return total;
+}
+
+const exportPCTx = (inputs: PChainInputs, amount: bigint): UnsignedTx =>
+  pvm.newExportTx(
+    {
+      feeState: inputs.feeState,
+      utxos: inputs.utxos,
+      fromAddressesBytes: inputs.from,
+      destinationChainId: inputs.context.cBlockchainID,
+      outputs: [TransferableOutput.fromNative(inputs.context.avaxAssetID, amount, inputs.from)],
+    },
+    inputs.context
+  );
+
+const FEE_SHORTFALL_RE = /need (\d+) more unlocked nAVAX .*to cover fee/;
+
+/**
+ * Exports everything the account can spend: the amount is the spendable total
+ * minus the exact fee of this very transaction. Exporting the total first makes
+ * flarejs consume every UTXO and report the fee it is short by (the P-chain fee
+ * depends on the inputs, so it cannot be a fixed value); exporting the total
+ * minus that fee then spends the same inputs with nothing left over.
+ */
+function exportAllPC(inputs: PChainInputs): { amount: bigint; unsignedTx: UnsignedTx } {
+  const total = spendableAmount(inputs.utxos, inputs.context.avaxAssetID, BigInt(Math.floor(Date.now() / 1000)));
+  let fee = 0n;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const amount = total - fee;
+    if (amount <= 0n) {
+      throw new Error("Export amount is smaller than or equal to zero");
+    }
+    try {
+      return { amount, unsignedTx: exportPCTx(inputs, amount) };
+    } catch (error) {
+      const shortfall = FEE_SHORTFALL_RE.exec(error instanceof Error ? error.message : String(error))?.[1];
+      if (shortfall === undefined) throw error;
+      fee += BigInt(shortfall);
+    }
+  }
+  throw new Error("Could not determine the fee of exporting the whole P-chain balance");
 }
 
 function startTime(requested: bigint | undefined, policy: BuildPolicy): bigint {
@@ -142,28 +235,15 @@ export async function buildExportPC(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
-  const { context, feeState, utxos, from } = await pChainInputs(env, account, policy);
-  let amount = req.amount;
-  if (amount === undefined) {
-    const { balance } = await env.clients.pvm.getBalance({ addresses: [account.pAddress] });
-    amount = BigInt(balance) - context.baseTxFee;
-    if (amount <= 0n) {
-      throw new Error("Export amount is smaller than or equal to zero");
-    }
-  }
-  return bundle(
-    "exportPC",
-    pvm.newExportTx(
-      {
-        feeState,
-        utxos,
-        fromAddressesBytes: from,
-        destinationChainId: context.cBlockchainID,
-        outputs: [TransferableOutput.fromNative(context.avaxAssetID, amount, from)],
-      },
-      context
-    )
-  );
+  const inputs = await pChainInputs(env, account, policy);
+  // Without -a: the whole spendable balance minus the exact fee. The previous default subtracted
+  // context.baseTxFee (0.001 FLR), below the dynamic P-chain fee, so it always ran short.
+  return bundle("exportPC", req.amount === undefined ? exportAllPC(inputs).unsignedTx : exportPCTx(inputs, req.amount));
+}
+
+/** The amount `exportPC` without `-a` would export now (the interactive default); nothing is signed. */
+export async function maxExportPCAmount(env: Env, account: Account, policy: BuildPolicy): Promise<bigint> {
+  return exportAllPC(await pChainInputs(env, account, policy)).amount;
 }
 
 export async function buildImportPC(
@@ -173,9 +253,9 @@ export async function buildImportPC(
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
   requireFeeForPolicy("importPC", req.fee, policy);
-  const [context, { utxos }] = await Promise.all([
+  const [context, utxos] = await Promise.all([
     env.clients.context(),
-    env.clients.evm.getUTXOs({ sourceChain: "P", addresses: [account.cAddressBech] }),
+    allUtxos((query) => env.clients.evm.getUTXOs(query), { sourceChain: "P", addresses: [account.cAddressBech] }),
   ]);
   if (req.fee === undefined) {
     const baseFee = await env.clients.evm.getBaseFee();
