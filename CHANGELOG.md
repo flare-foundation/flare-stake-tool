@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `info network` (it printed only a header) and the undocumented `info mirror` (it only listed the address's P-chain stakes), together with the interactive menu entries for them.
 * Dead code that no command reached: the React/MUI UI module, the Trezor module, the EVM transaction helpers in the Ledger signing module, unused Ledger helpers, the `local` network alias and browser-only utilities; and the dependencies they pulled in (`@emotion/*`, `@mui/*`, `@metamask/detect-provider`, `@ledgerhq/hw-transport-webhid`, `@trezor/connect-web`, `@ethereumjs/{tx,common,rlp}`, `buffer`, `node-fetch`, the unused ethers v5 alias). This removes both critical and most high-severity advisories reported by `pnpm audit`.
 * The no-op `--blind` and `--threshold` options are still accepted for compatibility but do nothing (they never did).
+* Runtime dependencies the rewrite no longer uses: `web3`, `web3-utils`, `bn.js`, `ethereumjs-util`, `bech32` and `@scure/base` (90 packages fewer to install), with the `zod` and `pbkdf2` overrides that only served them; `elliptic` is now a development dependency (tests only).
 
 ### Added
 
