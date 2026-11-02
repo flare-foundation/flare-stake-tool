@@ -232,7 +232,10 @@ it — both example-based and property-based where applicable.
 - A stake test skips with "no free node": every localflare node is currently
   validating (the minimum period is 15 minutes, test stakes last 1 hour).
 - "Tx already sent to chain" from `send` → `markSentToChain` set
-  `isSentToChain` in the signed tx JSON; delete the file or use a new id.
+  `isSentToChain` in the signed tx JSON as soon as the node took the
+  transaction (`onIssued`), also when the wait for it timed out; it is removed
+  only when the chain refused it (`TxNotAcceptedError`). Check the tx id before
+  removing the field by hand, or use a new id.
 - ForDefi auth requires `private.pem` and `token` files at the cwd; both are
   in `.gitignore`. The ForDefi host is in `src/app/fordefi.ts`.
 - `FLARE_FAKE_LEDGER_KEY=<hex>` makes `--ledger` use a software key instead

@@ -28,7 +28,7 @@ import {
   type ContextFile,
 } from "../app/env";
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
-import { estimateAtomicFee, runTransaction } from "../app/transactions";
+import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
 import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
 import { describeError, describeFee, log, logError, logInfo, logSuccess, logWarning } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
@@ -237,25 +237,33 @@ async function cycleEndOf(env: Env, nodeId: string): Promise<string | undefined>
 /**
  * Fee of a C-chain atomic transaction (exportCP/importPC). The prompt offers
  * the fee the transaction would pay if built now (twice the current base fee,
- * see ESTIMATED_FEE_BASE_FEE_MULTIPLIER),
- * so Enter pays a fee the user has seen; it is then passed explicitly, so the
- * transaction pays exactly that. When no estimate can be made (nothing to
- * import yet, say) there is no default and an empty answer is estimated when
- * the transaction is built, as on the command line without `-f`. The menu
- * only signs immediately, so no co-signer needs a fixed fee.
+ * see ESTIMATED_FEE_BASE_FEE_MULTIPLIER), so Enter pays a fee the user has
+ * seen; any other fee typed in is paid exactly as given, after a confirmation
+ * when it is below the cost at the current base fee. When no estimate can be
+ * made (nothing to import yet, say) there is no default and an empty answer is
+ * estimated when the transaction is built, as on the command line without
+ * `-f`. The menu only signs immediately, so no co-signer needs a fixed fee.
  */
 async function askCChainFee(
   session: Session,
   req: TxRequestOf<"exportCP"> | TxRequestOf<"importPC">
 ): Promise<bigint | undefined> {
-  let estimate: string | undefined;
+  const symbol = session.env.network.symbol;
+  let estimate: bigint | undefined;
   try {
-    estimate = formatFlr(await estimateAtomicFee({ ...req, fee: undefined }, session.env, session.account));
+    estimate = await estimateAtomicFee({ ...req, fee: undefined }, session.env, session.account);
   } catch {
     estimate = undefined;
   }
-  const { fees } = await prompts.fees(estimate, session.env.network.symbol);
-  return fees.trim() === "" ? undefined : parseFlr(fees);
+  for (;;) {
+    const { fees } = await prompts.fees(estimate === undefined ? undefined : formatFlr(estimate), symbol);
+    if (fees.trim() === "") return undefined;
+    const fee = parseFlr(fees);
+    const warning = estimate === undefined ? undefined : underpricedFeeWarning(fee, estimate, symbol);
+    if (!warning) return fee;
+    logWarning(warning);
+    if ((await prompts.confirmLowFee()).send) return fee;
+  }
 }
 
 /** Export from the C-chain, wait for the UTXO to reach the P-chain, import. */

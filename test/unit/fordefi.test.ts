@@ -122,6 +122,71 @@ describe("app/fordefi", () => {
     expect(signed.forDefiTxId).to.equal("fordefi-tx-42");
   });
 
+  /** Answers with the given HTTP status per request; status 200 bodies are JSON. */
+  function statusFetch(responses: Record<string, { status: number; statusText?: string; body: string }>): FetchLike {
+    return ((url: string, init: RequestInit) => {
+      const key = `${init.method} ${new URL(url).pathname}`;
+      const answer = responses[key];
+      if (answer === undefined) throw new Error(`unexpected request ${key}`);
+      return Promise.resolve(new Response(answer.body, { status: answer.status, statusText: answer.statusText ?? "" }));
+    }) as FetchLike;
+  }
+
+  const rejectedWith = async (promise: Promise<unknown>): Promise<string> =>
+    promise.then(
+      () => expect.fail("should have thrown"),
+      (error: unknown) => (error as Error).message
+    );
+
+  it("reports a refused vault lookup with its HTTP status instead of a missing key", async () => {
+    const fetchImpl = statusFetch({
+      [`GET /api/v1/vaults/${vaultId}`]: { status: 401, statusText: "Unauthorized", body: '{"title":"Invalid token"}' },
+    });
+    expect(await rejectedWith(sendToForDefi("tx1", context, fetchImpl))).to.equal(
+      `ForDefi vault lookup (${vaultId}) failed: HTTP 401 Unauthorized: {"title":"Invalid token"}`
+    );
+  });
+
+  it("reports a failed signature request and leaves the unsigned file as it was", async () => {
+    const before = readUnsignedTxJson("tx1").forDefiTxId;
+    const vault = {
+      id: vaultId,
+      public_key_compressed: Buffer.from(EWOQ_PUBLIC_KEY_COMPRESSED, "hex").toString("base64"),
+    };
+    const fetchImpl = statusFetch({
+      [`GET /api/v1/vaults/${vaultId}`]: { status: 200, body: JSON.stringify(vault) },
+      "POST /api/v1/transactions": { status: 500, statusText: "Internal Server Error", body: "" },
+    });
+    expect(await rejectedWith(sendToForDefi("tx1", context, fetchImpl))).to.equal(
+      "ForDefi signature request failed: HTTP 500 Internal Server Error"
+    );
+    expect(readUnsignedTxJson("tx1").forDefiTxId).to.equal(before);
+  });
+
+  it("reports a failed transaction lookup and an answer that is not JSON", async () => {
+    const notFound = statusFetch({
+      "GET /api/v1/transactions/fordefi-tx-42": { status: 404, statusText: "Not Found", body: "no such transaction" },
+    });
+    expect(await rejectedWith(fetchForDefiSignature("tx1", notFound))).to.equal(
+      "ForDefi transaction lookup (fordefi-tx-42) failed: HTTP 404 Not Found: no such transaction"
+    );
+    const htmlPage = statusFetch({
+      "GET /api/v1/transactions/fordefi-tx-42": { status: 200, body: "<html>maintenance</html>" },
+    });
+    expect(await rejectedWith(fetchForDefiSignature("tx1", htmlPage))).to.equal(
+      "ForDefi transaction lookup (fordefi-tx-42) did not answer with JSON: <html>maintenance</html>"
+    );
+  });
+
+  it("names ForDefi's state when the transaction is not signed yet", async () => {
+    const fetchImpl = fakeFetch({
+      "GET /api/v1/transactions/fordefi-tx-42": { id: "fordefi-tx-42", state: "waiting_for_approval", signatures: [] },
+    });
+    expect(await rejectedWith(fetchForDefiSignature("tx1", fetchImpl))).to.equal(
+      "Transaction is not signed yet (ForDefi state: waiting_for_approval); run forDefi fetch again once it is"
+    );
+  });
+
   it("reports a transaction that is not signed yet", async () => {
     const fetchImpl = fakeFetch({ "GET /api/v1/transactions/fordefi-tx-42": { id: "fordefi-tx-42", signatures: [] } });
     try {

@@ -192,6 +192,19 @@ export const prompts = {
     return inquirer.prompt<{ replace: boolean }>(questions);
   },
 
+  // a typed C-chain fee below the cost at the current base fee; No asks for the fee again
+  confirmLowFee: async () => {
+    const questions = [
+      {
+        type: "confirm",
+        name: "send",
+        default: false,
+        message: styleText("magenta", "Send with this fee anyway?"),
+      },
+    ];
+    return inquirer.prompt<{ send: boolean }>(questions);
+  },
+
   selectNetwork: async () => {
     const questions = [
       {

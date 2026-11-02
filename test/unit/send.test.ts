@@ -1,0 +1,120 @@
+/**
+ * `send -i` against a scripted node: when the signed file is marked as sent
+ * (as soon as the node takes the transaction) and when the mark is removed
+ * again (only when the chain refuses it). Uses the recorded unsigned files.
+ */
+import { expect } from "chai";
+import { sendSignedTransaction } from "../../src/app/send";
+import type { Clients } from "../../src/chain/clients";
+import { networkConfig } from "../../src/chain/network";
+import { isAlreadySentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
+import { TxNotAcceptedError } from "../../src/core/submit";
+import type { Env } from "../../src/core/types";
+import { readGolden } from "../characterization/scenarios";
+import { cleanupTempDir, makeTempDir } from "../helpers/cli";
+import { signMessageHash } from "../helpers/keys";
+
+interface ScriptedNode {
+  /** Statuses returned by successive polls; the last one repeats. */
+  statuses: string[];
+  /** When set, issuing fails like a node refusing the transaction outright. */
+  issueError?: string;
+  /** Whether the file was already marked when the first status poll came in. */
+  markedAtFirstPoll?: boolean;
+}
+
+function scriptedEnv(node: ScriptedNode, id: string, cwd: string): Env {
+  const poll = () => {
+    node.markedAtFirstPoll ??= isAlreadySentToChain(id, cwd);
+    return node.statuses.length > 1 ? node.statuses.shift()! : node.statuses[0]!;
+  };
+  const issue = () =>
+    node.issueError
+      ? Promise.reject(new Error(node.issueError))
+      : Promise.resolve({ txID: "2TxIdFromTheScriptedNode" });
+  const clients = {
+    verifyNetwork: () => Promise.resolve(),
+    pvm: { issueSignedTx: issue, getTxStatus: () => Promise.resolve({ status: poll(), reason: "" }) },
+    evm: { issueSignedTx: issue, getAtomicTxStatus: () => Promise.resolve({ status: poll() }) },
+  };
+  return { network: networkConfig("localflare", {}), clients: clients as unknown as Clients };
+}
+
+function writeSigned(scenario: string, id: string, cwd: string): void {
+  const unsigned = readGolden(scenario).outcome.unsignedTxJson as UnsignedTxJson & {
+    signatureRequests: { message: string }[];
+  };
+  writeSignedTxJson({ ...unsigned, signature: signMessageHash(unsigned.signatureRequests[0]!.message) }, id, cwd);
+}
+
+const FAST = { timeoutMs: 50, pollMs: 1 };
+
+describe("app/send: the isSentToChain mark", () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = makeTempDir("send-");
+  });
+
+  afterEach(() => {
+    cleanupTempDir(cwd);
+  });
+
+  it("is set as soon as the node takes the transaction, before the wait for it", async () => {
+    writeSigned("delegate-file", "t", cwd);
+    const node: ScriptedNode = { statuses: ["Processing", "Committed"] };
+    const result = await sendSignedTransaction("t", scriptedEnv(node, "t", cwd), undefined, cwd, FAST);
+    expect(result).to.deep.equal({ txId: "2TxIdFromTheScriptedNode", chainStatus: "Committed" });
+    expect(node.markedAtFirstPoll).to.equal(true);
+    expect(isAlreadySentToChain("t", cwd)).to.equal(true);
+  });
+
+  it("stays set when the wait times out, so that a rerun cannot submit the transaction twice", async () => {
+    writeSigned("delegate-file", "t", cwd);
+    const env = scriptedEnv({ statuses: ["Processing"] }, "t", cwd);
+    await sendSignedTransaction("t", env, undefined, cwd, FAST).then(
+      () => expect.fail("the wait should have timed out"),
+      (error: unknown) => expect(String(error)).to.match(/submitted but not committed within 50ms/)
+    );
+    expect(isAlreadySentToChain("t", cwd)).to.equal(true);
+    await sendSignedTransaction("t", env, undefined, cwd, FAST).then(
+      () => expect.fail("a rerun must not submit again"),
+      (error: unknown) => expect(String(error)).to.include("Tx already sent to chain")
+    );
+  });
+
+  it("is removed when the P-chain aborts or drops the transaction, which may then be sent again", async () => {
+    for (const status of ["Aborted", "Dropped"]) {
+      writeSigned("delegate-file", status, cwd);
+      const env = scriptedEnv({ statuses: ["Processing", status] }, status, cwd);
+      await sendSignedTransaction(status, env, undefined, cwd, FAST).then(
+        () => expect.fail(`${status} should fail`),
+        (error: unknown) => {
+          expect(error).to.be.instanceOf(TxNotAcceptedError);
+          expect(String(error)).to.include(`was ${status.toLowerCase()} by the P-chain`);
+        }
+      );
+      expect(isAlreadySentToChain(status, cwd), status).to.equal(false);
+    }
+  });
+
+  it("is removed when the C-chain drops an atomic transaction", async () => {
+    writeSigned("exportCP-file", "c", cwd);
+    const env = scriptedEnv({ statuses: ["Processing", "Dropped"] }, "c", cwd);
+    await sendSignedTransaction("c", env, undefined, cwd, FAST).then(
+      () => expect.fail("Dropped should fail"),
+      (error: unknown) => expect(String(error)).to.include("was dropped by the C-chain")
+    );
+    expect(isAlreadySentToChain("c", cwd)).to.equal(false);
+  });
+
+  it("is never set when the node refuses to take the transaction", async () => {
+    writeSigned("delegate-file", "t", cwd);
+    const env = scriptedEnv({ statuses: ["Committed"], issueError: "insufficient funds" }, "t", cwd);
+    await sendSignedTransaction("t", env, undefined, cwd, FAST).then(
+      () => expect.fail("issuing should fail"),
+      (error: unknown) => expect(String(error)).to.include("insufficient funds")
+    );
+    expect(isAlreadySentToChain("t", cwd)).to.equal(false);
+  });
+});

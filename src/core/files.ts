@@ -156,3 +156,10 @@ export function markSentToChain(id: string, cwd = process.cwd()): void {
   json.isSentToChain = true;
   writeSignedTxJson(json, id, cwd);
 }
+
+/** Undoes markSentToChain for a transaction the chain refused, so that it can be sent again. */
+export function clearSentToChain(id: string, cwd = process.cwd()): void {
+  const json = readSignedTxJson(id, cwd);
+  delete json.isSentToChain;
+  writeSignedTxJson(json, id, cwd);
+}

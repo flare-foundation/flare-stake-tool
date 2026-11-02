@@ -1,20 +1,36 @@
 /** `send -i`: attach an externally produced signature to a stored transaction and submit it. */
 import { accountFromPublicKey, type Account } from "../chain/keys";
-import { bundleFromUnsignedTxJson, isAlreadySentToChain, markSentToChain, readSignedTxJson } from "../core/files";
+import {
+  bundleFromUnsignedTxJson,
+  clearSentToChain,
+  isAlreadySentToChain,
+  markSentToChain,
+  readSignedTxJson,
+} from "../core/files";
 import { attachSignature } from "../core/signing/attach";
 import { normalizeSignature, recoverPublicKey } from "../core/signing/signature";
-import { submitAndConfirm } from "../core/submit";
+import { TxNotAcceptedError, submitAndConfirm, type ConfirmOptions } from "../core/submit";
 import type { Env } from "../core/types";
 import { Transaction } from "ethers";
 
+/**
+ * The file is marked as sent as soon as the node has taken the transaction, so
+ * that a wait that times out cannot lead to a second submission; the mark is
+ * removed again only when the chain refuses the transaction (it is then not on
+ * chain and may be sent again).
+ */
 export async function sendSignedTransaction(
   id: string,
   env: Env,
   expectedAccount: Account | undefined,
-  cwd: string = process.cwd()
+  cwd: string = process.cwd(),
+  confirm: Omit<ConfirmOptions, "onIssued"> = {}
 ): Promise<{ txId: string; chainStatus: string }> {
   if (isAlreadySentToChain(id, cwd)) {
-    throw new Error("Tx already sent to chain");
+    throw new Error(
+      "Tx already sent to chain (the node took it before; check its status with the id printed then, " +
+        "or remove isSentToChain from the signed file to send it again)"
+    );
   }
   const signed = readSignedTxJson(id, cwd);
   const bundle = bundleFromUnsignedTxJson(signed);
@@ -22,9 +38,14 @@ export async function sendSignedTransaction(
   const account = expectedAccount ?? recoverAccount(bundle, signature, env.network.hrp);
   attachSignature(bundle, signature, account);
   await env.clients.verifyNetwork();
-  const result = await submitAndConfirm(bundle, env);
-  markSentToChain(id, cwd);
-  return result;
+  try {
+    return await submitAndConfirm(bundle, env, { ...confirm, onIssued: () => markSentToChain(id, cwd) });
+  } catch (error) {
+    if (error instanceof TxNotAcceptedError && isAlreadySentToChain(id, cwd)) {
+      clearSentToChain(id, cwd);
+    }
+    throw error;
+  }
 }
 
 function recoverAccount(

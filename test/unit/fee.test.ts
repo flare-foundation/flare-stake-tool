@@ -7,7 +7,7 @@ import { evm, type UnsignedTx } from "@flarenetwork/flarejs";
 import { expect } from "chai";
 import { getBytes } from "ethers";
 import { createEnv } from "../../src/app/env";
-import { estimateAtomicFee } from "../../src/app/transactions";
+import { estimateAtomicFee, underpricedFeeWarning } from "../../src/app/transactions";
 import { accountFromPrivateKey } from "../../src/chain/keys";
 import { buildTransaction } from "../../src/core/builders";
 import { ESTIMATED_FEE_BASE_FEE_MULTIPLIER } from "../../src/core/builders/pchain";
@@ -130,6 +130,17 @@ describe("atomic transaction fees", function () {
     } finally {
       env.clients.provider.destroy();
     }
+  });
+
+  it("warns about a typed fee below the cost at the current base fee (half the 2x estimate)", () => {
+    const estimate = 22_460n; // 11,230 gas at 2 x 1 gwei
+    expect(underpricedFeeWarning(11_229n, estimate, "LFLR")).to.equal(
+      "A fee of 0.000011229 LFLR is below the 0.00001123 LFLR this transaction costs at the current base fee; " +
+        "the node will reject it unless the base fee drops first"
+    );
+    expect(underpricedFeeWarning(11_230n, estimate, "LFLR")).to.equal(undefined); // exactly the base fee cost
+    expect(underpricedFeeWarning(estimate, estimate, "LFLR")).to.equal(undefined);
+    expect(underpricedFeeWarning(ONE_FLR, estimate, "LFLR")).to.equal(undefined);
   });
 
   it("describes the fee as paid once sent and as to be burned for an unsigned file", () => {

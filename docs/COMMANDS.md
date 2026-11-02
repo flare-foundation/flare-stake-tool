@@ -221,7 +221,7 @@ Submit a previously-built signed transaction to the network.
 |---|---|
 | Inputs | `-i <id>` |
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
-| Side effects | Submits the signed tx to the appropriate VM API; sets `isSentToChain: true` in the JSON file |
+| Side effects | Submits the signed tx to the appropriate VM API; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
 | Output | "Transaction with hash ... sent to the node" |
 | Failures | "Tx already sent to chain" (the flag was already set). Missing or malformed signed tx file. The signature does not belong to the configured account (`ctx.json`, `--ledger` or `--env-path`). |
 
@@ -244,7 +244,7 @@ Custodial signing flow via the ForDefi API.
 | Reads | `private.pem` and `token` files in cwd, plus the unsigned tx JSON |
 | Side effects | `sign`: posts the unsigned tx to ForDefi's API. `fetch`: polls for the signature and writes the signed tx file. |
 | Output | Tx hash sent to ForDefi; signature when fetched |
-| Failures | Missing `private.pem` / `token`. ForDefi API auth/rate-limit errors. Vault id mismatch. |
+| Failures | Missing `private.pem` / `token`. A refused ForDefi request is reported with its HTTP status and answer (`ForDefi vault lookup (…) failed: HTTP 401 Unauthorized: …`), as is an answer that is not JSON. Vault id mismatch. `fetch` before the signature exists: "Transaction is not signed yet (ForDefi state: …)". |
 
 Not exercised in the integration tests (requires real ForDefi credentials).
 
@@ -325,7 +325,9 @@ CLI. Amounts are entered in FLR, times as unix seconds or durations. The node
 is chosen as for the other commands (`--rpc-url`, `--api-key` or the
 environment variables), the network from the menu. The C-chain fee prompt of
 an export or import offers the fee estimated at twice the current base fee,
-as `-f` omitted does, so Enter pays the fee shown; when it cannot be estimated
+as `-f` omitted does, so Enter pays the fee shown. A fee typed in instead is
+paid exactly; one below the cost at the current base fee is sent only after a
+warning and a confirmation. When the fee cannot be estimated
 yet (nothing to import yet), an empty answer is estimated when the transaction
 is built. Invalid input (amounts, fees, periods, BLS keys) is refused at the
 prompt, which asks again.

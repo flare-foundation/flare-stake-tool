@@ -28,12 +28,32 @@ interface VaultResponse {
 
 const readToken = (): string => fs.readFileSync(FORDEFI_TOKEN_FILE, "utf8").trim();
 
+/**
+ * The JSON body of a ForDefi answer. A refused request (expired token, unknown
+ * vault, server error) is reported with its HTTP status and body instead of
+ * surfacing later as a missing field.
+ */
+async function forDefiJson<T>(response: Response, what: string): Promise<T> {
+  const text = await response.text();
+  const body = text.trim().slice(0, 300);
+  if (!response.ok) {
+    throw new Error(
+      `ForDefi ${what} failed: HTTP ${response.status} ${response.statusText}`.trim() + (body ? `: ${body}` : "")
+    );
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`ForDefi ${what} did not answer with JSON${body ? `: ${body}` : ""}`);
+  }
+}
+
 export async function getVaultPublicKey(vaultId: string, fetchImpl: FetchLike = fetch): Promise<string> {
   const response = await fetchImpl(`https://${FORDEFI_HOST}/api/v1/vaults/${vaultId}`, {
     method: "GET",
     headers: { Authorization: `Bearer ${readToken()}` },
   });
-  const json = (await response.json()) as VaultResponse;
+  const json = await forDefiJson<VaultResponse>(response, `vault lookup (${vaultId})`);
   if (!json.public_key_compressed) {
     throw new Error("public_key_compressed not found in vault response");
   }
@@ -73,7 +93,7 @@ export async function sendToForDefi(id: string, context: ContextFile, fetchImpl:
     },
     body: requestBody,
   });
-  const json = (await response.json()) as ForDefiTransactionResponse;
+  const json = await forDefiJson<ForDefiTransactionResponse>(response, "signature request");
   if (!json.id) {
     throw new Error(`ForDefi did not return a transaction id: ${JSON.stringify(json).slice(0, 200)}`);
   }
@@ -91,10 +111,11 @@ export async function fetchForDefiSignature(id: string, fetchImpl: FetchLike = f
     method: "GET",
     headers: { Authorization: `Bearer ${readToken()}` },
   });
-  const json = (await response.json()) as ForDefiTransactionResponse;
+  const json = await forDefiJson<ForDefiTransactionResponse>(response, `transaction lookup (${unsigned.forDefiTxId})`);
   const data = json.signatures?.[0]?.data;
   if (!data) {
-    throw new Error("Transaction is not signed yet?");
+    const state = typeof json["state"] === "string" ? ` (ForDefi state: ${json["state"]})` : "";
+    throw new Error(`Transaction is not signed yet${state}; run forDefi fetch again once it is`);
   }
   const signature = Buffer.from(data, "base64").toString("hex");
   writeSignedTxJson({ ...unsigned, signature }, id);
