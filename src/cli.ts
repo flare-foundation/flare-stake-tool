@@ -34,7 +34,7 @@ import {
   type ParsedTime,
 } from "./cli/options";
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION } from "./cli/node";
-import { log, logInfo, logSuccess, logWarning } from "./output";
+import { describeFee, log, logInfo, logSuccess, logWarning } from "./output";
 import { FAKE_LEDGER_KEY_ENV, ledgerDevice } from "./signers/ledger";
 import * as ledger from "./ledger";
 
@@ -201,13 +201,15 @@ export function cli(program: Command): void {
     });
 }
 
-function reportOutcome(outcome: Outcome): void {
+function reportOutcome(outcome: Outcome, symbol: string): void {
   if (outcome.status === "sent") {
     logSuccess(`Transaction with hash ${outcome.txId} built and sent to the network`);
-    return;
+  } else {
+    logSuccess(`Unsigned transaction ${outcome.id} constructed`);
+    logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
   }
-  logSuccess(`Unsigned transaction ${outcome.id} constructed`);
-  logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
+  const fee = describeFee(outcome, symbol);
+  if (fee) logInfo(fee);
 }
 
 function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFlow: boolean): void {
@@ -229,7 +231,7 @@ async function transaction(type: string, options: GlobalOptions & OptionValues):
   const signer = await resolveSigner(options, env);
   const { request, resolvedTimes } = parseAtomicTxRequest(type, options);
   reportResolvedTimes(resolvedTimes, signer.kind === "file");
-  reportOutcome(await runTransaction(request, env, signer));
+  reportOutcome(await runTransaction(request, env, signer), env.network.symbol);
 }
 
 async function evmTransaction(
@@ -238,7 +240,7 @@ async function evmTransaction(
 ): Promise<void> {
   const env = resolveEnv(options);
   const signer = await resolveSigner(options, env);
-  reportOutcome(await runTransaction(parseEvmTxRequest(operation, options), env, signer));
+  reportOutcome(await runTransaction(parseEvmTxRequest(operation, options), env, signer), env.network.symbol);
 }
 
 async function send(options: GlobalOptions & OptionValues): Promise<void> {

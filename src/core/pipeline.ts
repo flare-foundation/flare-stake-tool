@@ -3,6 +3,7 @@
  * signer and every transaction type goes through here.
  */
 import { buildTransaction } from "./builders";
+import { atomicTxFee } from "./fee";
 import { attachSignature } from "./signing/attach";
 import { submitAndConfirm } from "./submit";
 import type { Env, Outcome, Signer, TxRequest } from "./types";
@@ -10,11 +11,13 @@ import type { Env, Outcome, Signer, TxRequest } from "./types";
 export async function executeTransaction(req: TxRequest, env: Env, signer: Signer): Promise<Outcome> {
   const account = await signer.account();
   const bundle = await buildTransaction(req, env, account, signer.policy);
+  // Read before anything is signed or sent; the Context was already fetched to build an atomic transaction.
+  const fee = bundle.kind === "atomic" ? atomicTxFee(bundle.unsignedTx, await env.clients.context()) : undefined;
   const result = await signer.sign(bundle);
   if (result.status === "pending") {
-    return result;
+    return { ...result, fee };
   }
   attachSignature(bundle, result.signature, account);
   const { txId, chainStatus } = await submitAndConfirm(bundle, env);
-  return { status: "sent", txId, chainStatus };
+  return { status: "sent", txId, chainStatus, fee };
 }

@@ -20,6 +20,7 @@ import { currentValidators } from "../chain/validators";
 import { resolveEvmFees } from "../constants/fees";
 import {
   DEFAULT_CTX_FILE,
+  backupContextFile,
   createEnv,
   readContextFile,
   writeContextFile,
@@ -27,12 +28,12 @@ import {
   type ContextFile,
 } from "../app/env";
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
-import { runTransaction } from "../app/transactions";
-import type { Env, Outcome, Signer, TxRequest } from "../core/types";
-import { describeError, log, logError, logInfo, logSuccess, logWarning } from "../output";
+import { estimateAtomicFee, runTransaction } from "../app/transactions";
+import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
+import { describeError, describeFee, log, logError, logInfo, logSuccess, logWarning } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
-import { DEFAULT_DELEGATION_FEE_PERCENT, BASE_DERIVATION_PATH, pastEndTimeWarning } from "../cli/options";
+import { DEFAULT_DELEGATION_FEE_PERCENT, BASE_DERIVATION_PATH, parseBlsHex, pastEndTimeWarning } from "../cli/options";
 import { nodeOverridesFromArgv } from "../cli/node";
 import { prompts } from "./prompts";
 
@@ -48,7 +49,6 @@ interface Session {
   account: Account;
 }
 
-const DEFAULT_EVM_TX_FEE_FLR = "1";
 const PENDING_IMPORT_TIMEOUT_MS = 90_000;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -112,10 +112,10 @@ async function runTask(task: string, session: Session): Promise<void> {
     case "import": {
       const { type } = await prompts.importTrxType();
       if (type === "P") {
-        report(await runTransaction({ type: "importCP" }, session.env, session.signer));
+        report(session, await runTransaction({ type: "importCP" }, session.env, session.signer));
       } else {
-        const { fees } = await prompts.fees(DEFAULT_EVM_TX_FEE_FLR);
-        report(await runTransaction({ type: "importPC", fee: parseFlr(fees) }, session.env, session.signer));
+        const fee = await askCChainFee(session, { type: "importPC" });
+        report(session, await runTransaction({ type: "importPC", fee }, session.env, session.signer));
       }
       break;
     }
@@ -123,6 +123,7 @@ async function runTask(task: string, session: Session): Promise<void> {
       const { amount } = await prompts.amount("");
       const { transferAddress } = await prompts.transferAddress();
       report(
+        session,
         await runTransaction(
           { type: "transfer", amount: parseFlr(amount), to: transferAddress },
           session.env,
@@ -132,13 +133,13 @@ async function runTask(task: string, session: Session): Promise<void> {
       break;
     }
     case "stake":
-      report(await runTransaction(await askStake(), session.env, session.signer));
+      report(session, await runTransaction(await askStake(), session.env, session.signer));
       break;
     case "delegate":
-      report(await runTransaction(await askDelegate(), session.env, session.signer));
+      report(session, await runTransaction(await askDelegate(), session.env, session.signer));
       break;
     case "addAutoRenewedValidator":
-      report(await runTransaction(await askAutoRenewedValidator(), session.env, session.signer));
+      report(session, await runTransaction(await askAutoRenewedValidator(), session.env, session.signer));
       break;
     case "setAutoRenewedValidatorConfig": {
       const { id } = await prompts.nodeId();
@@ -148,6 +149,7 @@ async function runTask(task: string, session: Session): Promise<void> {
         break;
       }
       report(
+        session,
         await runTransaction({ type: "setAutoRenewedValidatorConfig", nodeId: id, period }, session.env, session.signer)
       );
       break;
@@ -160,13 +162,15 @@ async function runTask(task: string, session: Session): Promise<void> {
   }
 }
 
-function report(outcome: Outcome): void {
+function report(session: Session, outcome: Outcome): void {
   if (outcome.status === "sent") {
     logSuccess(`Transaction with hash ${outcome.txId} built and sent to the network`);
   } else {
     logSuccess(`Unsigned transaction ${outcome.id} constructed`);
     logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
   }
+  const fee = describeFee(outcome, session.env.network.symbol);
+  if (fee) logInfo(fee);
 }
 
 /** Asks for an end time and warns (as the command line does) when it is not in the future. */
@@ -190,8 +194,8 @@ async function askStake(): Promise<TxRequest> {
     amount: parseFlr(amount),
     endTime,
     delegationFeeShares: parsePercentToShares(fee || DEFAULT_DELEGATION_FEE_PERCENT),
-    blsPublicKey: hexBytes(popBLSPublicKey),
-    blsSignature: hexBytes(popBLSSignature),
+    blsPublicKey: parseBlsHex(popBLSPublicKey, "publicKey"),
+    blsSignature: parseBlsHex(popBLSSignature, "signature"),
   };
 }
 
@@ -215,8 +219,8 @@ async function askAutoRenewedValidator(): Promise<TxRequest> {
     amount: parseFlr(amount),
     period: parseDuration(period),
     delegationFeeShares: parsePercentToShares(fee || DEFAULT_DELEGATION_FEE_PERCENT),
-    blsPublicKey: hexBytes(popBLSPublicKey),
-    blsSignature: hexBytes(popBLSSignature),
+    blsPublicKey: parseBlsHex(popBLSPublicKey, "publicKey"),
+    blsSignature: parseBlsHex(popBLSSignature, "signature"),
   };
 }
 
@@ -230,23 +234,40 @@ async function cycleEndOf(env: Env, nodeId: string): Promise<string | undefined>
   }
 }
 
-const hexBytes = (hex: string): Uint8Array => Uint8Array.from(Buffer.from(hex.replace(/^0x/, ""), "hex"));
+/**
+ * Fee of a C-chain atomic transaction (exportCP/importPC). The prompt offers
+ * the fee the transaction would pay if built now (twice the current base fee,
+ * see ESTIMATED_FEE_BASE_FEE_MULTIPLIER),
+ * so Enter pays a fee the user has seen; it is then passed explicitly, so the
+ * transaction pays exactly that. When no estimate can be made (nothing to
+ * import yet, say) there is no default and an empty answer is estimated when
+ * the transaction is built, as on the command line without `-f`. The menu
+ * only signs immediately, so no co-signer needs a fixed fee.
+ */
+async function askCChainFee(
+  session: Session,
+  req: TxRequestOf<"exportCP"> | TxRequestOf<"importPC">
+): Promise<bigint | undefined> {
+  let estimate: string | undefined;
+  try {
+    estimate = formatFlr(await estimateAtomicFee({ ...req, fee: undefined }, session.env, session.account));
+  } catch {
+    estimate = undefined;
+  }
+  const { fees } = await prompts.fees(estimate, session.env.network.symbol);
+  return fees.trim() === "" ? undefined : parseFlr(fees);
+}
 
 /** Export from the C-chain, wait for the UTXO to reach the P-chain, import. */
 async function moveCP(session: Session): Promise<void> {
   const { amount } = await prompts.amount("");
-  const { fees } = await prompts.fees(DEFAULT_EVM_TX_FEE_FLR);
+  const exportCP: TxRequestOf<"exportCP"> = { type: "exportCP", amount: parseFlr(amount) };
+  const fee = await askCChainFee(session, exportCP);
   log("Please approve export transaction");
-  report(
-    await runTransaction(
-      { type: "exportCP", amount: parseFlr(amount), fee: parseFlr(fees) },
-      session.env,
-      session.signer
-    )
-  );
+  report(session, await runTransaction({ ...exportCP, fee }, session.env, session.signer));
   await waitForPendingImport(session, "P");
   log("Please approve import transaction");
-  report(await runTransaction({ type: "importCP" }, session.env, session.signer));
+  report(session, await runTransaction({ type: "importCP" }, session.env, session.signer));
 }
 
 /** Export from the P-chain (default: everything minus the fee), wait, import on the C-chain. */
@@ -258,11 +279,11 @@ async function movePC(session: Session): Promise<void> {
   const defaultAmount = balances.pChainNFlr - context.baseTxFee;
   const { amount } = await prompts.amount("", defaultAmount > 0n ? formatFlr(defaultAmount) : undefined);
   log("Please approve export transaction");
-  report(await runTransaction({ type: "exportPC", amount: parseFlr(amount) }, session.env, session.signer));
+  report(session, await runTransaction({ type: "exportPC", amount: parseFlr(amount) }, session.env, session.signer));
   await waitForPendingImport(session, "C");
-  const { fees } = await prompts.fees(DEFAULT_EVM_TX_FEE_FLR);
+  const fee = await askCChainFee(session, { type: "importPC" });
   log("Please approve import transaction");
-  report(await runTransaction({ type: "importPC", fee: parseFlr(fees) }, session.env, session.signer));
+  report(session, await runTransaction({ type: "importPC", fee }, session.env, session.signer));
 }
 
 async function waitForPendingImport(session: Session, destination: "P" | "C"): Promise<void> {
@@ -302,6 +323,7 @@ async function claim(session: Session): Promise<void> {
   const { wrapRewards } = await prompts.wrapRewards();
   const { recipientAddress } = await prompts.recipientAddress(session.account.cAddress);
   report(
+    session,
     await runTransaction(
       { type: "claim", recipient: recipientAddress, amount, wrap: wrapRewards, fees: resolveEvmFees("claim") },
       session.env,
@@ -332,21 +354,35 @@ async function connectWallet(node: NodeOverrides): Promise<Session> {
   throw new Error(`Unsupported wallet ${wallet}`);
 }
 
-/** Reuses an existing Ledger ctx.json when the user wants to, otherwise creates one. */
+/**
+ * Reuses an existing Ledger ctx.json when the user wants to, otherwise creates
+ * one. Any other context (a ForDefi one with its vault id, or an unreadable
+ * file) is replaced only after confirmation, and the replaced file is kept as
+ * a backup rather than deleted.
+ */
 async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
-  if (contextFileExists(DEFAULT_CTX_FILE)) {
-    const existing = readContextFile(DEFAULT_CTX_FILE);
-    if (existing.wallet === "ledger") {
-      log(styleText("magenta", "You already have an existing Ctx file with the following parameters:"));
+  const replacing = contextFileExists(DEFAULT_CTX_FILE);
+  if (replacing) {
+    let existing: ContextFile | undefined;
+    try {
+      existing = readContextFile(DEFAULT_CTX_FILE);
+    } catch (error) {
+      log(styleText("magenta", `${DEFAULT_CTX_FILE} exists but cannot be used: ${describeError(error)}`));
+    }
+    if (existing) {
+      log(styleText("magenta", `You already have a ${DEFAULT_CTX_FILE} with the following parameters:`));
+      log(`${styleText("yellow", "Wallet:")} ${existing.wallet}`);
       log(`${styleText("yellow", "Public Key:")} ${existing.publicKey}`);
       log(`${styleText("yellow", "Network:")} ${existing.network}`);
       if (existing.ethAddress) log(`${styleText("yellow", "Eth Address:")} ${existing.ethAddress}`);
       if (existing.vaultId) log(`${styleText("yellow", "Vault Id:")} ${existing.vaultId}`);
+    }
+    if (existing?.wallet === "ledger") {
       const { isContinue } = await prompts.ctxFile();
       if (isContinue) return existing;
+    } else if (!(await prompts.replaceCtxFile(DEFAULT_CTX_FILE)).replace) {
+      throw new Error(`Kept ${DEFAULT_CTX_FILE}; choose another wallet, or move the file away to connect a Ledger`);
     }
-    fs.unlinkSync(DEFAULT_CTX_FILE);
-    log(`File "${DEFAULT_CTX_FILE}" has been deleted.`);
   }
   const { network } = await prompts.selectNetwork();
   const { derivation } = await prompts.derivationType();
@@ -363,6 +399,10 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
     flareAddress: accountFromPublicKey(chosen.publicKey, network).pAddress,
     derivationPath: chosen.derivationPath,
   };
+  // Only now, with the new context complete, does the previous file make way.
+  if (replacing) {
+    log(`Previous ${DEFAULT_CTX_FILE} kept as ${backupContextFile(DEFAULT_CTX_FILE)}`);
+  }
   writeContextFile(context, DEFAULT_CTX_FILE);
   return context;
 }

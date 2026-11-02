@@ -50,6 +50,20 @@ export function writeContextFile(context: ContextFile, file: string = DEFAULT_CT
   fs.writeFileSync(file, JSON.stringify(context, null, 2));
 }
 
+/**
+ * Moves an existing context file aside as `<file>.<timestamp>.bak` and returns
+ * that path, so that replacing a context (a ForDefi one with its `vaultId`,
+ * say) never loses it.
+ */
+export function backupContextFile(file: string = DEFAULT_CTX_FILE, now: Date = new Date()): string {
+  const backup = `${file}.${now.toISOString().replace(/[:.]/g, "-")}.bak`;
+  if (fs.existsSync(backup)) {
+    throw new Error(`Backup ${backup} already exists`);
+  }
+  fs.renameSync(file, backup);
+  return backup;
+}
+
 export function accountFromContextFile(context: ContextFile, hrp: string): Account {
   return accountFromPublicKey(context.publicKey, hrp);
 }

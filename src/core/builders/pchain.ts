@@ -39,6 +39,32 @@ function bundle(txType: AtomicTxType, unsignedTx: UnsignedTx): UnsignedTxBundle 
 /** Base fee in gwei (nFLR), rounded up, as the flarejs `*FromBaseFee` builders expect. */
 const baseFeeGwei = (baseFeeWei: bigint): bigint => (baseFeeWei + NFLR_PER_GWEI_DIVISOR - 1n) / NFLR_PER_GWEI_DIVISOR;
 
+/**
+ * When the fee of exportCP/importPC is estimated (no `-f`), it covers this
+ * multiple of the current base fee. Since Granite the Flare C-chain base fee
+ * follows ACP-176 with `TargetToPriceUpdateConversion = 87`, which lets it at
+ * most double in about 60 seconds, so twice the base fee still clears after a
+ * minute between the estimate and the issue: reading the prompt, a Ledger
+ * approval. An atomic transaction burns its whole fee (there is no refund as
+ * with EIP-1559), so the headroom is paid: about 0.0056 FLR at the 500 gwei floor.
+ */
+export const ESTIMATED_FEE_BASE_FEE_MULTIPLIER = 2n;
+
+/** The gas price (gwei = nFLR per gas) given to the flarejs `*FromBaseFee` builders. */
+const estimatedGasPriceGwei = (baseFeeWei: bigint): bigint =>
+  baseFeeGwei(baseFeeWei) * ESTIMATED_FEE_BASE_FEE_MULTIPLIER;
+
+/**
+ * The unsigned-file (ForDefi) policy needs `-f`: co-signers building the same
+ * transaction must not each estimate a fee from the base fee of their moment.
+ * Checked before any node call.
+ */
+function requireFeeForPolicy(type: "exportCP" | "importPC", fee: bigint | undefined, policy: BuildPolicy): void {
+  if (fee === undefined && policy.requireExplicitFee) {
+    throw new Error(`fee is required for ${type} transaction. Use --fee <fee> to specify the fee`);
+  }
+}
+
 async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sourceChain?: "C") {
   const [context, feeState, { utxos }] = await Promise.all([
     env.clients.context(),
@@ -62,18 +88,16 @@ export async function buildExportCP(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
+  requireFeeForPolicy("exportCP", req.fee, policy);
   const context = await env.clients.context();
   const nonce = req.nonce ?? BigInt(await env.clients.provider.getTransactionCount(account.cAddress));
   if (req.fee === undefined) {
-    if (policy.requireExplicitFee) {
-      throw new Error("fee is required for exportCP transaction. Use --fee <fee> to specify the fee");
-    }
     const baseFee = await env.clients.evm.getBaseFee();
     return bundle(
       "exportCP",
       evm.newExportTxFromBaseFee(
         context,
-        baseFeeGwei(baseFee),
+        estimatedGasPriceGwei(baseFee),
         req.amount,
         context.pBlockchainID,
         account.cAddressBytes,
@@ -148,14 +172,12 @@ export async function buildImportPC(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
+  requireFeeForPolicy("importPC", req.fee, policy);
   const [context, { utxos }] = await Promise.all([
     env.clients.context(),
     env.clients.evm.getUTXOs({ sourceChain: "P", addresses: [account.cAddressBech] }),
   ]);
   if (req.fee === undefined) {
-    if (policy.requireExplicitFee) {
-      throw new Error("fee is required for importPC transaction. Use --fee <fee> to specify the fee");
-    }
     const baseFee = await env.clients.evm.getBaseFee();
     return bundle(
       "importPC",
@@ -165,7 +187,7 @@ export async function buildImportPC(
         [account.addressBytes],
         utxos,
         context.pBlockchainID,
-        baseFeeGwei(baseFee)
+        estimatedGasPriceGwei(baseFee)
       )
     );
   }

@@ -100,13 +100,27 @@ const required = (value: unknown, name: string, flag: string, type: string): str
 const optionalString = (value: unknown): string | undefined =>
   typeof value === "string" && value !== "" ? value : undefined;
 
-const hexBytes = (value: string, name: string): Uint8Array => {
+/** Byte lengths of a BLS proof of possession: the compressed G1 public key and the G2 signature. */
+const BLS_LENGTHS = { publicKey: 48, signature: 96 } as const;
+
+/**
+ * Parses the hex (0x optional) of a node's BLS public key or proof-of-possession
+ * signature and checks its length, for the command line and the interactive menu.
+ */
+export function parseBlsHex(value: string, part: keyof typeof BLS_LENGTHS): Uint8Array {
+  const label = part === "publicKey" ? "BLS public key (--pop-bls-public-key)" : "BLS signature (--pop-bls-signature)";
+  const text = value.trim();
+  let bytes: Uint8Array;
   try {
-    return getBytes(value.startsWith("0x") ? value : `0x${value}`);
+    bytes = getBytes(text.startsWith("0x") ? text : `0x${text}`);
   } catch {
-    throw new Error(`${name} must be a hex string`);
+    throw new Error(`${label} must be a hex string`);
   }
-};
+  if (bytes.length !== BLS_LENGTHS[part]) {
+    throw new Error(`${label} must be ${BLS_LENGTHS[part]} bytes, got ${bytes.length}`);
+  }
+  return bytes;
+}
 
 function parseShares(value: unknown): number | undefined {
   const text = optionalString(value);
@@ -178,13 +192,13 @@ export function parseAtomicTxRequest(
   const shares = (): number =>
     parsePercentToShares(optionalString(options["delegationFee"]) ?? DEFAULT_DELEGATION_FEE_PERCENT);
   const bls = () => ({
-    blsPublicKey: hexBytes(
+    blsPublicKey: parseBlsHex(
       required(options["popBlsPublicKey"], "popBlsPublicKey", "--pop-bls-public-key <popBlsPublicKey>", type),
-      "--pop-bls-public-key"
+      "publicKey"
     ),
-    blsSignature: hexBytes(
+    blsSignature: parseBlsHex(
       required(options["popBlsSignature"], "popBlsSignature", "--pop-bls-signature <popBlsSignature>", type),
-      "--pop-bls-signature"
+      "signature"
     ),
   });
   const period = (): bigint =>

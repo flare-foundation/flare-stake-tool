@@ -4,8 +4,10 @@
  */
 import type { Account } from "../chain/keys";
 import { currentValidators, stakesOf, type CurrentValidator } from "../chain/validators";
+import { buildTransaction } from "../core/builders";
+import { atomicTxFee } from "../core/fee";
 import { executeTransaction } from "../core/pipeline";
-import type { Env, Outcome, Signer, TxRequest } from "../core/types";
+import { IMMEDIATE_SIGNER_POLICY, type Env, type Outcome, type Signer, type TxRequest } from "../core/types";
 
 /** A P-chain account may stake to at most this many distinct nodes in overlapping periods. */
 export const MAX_NODES_PER_ACCOUNT = 3;
@@ -14,6 +16,19 @@ export async function runTransaction(req: TxRequest, env: Env, signer: Signer): 
   await env.clients.verifyNetwork();
   await preflight(req, env, await signer.account());
   return executeTransaction(req, env, signer);
+}
+
+/**
+ * The fee (nFLR) an atomic transaction would pay if built now from the chain's
+ * fee state, as an immediate signer builds it. Nothing is signed or sent.
+ */
+export async function estimateAtomicFee(req: TxRequest, env: Env, account: Account): Promise<bigint> {
+  await env.clients.verifyNetwork();
+  const bundle = await buildTransaction(req, env, account, IMMEDIATE_SIGNER_POLICY);
+  if (bundle.kind !== "atomic") {
+    throw new Error(`${req.type} is not an atomic transaction`);
+  }
+  return atomicTxFee(bundle.unsignedTx, await env.clients.context());
 }
 
 async function preflight(req: TxRequest, env: Env, account: Account): Promise<void> {

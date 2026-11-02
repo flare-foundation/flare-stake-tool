@@ -150,6 +150,7 @@ export interface Signer {
   sign(bundle: UnsignedTxBundle): Promise<SignResult>;
 }
 
+/** `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. */
 export type Outcome =
-  | { status: "sent"; txId: string; chainStatus: string }
-  | { status: "pending"; id: string; forDefiHash: string; file: string };
+  | { status: "sent"; txId: string; chainStatus: string; fee?: bigint | undefined }
+  | { status: "pending"; id: string; forDefiHash: string; file: string; fee?: bigint | undefined };

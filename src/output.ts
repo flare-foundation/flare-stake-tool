@@ -1,5 +1,7 @@
 import { styleText } from "node:util";
 import { API_KEY_ENV } from "./chain/network";
+import { formatFlr } from "./chain/units";
+import type { Outcome } from "./core/types";
 import { API_KEY_FLAG, RPC_URL_FLAG } from "./cli/node";
 
 export function log(msg: string) {
@@ -16,6 +18,17 @@ export function logError(msg: string) {
 
 export function logSuccess(msg: string) {
   console.log(styleText("green", msg));
+}
+
+/**
+ * The fee line of an atomic transaction: "Fee paid: …" once it is sent, "Fee: …"
+ * for an unsigned file (what it will burn when sent); undefined for EVM transactions.
+ */
+export function describeFee(outcome: Outcome, symbol: string): string | undefined {
+  if (outcome.fee === undefined) return undefined;
+  return outcome.status === "sent"
+    ? `Fee paid: ${formatFlr(outcome.fee)} ${symbol}`
+    : `Fee: ${formatFlr(outcome.fee)} ${symbol} (burned when the signed transaction is sent)`;
 }
 
 /** Warnings go to stderr so that stdout (transaction ids, hashes) stays parseable. */

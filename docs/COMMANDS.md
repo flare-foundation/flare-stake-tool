@@ -34,7 +34,10 @@ m, s); an end time given as a duration is added to now and the resolved value is
 printed. A plain integer is a unix time, so an end time that is not in the
 future (such as `-e 1209600` meant as 14 days) gets a warning on stderr; the
 network then rejects the transaction. Every path prints the transaction id and
-waits until the transaction is accepted. Every error exits with code 1.
+waits until the transaction is accepted; P-chain and atomic transactions also
+print the fee they burn (`Fee paid: …`, or `Fee: …` for an unsigned file). The
+unsigned-file (ForDefi) path requires `-f` for `exportCP` and `importPC`. Every
+error exits with code 1.
 
 ---
 
@@ -85,7 +88,7 @@ Move FLR from the C-chain to the P-chain (atomic export step).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-a <amount>` (FLR, required), `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated from the base fee when omitted; required for the unsigned-file path) |
+| Inputs | `-a <amount>` (FLR, required), `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path) |
 | Side effects | Submits an atomic export tx on the C-chain; exactly `amount` is exported and the fee is paid from the C-chain account. The P-chain import fee is paid from the imported funds on import. |
 | Output | Tx hash, "sent to the network" |
 | Failures | "insufficient funds" if C-chain balance < amount + fee. Network parse errors if amount serialization changes between go-flare versions. |
@@ -127,7 +130,7 @@ Complete the P→C transfer started by `exportPC`. Reads pending UTXOs.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, required for the unsigned-file path). |
+| Inputs | `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path). |
 | Side effects | Submits an atomic import tx on the C-chain |
 | Output | Tx hash, "sent to the network" |
 | Failures | "tx has no imported inputs" if exportPC hasn't propagated to the C-chain atomic mempool yet (3s delay typically suffices on local) |
@@ -140,7 +143,7 @@ Register a new fixed-term validator using locked P-chain funds. (For validators 
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `-e <endTime>` (unix seconds or duration from now), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>`, `--pop-bls-signature <hex>`, optional `-s <startTime>` |
+| Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `-e <endTime>` (unix seconds or duration from now), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>` (48 bytes), `--pop-bls-signature <hex>` (96 bytes), optional `-s <startTime>` |
 | Side effects | Locks the staked amount on the P-chain for the duration. Funds return to the staking address on `endTime`. |
 | Output | Tx hash, "sent to the network" |
 | Failures | "Insufficient funds" if P-balance < stake amount. Validator already registered. Invalid BLS signature. End time before start time or after the configured maximum. The account already stakes to three other nodes in an overlapping period (checked on every path). |
@@ -185,7 +188,7 @@ uptime.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `--period <seconds\|duration>` (e.g. `14d`; within the network's minimum and maximum validation duration), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>`, `--pop-bls-signature <hex>`, optional `--owner-address <P-…>...` (the validator authority allowed to change the configuration later; default: own address), optional `--auto-compound-shares <millionths>` (share of rewards restaked each cycle; rewards are 0 on Flare networks, so it has no effect) |
+| Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `--period <seconds\|duration>` (e.g. `14d`; within the network's minimum and maximum validation duration), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>` (48 bytes), `--pop-bls-signature <hex>` (96 bytes), optional `--owner-address <P-…>...` (the validator authority allowed to change the configuration later; default: own address), optional `--auto-compound-shares <millionths>` (share of rewards restaked each cycle; rewards are 0 on Flare networks, so it has no effect) |
 | Side effects | Locks the stake on the P-chain. The stake returns to the staking address at the end of the cycle in which auto-renewal was stopped. |
 | Output | Tx hash, "sent to the network" |
 | Failures | "Auto-renewed validators (Helicon upgrade) are not active on <network>". Validator already registered. Period outside the allowed range. Invalid BLS signature. The max-three-nodes rule. |
@@ -320,12 +323,17 @@ Menu-driven CLI using `inquirer`. Builds the same requests as the commands
 above and runs them through the same pipeline, so semantics match the direct
 CLI. Amounts are entered in FLR, times as unix seconds or durations. The node
 is chosen as for the other commands (`--rpc-url`, `--api-key` or the
-environment variables), the network from the menu.
+environment variables), the network from the menu. The C-chain fee prompt of
+an export or import offers the fee estimated at twice the current base fee,
+as `-f` omitted does, so Enter pays the fee shown; when it cannot be estimated
+yet (nothing to import yet), an empty answer is estimated when the transaction
+is built. Invalid input (amounts, fees, periods, BLS keys) is refused at the
+prompt, which asks again.
 
 | Aspect | Detail |
 |---|---|
 | Inputs | stdin |
-| Side effects | Interactive prompts; ultimately calls the same action handlers |
+| Side effects | Interactive prompts; ultimately calls the same action handlers. Connecting a Ledger writes `ctx.json`; an existing non-Ledger `ctx.json` (e.g. a ForDefi one) is replaced only after confirmation, and every replaced file is kept as `ctx.json.<time>.bak` |
 | Output | Same as the underlying commands |
 | Failures | Same as the underlying commands |
 

@@ -1,5 +1,11 @@
 import { expect } from "chai";
-import { parseAtomicTxRequest, parseEvmTxRequest, parseNonce, pastEndTimeWarning } from "../../src/cli/options";
+import {
+  parseAtomicTxRequest,
+  parseBlsHex,
+  parseEvmTxRequest,
+  parseNonce,
+  pastEndTimeWarning,
+} from "../../src/cli/options";
 
 const TO = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC";
 
@@ -39,6 +45,26 @@ describe("cli/options", () => {
       expect(() => parseEvmTxRequest("withdrawal", { to: TO, amount: "0.0000000000000000001" })).to.throw(
         /at most 18 decimal places/
       );
+    });
+  });
+
+  describe("parseBlsHex", () => {
+    const key = "ab".repeat(48);
+    const signature = "cd".repeat(96);
+
+    it("accepts a 48-byte public key and a 96-byte signature, with or without 0x", () => {
+      expect(parseBlsHex(key, "publicKey")).to.have.length(48);
+      expect(parseBlsHex(`0x${key}`, "publicKey")).to.deep.equal(parseBlsHex(key, "publicKey"));
+      expect(parseBlsHex(` 0x${signature} `, "signature")).to.have.length(96);
+    });
+
+    it("refuses non-hex input and wrong lengths, which used to slip through the interactive menu", () => {
+      expect(() => parseBlsHex("zz", "publicKey")).to.throw(
+        "BLS public key (--pop-bls-public-key) must be a hex string"
+      );
+      expect(() => parseBlsHex(key.slice(2), "publicKey")).to.throw(/must be 48 bytes, got 47/);
+      expect(() => parseBlsHex(key, "signature")).to.throw(/BLS signature .* must be 96 bytes, got 48/);
+      expect(() => parseBlsHex("", "signature")).to.throw(/must be 96 bytes, got 0/);
     });
   });
 

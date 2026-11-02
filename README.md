@@ -148,7 +148,7 @@ Where:
 - --network is optional. It specifies the network to use. The default is `flare`, but you can also use `costwo`, `songbird`, `coston`, or `localflare`.
 
 > **Note**
-> P-chain transactions (`importCP`, `exportPC`, staking) pay the P-chain's dynamic fee from the funds being moved; it cannot be set. C-chain atomic transactions (`exportCP` and `importPC`) take `-f <fee>` (total fee in FLR); when it is omitted the fee is estimated from the current base fee, except in the unsigned-file flow, where it is required so that every signer builds the same transaction.
+> P-chain transactions (`importCP`, `exportPC`, staking) pay the P-chain's dynamic fee from the funds being moved; it cannot be set. C-chain atomic transactions (`exportCP` and `importPC`) take `-f <fee>` (total fee in FLR); when it is omitted the fee is estimated at twice the current base fee (headroom for a rise before the transaction lands; the whole fee is burned, about 0.011 FLR at the 500 gwei floor), except in the unsigned-file flow, where it is required so that every signer builds the same transaction.
 > The export fee is paid by the C-chain account and the import fee by the imported funds, so the amount arriving on the P-chain is the `amount` exported minus the P-chain import fee.
 
 Sample response:

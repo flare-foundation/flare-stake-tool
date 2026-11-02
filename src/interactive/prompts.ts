@@ -1,7 +1,18 @@
 import { styleText } from "node:util";
 import inquirer from "inquirer";
-import { parseDuration } from "../chain/units";
+import { parseDuration, parseFlr } from "../chain/units";
+import { parseBlsHex } from "../cli/options";
 import { taskConstants, networkConstants, walletConstants, derivationModeConstants } from "../constants/screen";
+
+/** inquirer `validate`: true when `parse` accepts the input, else its error message (the prompt asks again). */
+function validationOf(parse: () => unknown): true | string {
+  try {
+    parse();
+    return true;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
 
 /**
  * Provides various prompts used in the CLI for user interaction.
@@ -64,30 +75,23 @@ export const prompts = {
     return inquirer.prompt<{ amount: string }>(questions);
   },
 
-  // exportCP and importPC fees
-  fees: async (defaultFees?: unknown) => {
+  // exportCP and importPC fee: the default is the estimate from the current base fee, when there is one
+  fees: async (estimate: string | undefined, symbol: string) => {
+    const hint =
+      estimate === undefined
+        ? "(leave empty to estimate it at twice the current base fee)"
+        : `(Enter accepts ${estimate} ${symbol}: twice the current base fee, headroom for a rise before it lands)`;
     const questions = [
       {
         type: "input",
-        default: defaultFees,
         name: "fees",
-        message: styleText("magenta", "Enter fees (in FLR):"),
+        default: estimate,
+        message:
+          styleText("magenta", "Enter fee (in FLR)") + " " + styleText("yellow", hint) + styleText("magenta", ":"),
+        validate: (value: string) => (value.trim() === "" ? true : validationOf(() => parseFlr(value))),
       },
     ];
     return inquirer.prompt<{ fees: string }>(questions);
-  },
-
-  // base fee for exportCP and importPC txs with private key
-  baseFee: async (defaultBaseFee?: unknown) => {
-    const questions = [
-      {
-        type: "input",
-        default: defaultBaseFee,
-        name: "baseFee",
-        message: styleText("magenta", "Enter base fee (in nanoFLR):"),
-      },
-    ];
-    return inquirer.prompt<{ baseFee: string }>(questions);
   },
 
   nodeId: async () => {
@@ -135,14 +139,7 @@ export const prompts = {
           " " +
           styleText("yellow", hint) +
           styleText("magenta", ":"),
-        validate: (value: string) => {
-          try {
-            parseDuration(value);
-            return true;
-          } catch (error) {
-            return error instanceof Error ? error.message : String(error);
-          }
-        },
+        validate: (value: string) => validationOf(() => parseDuration(value)),
       },
     ];
     return inquirer.prompt<{ period: string }>(questions);
@@ -177,6 +174,22 @@ export const prompts = {
       },
     ];
     return inquirer.prompt<{ isContinue: boolean }>(questions);
+  },
+
+  // a context file that is not a Ledger one (e.g. ForDefi) would be replaced
+  replaceCtxFile: async (file: string) => {
+    const questions = [
+      {
+        type: "confirm",
+        name: "replace",
+        default: false,
+        message: styleText(
+          "magenta",
+          `Replace ${file} with a Ledger context? The current file is kept as a ${file}.<time>.bak backup.`
+        ),
+      },
+    ];
+    return inquirer.prompt<{ replace: boolean }>(questions);
   },
 
   selectNetwork: async () => {
@@ -259,6 +272,7 @@ export const prompts = {
         type: "input",
         name: "popBLSPublicKey",
         message: styleText("magenta", "Please enter the popBLSPublicKey:"),
+        validate: (value: string) => validationOf(() => parseBlsHex(value, "publicKey")),
       },
     ];
     return inquirer.prompt<{ popBLSPublicKey: string }>(questions);
@@ -269,6 +283,7 @@ export const prompts = {
         type: "input",
         name: "popBLSSignature",
         message: styleText("magenta", "Please enter the popBLSSignature:"),
+        validate: (value: string) => validationOf(() => parseBlsHex(value, "signature")),
       },
     ];
     return inquirer.prompt<{ popBLSSignature: string }>(questions);
