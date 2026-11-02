@@ -10,7 +10,7 @@ overrides:
   brace-expansion@1: '>=1.1.21 <2'
   brace-expansion@2: '>=2.1.7 <3'
   brace-expansion@5: '>=5.0.12 <6'
-  follow-redirects: '>=1.16.1 <2'
+  follow-redirects: '>=1.16.2 <2'
   form-data@4: '>=4.0.6 <5'
   js-yaml@4: '>=4.3.2 <5'
   '@humanfs/node': '>=0.16.8 <1'
@@ -504,6 +504,7 @@ packages:
 
   '@ledgerhq/client-ids@0.8.1':
     resolution: {integrity: sha512-NkcFNyp6oAvzFL3uplSDfc8Cfgfm5sxqhCQvcNYINjz85dCEzMxyj3/XukNbB2zHTomz5j4PyDTzBPiZM20VCw==}
+    deprecated: This package is no longer maintained and will not receive updates. Published versions remain available.
 
   '@ledgerhq/cryptoassets-evm-signatures@13.7.1':
     resolution: {integrity: sha512-ehLn62L15fOlTH6u5D1eV1d4/QIju6aaUKWy7CpVLSiRmkWEBaORhOL/l9TvBrRIvNLHVBQEhiBaJcJ4hGrlEw==}
@@ -533,9 +534,11 @@ packages:
 
   '@ledgerhq/errors@6.32.0':
     resolution: {integrity: sha512-BjjvhLM6UXYUbhllqAduo9PSneLt9FXZ3TBEUFQ3MMSZOCHt0gAgDySLwul99R8fdYWkXBza4DYQjUNckpN2lg==}
+    deprecated: This package is no longer maintained and will not receive updates. Published versions remain available.
 
   '@ledgerhq/errors@6.37.0':
     resolution: {integrity: sha512-T5yiKI5UX7ugeocdTF3TUsCIN2BH41Bio4ZeN410YFjFOf3es08n/5JyMzzKwzRgP0blG3HfBf7s7vJKqCSAeg==}
+    deprecated: This package is no longer maintained and will not receive updates. Published versions remain available.
 
   '@ledgerhq/evm-tools@1.12.2':
     resolution: {integrity: sha512-Er3oPhjIzIadFjo6FCDO0aMpTo4mZDIgBlExIdcwDV50gs0tMDhQup8XxoWV09FgA0M7Ho5iIxXSTUoGFnFP3g==}
@@ -562,9 +565,11 @@ packages:
 
   '@ledgerhq/hw-transport-node-hid-noevents@6.36.0':
     resolution: {integrity: sha512-hsqybDCDtpNWeWVY2b/emrsFDqVfc3Rkv4+2b6h5ubPGsKWFd+7t0u6oy0sJEl5v6C+V/uxl03shBjWEcSoxgw==}
+    deprecated: This package is no longer maintained. Use @ledgerhq/device-transport-kit-node-hid instead.
 
   '@ledgerhq/hw-transport-node-hid@6.33.5':
     resolution: {integrity: sha512-uJ7VztZEDdhCAmCByMltH9Zg6qrU1CrTjVpLrO7IQD5paQbMhZNOLSrtBhWSoP8LYNo/gx5VtLTdtUIIedjsVA==}
+    deprecated: This package is no longer maintained. Use @ledgerhq/device-transport-kit-node-hid instead.
 
   '@ledgerhq/hw-transport@6.31.13':
     resolution: {integrity: sha512-MrJRDk74wY980ofiFPRpTHQBbRw1wDuKbdag1zqlO1xtJglymwwY03K2kvBNvkm1RTSCPUp/nAoNG+WThZuuew==}
@@ -1278,8 +1283,8 @@ packages:
   flatted@3.4.2:
     resolution: {integrity: sha512-PjDse7RzhcPkIJwy5t7KPWQSZ9cAbzQXcafsetQoD7sOJRQlGikNbx7yZp2OotDnJyrDcbyRq3Ttb18iYOqkxA==}
 
-  follow-redirects@1.16.1:
-    resolution: {integrity: sha512-FNvFGzoMLWmE6Yj9spb/zjd7yiNCHiAW9/Tg9CXrQ8wuu32HtlJOwWO11OJafl5FfY3DxTdQ0vj42zU1kvv5jg==}
+  follow-redirects@1.16.2:
+    resolution: {integrity: sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow==}
     engines: {node: '>=4.0'}
     peerDependencies:
       debug: '*'
@@ -3077,7 +3082,7 @@ snapshots:
 
   axios@1.20.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1):
     dependencies:
-      follow-redirects: 1.16.1(debug@4.4.3(supports-color@8.1.1))
+      follow-redirects: 1.16.2(debug@4.4.3(supports-color@8.1.1))
       form-data: 4.0.6
       https-proxy-agent: 5.0.1(supports-color@8.1.1)
       proxy-from-env: 2.1.0
@@ -3568,7 +3573,7 @@ snapshots:
 
   flatted@3.4.2: {}
 
-  follow-redirects@1.16.1(debug@4.4.3(supports-color@8.1.1)):
+  follow-redirects@1.16.2(debug@4.4.3(supports-color@8.1.1)):
     optionalDependencies:
       debug: 4.4.3(supports-color@8.1.1)
 
