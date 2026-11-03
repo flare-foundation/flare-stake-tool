@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import { keccak256 } from "ethers";
 import fs from "fs";
 import { cleanupTempDir, makeTempDir } from "../helpers/cli";
 import { RpcReplayServer } from "./rpc-replay";
@@ -52,6 +53,12 @@ describe("characterization goldens (offline replay)", function () {
           submissions: () => server.submissions,
         });
         expect(server.misses, "RPC calls without a recorded response").to.deep.equal([]);
+        // The replay answers eth_sendRawTransaction with the recorded hash whatever was sent, so check that the
+        // signed bytes really hash to the id the command reported (a golden rewritten for new bytes keeps the old one).
+        for (const submission of outcome.submissions.filter((s) => s.method === "eth_sendRawTransaction")) {
+          const [raw] = submission.params as [string];
+          expect(outcome.txIds, "the reported id is the hash of the submitted bytes").to.include(keccak256(raw));
+        }
         if (updateRequested(name)) {
           // Intentional behaviour change: re-capture the outcome against the recorded fixture.
           expect(outcome.exitCode, `stderr: ${outcome.stderr}\nstdout: ${outcome.stdout}`).to.equal(0);

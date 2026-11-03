@@ -26,13 +26,27 @@ export function nodeOverrides(options: { rpcUrl?: string | undefined; apiKey?: s
  * Commander parses the command line. Accepts `--flag value` and `--flag=value`.
  */
 export function nodeOverridesFromArgv(argv: readonly string[]): NodeOverrides {
-  const valueOf = (flag: string): string | undefined => {
-    for (let i = 0; i < argv.length; i++) {
-      const arg = argv[i];
-      if (arg === flag) return argv[i + 1];
-      if (arg?.startsWith(`${flag}=`)) return arg.slice(flag.length + 1);
+  return { apiUrl: argvValue(argv, RPC_URL_FLAG), apiKey: argvValue(argv, API_KEY_FLAG) };
+}
+
+/**
+ * The value of `--flag value` or `--flag=value` in a raw argv. As with
+ * Commander, the last occurrence wins and a flag without a value is an error.
+ */
+export function argvValue(argv: readonly string[], flag: string): string | undefined {
+  let value: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === flag) {
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        throw new Error(`${flag} needs a value`);
+      }
+      value = next;
+      i++;
+    } else if (arg?.startsWith(`${flag}=`)) {
+      value = arg.slice(flag.length + 1);
     }
-    return undefined;
-  };
-  return { apiUrl: valueOf(RPC_URL_FLAG), apiKey: valueOf(API_KEY_FLAG) };
+  }
+  return value;
 }

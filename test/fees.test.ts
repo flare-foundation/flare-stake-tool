@@ -1,12 +1,15 @@
 import { expect } from "chai";
 import { Transaction } from "ethers";
 import {
+  CLAIM_WRAP_GAS_LIMIT,
+  CONTRACT_RECIPIENT_GAS_LIMIT,
   DEFAULT_GAS_LIMIT,
   DEFAULT_MAX_FEE_PER_GAS,
   DEFAULT_MAX_PRIORITY_FEE_PER_GAS,
   EvmOperation,
   LIST_OPERATIONS,
   MAX_LIST_ENTRIES,
+  defaultGasLimit,
   listGasLimit,
   normalizeAddressList,
   resolveEvmFees,
@@ -63,7 +66,7 @@ describe("constants/fees", () => {
 
     it("keeps every fee field a safe integer, so the tx JSON round-trips", () => {
       for (const operation of OPERATIONS) {
-        const fees = resolveEvmFees(operation);
+        const fees = { ...resolveEvmFees(operation), gasLimit: defaultGasLimit(operation) };
         for (const [field, value] of Object.entries(fees)) {
           expect(Number.isSafeInteger(value), `${operation}.${field} is not a safe integer`).to.be.true;
         }
@@ -78,8 +81,36 @@ describe("constants/fees", () => {
 
     it("uses the gas limit belonging to the operation", () => {
       for (const operation of Object.keys(DEFAULT_GAS_LIMIT) as (keyof typeof DEFAULT_GAS_LIMIT)[]) {
-        expect(resolveEvmFees(operation).gasLimit, operation).to.equal(DEFAULT_GAS_LIMIT[operation]);
+        expect(defaultGasLimit(operation), operation).to.equal(DEFAULT_GAS_LIMIT[operation]);
       }
+    });
+
+    it("leaves the gas limit to the builder unless --gas-limit is given", () => {
+      expect(resolveEvmFees("claim").gasLimit).to.equal(undefined);
+      expect(resolveEvmFees("claim", { gasLimit: "250000" }).gasLimit).to.equal(250_000);
+    });
+
+    it("gives claim --wrap and contract recipients the larger limits of 4.4.0", () => {
+      expect(defaultGasLimit("claim", { wrap: true })).to.equal(CLAIM_WRAP_GAS_LIMIT);
+      expect(defaultGasLimit("claim", { contractRecipient: true })).to.equal(CONTRACT_RECIPIENT_GAS_LIMIT.claim);
+      expect(defaultGasLimit("claim", { wrap: false, contractRecipient: false })).to.equal(DEFAULT_GAS_LIMIT.claim);
+      expect(defaultGasLimit("withdrawal", { contractRecipient: true })).to.equal(
+        CONTRACT_RECIPIENT_GAS_LIMIT.withdrawal
+      );
+      expect(defaultGasLimit("withdrawal", { contractRecipient: false })).to.equal(DEFAULT_GAS_LIMIT.withdrawal);
+      // a Personal Delegation Account wraps what it receives: a claim paid to one takes about 350,000 gas
+      expect(CONTRACT_RECIPIENT_GAS_LIMIT.claim).to.be.greaterThan(350_000 * 1.5);
+    });
+
+    it("covers the measured use while keeping the minimum charged since Helicon (half the limit) close to it", () => {
+      // eth_estimateGas on Flare mainnet (2026-11); 397,738 is the most any of 1943 mainnet claims used (wrapping).
+      const measured = { claim: 77_533, claimWrap: 397_738, withdrawal: 21_000 };
+      expect(DEFAULT_GAS_LIMIT.claim).to.be.greaterThan(measured.claim * 2);
+      expect(CLAIM_WRAP_GAS_LIMIT).to.be.greaterThan(measured.claimWrap * 1.3);
+      expect(DEFAULT_GAS_LIMIT.withdrawal).to.be.greaterThan(measured.withdrawal * 4);
+      // ACP-194: a transaction is charged for at least half of its gas limit.
+      expect(DEFAULT_GAS_LIMIT.claim / 2).to.be.at.most(measured.claim * 1.5);
+      expect(DEFAULT_GAS_LIMIT.withdrawal / 2).to.be.at.most(measured.withdrawal * 2.5);
     });
   });
 
@@ -94,6 +125,7 @@ describe("constants/fees", () => {
           data: "0xdeadbeef",
           chainId: 14,
           ...resolveEvmFees("claim"),
+          gasLimit: defaultGasLimit("claim"),
         }).unsignedHash;
       expect(build()).to.equal(build());
     });
@@ -170,7 +202,7 @@ describe("constants/fees", () => {
 
     it("is used by the operations that set a list", () => {
       for (const operation of LIST_OPERATIONS) {
-        expect(resolveEvmFees(operation, {}, 25).gasLimit, operation).to.equal(listGasLimit(25));
+        expect(defaultGasLimit(operation, { entries: 25 }), operation).to.equal(listGasLimit(25));
       }
     });
 

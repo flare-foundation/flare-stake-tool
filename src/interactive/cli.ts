@@ -17,7 +17,7 @@ import {
 } from "../chain/units";
 import { contractAddress, stateOfRewards } from "../chain/contracts";
 import { currentValidators } from "../chain/validators";
-import { resolveEvmFees } from "../constants/fees";
+import { resolveEvmFees, type EvmFeeOverrides } from "../constants/fees";
 import {
   DEFAULT_CTX_FILE,
   backupContextFile,
@@ -34,7 +34,13 @@ import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types
 import { describeError, describeFee, log, logError, logInfo, logSuccess, logWarning } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
-import { DEFAULT_DELEGATION_FEE_PERCENT, BASE_DERIVATION_PATH, parseBlsHex, pastEndTimeWarning } from "../cli/options";
+import {
+  DEFAULT_DELEGATION_FEE_PERCENT,
+  BASE_DERIVATION_PATH,
+  evmFeeOverridesFromArgv,
+  parseBlsHex,
+  pastEndTimeWarning,
+} from "../cli/options";
 import { nodeOverridesFromArgv } from "../cli/node";
 import { prompts } from "./prompts";
 
@@ -48,14 +54,19 @@ interface Session {
   env: Env;
   signer: Signer;
   account: Account;
+  /** `--gas-limit`, `--max-fee-per-gas` and `--priority-fee-per-gas` given with `interactive`. */
+  evmFees: EvmFeeOverrides;
 }
+
+type ConnectedWallet = Omit<Session, "evmFees">;
 
 const PENDING_IMPORT_TIMEOUT_MS = 90_000;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export async function interactiveCli(baseArgv: string[]): Promise<void> {
   const node = nodeOverridesFromArgv(baseArgv);
-  const session = await connectWalletWithRetry(node);
+  const evmFees = evmFeeOverridesFromArgv(baseArgv);
+  const session: Session = { ...(await connectWalletWithRetry(node)), evmFees };
   for (;;) {
     const { task } = await prompts.selectTask();
     if (task === "quit") {
@@ -71,7 +82,7 @@ export async function interactiveCli(baseArgv: string[]): Promise<void> {
   }
 }
 
-async function connectWalletWithRetry(node: NodeOverrides): Promise<Session> {
+async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWallet> {
   for (;;) {
     try {
       return await connectWallet(node);
@@ -337,14 +348,20 @@ async function claim(session: Session): Promise<void> {
   report(
     session,
     await runTransaction(
-      { type: "claim", recipient: recipientAddress, amount, wrap: wrapRewards, fees: resolveEvmFees("claim") },
+      {
+        type: "claim",
+        recipient: recipientAddress,
+        amount,
+        wrap: wrapRewards,
+        fees: resolveEvmFees("claim", session.evmFees),
+      },
       session.env,
       session.signer
     )
   );
 }
 
-async function connectWallet(node: NodeOverrides): Promise<Session> {
+async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
   const { wallet } = await prompts.connectWallet();
   if (wallet === "privateKey") {
     const { pvtKeyPath } = await prompts.pvtKeyPath();

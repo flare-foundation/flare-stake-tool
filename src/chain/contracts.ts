@@ -32,6 +32,14 @@ export async function contractAddress(env: Env, name: RegisteredContract): Promi
   return getAddress(address);
 }
 
+/**
+ * Whether the address has contract code, such as a smart contract wallet or a
+ * Personal Delegation Account; such a recipient runs code when it receives FLR.
+ */
+export async function hasContractCode(env: Env, address: string): Promise<boolean> {
+  return (await env.clients.provider.getCode(address)) !== "0x";
+}
+
 export interface RewardState {
   totalWei: bigint;
   claimedWei: bigint;

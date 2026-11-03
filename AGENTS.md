@@ -85,7 +85,10 @@ building independently get the same hash. Do not let other chain state or the
 clock leak into a file-path build. The account's UTXOs are the one inherent
 exception: builds agree only while the UTXO set is unchanged (flarejs also
 checks UTXO timelocks against the local clock, so a timelock expiring between
-two builds changes the inputs as well).
+two builds changes the inputs as well). Values a command leaves out are read
+from the chain and pinned by passing them: `--nonce`, `claim -a`, `exportPC -a`,
+and `--gas-limit` of `claim`/`withdrawal`, whose default depends on whether the
+recipient has contract code.
 
 ## Unit conventions (read carefully)
 

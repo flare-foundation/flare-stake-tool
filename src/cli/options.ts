@@ -14,13 +14,13 @@ import {
   parseFlrToWei,
   parsePercentToShares,
 } from "../chain/units";
-import { normalizeAddressList, resolveEvmFees, type EvmOperation } from "../constants/fees";
+import { normalizeAddressList, resolveEvmFees, type EvmFeeOverrides, type EvmOperation } from "../constants/fees";
 import type { Env, Signer, TxRequest } from "../core/types";
 import { accountFromContextFile, createEnv, readContextFile, resolveNetworkName } from "../app/env";
 import { ExternalFileSigner } from "../signers/file";
 import { LedgerSigner, ledgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
-import { nodeOverrides } from "./node";
+import { argvValue, nodeOverrides } from "./node";
 
 export const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0";
 export const DEFAULT_DELEGATION_FEE_PERCENT = "20";
@@ -283,6 +283,21 @@ export function parseAtomicTxRequest(
       throw new Error(`Unknown transaction type: ${type}`);
   }
   return { request, resolvedTimes };
+}
+
+/**
+ * The C-chain fee options from a raw argv, for `interactive`, which is
+ * dispatched before Commander parses the command line. Validated here, so that
+ * a bad value stops the session before it starts.
+ */
+export function evmFeeOverridesFromArgv(argv: readonly string[]): EvmFeeOverrides {
+  const overrides = {
+    maxFeePerGas: argvValue(argv, "--max-fee-per-gas"),
+    priorityFeePerGas: argvValue(argv, "--priority-fee-per-gas"),
+    gasLimit: argvValue(argv, "--gas-limit"),
+  };
+  resolveEvmFees("custom", overrides);
+  return overrides;
 }
 
 export function parseEvmTxRequest(operation: EvmOperation, options: OptionValues): TxRequest {

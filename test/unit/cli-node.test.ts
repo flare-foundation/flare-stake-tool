@@ -27,9 +27,15 @@ describe("cli/node", () => {
       apiUrl: undefined,
       apiKey: undefined,
     });
-    expect(nodeOverridesFromArgv(["node", "run.js", "--rpc-url"])).to.deep.equal({
-      apiUrl: undefined,
-      apiKey: undefined,
-    });
+  });
+
+  it("takes the last occurrence and refuses a flag without a value, as Commander does", () => {
+    expect(
+      nodeOverridesFromArgv(["node", "run.js", "-i", "--rpc-url", "https://a.example", "--rpc-url=https://b.example"])
+    ).to.deep.equal({ apiUrl: "https://b.example", apiKey: undefined });
+    expect(() => nodeOverridesFromArgv(["node", "run.js", "-i", "--rpc-url"])).to.throw(/--rpc-url needs a value/);
+    expect(() => nodeOverridesFromArgv(["node", "run.js", "-i", "--rpc-url", "--api-key", "k"])).to.throw(
+      /--rpc-url needs a value/
+    );
   });
 });

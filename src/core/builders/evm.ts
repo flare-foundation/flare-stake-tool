@@ -1,8 +1,14 @@
 /** C-chain EVM transactions: the reward contracts and plain transfers. The rawTx shape is the frozen file format. */
 import { Transaction, formatUnits, getAddress, getBytes, type TransactionLike } from "ethers";
-import { contractAddress, contractInterface, executorInfo, stateOfRewards } from "../../chain/contracts";
+import {
+  contractAddress,
+  contractInterface,
+  executorInfo,
+  hasContractCode,
+  stateOfRewards,
+} from "../../chain/contracts";
 import type { Account } from "../../chain/keys";
-import { normalizeAddressList, type EvmFees } from "../../constants/fees";
+import { defaultGasLimit, normalizeAddressList, type EvmFees } from "../../constants/fees";
 import type { Env, EvmTxType, TxRequestOf, UnsignedTxBundle } from "../types";
 
 function evmBundle(txType: EvmTxType, rawTx: TransactionLike): UnsignedTxBundle {
@@ -17,15 +23,22 @@ async function nonceOf(env: Env, account: Account, requested: number | undefined
   return requested ?? (await env.clients.provider.getTransactionCount(account.cAddress));
 }
 
+/** The fee fields, with `gasLimit` being `--gas-limit` or else the operation's default. */
 function feeFields(
-  fees: EvmFees
+  fees: EvmFees,
+  defaultLimit: number
 ): Pick<TransactionLike, "type" | "maxFeePerGas" | "maxPriorityFeePerGas" | "gasLimit"> {
   return {
     type: fees.type,
     maxFeePerGas: fees.maxFeePerGas,
     maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
-    gasLimit: fees.gasLimit,
+    gasLimit: fees.gasLimit ?? defaultLimit,
   };
+}
+
+/** Whether the recipient has contract code; asked only when the default gas limit depends on it. */
+async function contractRecipient(env: Env, fees: EvmFees, recipient: string): Promise<boolean> {
+  return fees.gasLimit === undefined && (await hasContractCode(env, recipient));
 }
 
 export async function buildWithdrawal(
@@ -34,10 +47,12 @@ export async function buildWithdrawal(
   account: Account
 ): Promise<UnsignedTxBundle> {
   const nonce = await nonceOf(env, account, req.nonce);
+  const to = getAddress(req.to);
+  const contract = await contractRecipient(env, req.fees, to);
   return evmBundle("withdrawal", {
     nonce,
-    ...feeFields(req.fees),
-    to: getAddress(req.to),
+    ...feeFields(req.fees, defaultGasLimit("withdrawal", { contractRecipient: contract })),
+    to,
     value: req.amount.toString(),
     chainId: env.network.chainId,
   });
@@ -56,9 +71,10 @@ export async function buildClaim(req: TxRequestOf<"claim">, env: Env, account: A
         "Amount should be greater than 0 and less than or equal to unclaimed rewards."
     );
   }
+  const contract = !req.wrap && (await contractRecipient(env, req.fees, recipient));
   return evmBundle("claim", {
     nonce,
-    ...feeFields(req.fees),
+    ...feeFields(req.fees, defaultGasLimit("claim", { wrap: req.wrap, contractRecipient: contract })),
     to: rewardManager,
     data: contractInterface.encodeFunctionData("claim", [account.cAddress, recipient, amountWei, req.wrap]),
     chainId: env.network.chainId,
@@ -83,7 +99,7 @@ export async function buildSetClaimExecutors(
   }
   return evmBundle("setClaimExecutors", {
     nonce,
-    ...feeFields(req.fees),
+    ...feeFields(req.fees, defaultGasLimit("setClaimExecutors", { entries: executors.length })),
     to: claimSetupManager,
     data: contractInterface.encodeFunctionData("setClaimExecutors", [executors]),
     chainId: env.network.chainId,
@@ -101,7 +117,7 @@ export async function buildSetAllowedClaimRecipients(
   const recipients = normalizeAddressList(req.recipients);
   return evmBundle("setAllowedClaimRecipients", {
     nonce,
-    ...feeFields(req.fees),
+    ...feeFields(req.fees, defaultGasLimit("setAllowedClaimRecipients", { entries: recipients.length })),
     to: claimSetupManager,
     data: contractInterface.encodeFunctionData("setAllowedClaimRecipients", [recipients]),
     chainId: env.network.chainId,
@@ -116,7 +132,7 @@ export async function buildCustomCChainTx(
   const nonce = await nonceOf(env, account, req.nonce);
   return evmBundle("customCChainTx", {
     nonce,
-    ...feeFields(req.fees),
+    ...feeFields(req.fees, defaultGasLimit("custom")),
     to: getAddress(req.to),
     value: req.value.toString(),
     data: req.data,

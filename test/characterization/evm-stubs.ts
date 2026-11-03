@@ -3,7 +3,9 @@
  * on localflare: FlareContractRegistry.getContractAddressByName,
  * ValidatorRewardManager.getStateOfRewards and ClaimSetupManager.getExecutorInfo.
  * Matching is by target address + function selector, so it is independent of
- * how the EVM client shapes the rest of the call object.
+ * how the EVM client shapes the rest of the call object. Also `eth_getCode`,
+ * which picks the default gas limit of `claim` and `withdrawal`: every recorded
+ * recipient is an ordinary account.
  */
 import { id as keccakId } from "ethers";
 import { FLARE_CONTRACT_REGISTRY_ADDRESS } from "../../src/chain/contracts";
@@ -79,5 +81,9 @@ export const evmContractStubs: Stub[] = [
   {
     match: matchCall(STUB_CLAIM_SETUP_MANAGER, SEL_GET_EXECUTOR_INFO),
     respond: () => "0x" + word(true) + word(STUB_EXECUTOR_FEE_WEI),
+  },
+  {
+    match: (_reqPath, method) => method === "eth_getCode",
+    respond: () => "0x",
   },
 ];

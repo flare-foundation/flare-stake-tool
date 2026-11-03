@@ -272,8 +272,8 @@ async function forDefi(type: string, options: GlobalOptions & OptionValues): Pro
     throw new Error("forDefi needs the transaction id: -i <id>");
   }
   if (type === "sign") {
-    const txId = await sendToForDefi(id, readContextFile(options.ctxFile));
-    logSuccess(`Transaction with hash ${txId} sent to the ForDefi`);
+    const forDefiTxId = await sendToForDefi(id, readContextFile(options.ctxFile));
+    logSuccess(`Transaction ${id} sent to ForDefi (ForDefi transaction id ${forDefiTxId})`);
   } else if (type === "fetch") {
     if (isAlreadySentToChain(id)) {
       throw new Error("Tx already sent to chain");

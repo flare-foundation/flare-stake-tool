@@ -241,7 +241,10 @@ Co-signers who rebuild the transaction with the same command get the same
 hash only while the account's P-chain UTXOs are the same: the inputs are the
 UTXOs the node reports at build time, so funds arriving or leaving in between
 (a stake ending, a transfer, a timelocked UTXO unlocking) change the
-transaction. Rebuild and compare again in that case.
+transaction. Rebuild and compare again in that case. Values left out of the
+command are read from the chain as well (`--nonce`, `claim -a`, `exportPC -a`,
+and the default `--gas-limit` of `claim`/`withdrawal`, which depends on whether
+the recipient has contract code); passing them pins them.
 
 ---
 
@@ -254,10 +257,27 @@ Custodial signing flow via the ForDefi API.
 | Inputs | `forDefi sign -i <id>` or `forDefi fetch -i <id>`. Optional `--evm-tx`. |
 | Reads | `private.pem` and `token` files in cwd, plus the unsigned tx JSON |
 | Side effects | `sign`: posts the unsigned tx to ForDefi's API. `fetch`: polls for the signature and writes the signed tx file. |
-| Output | Tx hash sent to ForDefi; signature when fetched |
+| Output | `sign`: the ForDefi transaction id; `fetch`: the signature |
 | Failures | Missing `private.pem` / `token`. A refused ForDefi request is reported with its HTTP status and answer (`ForDefi vault lookup (…) failed: HTTP 401 Unauthorized: …`), as is an answer that is not JSON. Vault id mismatch. `fetch` before the signature exists: "Transaction is not signed yet (ForDefi state: …)". |
 
 Not exercised in the integration tests (requires real ForDefi credentials).
+
+---
+
+## Gas limits of C-chain commands
+
+Since the Helicon upgrade (go-flare v1.15.1, ACP-194) the C-chain charges every
+transaction for at least half of its gas limit, even when it uses less, so the
+defaults below are sized close to the gas each call uses. `claim` and
+`withdrawal` to an address with contract code (a smart contract wallet, a
+Personal Delegation Account) get the larger limits of 4.4.0; the tool asks the
+node whether the recipient has code. `--gas-limit` overrides every default;
+every ForDefi signer of a transaction must pass the same value.
+`setClaimExecutors` and `setAllowedClaimRecipients` use
+`max(1,000,000, 150,000 + 75,000 per address)`, which guarantees that a stored
+list of up to 50 addresses can be cleared. A signed file keeps the gas limit it
+was built with; rebuild and re-sign files from earlier versions to get the
+lower limits.
 
 ---
 
@@ -267,7 +287,7 @@ Transfer FLR from the configured C-chain address to another address.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-t <address>`, `-a <amount>` (FLR), optional `--nonce` |
+| Inputs | `-t <address>`, `-a <amount>` (FLR), optional `--nonce`, optional `--gas-limit` (default 100,000, or 500,000 to an address with contract code) |
 | Side effects | With `--get-hacked` or `--ledger`: sends the EVM tx and waits for the receipt. Otherwise writes the unsigned EVM tx file for `send -i`. |
 | Output | Tx hash, or the ForDefi hash of the unsigned file |
 | Failures | Insufficient C-balance. Invalid (badly checksummed) address. |
@@ -280,7 +300,7 @@ Claim accrued staking rewards from the ValidatorRewardManager contract.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-r <recipient>`, `-a <amount>` (default = full unclaimed), `--wrap` (default false) |
+| Inputs | `-r <recipient>`, `-a <amount>` (default = full unclaimed), `--wrap` (default false), optional `--gas-limit` (default 200,000, or 600,000 with `--wrap` or to an address with contract code) |
 | Side effects | With `--get-hacked` or `--ledger`: sends the EVM tx and waits for the receipt. Otherwise writes the unsigned EVM tx file for `send -i`. |
 | Output | Tx hash, or the ForDefi hash of the unsigned file |
 | Failures | No unclaimed rewards. Amount > unclaimed rewards. Contract not deployed on the network. |
@@ -321,7 +341,7 @@ Submit an arbitrary C-chain transaction (low-level escape hatch).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `--to <address>`, `--value <wei>`, `--data <hex>`, optional `--nonce` |
+| Inputs | `--to <address>`, `--value <wei>`, `--data <hex>`, optional `--nonce`, optional `--gas-limit` (default 300,000; size it to the call) |
 | Side effects | Builds the EVM tx; signed and sent with `--get-hacked`/`--ledger`, otherwise written as an unsigned file for `send -i` |
 | Output | Tx hash, or the ForDefi hash of the unsigned file |
 | Failures | Standard EVM failure modes (insufficient balance, gas, revert). |
@@ -341,7 +361,9 @@ paid exactly; one below the cost at the current base fee is sent only after a
 warning and a confirmation. When the fee cannot be estimated
 yet (nothing to import yet), an empty answer is estimated when the transaction
 is built. Invalid input (amounts, fees, periods, BLS keys) is refused at the
-prompt, which asks again.
+prompt, which asks again. `--gas-limit`, `--max-fee-per-gas` and
+`--priority-fee-per-gas` given with `interactive` apply to its C-chain
+transactions (`claim`).
 
 | Aspect | Detail |
 |---|---|
