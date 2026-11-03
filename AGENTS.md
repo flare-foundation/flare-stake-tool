@@ -255,13 +255,20 @@ it — both example-based and property-based where applicable.
 
 ## Release process
 
-Releases publish to npm via GitLab CI when a semver git tag (e.g. `v4.3.0`)
-is pushed. The pipeline:
+Releases publish to npm from the GitHub mirror, not from GitLab CI (which
+only runs the checks on the tag). Pushing a git tag `vX.Y.Z` or
+`vX.Y.Z-rc.N` triggers `.github/workflows/release.yaml`, which:
 
-1. Validates tag format (`v\d+\.\d+\.\d+`)
-2. Compares `package.json` `version` against the tag
-3. Builds (`pnpm build`)
-4. Verifies `dist/run.js` exists (in repo and in `npm pack` tarball)
-5. `npm publish` with OIDC trusted publishers (no credentials in repo)
+1. Runs the tests, builds, and verifies `dist/run.js` ships in the `npm pack` tarball
+2. Checks that the tag matches the `package.json` `version`
+3. Publishes with OIDC trusted publishing and provenance (no credentials in repo)
+   under the dist-tag `latest` for `vX.Y.Z`, or `beta` for a prerelease
 
-Bump `package.json` version + `CHANGELOG.md` together when releasing.
+A release candidate is a prerelease of the next version: set `package.json` to
+`X.Y.Z-rc.N` and tag `vX.Y.Z-rc.N`. `npx @flarenetwork/flare-stake-tool` keeps
+installing `latest`; testers install `@flarenetwork/flare-stake-tool@X.Y.Z-rc.N`.
+Release candidates have no CHANGELOG section of their own: the `X.Y.Z` section
+collects their changes and gets its date at the final release.
+
+Bump `package.json` version + `CHANGELOG.md` together when releasing. See also
+CONTRIBUTING.md.
