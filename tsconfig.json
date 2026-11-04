@@ -16,6 +16,7 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    "noUnusedLocals": true,
     "isolatedModules": true,
 
     // Compatibility

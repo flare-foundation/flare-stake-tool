@@ -5,7 +5,7 @@
  */
 import fs from "fs";
 import path from "path";
-import { CLI_ENTRY, REPO_ROOT, runCli, runCliAsync, spawnAsync, writeEnvFile } from "../helpers/cli";
+import { CLI_ENTRY, REPO_ROOT, runCli, runCliAsync, writeEnvFile } from "../helpers/cli";
 import {
   EWOQ_PRIVATE_KEY_CB58,
   EWOQ_PRIVATE_KEY_HEX,

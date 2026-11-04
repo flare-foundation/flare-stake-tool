@@ -1,6 +1,4 @@
 import { expect } from "chai";
-import path from "path";
-import fs from "fs";
 import { runCli, makeTempDir, cleanupTempDir } from "./cli-helper";
 import { createFundedAccount, type FundedAccount } from "./accounts";
 import { fromNow, pickFreeNode, waitForLocalNetwork, type NodeInfo } from "./local-network";
