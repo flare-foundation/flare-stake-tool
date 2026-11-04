@@ -102,19 +102,20 @@ pnpm test:coverage
 
 ### Integration tests
 
-Integration tests spin up a local Flare network via docker-compose
-and exercise the CLI against real validators. They require Docker.
+Integration tests exercise the CLI against a running Helicon-capable
+localflare network started from the go-flare checkout
+(`avalanchego/scripts/localflare.sh`). They need Node 24 and a built `dist/`.
 
 ```bash
-pnpm test:integration
+pnpm build
+LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
 ```
 
 > [!NOTE]
-> Integration tests are run locally only, not in CI. GitLab's shared
-> runners use docker-in-docker, where docker-compose volume mounts
-> (`./local:/app/...`) don't work because the docker daemon doesn't see
-> the runner's filesystem. Run them on your machine before opening an
-> MR for any change touching signing or RPC logic.
+> Integration tests are run locally only, not in CI, because they need a
+> running node. Run them before opening an MR for any change touching signing
+> or RPC logic. The offline characterization goldens (`pnpm test`) run in CI
+> and catch most behaviour changes without a node; see AGENTS.md.
 
 ## Release process
 

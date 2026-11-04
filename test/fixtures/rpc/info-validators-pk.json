@@ -1,0 +1,49 @@
+{
+  "recordedAt": "2026-10-29T10:05:44.380Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getCurrentValidators",
+      "response": {
+        "result": {
+          "validators": [
+            {
+              "txID": "Q1tN7vdxbhquKasPh4fuz9T4WhLCqZWUKQcBAZorLBeKBX7UQ",
+              "startTime": "1780272000",
+              "endTime": "1811808000",
+              "weight": "8000000000000000000",
+              "nodeID": "NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "0.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xa75054f6d9ea8419775ca88730ff01f068a538dae1ccb9eeee4324c7928ee79b42746e2568809b6c7d8f124eb966629e",
+                "proofOfPossession": "0xa945d9805ce5f817c706e9765e8802ef422cfde97a046dbb2cf9279f773abedf66e56081dcbc813cce7d8fd36049f80a062946b94645c0f1a73b878c1c4a98a9d6824326e4633c764eb6f8f1d387ebdde3d60674fdab56fffae290f98b5bd8e2"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

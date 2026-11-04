@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "name": "importCP-file",
+    "kind": "cli",
+    "args": [
+      "transaction",
+      "importCP",
+      "-i",
+      "importCP-file",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "txFileId": "importCP-file"
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nUnsigned transaction importCP-file constructed\nForDefi hash: v1GRXx/ZtU6fzMYKxz+w1jNzySe48mQ6dYo05rYgR5k=\n",
+    "stderr": "",
+    "txIds": [],
+    "submissions": [],
+    "unsignedTxJson": {
+      "transactionType": "importCP",
+      "signatureRequests": [
+        {
+          "message": "bf51915f1fd9b54e9fccc60ac73fb0d63373c927b8f2643a758a34e6b6204799",
+          "signer": ""
+        }
+      ],
+      "unsignedTransactionBuffer": "000000000011000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000070000000253cccba8000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c00000000000000009fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac6000000016eedf822ed1a21b67a43ebef092e51fa21cc15f00f2490ce2ac59ba3bc24d8d80000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500000002540be4000000000100000000",
+      "serialization": "{\"codecId\":\"0\",\"vm\":\"PVM\",\"txBytes\":\"0x000000000011000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000070000000253cccba8000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c00000000000000009fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac6000000016eedf822ed1a21b67a43ebef092e51fa21cc15f00f2490ce2ac59ba3bc24d8d80000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500000002540be4000000000100000000\",\"utxos\":[\"0x6eedf822ed1a21b67a43ebef092e51fa21cc15f00f2490ce2ac59ba3bc24d8d80000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540be400000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c\"],\"addressMaps\":[[[\"0x3cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c\",0]]],\"credentials\":[[\"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\"]]}",
+      "forDefiHash": "v1GRXx/ZtU6fzMYKxz+w1jNzySe48mQ6dYo05rYgR5k="
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "spec": {
+    "name": "claim-file-feeoverride",
+    "kind": "cli",
+    "args": [
+      "claim",
+      "-r",
+      "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+      "--max-fee-per-gas",
+      "9000",
+      "--priority-fee-per-gas",
+      "300",
+      "--gas-limit",
+      "700000",
+      "-i",
+      "claim-file-feeoverride",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "txFileId": "claim-file-feeoverride"
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nCreating claim transaction...\nTransaction claim-file-feeoverride constructed\nForDefi hash: pqupeLm+9/kg8y2uBSGvn5DHK/CUPAFEA1UEZWhLPC4=\n",
+    "stderr": "",
+    "txIds": [],
+    "submissions": [],
+    "unsignedTxJson": {
+      "transactionType": "EVM",
+      "rawTx": {
+        "nonce": 9,
+        "type": 2,
+        "maxFeePerGas": 9000000000000,
+        "maxPriorityFeePerGas": 300000000000,
+        "gasLimit": 700000,
+        "to": "0x1111111111111111111111111111111111111111",
+        "data": "0xb2c121920000000000000000000000008db97c7cece249c2b98bdc0226cc4c2a57bf52fc0000000000000000000000008db97c7cece249c2b98bdc0226cc4c2a57bf52fc0000000000000000000000000000000000000000000000003782dace9d9000000000000000000000000000000000000000000000000000000000000000000000",
+        "chainId": 162
+      },
+      "message": "a6aba978b9bef7f920f32dae0521af9f90c72bf0943c014403550465684b3c2e",
+      "forDefiHash": "pqupeLm+9/kg8y2uBSGvn5DHK/CUPAFEA1UEZWhLPC4="
+    }
+  }
+}

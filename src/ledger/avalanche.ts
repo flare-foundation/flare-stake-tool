@@ -1,128 +1,55 @@
-import AvalancheApp, { ResponseAddress, ResponseSign } from "@avalabs/hw-app-avalanche";
+import AvalancheApp from "@avalabs/hw-app-avalanche";
 import { ledgerService } from "@ledgerhq/hw-app-eth";
-import TransportNodeHid from "@ledgerhq/hw-transport-node-hid";
-import * as pubk from "../flare/pubk";
-import * as utils from "../utils";
-import { EthAddress, Signature } from "./interfaces";
+import { evmSignatureHex, toBuffer, toHex } from "./bytes";
+import type { EthAddress, Signature } from "./interfaces";
+import { withApp } from "./transport";
 
-export async function isAvalancheApp(): Promise<boolean> {
-  return (await _getAppName()) === "Avalanche";
-}
+// The two ledger packages declare slightly different Transport types (abortTimeoutMs optional vs
+// explicitly undefined-able under exactOptionalPropertyTypes); the runtime contract is identical.
+const withAvalanche = <R>(use: (app: AvalancheApp) => Promise<R>): Promise<R> =>
+  withApp((transport) => new AvalancheApp(transport as unknown as ConstructorParameters<typeof AvalancheApp>[0]), use);
 
-export async function isEthereumApp(): Promise<boolean> {
-  return (await _getAppName()) === "Ethereum";
-}
-
-async function _getAppName(): Promise<string> {
-  let appName = "";
-  await _connect(async (app) => {
-    const info = await app.getAppInfo();
-    appName = info.appName;
-  });
-  return appName;
+/**
+ * The Avalanche app signs a hash with an account path and the remaining path
+ * relative to it: m/44'/60'/0'/0/10 → account m/44'/60'/0', signing path 0/10.
+ * Split on "/" rather than at fixed offsets, which broke on multi-digit indices.
+ */
+export function splitAvalanchePath(bip44Path: string): { accountPath: string; signPath: string } {
+  const parts = bip44Path.split("/");
+  if (parts.length !== 6 || parts[0] !== "m") {
+    throw new Error(
+      `Unsupported derivation path for the Avalanche app: ${bip44Path} (expected m/44'/coin'/account'/change/index)`
+    );
+  }
+  return { accountPath: parts.slice(0, 4).join("/"), signPath: parts.slice(4).join("/") };
 }
 
 export async function getPublicKey(bip44Path: string, hrp: string): Promise<string> {
-  let account: ResponseAddress | undefined;
-  await _connect(async (app) => {
-    account = await app.getAddressAndPubKey(bip44Path, false, hrp);
-  });
-  if (!account || !account.publicKey) {
+  const account = await withAvalanche((app) => app.getAddressAndPubKey(bip44Path, false, hrp));
+  if (!account.publicKey) {
     throw new Error("Invalid or missing public key from ledger response");
   }
-
-  const publicKey = pubk.normalizePublicKey(utils.toHex(account.publicKey));
-  return publicKey;
+  return toHex(account.publicKey, false);
 }
 
 export async function getCAddress(bip44Path: string, display: boolean): Promise<string> {
-  let account: EthAddress | undefined;
-  await _connect(async (app) => {
-    account = await app.getETHAddress(bip44Path, display);
-  });
-  if (!account) {
-    throw Error(`Failed to obtain C-chain address from ledger`);
-  }
+  const account = await withAvalanche<EthAddress>((app) => app.getETHAddress(bip44Path, display));
   return account.address;
 }
 
-export async function getPAddress(bip44Path: string, hrp: string, display: boolean): Promise<string> {
-  let account: ResponseAddress | undefined;
-  await _connect(async (app) => {
-    account = await app.getAddressAndPubKey(bip44Path, display, hrp);
-  });
-  if (!account) {
-    throw Error(`Failed to obtain public key from ledger`);
-  }
-  return account.address;
-}
-
-export async function signHash(bip44Path: string, message: string): Promise<string> {
-  const signPath = _getSignPath(bip44Path);
-  const messageBuffer = utils.toBuffer(message);
-  let response: ResponseSign | undefined;
-  await _connect(async (app) => {
-    response = await app.signHash(_getAccountPath(bip44Path), [signPath], messageBuffer);
-  });
-  if (!response) {
-    if (response && (response as ResponseSign).errorMessage !== "No errors") {
-      throw new Error(`Failed to sign message on ledger:  ${(response as ResponseSign).errorMessage}`);
-    }
-    throw new Error(`Failed to sign message on ledger`);
-  }
+export async function signHash(bip44Path: string, hashHex: string): Promise<string> {
+  const { accountPath, signPath } = splitAvalanchePath(bip44Path);
+  const response = await withAvalanche((app) => app.signHash(accountPath, [signPath], toBuffer(hashHex)));
   const signature = response.signatures?.get(signPath)?.toString("hex");
   if (!signature) {
-    throw new Error("No signature returned from ledger");
+    throw new Error(`No signature returned from ledger${response.errorMessage ? `: ${response.errorMessage}` : ""}`);
   }
   return signature;
 }
 
 export async function signEvmTransaction(bip44Path: string, txHex: string): Promise<string> {
-  const rawTx = utils.toHex(txHex, false);
+  const rawTx = toHex(txHex, false);
   const resolution = await ledgerService.resolveTransaction(rawTx, {}, {});
-  let response: Signature | undefined;
-  await _connect(async (app) => {
-    response = await app.signEVMTransaction(bip44Path, rawTx, resolution);
-  });
-  if (!response) {
-    throw new Error("Failed to sign EVM transaction on ledger");
-  }
-  if (!response.r || !response.s || !response.v) {
-    throw new Error("Failed to get signature from ledger device");
-  }
-  const r = Buffer.from(utils.toHex(response.r, false), "hex");
-  const s = Buffer.from(utils.toHex(response.s, false), "hex");
-  let recoveryParam = parseInt(utils.toHex(response.v, false), 16);
-  if (recoveryParam === 0 || recoveryParam === 1) {
-    recoveryParam += 27;
-  } else if (recoveryParam > 28) {
-    recoveryParam = recoveryParam % 2 === 1 ? 27 : 28;
-  }
-  const v = Buffer.from(recoveryParam.toString(16), "hex");
-  const signature = utils.toHex(Buffer.concat([r, s, v]), false);
-  return signature;
-}
-
-async function _connect(execute: (app: AvalancheApp) => Promise<void>): Promise<void> {
-  let avalanche: AvalancheApp | undefined = undefined;
-  try {
-    const transport = await TransportNodeHid.open(undefined);
-    // Two ledger packages have slightly different Transport type definitions
-    // (abortTimeoutMs optional vs explicitly undefined-able under exactOptionalPropertyTypes).
-    // The runtime contract is identical.
-    avalanche = new AvalancheApp(transport as unknown as ConstructorParameters<typeof AvalancheApp>[0]);
-    await execute(avalanche);
-  } finally {
-    if (avalanche && avalanche.transport) {
-      await avalanche.transport.close();
-    }
-  }
-}
-
-function _getAccountPath(bip44Path: string): string {
-  return bip44Path.substring(0, bip44Path.length - 4);
-}
-
-function _getSignPath(bip44Path: string): string {
-  return bip44Path.substring(bip44Path.length - 3);
+  const signature = (await withAvalanche((app) => app.signEVMTransaction(bip44Path, rawTx, resolution))) as Signature;
+  return evmSignatureHex(signature);
 }

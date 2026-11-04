@@ -1,0 +1,39 @@
+{
+  "spec": {
+    "name": "claim-file",
+    "kind": "cli",
+    "args": [
+      "claim",
+      "-r",
+      "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+      "-i",
+      "claim-file",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "txFileId": "claim-file"
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "Unsigned transaction claim-file constructed\nForDefi hash: PpjoenKUWHQgh3To0A0K9huteDEdjcL3plWuqK4NPlE=\n",
+    "stderr": "",
+    "txIds": [],
+    "submissions": [],
+    "unsignedTxJson": {
+      "transactionType": "EVM",
+      "rawTx": {
+        "nonce": 9,
+        "type": 2,
+        "maxFeePerGas": 8000000000000,
+        "maxPriorityFeePerGas": 200000000000,
+        "gasLimit": 200000,
+        "to": "0x1111111111111111111111111111111111111111",
+        "data": "0xb2c121920000000000000000000000008db97c7cece249c2b98bdc0226cc4c2a57bf52fc0000000000000000000000008db97c7cece249c2b98bdc0226cc4c2a57bf52fc0000000000000000000000000000000000000000000000003782dace9d9000000000000000000000000000000000000000000000000000000000000000000000",
+        "chainId": 162
+      },
+      "message": "3e98e87a72945874208774e8d00d0af61bad78311d8dc2f7a655aea8ae0d3e51",
+      "forDefiHash": "PpjoenKUWHQgh3To0A0K9huteDEdjcL3plWuqK4NPlE="
+    }
+  }
+}

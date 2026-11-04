@@ -1,0 +1,23 @@
+{
+  "spec": {
+    "name": "info-balance-pk",
+    "kind": "cli",
+    "args": [
+      "info",
+      "balance",
+      "--env-path",
+      "test.env",
+      "--get-hacked",
+      "--network",
+      "localflare"
+    ],
+    "needsEnv": true
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nBalances on the network \"localflare\"\nC-chain 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC: 999999999999897 PHT\nP-chain P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v: 8000000099.979035673 PHT\n",
+    "stderr": "",
+    "txIds": [],
+    "submissions": []
+  }
+}

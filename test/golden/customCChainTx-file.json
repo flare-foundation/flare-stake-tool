@@ -1,0 +1,44 @@
+{
+  "spec": {
+    "name": "customCChainTx-file",
+    "kind": "cli",
+    "args": [
+      "customCChainTx",
+      "--to",
+      "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+      "--value",
+      "1000000000000000000",
+      "--data",
+      "0x",
+      "-i",
+      "customCChainTx-file",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "txFileId": "customCChainTx-file"
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "Unsigned transaction customCChainTx-file constructed\nForDefi hash: 7PBmx9ZqzBldEiJc/rXBWMRXCVAqGVmDs6Mgs9BwbhQ=\n",
+    "stderr": "",
+    "txIds": [],
+    "submissions": [],
+    "unsignedTxJson": {
+      "transactionType": "EVM",
+      "rawTx": {
+        "nonce": 8,
+        "type": 2,
+        "maxFeePerGas": 8000000000000,
+        "maxPriorityFeePerGas": 200000000000,
+        "gasLimit": 300000,
+        "to": "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+        "value": "1000000000000000000",
+        "data": "0x",
+        "chainId": 162
+      },
+      "message": "ecf066c7d66acc195d12225cfeb5c158c45709502a195983b3a320b3d0706e14",
+      "forDefiHash": "7PBmx9ZqzBldEiJc/rXBWMRXCVAqGVmDs6Mgs9BwbhQ="
+    }
+  }
+}

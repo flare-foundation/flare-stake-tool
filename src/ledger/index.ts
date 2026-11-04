@@ -1,119 +1,92 @@
+/**
+ * The connected Ledger: which app is open, and each operation routed to that
+ * app's client. Flare signs atomic transactions in full (or their hash, for
+ * types it does not parse), Avalanche signs hashes, Ethereum signs C-chain EVM
+ * transactions only.
+ */
 import * as avalanche from "./avalanche";
 import * as ethereum from "./ethereum";
 import * as flare from "./flare";
-import * as pubk from "../flare/pubk";
-import * as utils from "../utils";
 
-const AVALANCHE = "Avalanche";
-const ETHEREUM = "Ethereum";
-const FLARE = "Flare";
+export type LedgerAppName = "Flare" | "Avalanche" | "Ethereum";
+
+/** Device app names (as the dashboard APDU reports them) → the apps this tool supports. */
+const SUPPORTED_APPS: Record<string, LedgerAppName> = {
+  "Flare Network": "Flare",
+  Avalanche: "Avalanche",
+  Ethereum: "Ethereum",
+};
+
+/**
+ * Which app is open on the device. Asked again for every operation (one request
+ * to the device), so that the user can switch apps between operations, as an
+ * error asking them to open another app tells them to.
+ */
+export async function detectApp(openAppName: () => Promise<string> = flare.openAppName): Promise<LedgerAppName> {
+  const name = await openAppName();
+  const app = SUPPORTED_APPS[name];
+  if (!app) {
+    throw new Error(
+      `A supported app (Flare, Avalanche or Ethereum) is not running on the connected Ledger device (open app: ${name || "none"})`
+    );
+  }
+  return app;
+}
+
+export const ETHEREUM_APP_P_CHAIN =
+  "The Ledger Ethereum app cannot sign P-chain or atomic transactions; open the Flare app and retry";
 
 export async function getPublicKey(bip44Path: string, hrp: string): Promise<string> {
-  const app = await _getApp();
-  if (app === FLARE) {
-    return await flare.getPublicKey(bip44Path, hrp);
-  } else if (app === AVALANCHE) {
-    return await avalanche.getPublicKey(bip44Path, hrp);
-  } else if (app === ETHEREUM) {
-    return await ethereum.getPublicKey(bip44Path);
-  } else {
-    return "";
+  switch (await detectApp()) {
+    case "Flare":
+      return flare.getPublicKey(bip44Path, hrp);
+    case "Avalanche":
+      return avalanche.getPublicKey(bip44Path, hrp);
+    case "Ethereum":
+      return ethereum.getPublicKey(bip44Path);
   }
 }
 
+/** Shows the C-chain address on the device for the user to compare. */
 export async function verifyCAddress(bip44Path: string): Promise<string> {
-  const app = await _getApp();
-  if (app === FLARE) {
-    return await flare.getCAddress(bip44Path, true);
-  } else if (app === AVALANCHE) {
-    return await avalanche.getCAddress(bip44Path, true);
-  } else if (app === ETHEREUM) {
-    return await ethereum.getCAddress(bip44Path, true);
-  } else {
-    return "";
+  switch (await detectApp()) {
+    case "Flare":
+      return flare.getCAddress(bip44Path, true);
+    case "Avalanche":
+      return avalanche.getCAddress(bip44Path, true);
+    case "Ethereum":
+      return ethereum.getCAddress(bip44Path, true);
   }
 }
 
-export async function verifyPAddress(bip44Path: string, hrp: string): Promise<string> {
-  const app = await _getApp();
-  if (app === FLARE) {
-    return await flare.getPAddress(bip44Path, hrp, true);
-  } else if (app === AVALANCHE) {
-    return await avalanche.getPAddress(bip44Path, hrp, true);
-  } else if (app === ETHEREUM) {
-    throw new Error("P-chain address can not be verified in Ethereum app.");
-  } else {
-    return "";
+/** Signs an atomic transaction parsed on the device (Flare app only). */
+export async function sign(bip44Path: string, txHex: string): Promise<string> {
+  const app = await detectApp();
+  if (app !== "Flare") {
+    throw new Error(`Signing the full transaction is not supported by the ${app} app`);
+  }
+  return flare.sign(bip44Path, txHex);
+}
+
+export async function signEvmTransaction(bip44Path: string, txHex: string): Promise<string> {
+  switch (await detectApp()) {
+    case "Flare":
+      return flare.signEvmTransaction(bip44Path, txHex);
+    case "Avalanche":
+      return avalanche.signEvmTransaction(bip44Path, txHex);
+    case "Ethereum":
+      return ethereum.signEvmTransaction(bip44Path, txHex);
   }
 }
 
-export async function onlyHashSign(): Promise<boolean> {
-  const app = await _getApp();
-  return app === AVALANCHE || app === ETHEREUM;
-}
-
-export async function sign(bip44Path: string, tx: string): Promise<string> {
-  const app = await _getApp();
-  if (app === FLARE) {
-    return await flare.sign(bip44Path, tx);
-  } else if (app === AVALANCHE) {
-    throw new Error("Nonblind signing of transactions is not supported on Avalanche app");
-  } else if (app === ETHEREUM) {
-    throw new Error("Nonblind signing of transactions is not supported on Ethereum app");
-  } else {
-    return "";
-  }
-}
-
-export async function signEvmTransaction(bip44Path: string, tx: string): Promise<string> {
-  const app = await _getApp();
-  if (app === FLARE) {
-    return await flare.signEvmTransaction(bip44Path, tx);
-  } else if (app === AVALANCHE) {
-    return await avalanche.signEvmTransaction(bip44Path, tx);
-  } else if (app === ETHEREUM) {
-    return await ethereum.signEvmTransaction(bip44Path, tx);
-  } else {
-    return "";
-  }
-}
-
-export async function signHash(bip44Path: string, message: string): Promise<string> {
-  const app = await _getApp();
-  if (app === FLARE) {
-    return await flare.signHash(bip44Path, message);
-  } else if (app === AVALANCHE) {
-    return await avalanche.signHash(bip44Path, message);
-  } else if (app === ETHEREUM) {
-    return await ethereum.signPersonalMessage(bip44Path, utils.toHex(message, false));
-  } else {
-    return "";
-  }
-}
-
-export async function signPersonalMessage(bip44Path: string, message: string): Promise<string> {
-  const app = await _getApp();
-  if (app === FLARE) {
-    const hashedEthMsg = pubk.getHashedEthMsg(message);
-    return await flare.signHash(bip44Path, hashedEthMsg);
-  } else if (app === AVALANCHE) {
-    const hashedEthMsg = pubk.getHashedEthMsg(message);
-    return await avalanche.signHash(bip44Path, hashedEthMsg);
-  } else if (app === ETHEREUM) {
-    return await ethereum.signPersonalMessage(bip44Path, message);
-  } else {
-    return "";
-  }
-}
-
-async function _getApp(): Promise<string> {
-  if (await flare.isFlareApp()) {
-    return FLARE;
-  } else if (await avalanche.isAvalancheApp()) {
-    return AVALANCHE;
-  } else if (await avalanche.isEthereumApp()) {
-    return ETHEREUM;
-  } else {
-    throw new Error("A supported app (Flare or Avalanche) is not running on the connected Ledger device");
+/** Signs the 32-byte hash of an atomic transaction (blind signing). */
+export async function signHash(bip44Path: string, hashHex: string): Promise<string> {
+  switch (await detectApp()) {
+    case "Flare":
+      return flare.signHash(bip44Path, hashHex);
+    case "Avalanche":
+      return avalanche.signHash(bip44Path, hashHex);
+    case "Ethereum":
+      throw new Error(ETHEREUM_APP_P_CHAIN);
   }
 }

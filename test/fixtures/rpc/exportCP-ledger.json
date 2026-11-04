@@ -1,0 +1,206 @@
+{
+  "recordedAt": "2026-10-29T10:05:51.189Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getAssetDescription",
+      "params": {
+        "assetID": "AVAX"
+      },
+      "response": {
+        "result": {
+          "assetID": "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K",
+          "name": "Avalanche",
+          "symbol": "AVAX",
+          "denomination": "9"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000",
+          "createSubnetTxFee": "100000000",
+          "transformSubnetTxFee": "100000000",
+          "createBlockchainTxFee": "100000000",
+          "addPrimaryNetworkValidatorFee": "0",
+          "addPrimaryNetworkDelegatorFee": "0",
+          "addSubnetValidatorFee": "1000000",
+          "addSubnetDelegatorFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "X"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "qG35QGqZ11Mvh8CxCmVVi22juDH3d4GXYFyLeX3W3aWLXWnVb"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "P"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "11111111111111111111111111111111LpoYY"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "C"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getNetworkID",
+      "response": {
+        "result": {
+          "networkID": "162"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeConfig",
+      "response": {
+        "result": {
+          "weights": [
+            1,
+            1000,
+            1000,
+            4
+          ],
+          "maxCapacity": 1000000,
+          "maxPerSecond": 100000,
+          "targetPerSecond": 50000,
+          "minPrice": 250,
+          "excessConversionConstant": 2164043
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/C/rpc",
+      "method": "eth_getTransactionCount",
+      "params": [
+        "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+        "latest"
+      ],
+      "response": {
+        "result": "0x4"
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getUTXOs",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ],
+        "sourceChain": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU",
+        "encoding": "hex"
+      },
+      "response": {
+        "result": {
+          "numFetched": "0",
+          "utxos": [],
+          "endIndex": {
+            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
+            "utxo": "11111111111111111111111111111111LpoYY"
+          },
+          "encoding": "hex"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/C/avax",
+      "method": "avax.issueTx",
+      "params": {
+        "tx": "0x000000000001000000a29fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac60000000000000000000000000000000000000000000000000000000000000000000000018db97c7cece249c2b98bdc0226cc4c2a57bf52fc000000028fb5f04034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000000000000040000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002541b2640000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c00000001000000090000000168c2bdfe706d27c2f4f1aef06d6b497a9e3001fb6ee81ffeceecdc757f7bdc8e35dbf239bba5244a5cfc89e902f27877642cc8164f8f1461d62c1938f0473f2b01dee75295"
+      },
+      "response": {
+        "result": {
+          "txID": "KHvXkHkbBPxa1ZgNDfLmtrcjc2D5VeN1UNBd1hujfpbBipHvn"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/C/avax",
+      "method": "avax.getAtomicTxStatus",
+      "params": {
+        "txID": "KHvXkHkbBPxa1ZgNDfLmtrcjc2D5VeN1UNBd1hujfpbBipHvn"
+      },
+      "response": {
+        "result": {
+          "status": "Unknown"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/C/avax",
+      "method": "avax.getAtomicTxStatus",
+      "params": {
+        "txID": "KHvXkHkbBPxa1ZgNDfLmtrcjc2D5VeN1UNBd1hujfpbBipHvn"
+      },
+      "response": {
+        "result": {
+          "status": "Accepted",
+          "blockHeight": "157"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getUTXOs",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ],
+        "sourceChain": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU",
+        "encoding": "hex"
+      },
+      "response": {
+        "result": {
+          "numFetched": "1",
+          "utxos": [
+            "0x00002988a15c25c0f475e2ab83aaebc378808675d8f54c9276362e4097b7dee752950000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002541b2640000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c4abdfb46"
+          ],
+          "endIndex": {
+            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
+            "utxo": "RcyJAiLpB8xSqRSso8voaXuM56kw7KVaXYRjQ8dYj5VeJGUem"
+          },
+          "encoding": "hex"
+        }
+      }
+    }
+  ]
+}

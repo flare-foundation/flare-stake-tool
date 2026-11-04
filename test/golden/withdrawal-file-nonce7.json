@@ -1,0 +1,43 @@
+{
+  "spec": {
+    "name": "withdrawal-file-nonce7",
+    "kind": "cli",
+    "args": [
+      "withdrawal",
+      "-a",
+      "1",
+      "-t",
+      "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+      "--nonce",
+      "7",
+      "-i",
+      "withdrawal-file-nonce7",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "txFileId": "withdrawal-file-nonce7"
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "Unsigned transaction withdrawal-file-nonce7 constructed\nForDefi hash: UqNp0KhN5tnHqoyZnGsfu3N8JT8UMdydj7EgeptOkts=\n",
+    "stderr": "",
+    "txIds": [],
+    "submissions": [],
+    "unsignedTxJson": {
+      "transactionType": "EVM",
+      "rawTx": {
+        "nonce": 7,
+        "type": 2,
+        "maxFeePerGas": 8000000000000,
+        "maxPriorityFeePerGas": 200000000000,
+        "gasLimit": 100000,
+        "to": "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+        "value": "1000000000000000000",
+        "chainId": 162
+      },
+      "message": "52a369d0a84de6d9c7aa8c999c6b1fbb737c253f1431dc9d8fb1207a9b4e92db",
+      "forDefiHash": "UqNp0KhN5tnHqoyZnGsfu3N8JT8UMdydj7EgeptOkts="
+    }
+  }
+}

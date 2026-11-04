@@ -1,6 +1,18 @@
-import chalk from "chalk";
+import { styleText } from "node:util";
 import inquirer from "inquirer";
+import { parseDuration, parseFlr } from "../chain/units";
+import { parseBlsHex } from "../cli/options";
 import { taskConstants, networkConstants, walletConstants, derivationModeConstants } from "../constants/screen";
+
+/** inquirer `validate`: true when `parse` accepts the input, else its error message (the prompt asks again). */
+function validationOf(parse: () => unknown): true | string {
+  try {
+    parse();
+    return true;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
 
 /**
  * Provides various prompts used in the CLI for user interaction.
@@ -11,7 +23,7 @@ export const prompts = {
       {
         type: "list",
         name: "wallet",
-        message: chalk.magenta("How do you want to connect your wallet?"),
+        message: styleText("magenta", "How do you want to connect your wallet?"),
         choices: [...Object.values(walletConstants)],
         filter: (val: string) => {
           const key = Object.keys(walletConstants).find((key) => walletConstants[key] === val);
@@ -26,7 +38,7 @@ export const prompts = {
       {
         type: "list",
         name: "derivation",
-        message: chalk.magenta("Choose derivation path..."),
+        message: styleText("magenta", "Choose derivation path..."),
         choices: [...Object.values(derivationModeConstants)],
         filter: (val: string) => {
           const key = Object.keys(derivationModeConstants).find((key) => derivationModeConstants[key] === val);
@@ -42,28 +54,13 @@ export const prompts = {
         type: "input",
         name: "pvtKeyPath",
         message:
-          chalk.magenta("Enter Path to Private Key file") +
+          styleText("magenta", "Enter Path to Private Key file") +
           " " +
-          chalk.yellow("(E.g. /home/wallet/pvtKeyFile)") +
-          chalk.magenta(":"),
+          styleText("yellow", "(E.g. /home/wallet/pvtKeyFile)") +
+          styleText("magenta", ":"),
       },
     ];
     return inquirer.prompt<{ pvtKeyPath: string }>(questions);
-  },
-
-  publicKey: async () => {
-    const questions = [
-      {
-        type: "input",
-        name: "publicKey",
-        message:
-          chalk.magenta("Enter your secp256k1 curve public key") +
-          " " +
-          chalk.yellow("(E.g. 0x02efe41c5d213089cb7a9e808505e9084bb9eb2bf3aa8050ea92a5ae9e20e5a692)") +
-          chalk.magenta(":"),
-      },
-    ];
-    return inquirer.prompt<{ publicKey: string }>(questions);
   },
 
   amount: async (amountPurpose: string = "", defaultAmount?: string) => {
@@ -72,36 +69,29 @@ export const prompts = {
         type: "input",
         default: defaultAmount,
         name: "amount",
-        message: chalk.magenta(`Enter amount ${amountPurpose}`) + " " + chalk.magenta(`(in FLR):`),
+        message: styleText("magenta", `Enter amount ${amountPurpose}`) + " " + styleText("magenta", `(in FLR):`),
       },
     ];
     return inquirer.prompt<{ amount: string }>(questions);
   },
 
-  // exportCP and importPC fees
-  fees: async (defaultFees?: unknown) => {
+  // exportCP and importPC fee: the default is the estimate from the current base fee, when there is one
+  fees: async (estimate: string | undefined, symbol: string) => {
+    const hint =
+      estimate === undefined
+        ? "(leave empty to estimate it at twice the current base fee)"
+        : `(Enter accepts ${estimate} ${symbol}: twice the current base fee, headroom for a rise before it lands)`;
     const questions = [
       {
         type: "input",
-        default: defaultFees,
         name: "fees",
-        message: chalk.magenta("Enter fees (in FLR):"),
+        default: estimate,
+        message:
+          styleText("magenta", "Enter fee (in FLR)") + " " + styleText("yellow", hint) + styleText("magenta", ":"),
+        validate: (value: string) => (value.trim() === "" ? true : validationOf(() => parseFlr(value))),
       },
     ];
     return inquirer.prompt<{ fees: string }>(questions);
-  },
-
-  // base fee for exportCP and importPC txs with private key
-  baseFee: async (defaultBaseFee?: unknown) => {
-    const questions = [
-      {
-        type: "input",
-        default: defaultBaseFee,
-        name: "baseFee",
-        message: chalk.magenta("Enter base fee (in nanoFLR):"),
-      },
-    ];
-    return inquirer.prompt<{ baseFee: string }>(questions);
   },
 
   nodeId: async () => {
@@ -110,10 +100,10 @@ export const prompts = {
         type: "input",
         name: "id",
         message:
-          chalk.magenta("Enter NodeId") +
+          styleText("magenta", "Enter NodeId") +
           " " +
-          chalk.yellow("(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)") +
-          chalk.magenta(":"),
+          styleText("yellow", "(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)") +
+          styleText("magenta", ":"),
       },
     ];
     return inquirer.prompt<{ id: string }>(questions);
@@ -124,10 +114,51 @@ export const prompts = {
       {
         type: "input",
         name: "time",
-        message: chalk.magenta(`Enter ${timeType} time`) + " " + chalk.yellow("(E.g. 1693185095)") + chalk.magenta(":"),
+        message:
+          styleText("magenta", `Enter ${timeType} time`) +
+          " " +
+          styleText("yellow", "(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)") +
+          styleText("magenta", ":"),
       },
     ];
     return inquirer.prompt<{ time: string }>(questions);
+  },
+
+  // No default: for a configuration change, a default of 0 would stop the validator on a stray Enter.
+  period: async (purpose: "add" | "change") => {
+    const hint =
+      purpose === "change"
+        ? "(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)"
+        : "(seconds or a duration such as 14d)";
+    const questions = [
+      {
+        type: "input",
+        name: "period",
+        message:
+          styleText("magenta", "Enter the validation period") +
+          " " +
+          styleText("yellow", hint) +
+          styleText("magenta", ":"),
+        validate: (value: string) => validationOf(() => parseDuration(value)),
+      },
+    ];
+    return inquirer.prompt<{ period: string }>(questions);
+  },
+
+  confirmStopAutoRenewal: async (cycleEnd?: string) => {
+    const questions = [
+      {
+        type: "confirm",
+        name: "stop",
+        default: false,
+        message: styleText(
+          "magenta",
+          `A period of 0 stops auto-renewal: the validator leaves at the end of its current cycle` +
+            `${cycleEnd ? ` (${cycleEnd})` : ""} and the stake is returned. Stop auto-renewal?`
+        ),
+      },
+    ];
+    return inquirer.prompt<{ stop: boolean }>(questions);
   },
 
   ctxFile: async () => {
@@ -135,7 +166,7 @@ export const prompts = {
       {
         type: "list",
         name: "isContinue",
-        message: chalk.magenta("Do you wish to continue with this?"),
+        message: styleText("magenta", "Do you wish to continue with this?"),
         choices: ["Yes", "No"],
         filter: (val: string) => {
           return val === "Yes" ? true : false;
@@ -145,12 +176,41 @@ export const prompts = {
     return inquirer.prompt<{ isContinue: boolean }>(questions);
   },
 
+  // a context file that is not a Ledger one (e.g. ForDefi) would be replaced
+  replaceCtxFile: async (file: string) => {
+    const questions = [
+      {
+        type: "confirm",
+        name: "replace",
+        default: false,
+        message: styleText(
+          "magenta",
+          `Replace ${file} with a Ledger context? The current file is kept as a ${file}.<time>.bak backup.`
+        ),
+      },
+    ];
+    return inquirer.prompt<{ replace: boolean }>(questions);
+  },
+
+  // a typed C-chain fee below the cost at the current base fee; No asks for the fee again
+  confirmLowFee: async () => {
+    const questions = [
+      {
+        type: "confirm",
+        name: "send",
+        default: false,
+        message: styleText("magenta", "Send with this fee anyway?"),
+      },
+    ];
+    return inquirer.prompt<{ send: boolean }>(questions);
+  },
+
   selectNetwork: async () => {
     const questions = [
       {
         type: "list",
         name: "network",
-        message: chalk.magenta("Which network do you want to connect to?"),
+        message: styleText("magenta", "Which network do you want to connect to?"),
         choices: [...Object.values(networkConstants)],
         filter: (val: string) => {
           const key = Object.keys(networkConstants).find((key) => networkConstants[key] === val);
@@ -166,7 +226,7 @@ export const prompts = {
       {
         type: "list",
         name: "task",
-        message: chalk.magenta("What do you want to do?"),
+        message: styleText("magenta", "What do you want to do?"),
         choices: [...Object.values(taskConstants)],
         filter: (val: string) => {
           const key = Object.keys(taskConstants).find((key) => taskConstants[key] === val);
@@ -182,7 +242,7 @@ export const prompts = {
       {
         type: "list",
         name: "address",
-        message: chalk.magenta("Which address do you want to use?"),
+        message: styleText("magenta", "Which address do you want to use?"),
         choices: [...choiceList],
         filter: (val: string) => {
           const address = val.split(" ")[1];
@@ -198,21 +258,14 @@ export const prompts = {
       {
         type: "input",
         name: "fee",
-        message: chalk.magenta("Enter delegation fee") + " " + chalk.yellow("(E.g. 10)") + chalk.magenta(":"),
+        message:
+          styleText("magenta", "Enter delegation fee") +
+          " " +
+          styleText("yellow", "(E.g. 10)") +
+          styleText("magenta", ":"),
       },
     ];
     return inquirer.prompt<{ fee: string }>(questions);
-  },
-
-  transactionId: async () => {
-    const questions = [
-      {
-        type: "input",
-        name: "id",
-        message: chalk.magenta("Enter Transaction Id") + " " + chalk.yellow("(E.g. abc-txn)") + chalk.magenta(":"),
-      },
-    ];
-    return inquirer.prompt<{ id: string }>(questions);
   },
 
   importTrxType: async () => {
@@ -220,7 +273,7 @@ export const prompts = {
       {
         type: "list",
         name: "type",
-        message: chalk.magenta("Please select the destination chain to which you want to import your funds?"),
+        message: styleText("magenta", "Please select the destination chain to which you want to import your funds?"),
         choices: ["P", "C"],
       },
     ];
@@ -231,7 +284,8 @@ export const prompts = {
       {
         type: "input",
         name: "popBLSPublicKey",
-        message: chalk.magenta("Please enter the popBLSPublicKey:"),
+        message: styleText("magenta", "Please enter the popBLSPublicKey:"),
+        validate: (value: string) => validationOf(() => parseBlsHex(value, "publicKey")),
       },
     ];
     return inquirer.prompt<{ popBLSPublicKey: string }>(questions);
@@ -241,7 +295,8 @@ export const prompts = {
       {
         type: "input",
         name: "popBLSSignature",
-        message: chalk.magenta("Please enter the popBLSSignature:"),
+        message: styleText("magenta", "Please enter the popBLSSignature:"),
+        validate: (value: string) => validationOf(() => parseBlsHex(value, "signature")),
       },
     ];
     return inquirer.prompt<{ popBLSSignature: string }>(questions);
@@ -251,7 +306,7 @@ export const prompts = {
       {
         type: "input",
         name: "transferAddress",
-        message: chalk.magenta("Enter destination P-chain address:"),
+        message: styleText("magenta", "Enter destination P-chain address:"),
       },
     ];
     return inquirer.prompt<{ transferAddress: string }>(questions);
@@ -262,7 +317,7 @@ export const prompts = {
       {
         type: "list",
         name: "wrapRewards",
-        message: chalk.magenta("Should claimed rewards be wrapped?"),
+        message: styleText("magenta", "Should claimed rewards be wrapped?"),
         choices: ["Yes", "No"],
         filter: (val: string) => {
           return val === "Yes" ? true : false;
@@ -278,7 +333,7 @@ export const prompts = {
         type: "input",
         default: defaultAddress,
         name: "recipientAddress",
-        message: chalk.magenta("Please enter the recipient address (default address is reward owner):"),
+        message: styleText("magenta", "Please enter the recipient address (default address is reward owner):"),
       },
     ];
     return inquirer.prompt<{ recipientAddress: string }>(questions);
@@ -288,7 +343,7 @@ export const prompts = {
       {
         type: "input",
         name: "claimAmount",
-        message: chalk.magenta("Please enter the amount to claim:"),
+        message: styleText("magenta", "Please enter the amount to claim:"),
       },
     ];
     return inquirer.prompt<{ claimAmount: number }>(questions);
@@ -298,9 +353,9 @@ export const prompts = {
       {
         type: "list",
         name: "claimAllUnclaimed",
-        message: chalk.magenta(
-          `Do you want to claim all unclaimed rewards?`,
-          totalUnclaimed ? "(total unclaimed: " + totalUnclaimed + " " + symbol + ")" : ""
+        message: styleText(
+          "magenta",
+          `Do you want to claim all unclaimed rewards? ${totalUnclaimed ? "(total unclaimed: " + totalUnclaimed + " " + symbol + ")" : ""}`
         ),
         choices: ["Yes", "No"],
         filter: (val: string) => {

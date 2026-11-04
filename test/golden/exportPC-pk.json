@@ -1,0 +1,35 @@
+{
+  "spec": {
+    "name": "exportPC-pk",
+    "kind": "cli",
+    "args": [
+      "transaction",
+      "exportPC",
+      "-a",
+      "10",
+      "--env-path",
+      "test.env",
+      "--get-hacked",
+      "--network",
+      "localflare"
+    ],
+    "needsEnv": true
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nTransaction with hash 2rDJVs2murw5aFFnhPsyC4bBugXkQPwZkMtF1WdWBfC4BXhEJK built and sent to the network\n",
+    "stderr": "",
+    "txIds": [
+      "2rDJVs2murw5aFFnhPsyC4bBugXkQPwZkMtF1WdWBfC4BXhEJK"
+    ],
+    "submissions": [
+      {
+        "path": "/ext/bc/P",
+        "method": "platform.issueTx",
+        "params": {
+          "tx": "0x000000000012000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002173632c4000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c00000002a946cd1f454e42559ce1c4da78e626898ead43dce7f1b4bc50ae7463510ad8d20000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000050000000217947b7c0000000100000000d0f2b9347c5d918c1093667c32980f83853b1cc820e4cbfb8d8a27a0b2cf0d540000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000050000000253cccba80000000100000000000000009fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac60000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540be400000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000020000000900000001446fb8f87662aba2566d4fa98f794570f09eafa76231f39b8ba973e543ae7d62452bf5470ee9aa2badd25471719d3279e42e7acff39e916b2936c3a3c2474b8b000000000900000001446fb8f87662aba2566d4fa98f794570f09eafa76231f39b8ba973e543ae7d62452bf5470ee9aa2badd25471719d3279e42e7acff39e916b2936c3a3c2474b8b006b853821"
+        }
+      }
+    ]
+  }
+}

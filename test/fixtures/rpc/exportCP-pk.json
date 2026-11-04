@@ -1,0 +1,162 @@
+{
+  "recordedAt": "2026-10-29T10:05:50.099Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getAssetDescription",
+      "params": {
+        "assetID": "AVAX"
+      },
+      "response": {
+        "result": {
+          "assetID": "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K",
+          "name": "Avalanche",
+          "symbol": "AVAX",
+          "denomination": "9"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000",
+          "createSubnetTxFee": "100000000",
+          "transformSubnetTxFee": "100000000",
+          "createBlockchainTxFee": "100000000",
+          "addPrimaryNetworkValidatorFee": "0",
+          "addPrimaryNetworkDelegatorFee": "0",
+          "addSubnetValidatorFee": "1000000",
+          "addSubnetDelegatorFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "X"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "qG35QGqZ11Mvh8CxCmVVi22juDH3d4GXYFyLeX3W3aWLXWnVb"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "P"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "11111111111111111111111111111111LpoYY"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "C"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getNetworkID",
+      "response": {
+        "result": {
+          "networkID": "162"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeConfig",
+      "response": {
+        "result": {
+          "weights": [
+            1,
+            1000,
+            1000,
+            4
+          ],
+          "maxCapacity": 1000000,
+          "maxPerSecond": 100000,
+          "targetPerSecond": 50000,
+          "minPrice": 250,
+          "excessConversionConstant": 2164043
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/C/rpc",
+      "method": "eth_chainId",
+      "params": [],
+      "response": {
+        "result": "0xa2"
+      }
+    },
+    {
+      "path": "/ext/bc/C/rpc",
+      "method": "eth_getTransactionCount",
+      "params": [
+        "0x8db97c7cece249c2b98bdc0226cc4c2a57bf52fc",
+        "latest"
+      ],
+      "response": {
+        "result": "0x3"
+      }
+    },
+    {
+      "path": "/ext/bc/C/rpc",
+      "method": "eth_baseFee",
+      "response": {
+        "result": "0x1"
+      }
+    },
+    {
+      "path": "/ext/bc/C/avax",
+      "method": "avax.issueTx",
+      "params": {
+        "tx": "0x000000000001000000a29fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac60000000000000000000000000000000000000000000000000000000000000000000000018db97c7cece249c2b98bdc0226cc4c2a57bf52fc00000002540c0fde34ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000000000000030000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540be400000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000010000000900000001c655d7be0c1b65ff71772fcdb17aeccd3a94cb130c1065e9f396149b8a4cc2f050058af31b4e30c6e3c14c0827e1f4821696030728fa12482676df2129d2510a017f7e5f04"
+      },
+      "response": {
+        "result": {
+          "txID": "2PzV3k2eFBhf5MwWXbvSvFSUwmAWxAMkdHLjqqEyxpFrtPq7Cf"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/C/avax",
+      "method": "avax.getAtomicTxStatus",
+      "params": {
+        "txID": "2PzV3k2eFBhf5MwWXbvSvFSUwmAWxAMkdHLjqqEyxpFrtPq7Cf"
+      },
+      "response": {
+        "result": {
+          "status": "Accepted"
+        }
+      }
+    }
+  ]
+}

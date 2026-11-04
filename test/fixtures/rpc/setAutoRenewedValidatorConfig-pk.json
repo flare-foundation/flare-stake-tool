@@ -1,0 +1,250 @@
+{
+  "recordedAt": "2026-10-29T12:56:32.820Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/info",
+      "method": "info.upgrades",
+      "response": {
+        "result": {
+          "apricotPhase1Time": "1970-01-01T00:00:00Z",
+          "apricotPhase2Time": "1970-01-01T00:00:00Z",
+          "apricotPhase3Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4MinPChainHeight": 0,
+          "apricotPhase5Time": "1970-01-01T00:00:00Z",
+          "songbirdTransitionTime": "0001-01-01T00:00:00Z",
+          "apricotPhasePre6Time": "1970-01-01T00:00:00Z",
+          "apricotPhase6Time": "1970-01-01T00:00:00Z",
+          "apricotPhasePost6Time": "1970-01-01T00:00:00Z",
+          "banffTime": "1970-01-01T00:00:00Z",
+          "cortinaTime": "1970-01-01T00:00:00Z",
+          "cortinaXChainStopVertexID": "11111111111111111111111111111111LpoYY",
+          "durangoTime": "1970-01-01T00:00:00Z",
+          "etnaTime": "1970-01-01T00:00:00Z",
+          "fortunaTime": "1970-01-01T00:00:00Z",
+          "graniteTime": "1970-01-01T00:00:00Z",
+          "graniteEpochDuration": 300000000000,
+          "heliconTime": "1970-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getCurrentValidators",
+      "params": {
+        "nodeIDs": [
+          "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5"
+        ]
+      },
+      "response": {
+        "result": {
+          "validators": [
+            {
+              "txID": "25D9Y66qvsgzTgYrhrLcByV3qRSgS1AmfTokPgpgpSEfe1VWpr",
+              "startTime": "1793278589",
+              "endTime": "1793279489",
+              "weight": "10000000000000",
+              "nodeID": "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1nnjmt3pwuu48zlxmqdsfjvgzlta90mu0scv6l3"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1nnjmt3pwuu48zlxmqdsfjvgzlta90mu0scv6l3"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "10.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xa09f0233b2682fc9ae699aae49c9e95b86a0b39b6b0617987691a64aeca5a376f71dbdf7bb3d51c684cfe0971b882adc",
+                "proofOfPossession": "0xb9a3b3cf09f987cd314551bde2c7a1182210d91af36689e5ac31a213e5c5e9c66dc2abd83959b8204264919e2456652f17fc3eed88469a06212787f12ea400977c6319ce2157b5d816000fd19c64dfd55a94e64b49f993664e69f23cf1acf51d"
+              },
+              "validatorAuthority": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1nnjmt3pwuu48zlxmqdsfjvgzlta90mu0scv6l3"
+                ]
+              },
+              "nextPeriod": "1200",
+              "autoCompoundRewardShares": "0",
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeState",
+      "response": {
+        "result": {
+          "capacity": 992972,
+          "excess": 7028,
+          "price": 250,
+          "timestamp": "2026-10-29T13:56:31+01:00"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getAssetDescription",
+      "params": {
+        "assetID": "AVAX"
+      },
+      "response": {
+        "result": {
+          "assetID": "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K",
+          "name": "Avalanche",
+          "symbol": "AVAX",
+          "denomination": "9"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getUTXOs",
+      "params": {
+        "addresses": [
+          "P-localflare1nnjmt3pwuu48zlxmqdsfjvgzlta90mu0scv6l3"
+        ],
+        "encoding": "hex"
+      },
+      "response": {
+        "result": {
+          "numFetched": "1",
+          "utxos": [
+            "0x000076c0232b67cabaac6989c1ae6f5f6ec5aa2465b21ddcccace104ca9c971373540000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700002461391f133c000000000000000000000001000000019ce5b5c42ee72a717cdb0360993102fafa57ef8fed938a7d"
+          ],
+          "endIndex": {
+            "address": "P-localflare1nnjmt3pwuu48zlxmqdsfjvgzlta90mu0scv6l3",
+            "utxo": "211ypWxouPjHmbDwfek314C4MDPjmBALedZcsxpDvNiH9tpow4"
+          },
+          "encoding": "hex"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "X"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "qG35QGqZ11Mvh8CxCmVVi22juDH3d4GXYFyLeX3W3aWLXWnVb"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "P"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "11111111111111111111111111111111LpoYY"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "C"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getNetworkID",
+      "response": {
+        "result": {
+          "networkID": "162"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeConfig",
+      "response": {
+        "result": {
+          "weights": [
+            1,
+            1000,
+            1000,
+            4
+          ],
+          "maxCapacity": 1000000,
+          "maxPerSecond": 100000,
+          "targetPerSecond": 50000,
+          "minPrice": 250,
+          "excessConversionConstant": 2164043
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.issueTx",
+      "params": {
+        "tx": "0x000000000029000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700002461390443f4000000000000000000000001000000019ce5b5c42ee72a717cdb0360993102fafa57ef8f0000000176c0232b67cabaac6989c1ae6f5f6ec5aa2465b21ddcccace104ca9c971373540000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500002461391f133c0000000100000000000000008d410eacf33b41e75ede2e1319a518eaf167f414d6eeacd90cfb1df5856848d50000000a000000010000000000000000000000000000000000000002000000090000000128e49f7e044a13607dd1039731aeca0a87c5cc83aea91781983b939b53aa58b13194aaa4beb5ac470786618f2bd9c9f6bf8d6599ad1ffaf6913c5a42491d1c2100000000090000000128e49f7e044a13607dd1039731aeca0a87c5cc83aea91781983b939b53aa58b13194aaa4beb5ac470786618f2bd9c9f6bf8d6599ad1ffaf6913c5a42491d1c210030131e4a"
+      },
+      "response": {
+        "result": {
+          "txID": "2Qt3xkebFsCNcGK3b9X4w3TKvkXeusrm5ZFZhGcHGAtkPj2eTA"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "2Qt3xkebFsCNcGK3b9X4w3TKvkXeusrm5ZFZhGcHGAtkPj2eTA"
+      },
+      "response": {
+        "result": {
+          "status": "Processing"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "2Qt3xkebFsCNcGK3b9X4w3TKvkXeusrm5ZFZhGcHGAtkPj2eTA"
+      },
+      "response": {
+        "result": {
+          "status": "Committed"
+        }
+      }
+    }
+  ]
+}

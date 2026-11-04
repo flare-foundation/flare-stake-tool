@@ -48,17 +48,43 @@ export const DEFAULT_MAX_FEE_PER_GAS = {
 export const DEFAULT_MAX_PRIORITY_FEE_PER_GAS = 200 * GWEI;
 
 /**
- * Operations whose gas cost does not depend on their arguments, sized against
- * gas they actually use. `claim` is measured: 1943 mainnet claims used at most
- * 397,738 gas. `withdrawal` sends value to an address the user picks, which may
- * be a contract that does work on receipt, so it keeps more room than the
- * 21,000 a bare transfer needs.
+ * Gas limits of the operations whose cost does not depend on their arguments,
+ * sized close to the gas they use: since the Helicon upgrade (ACP-194) the
+ * C-chain charges every transaction at least half of its gas limit, whatever it
+ * uses, so a limit far above the real use is paid for on every call.
+ *
+ * Measured with eth_estimateGas on Flare mainnet (2026-11), for a recipient
+ * that is an ordinary account (no contract code):
+ * - `claim` without wrapping: 77,533. The limit leaves room for a first claim
+ *   (cold storage).
+ * - `withdrawal`: 21,000.
+ * - custom calls are arbitrary, so there is no bound to measure: the limit
+ *   covers common contract calls, larger ones need `--gas-limit`.
+ *
+ * Wrapping and contract recipients get CLAIM_WRAP_GAS_LIMIT and
+ * CONTRACT_RECIPIENT_GAS_LIMIT instead.
  */
 export const DEFAULT_GAS_LIMIT = {
+  claim: 200_000,
+  withdrawal: 100_000,
+  custom: 300_000,
+} as const;
+
+/**
+ * `claim --wrap`: 263,465 measured; 1943 mainnet claims used at most 397,738
+ * (wrapping into WNat updates vote power).
+ */
+export const CLAIM_WRAP_GAS_LIMIT = 600_000;
+
+/**
+ * `claim` and `withdrawal` to an address with contract code keep the limits of
+ * 4.4.0: the recipient runs code on receipt, which can cost more than the call
+ * itself. A Personal Delegation Account wraps what it receives into WNat (a
+ * claim paid to one takes about 350,000 gas; a transfer to WNat itself 202,315).
+ */
+export const CONTRACT_RECIPIENT_GAS_LIMIT = {
   claim: 600_000,
   withdrawal: 500_000,
-  // Arbitrary call supplied by the user, so no useful upper bound to assume.
-  custom: 1_000_000,
 } as const;
 
 /**
@@ -82,6 +108,11 @@ export const DEFAULT_GAS_LIMIT = {
  * is invisible here, so the list this tool will write is capped at a length
  * whose clearing cost the floor covers. Clearing scales at roughly 11k gas per
  * entry, so the floor carries about 85 entries - comfortably more than the cap.
+ *
+ * Since Helicon (ACP-194) at least half the limit is charged, so these calls
+ * cost at least 500,000 gas even for a short list (setting one address takes
+ * about 93k). They are rare setup calls, and the floor is what guarantees that a
+ * stored list can be cleared, so it stays; `--gas-limit` lowers it.
  */
 const LIST_GAS_FLOOR = 1_000_000;
 const LIST_GAS_BASE = 150_000;
@@ -100,7 +131,18 @@ export interface EvmFees {
   type: 2;
   maxFeePerGas: number;
   maxPriorityFeePerGas: number;
-  gasLimit: number;
+  /** `--gas-limit`; when undefined the builder uses `defaultGasLimit`, which may depend on the recipient. */
+  gasLimit?: number | undefined;
+}
+
+/** What the default gas limit of an operation depends on. */
+export interface EvmSizing {
+  /** Length of the address list, for the operations that set one. */
+  entries?: number | undefined;
+  /** `claim --wrap`. */
+  wrap?: boolean | undefined;
+  /** The recipient of `claim` or `withdrawal` has contract code. */
+  contractRecipient?: boolean | undefined;
 }
 
 export interface EvmFeeOverrides {
@@ -162,17 +204,17 @@ function _validateListLength(entries: number): void {
  * @param operation - the operation being built, which selects the defaults
  * @param overrides - raw option values; the two fee fields are in gwei
  * @param entries - length of the address list, for the operations that set one
- * @returns the fee fields to place into the transaction
+ * @returns the fee fields to place into the transaction; the gas limit only when overridden
  */
 export function resolveEvmFees(operation: EvmOperation, overrides?: EvmFeeOverrides, entries?: number): EvmFees {
   if (_isListOperation(operation)) {
-    // Independent of gas limit resolution below, which --gas-limit short-circuits.
+    // Also with --gas-limit, which replaces the default gas limit.
     _validateListLength(entries ?? 0);
   }
   const maxFeePerGas = _gwei(overrides?.maxFeePerGas, "--max-fee-per-gas") ?? DEFAULT_MAX_FEE_PER_GAS[operation];
   const maxPriorityFeePerGas =
     _gwei(overrides?.priorityFeePerGas, "--priority-fee-per-gas") ?? DEFAULT_MAX_PRIORITY_FEE_PER_GAS;
-  const gasLimit = _units(overrides?.gasLimit, "--gas-limit") ?? _defaultGasLimit(operation, entries);
+  const gasLimit = _units(overrides?.gasLimit, "--gas-limit");
 
   if (maxPriorityFeePerGas > maxFeePerGas) {
     throw new Error(
@@ -182,9 +224,22 @@ export function resolveEvmFees(operation: EvmOperation, overrides?: EvmFeeOverri
   return { type: 2, maxFeePerGas, maxPriorityFeePerGas, gasLimit };
 }
 
-function _defaultGasLimit(operation: EvmOperation, entries?: number): number {
+/**
+ * @description The gas limit of an operation when `--gas-limit` is not given.
+ * @param operation - the operation being built
+ * @param sizing - what the limit depends on: list length, wrapping, a contract recipient
+ * @returns the gas limit to place into the transaction
+ */
+export function defaultGasLimit(operation: EvmOperation, sizing: EvmSizing = {}): number {
   if (_isListOperation(operation)) {
-    return listGasLimit(entries ?? 0);
+    return listGasLimit(sizing.entries ?? 0);
+  }
+  if (operation === "claim") {
+    if (sizing.wrap) return CLAIM_WRAP_GAS_LIMIT;
+    if (sizing.contractRecipient) return CONTRACT_RECIPIENT_GAS_LIMIT.claim;
+  }
+  if (operation === "withdrawal" && sizing.contractRecipient) {
+    return CONTRACT_RECIPIENT_GAS_LIMIT.withdrawal;
   }
   return DEFAULT_GAS_LIMIT[operation];
 }

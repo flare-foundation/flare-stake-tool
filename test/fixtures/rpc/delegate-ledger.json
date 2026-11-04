@@ -1,0 +1,510 @@
+{
+  "recordedAt": "2026-10-29T10:08:27.408Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getCurrentValidators",
+      "response": {
+        "result": {
+          "validators": [
+            {
+              "txID": "92LoLKo9Kz13WPzZjJvyZFnoRnfVnPMC62xVeZKH18BytkAej",
+              "startTime": "1793268506",
+              "endTime": "1793354884",
+              "weight": "10000000000000",
+              "nodeID": "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "10.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xa926858ebfba247e6d759e40bc82f92c20f359769e3538d58562bf30077f5e4c62b3b149f11b8e68a2f5599acd782de2",
+                "proofOfPossession": "0xb48df13f6e0167e2f40cc7c02cf81bf4a2c0b1b686395a56690deb6b5876c0a654ac41253455f41a6c65ac2fbf712d980d9012375edf73efb341d0961ac09197bf5f807192b6cd9f44c9e9032b0e035e4d07ba7eebccf434688610a2f51bc492"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            },
+            {
+              "txID": "o4PT8VorhMvaTX63DRzk7v1p5dNjVrmWWb4w7JcB2sH2VMyKb",
+              "startTime": "1793268502",
+              "endTime": "1793354884",
+              "weight": "10000000000000",
+              "nodeID": "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "10.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xadb0203ebc76627d28fb9440272a2701b85f5c5d4266352686ea42666f5026f1fdabab59529932f1eddb317a6f7435f9",
+                "proofOfPossession": "0x926a1c21953babb12189ec88bfab5cb0060b385efa04c51abe4a3bc42266f80eebb84bcfaacfc8f075560ab444bda8de17bf9013ec20a80dfdfda4ae047a0b39669d153dcee94eb964fe194f5d55c5bba5939ff9ba07b728b6733d696c33ac5a"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            },
+            {
+              "txID": "2E6EZHQbDVdwpCsu7TFE3A6uYB1hTY2EXbfP7K3Tjo8hQSdMeJ",
+              "startTime": "1793268504",
+              "endTime": "1793354884",
+              "weight": "10000000000000",
+              "nodeID": "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "10.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0x83a2f6ccaae3ab909f68cdd2da7d41843aa6723fb24202f65a4b3048eb20e065c30aad5b290e8238a7155a440fde780b",
+                "proofOfPossession": "0x99e3394f0a161167879218a180d1efe3f571a119b02ecc44334fd8aefd561e7c938d85e7b288c3d92ddb94b7983b56a811ce43a876985278e08039865c952aeba3f1ff31fa8642d4ed2e94cda4e6696c5bc411f8f2bf93928e5b9c7e55ad6cb7"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            },
+            {
+              "txID": "Q1tN7vdxbhquKasPh4fuz9T4WhLCqZWUKQcBAZorLBeKBX7UQ",
+              "startTime": "1780272000",
+              "endTime": "1811808000",
+              "weight": "8000000000000000000",
+              "nodeID": "NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "0.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xa75054f6d9ea8419775ca88730ff01f068a538dae1ccb9eeee4324c7928ee79b42746e2568809b6c7d8f124eb966629e",
+                "proofOfPossession": "0xa945d9805ce5f817c706e9765e8802ef422cfde97a046dbb2cf9279f773abedf66e56081dcbc813cce7d8fd36049f80a062946b94645c0f1a73b878c1c4a98a9d6824326e4633c764eb6f8f1d387ebdde3d60674fdab56fffae290f98b5bd8e2"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getAssetDescription",
+      "params": {
+        "assetID": "AVAX"
+      },
+      "response": {
+        "result": {
+          "assetID": "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K",
+          "name": "Avalanche",
+          "symbol": "AVAX",
+          "denomination": "9"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000",
+          "createSubnetTxFee": "100000000",
+          "transformSubnetTxFee": "100000000",
+          "createBlockchainTxFee": "100000000",
+          "addPrimaryNetworkValidatorFee": "0",
+          "addPrimaryNetworkDelegatorFee": "0",
+          "addSubnetValidatorFee": "1000000",
+          "addSubnetDelegatorFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "X"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "qG35QGqZ11Mvh8CxCmVVi22juDH3d4GXYFyLeX3W3aWLXWnVb"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "P"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "11111111111111111111111111111111LpoYY"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "C"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getNetworkID",
+      "response": {
+        "result": {
+          "networkID": "162"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeConfig",
+      "response": {
+        "result": {
+          "weights": [
+            1,
+            1000,
+            1000,
+            4
+          ],
+          "maxCapacity": 1000000,
+          "maxPerSecond": 100000,
+          "targetPerSecond": 50000,
+          "minPrice": 250,
+          "excessConversionConstant": 2164043
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeState",
+      "response": {
+        "result": {
+          "capacity": 983348,
+          "excess": 16652,
+          "price": 251,
+          "timestamp": "2026-10-29T11:08:26+01:00"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getUTXOs",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ],
+        "encoding": "hex"
+      },
+      "response": {
+        "result": {
+          "numFetched": "1",
+          "utxos": [
+            "0x00001237ad7f006c73a11b9357695ca2eed57929e9d1150b98a32053793a4323ae920000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000076f059a6aa545f76d000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29ca2c74e3f"
+          ],
+          "endIndex": {
+            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
+            "utxo": "2FpZKazdikAiPMoY6UeumMjPakWHrZLktojqFDs7AtNib4T91y"
+          },
+          "encoding": "hex"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.upgrades",
+      "response": {
+        "result": {
+          "apricotPhase1Time": "1970-01-01T00:00:00Z",
+          "apricotPhase2Time": "1970-01-01T00:00:00Z",
+          "apricotPhase3Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4MinPChainHeight": 0,
+          "apricotPhase5Time": "1970-01-01T00:00:00Z",
+          "songbirdTransitionTime": "0001-01-01T00:00:00Z",
+          "apricotPhasePre6Time": "1970-01-01T00:00:00Z",
+          "apricotPhase6Time": "1970-01-01T00:00:00Z",
+          "apricotPhasePost6Time": "1970-01-01T00:00:00Z",
+          "banffTime": "1970-01-01T00:00:00Z",
+          "cortinaTime": "1970-01-01T00:00:00Z",
+          "cortinaXChainStopVertexID": "11111111111111111111111111111111LpoYY",
+          "durangoTime": "1970-01-01T00:00:00Z",
+          "etnaTime": "1970-01-01T00:00:00Z",
+          "fortunaTime": "1970-01-01T00:00:00Z",
+          "graniteTime": "1970-01-01T00:00:00Z",
+          "graniteEpochDuration": 300000000000,
+          "heliconTime": "1970-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.issueTx",
+      "params": {
+        "tx": "0x00000000001a000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000076f05915256b38e84000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000011237ad7f006c73a11b9357695ca2eed57929e9d1150b98a32053793a4323ae920000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000056f059a6aa545f76d000000010000000000000000de31b4d8b22991d51aa6aa1fc733f23a851a8c94000000006553f100000000006ae33724000009184e72a00000000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009184e72a000000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000b000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000010000000900000001e64e387c184508e7e3804f6613878036e1332657371c139145dbcf5a01bfbfca2e3f0ec28865c1ba405048e3be6d975bdaf52f69383e81fdd312764104232c60006ac8a51a"
+      },
+      "response": {
+        "result": {
+          "txID": "yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA"
+      },
+      "response": {
+        "result": {
+          "status": "Processing"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA"
+      },
+      "response": {
+        "result": {
+          "status": "Committed"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getCurrentValidators",
+      "response": {
+        "result": {
+          "validators": [
+            {
+              "txID": "92LoLKo9Kz13WPzZjJvyZFnoRnfVnPMC62xVeZKH18BytkAej",
+              "startTime": "1793268506",
+              "endTime": "1793354884",
+              "weight": "10000000000000",
+              "nodeID": "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "10.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xa926858ebfba247e6d759e40bc82f92c20f359769e3538d58562bf30077f5e4c62b3b149f11b8e68a2f5599acd782de2",
+                "proofOfPossession": "0xb48df13f6e0167e2f40cc7c02cf81bf4a2c0b1b686395a56690deb6b5876c0a654ac41253455f41a6c65ac2fbf712d980d9012375edf73efb341d0961ac09197bf5f807192b6cd9f44c9e9032b0e035e4d07ba7eebccf434688610a2f51bc492"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            },
+            {
+              "txID": "o4PT8VorhMvaTX63DRzk7v1p5dNjVrmWWb4w7JcB2sH2VMyKb",
+              "startTime": "1793268502",
+              "endTime": "1793354884",
+              "weight": "10000000000000",
+              "nodeID": "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "10.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xadb0203ebc76627d28fb9440272a2701b85f5c5d4266352686ea42666f5026f1fdabab59529932f1eddb317a6f7435f9",
+                "proofOfPossession": "0x926a1c21953babb12189ec88bfab5cb0060b385efa04c51abe4a3bc42266f80eebb84bcfaacfc8f075560ab444bda8de17bf9013ec20a80dfdfda4ae047a0b39669d153dcee94eb964fe194f5d55c5bba5939ff9ba07b728b6733d696c33ac5a"
+              },
+              "delegatorCount": "1",
+              "delegatorWeight": "10000000000000",
+              "delegators": [
+                {
+                  "txID": "yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA",
+                  "startTime": "1793268507",
+                  "endTime": "1793275684",
+                  "weight": "10000000000000",
+                  "nodeID": "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ",
+                  "rewardOwner": {
+                    "locktime": "0",
+                    "threshold": "1",
+                    "addresses": [
+                      "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                    ]
+                  },
+                  "potentialReward": "0"
+                }
+              ]
+            },
+            {
+              "txID": "2E6EZHQbDVdwpCsu7TFE3A6uYB1hTY2EXbfP7K3Tjo8hQSdMeJ",
+              "startTime": "1793268504",
+              "endTime": "1793354884",
+              "weight": "10000000000000",
+              "nodeID": "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "10.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0x83a2f6ccaae3ab909f68cdd2da7d41843aa6723fb24202f65a4b3048eb20e065c30aad5b290e8238a7155a440fde780b",
+                "proofOfPossession": "0x99e3394f0a161167879218a180d1efe3f571a119b02ecc44334fd8aefd561e7c938d85e7b288c3d92ddb94b7983b56a811ce43a876985278e08039865c952aeba3f1ff31fa8642d4ed2e94cda4e6696c5bc411f8f2bf93928e5b9c7e55ad6cb7"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            },
+            {
+              "txID": "Q1tN7vdxbhquKasPh4fuz9T4WhLCqZWUKQcBAZorLBeKBX7UQ",
+              "startTime": "1780272000",
+              "endTime": "1811808000",
+              "weight": "8000000000000000000",
+              "nodeID": "NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg",
+              "validationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6"
+                ]
+              },
+              "delegationRewardOwner": {
+                "locktime": "0",
+                "threshold": "1",
+                "addresses": [
+                  "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6"
+                ]
+              },
+              "potentialReward": "0",
+              "accruedDelegateeReward": "0",
+              "delegationFee": "0.0000",
+              "uptime": "100.0000",
+              "connected": true,
+              "signer": {
+                "publicKey": "0xa75054f6d9ea8419775ca88730ff01f068a538dae1ccb9eeee4324c7928ee79b42746e2568809b6c7d8f124eb966629e",
+                "proofOfPossession": "0xa945d9805ce5f817c706e9765e8802ef422cfde97a046dbb2cf9279f773abedf66e56081dcbc813cce7d8fd36049f80a062946b94645c0f1a73b878c1c4a98a9d6824326e4633c764eb6f8f1d387ebdde3d60674fdab56fffae290f98b5bd8e2"
+              },
+              "delegatorCount": "0",
+              "delegatorWeight": "0",
+              "delegators": []
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

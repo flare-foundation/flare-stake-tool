@@ -1,0 +1,39 @@
+{
+  "spec": {
+    "name": "transfer-file",
+    "kind": "cli",
+    "args": [
+      "transaction",
+      "transfer",
+      "-a",
+      "1",
+      "--transfer-address",
+      "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6",
+      "-i",
+      "transfer-file",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "txFileId": "transfer-file"
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nUnsigned transaction transfer-file constructed\nForDefi hash: QXFDpx09Wl+QHwtdLM8A6oLBDCIw5xgaH765WZ/wtcM=\n",
+    "stderr": "",
+    "txIds": [],
+    "submissions": [],
+    "unsignedTxJson": {
+      "transactionType": "transfer",
+      "signatureRequests": [
+        {
+          "message": "417143a71d3d5a5f901f0b5d2ccf00ea82c10c2230e7181a1fbeb9599ff0b5c3",
+          "signer": ""
+        }
+      ],
+      "unsignedTransactionBuffer": "000000000022000000a200000000000000000000000000000000000000000000000000000000000000000000000234ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000000003b9aca000000000000000000000000010000000146a9c04f4bf783aa69daabd519dcf36978168b6634ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000917d593edec000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000016c933f2cbdef725c1066a0a8a4477f275a94a611e33c62b80f933c82364f7d920000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500000918117dbe64000000010000000000000000",
+      "serialization": "{\"codecId\":\"0\",\"vm\":\"PVM\",\"txBytes\":\"0x000000000022000000a200000000000000000000000000000000000000000000000000000000000000000000000234ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000000003b9aca000000000000000000000000010000000146a9c04f4bf783aa69daabd519dcf36978168b6634ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000917d593edec000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000016c933f2cbdef725c1066a0a8a4477f275a94a611e33c62b80f933c82364f7d920000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500000918117dbe64000000010000000000000000\",\"utxos\":[\"0x6c933f2cbdef725c1066a0a8a4477f275a94a611e33c62b80f933c82364f7d920000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000918117dbe64000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c\"],\"addressMaps\":[[[\"0x3cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c\",0]]],\"credentials\":[[\"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\"]]}",
+      "forDefiHash": "QXFDpx09Wl+QHwtdLM8A6oLBDCIw5xgaH765WZ/wtcM="
+    }
+  }
+}

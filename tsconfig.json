@@ -6,7 +6,7 @@
     // Environment Settings
     "target": "ES2024",
     "module": "CommonJS",
-    "lib": ["ES2024", "DOM"],
+    "lib": ["ES2024"],
     "types": ["node", "mocha"],
 
     // Other Outputs

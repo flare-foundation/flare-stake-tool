@@ -1,26 +1,39 @@
 import { expect } from "chai";
 import path from "path";
 import fs from "fs";
-import { runCli, makeTempDir, cleanupTempDir, EWOQ_PRIVATE_KEY_HEX, EWOQ_ETH_ADDRESS } from "./cli-helper";
-import { startLocalNetwork, stopLocalNetwork, getNodeInfo, VALIDATOR2_RPC_URL, type NodeInfo } from "./local-network";
+import { runCli, makeTempDir, cleanupTempDir } from "./cli-helper";
+import { createFundedAccount, type FundedAccount } from "./accounts";
+import { fromNow, pickFreeNode, waitForLocalNetwork, type NodeInfo } from "./local-network";
 import { spawnInteractive, KEYS } from "./interactive-helper";
+import { networkConstants, taskConstants, walletConstants } from "../../src/constants/screen";
 
-const STAKE_END_TIME = "1779484800"; // 2026-05-22 — before genesis validator end
+/** Number of DOWN presses to reach `key` in an inquirer list built from `table`. */
+const menuIndex = (table: Record<string, string>, key: string): number => {
+  const index = Object.keys(table).indexOf(key);
+  if (index < 0) throw new Error(`menu entry ${key} not found`);
+  return index;
+};
+const pressDown = (session: { send: (data: string) => void }, times: number): void => {
+  for (let i = 0; i < times; i++) session.send(KEYS.DOWN);
+};
+
+const STAKE_DURATION_S = 60 * 60; // localflare minimum is 15 minutes
 
 describe("CLI interactive mode (with network)", function () {
   this.timeout(300_000);
 
   let tempDir: string;
   let envPath: string;
-  let nodeInfo: NodeInfo;
+  let account: FundedAccount;
+  let nodeInfo: NodeInfo | undefined;
 
   before(async () => {
-    await startLocalNetwork();
+    await waitForLocalNetwork();
     tempDir = makeTempDir();
+    account = await createFundedAccount();
     // Interactive prompts the user for a private-key file path; we use "pktest"
     // so this matches the env path the test sends as input below.
-    envPath = path.join(tempDir, "pktest");
-    fs.writeFileSync(envPath, `PRIVATE_KEY_HEX="${EWOQ_PRIVATE_KEY_HEX}"\n`);
+    envPath = account.writeEnv(tempDir, "pktest");
     // Stake test needs P-chain funds; seed via direct CLI so the interactive
     // test can focus on the menu flow.
     runCli(
@@ -42,20 +55,19 @@ describe("CLI interactive mode (with network)", function () {
     runCli(["transaction", "importCP", "--get-hacked", "--env-path", envPath, "--network", "localflare"], {
       timeoutMs: 60_000,
     });
-    nodeInfo = await getNodeInfo(VALIDATOR2_RPC_URL);
+    nodeInfo = await pickFreeNode();
   });
 
   after(() => {
-    stopLocalNetwork();
     cleanupTempDir(tempDir);
   });
 
   it("connects with private key, picks localflare, checks balance, and exits", async () => {
     const session = spawnInteractive(["interactive"], tempDir);
 
-    // Menu 1: wallet type. Options are [Ledger, Private Key]. Select Private Key.
+    // Menu 1: wallet type. Select Private Key.
     await session.waitFor("How do you want to connect your wallet?");
-    session.send(KEYS.DOWN); // Ledger -> Private Key
+    pressDown(session, menuIndex(walletConstants, "privateKey"));
     session.send(KEYS.ENTER);
 
     // Prompt 2: path to private key file
@@ -63,19 +75,18 @@ describe("CLI interactive mode (with network)", function () {
     session.send("pktest");
     session.send(KEYS.ENTER);
 
-    // Menu 3: network. Options are [Flare, Songbird, Coston2, Coston, LocalHost].
-    // Select LocalHost (last item, 4 down arrows from default).
+    // Menu 3: network. Select localflare.
     await session.waitFor("Which network do you want to connect to?");
-    for (let i = 0; i < 4; i++) session.send(KEYS.DOWN);
+    pressDown(session, menuIndex(networkConstants, "localflare"));
     session.send(KEYS.ENTER);
 
-    // Menu 4: action. Default is "View chain addresses"; "Check on-chain balance" is next.
+    // Menu 4: action. Select "Check on-chain balance".
     await session.waitFor("What do you want to do?");
-    session.send(KEYS.DOWN);
+    pressDown(session, menuIndex(taskConstants, "balance"));
     session.send(KEYS.ENTER);
 
-    // Verify the balance output mentions the C-chain ewoq address
-    await session.waitFor(EWOQ_ETH_ADDRESS, 60_000);
+    // Verify the balance output mentions the account's C-chain address
+    await session.waitFor(account.ethAddress, 60_000);
     expect(session.output.toLowerCase()).to.include("c-chain");
     expect(session.output.toLowerCase()).to.include("p-chain");
 
@@ -87,23 +98,68 @@ describe("CLI interactive mode (with network)", function () {
     });
   });
 
-  it("stakes a new validator via the menu flow", async () => {
+  it("prints an action error and returns to the menu instead of exiting", async () => {
     const session = spawnInteractive(["interactive"], tempDir);
-
-    // Same connect sequence: Private Key, "pktest", LocalHost.
     await session.waitFor("How do you want to connect your wallet?");
-    session.send(KEYS.DOWN);
+    pressDown(session, menuIndex(walletConstants, "privateKey"));
     session.send(KEYS.ENTER);
     await session.waitFor("Enter Path to Private Key file");
     session.send("pktest");
     session.send(KEYS.ENTER);
     await session.waitFor("Which network do you want to connect to?");
-    for (let i = 0; i < 4; i++) session.send(KEYS.DOWN);
+    pressDown(session, menuIndex(networkConstants, "localflare"));
     session.send(KEYS.ENTER);
 
-    // Action menu: "Add a validator node" is the 7th option (index 6).
+    // Delegate to a node that is not a validator: the pre-flight check throws.
     await session.waitFor("What do you want to do?");
-    for (let i = 0; i < 6; i++) session.send(KEYS.DOWN);
+    pressDown(session, menuIndex(taskConstants, "delegate"));
+    session.send(KEYS.ENTER);
+    await session.waitFor("Enter amount");
+    session.send("10000");
+    session.send(KEYS.ENTER);
+    await session.waitFor("Enter NodeId");
+    session.send("NodeID-111111111111111111116DBWJs");
+    session.send(KEYS.ENTER);
+    await session.waitFor("Enter end time");
+    session.send("20m");
+    session.send(KEYS.ENTER);
+
+    const menuPrompt = "What do you want to do?";
+    const menusBefore = session.output.split(menuPrompt).length - 1;
+    await session.waitFor("Error: Unknown node id", 60_000);
+    // the menu must come back after the error, in the same session
+    const deadline = Date.now() + 30_000;
+    while (session.output.split(menuPrompt).length - 1 <= menusBefore) {
+      if (Date.now() > deadline) throw new Error(`menu did not return after the error:\n${session.output.slice(-800)}`);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    session.send(KEYS.CTRL_C);
+    await session.wait(10_000).catch(() => {
+      session.kill();
+    });
+  });
+
+  it("stakes a new validator via the menu flow", async function () {
+    if (!nodeInfo) {
+      this.skip();
+    }
+    const session = spawnInteractive(["interactive"], tempDir);
+
+    // Same connect sequence: Private Key, "pktest", localflare.
+    await session.waitFor("How do you want to connect your wallet?");
+    pressDown(session, menuIndex(walletConstants, "privateKey"));
+    session.send(KEYS.ENTER);
+    await session.waitFor("Enter Path to Private Key file");
+    session.send("pktest");
+    session.send(KEYS.ENTER);
+    await session.waitFor("Which network do you want to connect to?");
+    pressDown(session, menuIndex(networkConstants, "localflare"));
+    session.send(KEYS.ENTER);
+
+    // Action menu: "Add a validator node".
+    await session.waitFor("What do you want to do?");
+    pressDown(session, menuIndex(taskConstants, "stake"));
     session.send(KEYS.ENTER);
 
     // Stake prompts (post-Durango: no startTime prompt).
@@ -116,7 +172,7 @@ describe("CLI interactive mode (with network)", function () {
     session.send(KEYS.ENTER);
 
     await session.waitFor("Enter end time");
-    session.send(STAKE_END_TIME);
+    session.send(fromNow(STAKE_DURATION_S));
     session.send(KEYS.ENTER);
 
     await session.waitFor("Enter delegation fee");

@@ -1,0 +1,47 @@
+{
+  "spec": {
+    "name": "stake-pk",
+    "kind": "cli",
+    "args": [
+      "transaction",
+      "stake",
+      "-n",
+      "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN",
+      "-a",
+      "10000",
+      "-e",
+      "1793354884",
+      "--delegation-fee",
+      "10",
+      "--pop-bls-public-key",
+      "0x83a2f6ccaae3ab909f68cdd2da7d41843aa6723fb24202f65a4b3048eb20e065c30aad5b290e8238a7155a440fde780b",
+      "--pop-bls-signature",
+      "0x99e3394f0a161167879218a180d1efe3f571a119b02ecc44334fd8aefd561e7c938d85e7b288c3d92ddb94b7983b56a811ce43a876985278e08039865c952aeba3f1ff31fa8642d4ed2e94cda4e6696c5bc411f8f2bf93928e5b9c7e55ad6cb7",
+      "-s",
+      "1700000000",
+      "--env-path",
+      "test.env",
+      "--get-hacked",
+      "--network",
+      "localflare"
+    ],
+    "needsEnv": true
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nTransaction with hash 2E6EZHQbDVdwpCsu7TFE3A6uYB1hTY2EXbfP7K3Tjo8hQSdMeJ built and sent to the network\n",
+    "stderr": "",
+    "txIds": [
+      "2E6EZHQbDVdwpCsu7TFE3A6uYB1hTY2EXbfP7K3Tjo8hQSdMeJ"
+    ],
+    "submissions": [
+      {
+        "path": "/ext/bc/P",
+        "method": "platform.issueTx",
+        "params": {
+          "tx": "0x000000000019000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009175d461b08000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000200c74e044dc10ac89cbd7081815eabf5b158b7c72e31bb174f7adb6a5427b7ed0000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000005000009184e72a00000000001000000006894cb48d23deede3cbd5ece8dda55bae1b044cd760d68c281d631eb214825f80000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000005000009175d85e1cc000000010000000000000000e9094f73698002fd52c90819b457b9fbc866ab80000000006553f100000000006ae46c84000009184e72a00000000000000000000000000000000000000000000000000000000000000000000000001c83a2f6ccaae3ab909f68cdd2da7d41843aa6723fb24202f65a4b3048eb20e065c30aad5b290e8238a7155a440fde780b99e3394f0a161167879218a180d1efe3f571a119b02ecc44334fd8aefd561e7c938d85e7b288c3d92ddb94b7983b56a811ce43a876985278e08039865c952aeba3f1ff31fa8642d4ed2e94cda4e6696c5bc411f8f2bf93928e5b9c7e55ad6cb70000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009184e72a000000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000b000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000b000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000186a000000002000000090000000109c492307ec6536662d7b40eabd89d67e4be9a8f2ddb3c6ef93c5958a70f6ffe14aed9fee41ce5c7dca128d27aad6fa0b5d304bb3b6983c9cd0d971c515d94db01000000090000000109c492307ec6536662d7b40eabd89d67e4be9a8f2ddb3c6ef93c5958a70f6ffe14aed9fee41ce5c7dca128d27aad6fa0b5d304bb3b6983c9cd0d971c515d94db019d3fd25a"
+        }
+      }
+    ]
+  }
+}

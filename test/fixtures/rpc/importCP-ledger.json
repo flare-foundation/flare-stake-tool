@@ -1,0 +1,341 @@
+{
+  "recordedAt": "2026-10-29T10:05:53.703Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getAssetDescription",
+      "params": {
+        "assetID": "AVAX"
+      },
+      "response": {
+        "result": {
+          "assetID": "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K",
+          "name": "Avalanche",
+          "symbol": "AVAX",
+          "denomination": "9"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000",
+          "createSubnetTxFee": "100000000",
+          "transformSubnetTxFee": "100000000",
+          "createBlockchainTxFee": "100000000",
+          "addPrimaryNetworkValidatorFee": "0",
+          "addPrimaryNetworkDelegatorFee": "0",
+          "addSubnetValidatorFee": "1000000",
+          "addSubnetDelegatorFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "X"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "qG35QGqZ11Mvh8CxCmVVi22juDH3d4GXYFyLeX3W3aWLXWnVb"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "P"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "11111111111111111111111111111111LpoYY"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "C"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getNetworkID",
+      "response": {
+        "result": {
+          "networkID": "162"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeConfig",
+      "response": {
+        "result": {
+          "weights": [
+            1,
+            1000,
+            1000,
+            4
+          ],
+          "maxCapacity": 1000000,
+          "maxPerSecond": 100000,
+          "targetPerSecond": 50000,
+          "minPrice": 250,
+          "excessConversionConstant": 2164043
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeState",
+      "response": {
+        "result": {
+          "capacity": 995865,
+          "excess": 4135,
+          "price": 250,
+          "timestamp": "2026-10-29T11:05:51+01:00"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getUTXOs",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ],
+        "sourceChain": "C",
+        "encoding": "hex"
+      },
+      "response": {
+        "result": {
+          "numFetched": "1",
+          "utxos": [
+            "0x00002988a15c25c0f475e2ab83aaebc378808675d8f54c9276362e4097b7dee752950000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002541b2640000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c4abdfb46"
+          ],
+          "endIndex": {
+            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
+            "utxo": "RcyJAiLpB8xSqRSso8voaXuM56kw7KVaXYRjQ8dYj5VeJGUem"
+          },
+          "encoding": "hex"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.upgrades",
+      "response": {
+        "result": {
+          "apricotPhase1Time": "1970-01-01T00:00:00Z",
+          "apricotPhase2Time": "1970-01-01T00:00:00Z",
+          "apricotPhase3Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4MinPChainHeight": 0,
+          "apricotPhase5Time": "1970-01-01T00:00:00Z",
+          "songbirdTransitionTime": "0001-01-01T00:00:00Z",
+          "apricotPhasePre6Time": "1970-01-01T00:00:00Z",
+          "apricotPhase6Time": "1970-01-01T00:00:00Z",
+          "apricotPhasePost6Time": "1970-01-01T00:00:00Z",
+          "banffTime": "1970-01-01T00:00:00Z",
+          "cortinaTime": "1970-01-01T00:00:00Z",
+          "cortinaXChainStopVertexID": "11111111111111111111111111111111LpoYY",
+          "durangoTime": "1970-01-01T00:00:00Z",
+          "etnaTime": "1970-01-01T00:00:00Z",
+          "fortunaTime": "1970-01-01T00:00:00Z",
+          "graniteTime": "1970-01-01T00:00:00Z",
+          "graniteEpochDuration": 300000000000,
+          "heliconTime": "1970-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getUTXOs",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ],
+        "sourceChain": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU",
+        "encoding": "hex"
+      },
+      "response": {
+        "result": {
+          "numFetched": "1",
+          "utxos": [
+            "0x00002988a15c25c0f475e2ab83aaebc378808675d8f54c9276362e4097b7dee752950000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002541b2640000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c4abdfb46"
+          ],
+          "endIndex": {
+            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
+            "utxo": "RcyJAiLpB8xSqRSso8voaXuM56kw7KVaXYRjQ8dYj5VeJGUem"
+          },
+          "encoding": "hex"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getBalance",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ]
+      },
+      "response": {
+        "result": {
+          "balance": "8000000119973866923",
+          "unlocked": "8000000119973866923",
+          "lockedStakeable": "0",
+          "lockedNotStakeable": "0",
+          "balances": {
+            "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K": "8000000119973866923"
+          },
+          "unlockeds": {
+            "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K": "8000000119973866923"
+          },
+          "lockedStakeables": {},
+          "lockedNotStakeables": {},
+          "utxoIDs": [
+            {
+              "txID": "24MN5zUKgXoAeVpFYyQmP4SxPwwVxVe3zLXc98sADqs6qAngPu",
+              "outputIndex": 0
+            },
+            {
+              "txID": "2b2JPPnCpTovfDwaWRhphxAEbN8SmmJafzip2JyG1CKVwoEYeH",
+              "outputIndex": 0
+            },
+            {
+              "txID": "xyuHVqJsaMptKpuudr32Fr6tx2VbyogjqfmsSouc7BYNBJYQD",
+              "outputIndex": 1
+            },
+            {
+              "txID": "2fGJrGdihE3RhmcWmgEV1BkVxJBwFMCGcmw8YjZA4CdTyuLWup",
+              "outputIndex": 0
+            },
+            {
+              "txID": "1LtRZTD6WjVAfNCP85yy1fm3bu5znmEyuEeJr6sUXcBZCEA4b",
+              "outputIndex": 1
+            },
+            {
+              "txID": "YbA3Gqoc29oGH1JatHzLfaumcMXYY5eUjL7pmRVKtvULtDGfR",
+              "outputIndex": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.issueTx",
+      "params": {
+        "tx": "0x000000000011000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540b602a000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c00000000000000009fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac6000000012988a15c25c0f475e2ab83aaebc378808675d8f54c9276362e4097b7dee752950000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500000002541b26400000000100000000000000010000000900000001fecc805aee59d1e37c8ade1226c95ba434e8272052e4611cb2bfeee196988c746e56cd6ee0619801cd3ff3193e028f23956249d5d1802fac627b30b0392ef1380177ff8760"
+      },
+      "response": {
+        "result": {
+          "txID": "2hqrnXkuJBbHQEZZEAbYHMZ5PzNQDM7LnjAXwVrVA1Mxtn18Ac"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "2hqrnXkuJBbHQEZZEAbYHMZ5PzNQDM7LnjAXwVrVA1Mxtn18Ac"
+      },
+      "response": {
+        "result": {
+          "status": "Processing"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "2hqrnXkuJBbHQEZZEAbYHMZ5PzNQDM7LnjAXwVrVA1Mxtn18Ac"
+      },
+      "response": {
+        "result": {
+          "status": "Committed"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getBalance",
+      "params": {
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ]
+      },
+      "response": {
+        "result": {
+          "balance": "8000000129973833173",
+          "unlocked": "8000000129973833173",
+          "lockedStakeable": "0",
+          "lockedNotStakeable": "0",
+          "balances": {
+            "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K": "8000000129973833173"
+          },
+          "unlockeds": {
+            "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K": "8000000129973833173"
+          },
+          "lockedStakeables": {},
+          "lockedNotStakeables": {},
+          "utxoIDs": [
+            {
+              "txID": "2hqrnXkuJBbHQEZZEAbYHMZ5PzNQDM7LnjAXwVrVA1Mxtn18Ac",
+              "outputIndex": 0
+            },
+            {
+              "txID": "24MN5zUKgXoAeVpFYyQmP4SxPwwVxVe3zLXc98sADqs6qAngPu",
+              "outputIndex": 0
+            },
+            {
+              "txID": "2b2JPPnCpTovfDwaWRhphxAEbN8SmmJafzip2JyG1CKVwoEYeH",
+              "outputIndex": 0
+            },
+            {
+              "txID": "xyuHVqJsaMptKpuudr32Fr6tx2VbyogjqfmsSouc7BYNBJYQD",
+              "outputIndex": 1
+            },
+            {
+              "txID": "2fGJrGdihE3RhmcWmgEV1BkVxJBwFMCGcmw8YjZA4CdTyuLWup",
+              "outputIndex": 0
+            },
+            {
+              "txID": "1LtRZTD6WjVAfNCP85yy1fm3bu5znmEyuEeJr6sUXcBZCEA4b",
+              "outputIndex": 1
+            },
+            {
+              "txID": "YbA3Gqoc29oGH1JatHzLfaumcMXYY5eUjL7pmRVKtvULtDGfR",
+              "outputIndex": 0
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "spec": {
+    "name": "send-importPC",
+    "kind": "send",
+    "args": [
+      "send",
+      "-i",
+      "importPC-file",
+      "--network",
+      "localflare"
+    ],
+    "needsCtx": true,
+    "unsignedFrom": "importPC-file",
+    "txFileId": "importPC-file"
+  },
+  "outcome": {
+    "exitCode": 0,
+    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nSigned transaction importPC-file with hash nTaG1WHn8zUrExNsSitoxABtvGc6BvKcYsnEvcKjn5oDacS7r sent to the node\n",
+    "stderr": "",
+    "txIds": [
+      "nTaG1WHn8zUrExNsSitoxABtvGc6BvKcYsnEvcKjn5oDacS7r"
+    ],
+    "submissions": [
+      {
+        "path": "/ext/bc/C/avax",
+        "method": "avax.issueTx",
+        "params": {
+          "tx": "0x000000000000000000a29fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac60000000000000000000000000000000000000000000000000000000000000000000000020314bdf894b0ad3d1235ee0abab8c83655088b831c0785040437708961dc6a0d0000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000005000000003b9aca000000000100000000a946cd1f454e42559ce1c4da78e626898ead43dce7f1b4bc50ae7463510ad8d20000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500000002540be4000000000100000000000000018db97c7cece249c2b98bdc0226cc4c2a57bf52fc00000002540be40034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000020000000900000001fbe5687016d70246350f3f6f9ba9375130e53f887e34438913281a6c4bed62c37635dad4f406eeb901161524caab089864576825d49c5413ea3152764b7398dd010000000900000001fbe5687016d70246350f3f6f9ba9375130e53f887e34438913281a6c4bed62c37635dad4f406eeb901161524caab089864576825d49c5413ea3152764b7398dd010bed114a"
+        }
+      }
+    ]
+  }
+}

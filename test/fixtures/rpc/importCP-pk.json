@@ -1,0 +1,199 @@
+{
+  "recordedAt": "2026-10-29T10:05:50.771Z",
+  "upstream": "http://localhost:9650",
+  "entries": [
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeState",
+      "response": {
+        "result": {
+          "capacity": 995865,
+          "excess": 4135,
+          "price": 250,
+          "timestamp": "2026-10-29T11:05:49+01:00"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getAssetDescription",
+      "params": {
+        "assetID": "AVAX"
+      },
+      "response": {
+        "result": {
+          "assetID": "QJx3BomP9MGxCy5RPVXyNUeEqzduvuNbxQVXMuPKDakacdY6K",
+          "name": "Avalanche",
+          "symbol": "AVAX",
+          "denomination": "9"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000",
+          "createSubnetTxFee": "100000000",
+          "transformSubnetTxFee": "100000000",
+          "createBlockchainTxFee": "100000000",
+          "addPrimaryNetworkValidatorFee": "0",
+          "addPrimaryNetworkDelegatorFee": "0",
+          "addSubnetValidatorFee": "1000000",
+          "addSubnetDelegatorFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/X",
+      "method": "avm.getTxFee",
+      "response": {
+        "result": {
+          "txFee": "1000000",
+          "createAssetTxFee": "1000000"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "X"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "qG35QGqZ11Mvh8CxCmVVi22juDH3d4GXYFyLeX3W3aWLXWnVb"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "P"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "11111111111111111111111111111111LpoYY"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getBlockchainID",
+      "params": {
+        "alias": "C"
+      },
+      "response": {
+        "result": {
+          "blockchainID": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU"
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.getNetworkID",
+      "response": {
+        "result": {
+          "networkID": "162"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getFeeConfig",
+      "response": {
+        "result": {
+          "weights": [
+            1,
+            1000,
+            1000,
+            4
+          ],
+          "maxCapacity": 1000000,
+          "maxPerSecond": 100000,
+          "targetPerSecond": 50000,
+          "minPrice": 250,
+          "excessConversionConstant": 2164043
+        }
+      }
+    },
+    {
+      "path": "/ext/info",
+      "method": "info.upgrades",
+      "response": {
+        "result": {
+          "apricotPhase1Time": "1970-01-01T00:00:00Z",
+          "apricotPhase2Time": "1970-01-01T00:00:00Z",
+          "apricotPhase3Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4Time": "1970-01-01T00:00:00Z",
+          "apricotPhase4MinPChainHeight": 0,
+          "apricotPhase5Time": "1970-01-01T00:00:00Z",
+          "songbirdTransitionTime": "0001-01-01T00:00:00Z",
+          "apricotPhasePre6Time": "1970-01-01T00:00:00Z",
+          "apricotPhase6Time": "1970-01-01T00:00:00Z",
+          "apricotPhasePost6Time": "1970-01-01T00:00:00Z",
+          "banffTime": "1970-01-01T00:00:00Z",
+          "cortinaTime": "1970-01-01T00:00:00Z",
+          "cortinaXChainStopVertexID": "11111111111111111111111111111111LpoYY",
+          "durangoTime": "1970-01-01T00:00:00Z",
+          "etnaTime": "1970-01-01T00:00:00Z",
+          "fortunaTime": "1970-01-01T00:00:00Z",
+          "graniteTime": "1970-01-01T00:00:00Z",
+          "graniteEpochDuration": 300000000000,
+          "heliconTime": "1970-01-01T00:00:00Z"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getUTXOs",
+      "params": {
+        "sourceChain": "C",
+        "addresses": [
+          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+        ],
+        "encoding": "hex"
+      },
+      "response": {
+        "result": {
+          "numFetched": "1",
+          "utxos": [
+            "0x0000b7e672f488fc468d9cb414c1e74f76ffa8656f53a4928c3657a43c807f7e5f040000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540be400000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29cf74d1663"
+          ],
+          "endIndex": {
+            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
+            "utxo": "2tpKCZykDzHnepr9bFCVCUTx3CzighXhQ6uiCBWHw6AcxMFT3j"
+          },
+          "encoding": "hex"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.issueTx",
+      "params": {
+        "tx": "0x000000000011000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000070000000253fc1dea000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c00000000000000009fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac600000001b7e672f488fc468d9cb414c1e74f76ffa8656f53a4928c3657a43c807f7e5f040000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500000002540be4000000000100000000000000010000000900000001e66b35c4f7653d21ac7f6bd5c8edb0c9719550ac052de19ee409e5f72263944639a1e280dce4cdc0148300c1f473c357b806b7e6311c4bdb1eecf48d2d178f6101515ed714"
+      },
+      "response": {
+        "result": {
+          "txID": "24MN5zUKgXoAeVpFYyQmP4SxPwwVxVe3zLXc98sADqs6qAngPu"
+        }
+      }
+    },
+    {
+      "path": "/ext/bc/P",
+      "method": "platform.getTxStatus",
+      "params": {
+        "txID": "24MN5zUKgXoAeVpFYyQmP4SxPwwVxVe3zLXc98sADqs6qAngPu"
+      },
+      "response": {
+        "result": {
+          "status": "Committed"
+        }
+      }
+    }
+  ]
+}

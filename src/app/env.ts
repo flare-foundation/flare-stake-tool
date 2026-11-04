@@ -1,0 +1,86 @@
+/** Environment resolution and the ctx.json context file. */
+import fs from "fs";
+import path from "path";
+import { createClients } from "../chain/clients";
+import { accountFromPublicKey, type Account } from "../chain/keys";
+import { DEFAULT_NETWORK, isNetworkName, networkConfig, type NodeOverrides } from "../chain/network";
+import type { Env } from "../core/types";
+
+export const DEFAULT_CTX_FILE = "ctx.json";
+
+/** Shape of ctx.json, written by `init-ctx`. `publicKey` is stored verbatim (ForDefi compares it with the vault's key). */
+export interface ContextFile {
+  wallet: "ledger" | "publicKey";
+  publicKey: string;
+  network: string;
+  ethAddress?: string | undefined;
+  flareAddress?: string | undefined;
+  vaultId?: string | undefined;
+  derivationPath?: string | undefined;
+}
+
+/** The environment for a network name; `node` points it at a different node (see chain/network.ts). */
+export function createEnv(network: string, node: NodeOverrides = {}): Env {
+  const config = networkConfig(network, process.env, node);
+  return { network: config, clients: createClients(config) };
+}
+
+export function readContextFile(file: string = DEFAULT_CTX_FILE): ContextFile {
+  if (!fs.existsSync(file)) {
+    throw new Error(
+      `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
+    );
+  }
+  const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<ContextFile>;
+  if (typeof parsed.publicKey !== "string" || typeof parsed.network !== "string") {
+    throw new Error(`Context file ${file} is missing publicKey or network`);
+  }
+  return parsed as ContextFile;
+}
+
+export function contextFileExists(file: string = DEFAULT_CTX_FILE): boolean {
+  return fs.existsSync(file);
+}
+
+/** Writes ctx.json, refusing to overwrite an existing one. */
+export function writeContextFile(context: ContextFile, file: string = DEFAULT_CTX_FILE): void {
+  if (fs.existsSync(file)) {
+    throw new Error(`${path.basename(file)} already exists`);
+  }
+  fs.writeFileSync(file, JSON.stringify(context, null, 2));
+}
+
+/**
+ * Moves an existing context file aside as `<file>.<timestamp>.bak` and returns
+ * that path, so that replacing a context (a ForDefi one with its `vaultId`,
+ * say) never loses it.
+ */
+export function backupContextFile(file: string = DEFAULT_CTX_FILE, now: Date = new Date()): string {
+  const backup = `${file}.${now.toISOString().replace(/[:.]/g, "-")}.bak`;
+  if (fs.existsSync(backup)) {
+    throw new Error(`Backup ${backup} already exists`);
+  }
+  fs.renameSync(file, backup);
+  return backup;
+}
+
+export function accountFromContextFile(context: ContextFile, hrp: string): Account {
+  return accountFromPublicKey(context.publicKey, hrp);
+}
+
+/**
+ * The network to act on: `--network` when given, else the network of the
+ * context file when one exists, else flare.
+ */
+export function resolveNetworkName(explicit: string | undefined, ctxFile: string = DEFAULT_CTX_FILE): string {
+  if (explicit !== undefined) {
+    if (!isNetworkName(explicit)) {
+      throw new Error(`Unknown network "${explicit}"`);
+    }
+    return explicit;
+  }
+  if (contextFileExists(ctxFile)) {
+    return readContextFile(ctxFile).network;
+  }
+  return DEFAULT_NETWORK;
+}
