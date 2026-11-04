@@ -30,8 +30,8 @@ import {
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
 import { maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
-import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
-import { describeError, describeFee, log, logError, logInfo, logSuccess, logWarning } from "../output";
+import type { Env, Signer, TxRequest, TxRequestOf } from "../core/types";
+import { describeError, log, logError, logInfo, logWarning, reportOutcome } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
 import {
@@ -124,34 +124,27 @@ async function runTask(task: string, session: Session): Promise<void> {
     case "import": {
       const { type } = await prompts.importTrxType();
       if (type === "P") {
-        report(session, await runTransaction({ type: "importCP" }, session.env, session.signer));
+        await execute(session, { type: "importCP" });
       } else {
         const fee = await askCChainFee(session, { type: "importPC" });
-        report(session, await runTransaction({ type: "importPC", fee }, session.env, session.signer));
+        await execute(session, { type: "importPC", fee });
       }
       break;
     }
     case "transfer": {
       const { amount } = await prompts.amount("");
       const { transferAddress } = await prompts.transferAddress();
-      report(
-        session,
-        await runTransaction(
-          { type: "transfer", amount: parseFlr(amount), to: transferAddress },
-          session.env,
-          session.signer
-        )
-      );
+      await execute(session, { type: "transfer", amount: parseFlr(amount), to: transferAddress });
       break;
     }
     case "stake":
-      report(session, await runTransaction(await askStake(), session.env, session.signer));
+      await execute(session, await askStake());
       break;
     case "delegate":
-      report(session, await runTransaction(await askDelegate(), session.env, session.signer));
+      await execute(session, await askDelegate());
       break;
     case "addAutoRenewedValidator":
-      report(session, await runTransaction(await askAutoRenewedValidator(), session.env, session.signer));
+      await execute(session, await askAutoRenewedValidator());
       break;
     case "setAutoRenewedValidatorConfig": {
       const { id } = await prompts.nodeId();
@@ -160,10 +153,7 @@ async function runTask(task: string, session: Session): Promise<void> {
         logInfo("Auto-renewal left unchanged.");
         break;
       }
-      report(
-        session,
-        await runTransaction({ type: "setAutoRenewedValidatorConfig", nodeId: id, period }, session.env, session.signer)
-      );
+      await execute(session, { type: "setAutoRenewedValidatorConfig", nodeId: id, period });
       break;
     }
     case "claim":
@@ -174,15 +164,9 @@ async function runTask(task: string, session: Session): Promise<void> {
   }
 }
 
-function report(session: Session, outcome: Outcome): void {
-  if (outcome.status === "sent") {
-    logSuccess(`Transaction with hash ${outcome.txId} built and sent to the network`);
-  } else {
-    logSuccess(`Unsigned transaction ${outcome.id} constructed`);
-    logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
-  }
-  const fee = describeFee(outcome, session.env.network.symbol);
-  if (fee) logInfo(fee);
+/** Builds, signs and sends (or writes) a transaction, and reports it as the command line does. */
+async function execute(session: Session, request: TxRequest): Promise<void> {
+  reportOutcome(await runTransaction(request, session.env, session.signer), session.env.network.symbol);
 }
 
 /** Asks for an end time and warns (as the command line does) when it is not in the future. */
@@ -284,10 +268,10 @@ async function moveCP(session: Session): Promise<void> {
   const exportCP: TxRequestOf<"exportCP"> = { type: "exportCP", amount: parseFlr(amount) };
   const fee = await askCChainFee(session, exportCP);
   log("Please approve export transaction");
-  report(session, await runTransaction({ ...exportCP, fee }, session.env, session.signer));
+  await execute(session, { ...exportCP, fee });
   await waitForPendingImport(session, "P");
   log("Please approve import transaction");
-  report(session, await runTransaction({ type: "importCP" }, session.env, session.signer));
+  await execute(session, { type: "importCP" });
 }
 
 /** Export from the P-chain (default: everything minus the fee), wait, import on the C-chain. */
@@ -302,11 +286,11 @@ async function movePC(session: Session): Promise<void> {
   }
   const { amount } = await prompts.amount("", defaultAmount);
   log("Please approve export transaction");
-  report(session, await runTransaction({ type: "exportPC", amount: parseFlr(amount) }, session.env, session.signer));
+  await execute(session, { type: "exportPC", amount: parseFlr(amount) });
   await waitForPendingImport(session, "C");
   const fee = await askCChainFee(session, { type: "importPC" });
   log("Please approve import transaction");
-  report(session, await runTransaction({ type: "importPC", fee }, session.env, session.signer));
+  await execute(session, { type: "importPC", fee });
 }
 
 async function waitForPendingImport(session: Session, destination: "P" | "C"): Promise<void> {
@@ -345,20 +329,13 @@ async function claim(session: Session): Promise<void> {
   const amount = claimAllUnclaimed ? undefined : parseFlrToWei(String((await prompts.claimAmount()).claimAmount));
   const { wrapRewards } = await prompts.wrapRewards();
   const { recipientAddress } = await prompts.recipientAddress(session.account.cAddress);
-  report(
-    session,
-    await runTransaction(
-      {
-        type: "claim",
-        recipient: recipientAddress,
-        amount,
-        wrap: wrapRewards,
-        fees: resolveEvmFees("claim", session.evmFees),
-      },
-      session.env,
-      session.signer
-    )
-  );
+  await execute(session, {
+    type: "claim",
+    recipient: recipientAddress,
+    amount,
+    wrap: wrapRewards,
+    fees: resolveEvmFees("claim", session.evmFees),
+  });
 }
 
 async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {

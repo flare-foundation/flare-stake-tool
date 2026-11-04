@@ -6,7 +6,7 @@
 import { Command, type OptionValues } from "commander";
 import { accountFromPublicKey } from "./chain/keys";
 import { formatFlr, formatWei } from "./chain/units";
-import { ATOMIC_TX_TYPES, type Outcome } from "./core/types";
+import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
 import {
   contextFileExists,
@@ -36,7 +36,7 @@ import {
   type ParsedTime,
 } from "./cli/options";
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION } from "./cli/node";
-import { describeFee, log, logInfo, logSuccess, logWarning } from "./output";
+import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
 import { FAKE_LEDGER_KEY_ENV, ledgerDevice } from "./signers/ledger";
 import * as ledger from "./ledger";
 
@@ -201,17 +201,6 @@ export function cli(program: Command): void {
     .action(async (options: OptionValues) => {
       await evmTransaction("custom", globalOptions(program.opts(), options));
     });
-}
-
-function reportOutcome(outcome: Outcome, symbol: string): void {
-  if (outcome.status === "sent") {
-    logSuccess(`Transaction with hash ${outcome.txId} built and sent to the network`);
-  } else {
-    logSuccess(`Unsigned transaction ${outcome.id} constructed`);
-    logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
-  }
-  const fee = describeFee(outcome, symbol);
-  if (fee) logInfo(fee);
 }
 
 function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFlow: boolean): void {

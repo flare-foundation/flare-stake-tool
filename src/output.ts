@@ -41,6 +41,18 @@ export function describeFee(outcome: Outcome, symbol: string): string | undefine
     : `Fee: ${formatFlr(outcome.fee)} ${symbol} (burned when the signed transaction is sent)`;
 }
 
+/** What the command line and interactive mode print once a transaction is sent or its unsigned file written. */
+export function reportOutcome(outcome: Outcome, symbol: string): void {
+  if (outcome.status === "sent") {
+    logSuccess(`Transaction with hash ${outcome.txId} built and sent to the network`);
+  } else {
+    logSuccess(`Unsigned transaction ${outcome.id} constructed`);
+    logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
+  }
+  const fee = describeFee(outcome, symbol);
+  if (fee) logInfo(fee);
+}
+
 /** Warnings go to stderr so that stdout (transaction ids, hashes) stays parseable. */
 export function logWarning(msg: string) {
   console.error(styleText("yellow", `Warning: ${msg}`));
