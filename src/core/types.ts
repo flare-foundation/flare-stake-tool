@@ -4,7 +4,7 @@
  * (SignResult) and what the user gets back (Outcome).
  */
 import type { UnsignedTx } from "@flarenetwork/flarejs";
-import type { Transaction, TransactionLike } from "ethers";
+import type { JsonRpcProvider, Transaction, TransactionLike } from "ethers";
 import type { Clients } from "../chain/clients";
 import type { Account } from "../chain/keys";
 import type { NetworkConfig } from "../chain/network";
@@ -13,6 +13,12 @@ import type { EvmFees } from "../constants/fees";
 export interface Env {
   readonly network: NetworkConfig;
   readonly clients: Clients;
+}
+
+/** What reading the C-chain contracts and building EVM transactions use of an Env. */
+export interface EvmEnv {
+  readonly network: Pick<NetworkConfig, "chainId" | "symbol">;
+  readonly clients: { readonly provider: Pick<JsonRpcProvider, "call" | "getCode" | "getTransactionCount"> };
 }
 
 export const ATOMIC_TX_TYPES = [

@@ -6,7 +6,6 @@
  * recipient is then not looked up.
  */
 import { expect } from "chai";
-import type { Clients } from "../../src/chain/clients";
 import { contractInterface } from "../../src/chain/contracts";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
@@ -17,7 +16,7 @@ import {
   resolveEvmFees,
 } from "../../src/constants/fees";
 import { buildClaim, buildWithdrawal } from "../../src/core/builders/evm";
-import type { Env, UnsignedTxBundle } from "../../src/core/types";
+import type { EvmEnv, UnsignedTxBundle } from "../../src/core/types";
 import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 
 const ACCOUNT = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
@@ -26,10 +25,10 @@ const CONTRACT = "0x3333333333333333333333333333333333333333";
 const REWARD_MANAGER = "0x1111111111111111111111111111111111111111";
 
 /** A C-chain with one contract (CONTRACT) and 4 FLR of unclaimed rewards; records the getCode lookups. */
-function chainEnv(): { env: Env; codeLookups: string[] } {
+function chainEnv(): { env: EvmEnv; codeLookups: string[] } {
   const codeLookups: string[] = [];
   const selectorOf = (fn: string) => contractInterface.getFunction(fn)!.selector;
-  const provider = {
+  const provider: EvmEnv["clients"]["provider"] = {
     getTransactionCount: () => Promise.resolve(0),
     getCode: (address: string) => {
       codeLookups.push(address);
@@ -47,8 +46,7 @@ function chainEnv(): { env: Env; codeLookups: string[] } {
       return Promise.reject(new Error(`unexpected call ${data.slice(0, 10)}`));
     },
   };
-  const env = { network: networkConfig("localflare", {}), clients: { provider } as unknown as Clients };
-  return { env, codeLookups };
+  return { env: { network: networkConfig("localflare", {}), clients: { provider } }, codeLookups };
 }
 
 const gasLimitOf = (bundle: UnsignedTxBundle): bigint => {

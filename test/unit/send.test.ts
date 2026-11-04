@@ -5,12 +5,10 @@
  */
 import { expect } from "chai";
 import fs from "fs";
-import { sendSignedTransaction } from "../../src/app/send";
-import type { Clients } from "../../src/chain/clients";
+import { sendSignedTransaction, type SendEnv } from "../../src/app/send";
 import { networkConfig } from "../../src/chain/network";
 import { isAlreadySentToChain, signedTxPath, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
-import type { Env } from "../../src/core/types";
 import { describeError } from "../../src/output";
 import { readGolden } from "../characterization/scenarios";
 import { cleanupTempDir, makeTempDir } from "../helpers/cli";
@@ -29,7 +27,7 @@ interface ScriptedNode {
   markedAtFirstPoll?: boolean;
 }
 
-function scriptedEnv(node: ScriptedNode, id: string, cwd: string): Env {
+function scriptedEnv(node: ScriptedNode, id: string, cwd: string): SendEnv {
   const poll = (): Promise<string> => {
     node.markedAtFirstPoll ??= isAlreadySentToChain(id, cwd);
     if (node.pollError) return Promise.reject(new Error(node.pollError));
@@ -41,7 +39,7 @@ function scriptedEnv(node: ScriptedNode, id: string, cwd: string): Env {
     return Promise.resolve(value);
   };
   const issue = () => taken({ txID: "2TxIdFromTheScriptedNode" });
-  const clients = {
+  const clients: SendEnv["clients"] = {
     verifyNetwork: () => Promise.resolve(),
     pvm: { issueSignedTx: issue, getTxStatus: async () => ({ status: await poll(), reason: "" }) },
     evm: { issueSignedTx: issue, getAtomicTxStatus: async () => ({ status: await poll() }) },
@@ -50,7 +48,7 @@ function scriptedEnv(node: ScriptedNode, id: string, cwd: string): Env {
       getTransactionReceipt: async () => ((await poll()) === "Committed" ? { status: 1 } : null),
     },
   };
-  return { network: networkConfig("localflare", {}), clients: clients as unknown as Clients };
+  return { network: networkConfig("localflare", {}), clients };
 }
 
 function writeSigned(scenario: string, id: string, cwd: string): void {

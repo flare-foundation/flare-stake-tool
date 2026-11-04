@@ -1,5 +1,17 @@
 /** One submit + confirm path per chain. */
-import type { Env, UnsignedTxBundle } from "./types";
+import type { evm, pvm } from "@flarenetwork/flarejs";
+import type { UnsignedTxBundle } from "./types";
+
+/** The node calls that submitting and confirming a transaction makes. */
+export interface SubmitClients {
+  readonly pvm: Pick<pvm.PVMApi, "issueSignedTx" | "getTxStatus">;
+  readonly evm: Pick<evm.EVMApi, "issueSignedTx" | "getAtomicTxStatus">;
+  readonly provider: {
+    send(method: string, params: unknown[]): Promise<unknown>;
+    /** Only the receipt's status is read. */
+    getTransactionReceipt(hash: string): Promise<{ readonly status: number | null } | null>;
+  };
+}
 
 export interface ConfirmOptions {
   timeoutMs?: number;
@@ -55,20 +67,20 @@ async function statusOf<T>(txId: string, lookup: () => Promise<T>): Promise<T> {
 
 export async function submitAndConfirm(
   bundle: UnsignedTxBundle,
-  env: Env,
+  clients: SubmitClients,
   options: ConfirmOptions = {}
 ): Promise<{ txId: string; chainStatus: string }> {
   const { timeoutMs, pollMs } = { ...DEFAULTS, ...options };
   const deadline = Date.now() + timeoutMs;
 
   if (bundle.kind === "evm") {
-    const hash: unknown = await env.clients.provider.send("eth_sendRawTransaction", [bundle.tx.serialized]);
+    const hash: unknown = await clients.provider.send("eth_sendRawTransaction", [bundle.tx.serialized]);
     if (typeof hash !== "string") {
       throw new Error("The node did not return a transaction hash");
     }
     options.onIssued?.(hash);
     while (Date.now() < deadline) {
-      const receipt = await statusOf(hash, () => env.clients.provider.getTransactionReceipt(hash));
+      const receipt = await statusOf(hash, () => clients.provider.getTransactionReceipt(hash));
       if (receipt) {
         if (receipt.status !== 1) {
           // mined, so on chain (its nonce is used), but the call failed
@@ -83,10 +95,10 @@ export async function submitAndConfirm(
 
   const signedTx = bundle.unsignedTx.getSignedTx();
   if (bundle.chain === "C") {
-    const { txID } = await env.clients.evm.issueSignedTx(signedTx);
+    const { txID } = await clients.evm.issueSignedTx(signedTx);
     options.onIssued?.(txID);
     while (Date.now() < deadline) {
-      const { status } = await statusOf(txID, () => env.clients.evm.getAtomicTxStatus(txID));
+      const { status } = await statusOf(txID, () => clients.evm.getAtomicTxStatus(txID));
       if (status === "Accepted") return { txId: txID, chainStatus: status };
       if (C_CHAIN_REFUSED.has(status)) {
         throw new TxNotAcceptedError(`Transaction ${txID} was ${status.toLowerCase()} by the C-chain`);
@@ -96,10 +108,10 @@ export async function submitAndConfirm(
     throw new Error(`Transaction ${txID} was submitted but not accepted within ${timeoutMs}ms`);
   }
 
-  const { txID } = await env.clients.pvm.issueSignedTx(signedTx);
+  const { txID } = await clients.pvm.issueSignedTx(signedTx);
   options.onIssued?.(txID);
   while (Date.now() < deadline) {
-    const { status, reason } = await statusOf(txID, () => env.clients.pvm.getTxStatus({ txID }));
+    const { status, reason } = await statusOf(txID, () => clients.pvm.getTxStatus({ txID }));
     if (status === "Committed") return { txId: txID, chainStatus: status };
     if (P_CHAIN_REFUSED.has(status)) {
       throw new TxNotAcceptedError(
