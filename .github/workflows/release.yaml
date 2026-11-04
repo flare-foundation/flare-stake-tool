@@ -24,10 +24,11 @@ jobs:
         with:
           cache: 'true'
       - run: pnpm install --frozen-lockfile
+      # The characterization and CLI tests run the built CLI (dist/run.js).
+      - run: pnpm build
       - run: pnpm test
       - name: Verify bin entrypoint ships in the published package
         run: |
-          pnpm build
           test -f dist/run.js
           pnpm pack
           tar -xzf flarenetwork-flare-stake-tool-*.tgz

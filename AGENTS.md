@@ -259,7 +259,7 @@ Releases publish to npm from the GitHub mirror, not from GitLab CI (which
 only runs the checks on the tag). Pushing a git tag `vX.Y.Z` or
 `vX.Y.Z-rc.N` triggers `.github/workflows/release.yaml`, which:
 
-1. Runs the tests, builds, and verifies `dist/run.js` ships in the `npm pack` tarball
+1. Builds, runs the tests (which need the build), and verifies `dist/run.js` ships in the `npm pack` tarball
 2. Checks that the tag matches the `package.json` `version`
 3. Publishes with OIDC trusted publishing and provenance (no credentials in repo)
    under the dist-tag `latest` for `vX.Y.Z`, or `beta` for a prerelease
