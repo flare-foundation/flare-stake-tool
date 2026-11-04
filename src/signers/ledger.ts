@@ -31,6 +31,13 @@ export interface LedgerDevice {
 /** Environment variable that substitutes a software key for the device (tests only). */
 export const FAKE_LEDGER_KEY_ENV = "FLARE_FAKE_LEDGER_KEY";
 
+/**
+ * A heuristic: the Flare app reports a transaction type it cannot parse as
+ * "Data is invalid : Unrecognized error code", and falling back to blind signing
+ * is meant for that case. The app also gives that text to some parser errors,
+ * such as an end time not after the start time. Matching status 0x6984 alone
+ * would fall back on even more of them, so the text match stays.
+ */
 const isUnsupportedTransaction = (error: unknown): boolean =>
   typeof error === "object" &&
   error !== null &&
@@ -77,7 +84,9 @@ export class LedgerSigner implements Signer {
       return { status: "signed", signature: getBytes(`0x${signature}`) };
     } catch (error) {
       if (!isUnsupportedTransaction(error)) {
-        throw new Error(`Ledger signing error: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Ledger signing error: ${error instanceof Error ? error.message : String(error)}`, {
+          cause: error,
+        });
       }
       logInfo(
         `The Flare app does not recognise ${bundle.txType} transactions; signing the transaction hash instead (blind signing).`

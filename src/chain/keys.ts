@@ -49,7 +49,7 @@ export function normalizePublicKey(input: string | Uint8Array): Uint8Array {
   try {
     return getBytes(SigningKey.computePublicKey(bytes, true));
   } catch (error) {
-    throw new Error(`Invalid public key: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Invalid public key: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
   }
 }
 

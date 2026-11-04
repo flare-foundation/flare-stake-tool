@@ -21,7 +21,7 @@ export interface RunCliOptions {
 
 /**
  * Runs the built CLI (dist/run.js) synchronously. Spawns node directly rather than
- * the bin wrapper so a FLARE_RPC_URL / FAKE_NOW environment reaches the process
+ * the bin wrapper so a FLARE_RPC_URL environment reaches the process
  * unchanged and no shell is involved.
  */
 export function runCli(args: string[], options: RunCliOptions = {}): CliResult {
