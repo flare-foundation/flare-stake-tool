@@ -1,5 +1,5 @@
 /**
- * One builder per P-chain / atomic transaction type, over flarejs 5.2.0's
+ * One builder per P-chain / atomic transaction type, over flarejs'
  * object-style builders. Builders only build; validation that needs chain
  * state (stake limits, validator existence, fork gates) lives in app/.
  */
@@ -74,8 +74,8 @@ type UtxoQuery = Parameters<pvm.PVMApi["getUTXOs"]>[0];
 /**
  * Every UTXO of the query, following the node's pagination (`endIndex` as the
  * next `startIndex`); a single call stops at 1024. The first request is the
- * plain query, so an account with fewer UTXOs makes exactly the call it did
- * before. A UTXO repeated at a page boundary is kept once.
+ * plain query, so an account with fewer UTXOs makes one call, identical to an
+ * unpaginated lookup. A UTXO repeated at a page boundary is kept once.
  */
 export async function allUtxos(getPage: (query: UtxoQuery) => Promise<UtxoPage>, query: UtxoQuery) {
   const utxos: UtxoPage["utxos"] = [];
@@ -236,8 +236,6 @@ export async function buildExportPC(
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
   const inputs = await pChainInputs(env, account, policy);
-  // Without -a: the whole spendable balance minus the exact fee. The previous default subtracted
-  // context.baseTxFee (0.001 FLR), below the dynamic P-chain fee, so it always ran short.
   return bundle("exportPC", req.amount === undefined ? exportAllPC(inputs).unsignedTx : exportPCTx(inputs, req.amount));
 }
 

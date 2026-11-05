@@ -42,7 +42,7 @@ export function resolveEnv(options: GlobalOptions): Env {
   return createEnv(resolveNetworkName(options.network, options.ctxFile), nodeOverrides(options));
 }
 
-/** Private key → Ledger → external file, in that order of precedence (as before). */
+/** Private key → Ledger → external file, in that order of precedence. */
 export async function resolveSigner(options: GlobalOptions, env: Env): Promise<Signer> {
   if (options.getHacked) {
     if (!options.envPath) {

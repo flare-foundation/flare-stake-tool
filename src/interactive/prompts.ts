@@ -158,10 +158,8 @@ export const prompts = {
 
   transferAddress: (): Promise<string> => input(ask("Enter destination P-chain address:")),
 
-  // wrap rewards when claiming staking rewards
   wrapRewards: (): Promise<boolean> => select(ask("Should claimed rewards be wrapped?"), YES_NO),
 
-  // recipient address to receive claimed staking rewards
   recipientAddress: (defaultAddress?: string): Promise<string> =>
     input(ask("Please enter the recipient address (default address is reward owner):"), { default: defaultAddress }),
 

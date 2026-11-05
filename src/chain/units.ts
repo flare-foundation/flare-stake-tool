@@ -11,10 +11,9 @@ const DECIMAL_RE = /^(\d+)(?:\.(\d+))?$/;
 /**
  * Parses a non-negative decimal string into an integer with `decimals`
  * fractional digits. Digits beyond `decimals` are refused unless they are
- * zeros; up to 4.x they were silently dropped, so 0.0000000001 FLR became 0.
- * A comma is refused rather than read as a thousands separator (as up to
- * 4.x): "1,5" meant as 1.5 became 15, and "1,500" is ambiguous between 1.5
- * and 1500 even when written in groups of three.
+ * zeros, never cut off. A comma is refused rather than read as a thousands
+ * separator: "1,5" may mean 1.5, and "1,500" is ambiguous between 1.5 and 1500
+ * even when written in groups of three.
  */
 export function parseDecimal(input: string, decimals: number): bigint {
   const cleaned = input.trim();
@@ -124,8 +123,8 @@ export function formatDuration(seconds: bigint): string {
 }
 
 /**
- * An end time is either absolute unix seconds (a plain integer, as before) or a
- * duration added to now. Returns unix seconds.
+ * An end time is either absolute unix seconds (a plain integer) or a duration
+ * added to now. Returns unix seconds.
  */
 export function parseEndTime(input: string, nowMs: () => number = () => Date.now()): bigint {
   const text = input.trim();

@@ -152,22 +152,16 @@ export interface EvmFeeOverrides {
 }
 
 /**
- * @description Drops blank entries from an address list argument, which is how
- * the CLI expresses "remove all". The gas limit is sized from the list length,
- * so this has to run before sizing as well as before encoding, otherwise a
- * discarded blank changes the gas limit and the hash without changing the call.
- * @param addresses - raw list as supplied on the command line
- * @returns the list actually encoded into the transaction
+ * Drops blank entries from an address list argument, which is how the CLI
+ * expresses "remove all". The gas limit is sized from the list length, so this
+ * has to run before sizing as well as before encoding, otherwise a discarded
+ * blank changes the gas limit and the hash without changing the call.
  */
 export function normalizeAddressList(addresses: string[] | undefined): string[] {
   return (addresses ?? []).filter((address) => address.trim() !== "");
 }
 
-/**
- * @description Gas limit for an operation that writes a list of addresses.
- * @param entries - number of addresses being set; zero clears the stored list
- * @returns the gas limit to place into the transaction
- */
+/** Gas limit of an operation that sets a list of `entries` addresses (zero clears the stored list). */
 export function listGasLimit(entries: number): number {
   if (!Number.isSafeInteger(entries) || entries < 0) {
     throw new Error(
@@ -179,13 +173,12 @@ export function listGasLimit(entries: number): number {
 }
 
 /**
- * @description Rejects a list longer than this tool can guarantee it can later
- * clear within the default gas limit. Setting a list replaces it rather than
- * appending, so a longer list cannot be built up in several calls, and
- * `--gas-limit` deliberately does not lift the bound: raising the limit for one
- * call would leave a stored list that a later clear, sized from the default
- * floor, could not be relied on to remove.
- * @param entries - number of addresses being set
+ * Rejects a list longer than this tool can guarantee it can later clear within
+ * the default gas limit. Setting a list replaces it rather than appending, so a
+ * longer list cannot be built up in several calls, and `--gas-limit`
+ * deliberately does not lift the bound: raising the limit for one call would
+ * leave a stored list that a later clear, sized from the default floor, could
+ * not be relied on to remove.
  */
 function _validateListLength(entries: number): void {
   if (entries > MAX_LIST_ENTRIES) {
@@ -198,13 +191,11 @@ function _validateListLength(entries: number): void {
 }
 
 /**
- * @description Resolves the fee parameters for a C-chain operation, applying any
- * user overrides. Signers of the same ForDefi transaction have to pass identical
- * overrides, otherwise they produce differing transaction hashes.
- * @param operation - the operation being built, which selects the defaults
- * @param overrides - raw option values; the two fee fields are in gwei
- * @param entries - length of the address list, for the operations that set one
- * @returns the fee fields to place into the transaction; the gas limit only when overridden
+ * The fee fields of a C-chain operation: its defaults, replaced by the user's
+ * overrides (the two fees in gwei). Signers of the same ForDefi transaction have
+ * to pass identical overrides, otherwise they produce differing transaction
+ * hashes. The gas limit is set only when overridden; the builder otherwise uses
+ * `defaultGasLimit`. `entries` is the length of the address list being set.
  */
 export function resolveEvmFees(operation: EvmOperation, overrides?: EvmFeeOverrides, entries?: number): EvmFees {
   if (_isListOperation(operation)) {
@@ -224,12 +215,7 @@ export function resolveEvmFees(operation: EvmOperation, overrides?: EvmFeeOverri
   return { type: 2, maxFeePerGas, maxPriorityFeePerGas, gasLimit };
 }
 
-/**
- * @description The gas limit of an operation when `--gas-limit` is not given.
- * @param operation - the operation being built
- * @param sizing - what the limit depends on: list length, wrapping, a contract recipient
- * @returns the gas limit to place into the transaction
- */
+/** The gas limit of an operation when `--gas-limit` is not given. */
 export function defaultGasLimit(operation: EvmOperation, sizing: EvmSizing = {}): number {
   if (_isListOperation(operation)) {
     return listGasLimit(sizing.entries ?? 0);

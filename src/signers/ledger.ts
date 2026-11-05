@@ -99,7 +99,7 @@ export class LedgerSigner implements Signer {
   }
 }
 
-/** The connected Ledger via src/ledger (app detection is memoized there). */
+/** The connected Ledger, through src/ledger. */
 export function realLedgerDevice(): LedgerDevice {
   return {
     detectApp: () => ledger.detectApp(),

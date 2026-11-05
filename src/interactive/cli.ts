@@ -268,9 +268,8 @@ async function moveCP(session: Session): Promise<void> {
   await execute(session, { type: "importCP" });
 }
 
-/** Export from the P-chain (default: everything minus the fee), wait, import on the C-chain. */
+/** Export from the P-chain, wait, import on the C-chain. The amount offered is what `exportPC` without -a exports. */
 async function movePC(session: Session): Promise<void> {
-  // Default: everything spendable minus the exact export fee, as `exportPC` without -a.
   let defaultAmount: string | undefined;
   try {
     await session.env.clients.verifyNetwork();
