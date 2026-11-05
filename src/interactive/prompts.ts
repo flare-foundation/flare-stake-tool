@@ -82,8 +82,7 @@ export const prompts = {
   pvtKeyPath: (): Promise<string> =>
     input(askWithHint("Enter Path to Private Key file", "(E.g. /home/wallet/pvtKeyFile)")),
 
-  amount: (defaultAmount?: string): Promise<string> =>
-    input(ask("Enter amount ") + " " + ask("(in FLR):"), { default: defaultAmount }),
+  amount: (defaultAmount?: string): Promise<string> => input(ask("Enter amount (in FLR):"), { default: defaultAmount }),
 
   // exportCP and importPC fee: the default is the estimate from the current base fee, when there is one
   fees: (estimate: string | undefined, symbol: string): Promise<string> => {
