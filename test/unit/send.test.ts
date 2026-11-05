@@ -25,6 +25,8 @@ interface ScriptedNode {
   onIssue?: () => void;
   /** Whether the file was already marked when the first status poll came in. */
   markedAtFirstPoll?: boolean;
+  /** When set, eth_sendRawTransaction answers without a transaction hash. */
+  hashless?: boolean;
 }
 
 function scriptedEnv(node: ScriptedNode, id: string, cwd: string): SendEnv {
@@ -44,8 +46,12 @@ function scriptedEnv(node: ScriptedNode, id: string, cwd: string): SendEnv {
     pvm: { issueSignedTx: issue, getTxStatus: async () => ({ status: await poll(), reason: "" }) },
     evm: { issueSignedTx: issue, getAtomicTxStatus: async () => ({ status: await poll() }) },
     provider: {
-      send: () => taken("0xEvmHashFromTheScriptedNode"),
-      getTransactionReceipt: async () => ((await poll()) === "Committed" ? { status: 1 } : null),
+      send: () => (node.hashless ? taken(null) : taken("0xEvmHashFromTheScriptedNode")),
+      // "Committed": mined and executed; "Reverted": mined, but the call failed; anything else: not mined yet
+      getTransactionReceipt: async () => {
+        const status = await poll();
+        return status === "Committed" ? { status: 1 } : status === "Reverted" ? { status: 0 } : null;
+      },
     },
   };
   return { network: networkConfig("localflare", {}), clients };
@@ -198,6 +204,42 @@ describe("app/send: the isSentToChain mark", () => {
       (error: unknown) => expect(String(error)).to.include("was dropped by the C-chain")
     );
     expect(isAlreadySentToChain("c", cwd)).to.equal(false);
+  });
+
+  it("stays set when an EVM transaction is mined but reverted, since its nonce is used", async () => {
+    writeSigned("withdrawal-file", "e", cwd);
+    const env = scriptedEnv({ statuses: ["Processing", "Reverted"] }, "e", cwd);
+    await sendSignedTransaction("e", env, undefined, cwd, FAST).then(
+      () => expect.fail("a reverted transaction should fail"),
+      (error: unknown) =>
+        expect(String(error)).to.include("Transaction 0xEvmHashFromTheScriptedNode was mined but reverted")
+    );
+    expect(isAlreadySentToChain("e", cwd)).to.equal(true);
+  });
+
+  it("stays set when an EVM or C-chain atomic transaction is not confirmed in time", async () => {
+    for (const [scenario, id, expected] of [
+      ["withdrawal-file", "e", "Transaction 0xEvmHashFromTheScriptedNode was submitted but not mined within 50ms"],
+      ["exportCP-file", "c", "Transaction 2TxIdFromTheScriptedNode was submitted but not accepted within 50ms"],
+    ] as const) {
+      writeSigned(scenario, id, cwd);
+      const env = scriptedEnv({ statuses: ["Processing"] }, id, cwd);
+      await sendSignedTransaction(id, env, undefined, cwd, FAST).then(
+        () => expect.fail(`${scenario}: the wait should have timed out`),
+        (error: unknown) => expect(String(error)).to.include(expected)
+      );
+      expect(isAlreadySentToChain(id, cwd), scenario).to.equal(true);
+    }
+  });
+
+  it("is never set when the node answers an EVM transaction without a hash", async () => {
+    writeSigned("withdrawal-file", "e", cwd);
+    const env = scriptedEnv({ statuses: ["Committed"], hashless: true }, "e", cwd);
+    await sendSignedTransaction("e", env, undefined, cwd, FAST).then(
+      () => expect.fail("a missing hash should fail"),
+      (error: unknown) => expect(String(error)).to.include("The node did not return a transaction hash")
+    );
+    expect(isAlreadySentToChain("e", cwd)).to.equal(false);
   });
 
   it("is never set when the node refuses to take the transaction", async () => {
