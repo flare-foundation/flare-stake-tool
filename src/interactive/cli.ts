@@ -76,7 +76,7 @@ export async function interactiveCli(baseArgv: string[]): Promise<void> {
     }
     // An action that fails must not end the session: report it and show the menu again.
     try {
-      await runTask(task, session);
+      await TASKS[task](session);
     } catch (error) {
       logError(`Error: ${describeError(error)}`);
     }
@@ -93,78 +93,69 @@ async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWal
   }
 }
 
-async function runTask(task: Exclude<TaskId, "quit">, session: Session): Promise<void> {
-  switch (task) {
-    case "addresses":
-      log(`P-chain address: ${session.account.pAddress}`);
-      log(`C-chain address hex: ${session.account.cAddress}`);
-      log(`secp256k1 public key: 0x${session.account.publicKeyHex}`);
-      break;
-    case "balance": {
-      const balances = await getBalances(session.env, session.account);
-      logInfo(`Balances on the network "${session.env.network.name}"`);
-      log(`C-chain ${session.account.cAddress}: ${formatWei(balances.cChainWei)} ${session.env.network.symbol}`);
-      log(`P-chain ${session.account.pAddress}: ${formatFlr(balances.pChainNFlr)} ${session.env.network.symbol}`);
-      break;
-    }
-    case "validators": {
-      const validators = await getValidators(session.env);
-      log(JSON.stringify(validators, null, 2));
-      for (const validator of validators) {
-        const summary = describeAutoRenewal(validator);
-        if (summary) log(`${validator.nodeID}: ${summary}`);
-      }
-      break;
-    }
-    case "CP":
-      await moveCP(session);
-      break;
-    case "PC":
-      await movePC(session);
-      break;
-    case "import": {
-      const destination = await prompts.importTrxType();
-      if (destination === "P") {
-        await execute(session, { type: "importCP" });
-      } else {
-        const fee = await askCChainFee(session, { type: "importPC" });
-        await execute(session, { type: "importPC", fee });
-      }
-      break;
-    }
-    case "transfer": {
-      const amount = await prompts.amount();
-      const to = await prompts.transferAddress();
-      await execute(session, { type: "transfer", amount: parseFlr(amount), to });
-      break;
-    }
-    case "stake":
-      await execute(session, await askStake());
-      break;
-    case "delegate":
-      await execute(session, await askDelegate());
-      break;
-    case "addAutoRenewedValidator":
-      await execute(session, await askAutoRenewedValidator());
-      break;
-    case "setAutoRenewedValidatorConfig": {
-      const id = await prompts.nodeId();
-      const period = parseDuration(await prompts.period("change"));
-      if (period === 0n && !(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id)))) {
-        logInfo("Auto-renewal left unchanged.");
-        break;
-      }
-      await execute(session, { type: "setAutoRenewedValidatorConfig", nodeId: id, period });
-      break;
-    }
-    case "claim":
-      await claim(session);
-      break;
-    default: {
-      const unsupported: never = task; // a task added to the menu without a case here fails to compile
-      throw new Error(`Task not supported: ${String(unsupported)}`);
-    }
+/** What each menu task does, in menu order; a task added to the menu without an entry here fails to compile. */
+const TASKS: Record<Exclude<TaskId, "quit">, (session: Session) => Promise<void> | void> = {
+  addresses: showAddresses,
+  balance: showBalances,
+  validators: showValidators,
+  CP: moveCP,
+  PC: movePC,
+  stake: async (session) => execute(session, await askStake()),
+  delegate: async (session) => execute(session, await askDelegate()),
+  import: importFunds,
+  transfer,
+  claim,
+  addAutoRenewedValidator: async (session) => execute(session, await askAutoRenewedValidator()),
+  setAutoRenewedValidatorConfig: setAutoRenewal,
+};
+
+function showAddresses(session: Session): void {
+  log(`P-chain address: ${session.account.pAddress}`);
+  log(`C-chain address hex: ${session.account.cAddress}`);
+  log(`secp256k1 public key: 0x${session.account.publicKeyHex}`);
+}
+
+async function showBalances(session: Session): Promise<void> {
+  const balances = await getBalances(session.env, session.account);
+  logInfo(`Balances on the network "${session.env.network.name}"`);
+  log(`C-chain ${session.account.cAddress}: ${formatWei(balances.cChainWei)} ${session.env.network.symbol}`);
+  log(`P-chain ${session.account.pAddress}: ${formatFlr(balances.pChainNFlr)} ${session.env.network.symbol}`);
+}
+
+async function showValidators(session: Session): Promise<void> {
+  const validators = await getValidators(session.env);
+  log(JSON.stringify(validators, null, 2));
+  for (const validator of validators) {
+    const summary = describeAutoRenewal(validator);
+    if (summary) log(`${validator.nodeID}: ${summary}`);
   }
+}
+
+/** Completes an export whose import did not happen, on the chain the user picks. */
+async function importFunds(session: Session): Promise<void> {
+  if ((await prompts.importTrxType()) === "P") {
+    await execute(session, { type: "importCP" });
+  } else {
+    const fee = await askCChainFee(session, { type: "importPC" });
+    await execute(session, { type: "importPC", fee });
+  }
+}
+
+async function transfer(session: Session): Promise<void> {
+  const amount = await prompts.amount();
+  const to = await prompts.transferAddress();
+  await execute(session, { type: "transfer", amount: parseFlr(amount), to });
+}
+
+/** A period of 0 stops auto-renewal, so it is sent only after a confirmation. */
+async function setAutoRenewal(session: Session): Promise<void> {
+  const id = await prompts.nodeId();
+  const period = parseDuration(await prompts.period("change"));
+  if (period === 0n && !(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id)))) {
+    logInfo("Auto-renewal left unchanged.");
+    return;
+  }
+  await execute(session, { type: "setAutoRenewedValidatorConfig", nodeId: id, period });
 }
 
 /** Builds, signs and sends (or writes) a transaction, and reports it as the command line does. */
