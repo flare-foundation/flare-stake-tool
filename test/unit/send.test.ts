@@ -242,6 +242,20 @@ describe("app/send: the isSentToChain mark", () => {
     expect(isAlreadySentToChain("e", cwd)).to.equal(false);
   });
 
+  it("is never set when the signature of an EVM file recovers no signer, which is refused before sending", async () => {
+    const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson;
+    writeSignedTxJson({ ...unsigned, signature: "00".repeat(65) }, "e", cwd);
+    const issued: string[] = [];
+    const env = scriptedEnv({ statuses: ["Committed"], onIssue: () => issued.push("issued") }, "e", cwd);
+    // the signature library refuses r = 0 itself, before the tool's own "Cannot recover the signer" check
+    await sendSignedTransaction("e", env, undefined, cwd, FAST).then(
+      () => expect.fail("an unrecoverable signature should fail"),
+      (error: unknown) => expect(error).to.be.instanceOf(Error)
+    );
+    expect(issued).to.deep.equal([]);
+    expect(isAlreadySentToChain("e", cwd)).to.equal(false);
+  });
+
   it("is never set when the node refuses to take the transaction", async () => {
     writeSigned("delegate-file", "t", cwd);
     const env = scriptedEnv({ statuses: ["Committed"], issueError: "insufficient funds" }, "t", cwd);

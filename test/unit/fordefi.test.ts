@@ -196,4 +196,36 @@ describe("app/fordefi", () => {
       expect((error as Error).message).to.match(/not signed yet/);
     }
   });
+
+  it("refuses a context without a vault id and a vault answer without a public key", async () => {
+    expect(await rejectedWith(sendToForDefi("tx1", { ...context, vaultId: undefined }, fakeFetch({})))).to.equal(
+      "vaultId not found in context"
+    );
+    const fetchImpl = fakeFetch({ [`GET /api/v1/vaults/${vaultId}`]: { id: vaultId } });
+    expect(await rejectedWith(getVaultPublicKey(vaultId, fetchImpl))).to.equal(
+      "public_key_compressed not found in vault response"
+    );
+  });
+
+  it("refuses a signature request answered without a transaction id, and records none", async () => {
+    saveUnsignedTxJson(unsigned, "tx-no-id");
+    const fetchImpl = fakeFetch({
+      [`GET /api/v1/vaults/${vaultId}`]: {
+        id: vaultId,
+        public_key_compressed: Buffer.from(EWOQ_PUBLIC_KEY_COMPRESSED, "hex").toString("base64"),
+      },
+      "POST /api/v1/transactions": { state: "created" },
+    });
+    expect(await rejectedWith(sendToForDefi("tx-no-id", context, fetchImpl))).to.equal(
+      'ForDefi did not return a transaction id: {"state":"created"}'
+    );
+    expect(readUnsignedTxJson("tx-no-id").forDefiTxId).to.equal(undefined);
+  });
+
+  it("refuses to fetch the signature of a transaction never sent to ForDefi", async () => {
+    saveUnsignedTxJson(unsigned, "tx-not-sent");
+    expect(await rejectedWith(fetchForDefiSignature("tx-not-sent", fakeFetch({})))).to.equal(
+      "Transaction tx-not-sent was not sent to ForDefi (no forDefiTxId in the unsigned file)"
+    );
+  });
 });
