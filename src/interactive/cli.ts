@@ -388,11 +388,10 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
   const derivation = await prompts.derivationType();
   log("Fetching Addresses...");
   const addresses = await derivedAddresses(device, network, derivation);
-  const address = await prompts.selectAddress(
-    addresses.map((a, i) => ({ name: `${i + 1}. ${a.ethAddress}`, value: a.ethAddress }))
+  // The row itself, so that its derivation path is saved even when two rows show the same address.
+  const chosen = await prompts.selectAddress(
+    addresses.map((a, i) => ({ name: `${i + 1}. ${a.ethAddress}`, value: a }))
   );
-  const chosen = addresses.find((a) => a.ethAddress === address);
-  if (!chosen) throw new Error("No address selected");
   const context: ContextFile = {
     wallet: "ledger",
     publicKey: chosen.publicKey,

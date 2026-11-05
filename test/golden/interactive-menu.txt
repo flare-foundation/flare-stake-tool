@@ -505,7 +505,7 @@ LEDGER getPublicKey m/44'/60'/0'/0/9
 ? list "\u001b[35mWhich address do you want to use?\u001b[39m" choices=["1. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","2. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","3. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","4. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","5. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","6. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","7. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","8. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","9. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","10. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215"]
 > {"index":2}
 ENV costwo {}
-LEDGER getPublicKey m/44'/60'/0'/0/0
+LEDGER getPublicKey m/44'/60'/0'/0/2
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "View chain addresses"
 [log] P-chain address: P-costwo1kvwgdkq7zd9gqzdrwsj303pq24qale8mrn9pys
@@ -521,7 +521,7 @@ FILE ctx.json: {
   "network": "costwo",
   "ethAddress": "0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215",
   "flareAddress": "P-costwo1kvwgdkq7zd9gqzdrwsj303pq24qale8mrn9pys",
-  "derivationPath": "m/44'/60'/0'/0/0"
+  "derivationPath": "m/44'/60'/0'/0/2"
 }
 
 ===== ledger: a ForDefi context
