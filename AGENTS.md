@@ -46,7 +46,7 @@ src/
   constants/fees.ts         Fixed EIP-1559 fees per C-chain operation
   constants/screen.ts       Menu labels
 test/unit/                  Mocha unit tests (pure functions, signers, builders without a node)
-test/characterization/      Record/replay goldens for every signing path (offline)
+test/characterization/      Record/replay goldens for every signing path, and the scripted interactive menu (offline)
 test/integration/           Mocha integration tests against an externally running localflare
 ```
 
@@ -196,14 +196,20 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
 all JSON-RPC traffic proxied through `rpc-replay.ts`, saving per-scenario
 fixtures (`test/fixtures/rpc/`) and goldens (`test/golden/`: unsigned tx
 bytes, message hash, ForDefi hash, submitted signed bytes, tx ids, printed
-stdout and stderr). `pnpm test`
-replays every golden offline; a difference means behaviour changed. An
-intentional change must update the golden **in the same commit** as the
-CHANGELOG and `docs/COMMANDS.md` entry. Re-record only when the scenario
-inputs change, never to make a failing golden pass. The printed output
-includes the warning for an end time that is not in the future, which
-depends on the clock: keep the recorded end times in the past so that it
-always prints.
+stdout and stderr). `pnpm test` replays every golden offline; a difference
+means behaviour changed. An intentional change must update the golden **in
+the same commit** as the CHANGELOG and `docs/COMMANDS.md` entry
+(`UPDATE_GOLDENS=<name>,…` or `all` rewrites goldens from the current code).
+Re-record only when the scenario inputs change, never to make a failing
+golden pass. The printed output includes the warning for an end time that is
+not in the future, which depends on the clock: keep the recorded end times in
+the past so that it always prints.
+
+Interactive mode has its own golden, `test/golden/interactive-menu.txt`:
+`interactive-session.ts` answers the menu from a script with every node and
+device call replaced, and records each question, answer, printed line,
+request and written file. `interactive.test.ts` runs it against `dist/` and
+compares the transcript.
 
 ## Tests as executable specifications
 

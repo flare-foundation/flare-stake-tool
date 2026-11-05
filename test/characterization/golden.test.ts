@@ -5,16 +5,15 @@ import { cleanupTempDir, makeTempDir } from "../helpers/cli";
 import { RpcReplayServer } from "./rpc-replay";
 import { evmContractStubs } from "./evm-stubs";
 import { localflareNetworkIdStub } from "./node-stubs";
-import { comparableOutcome, fixturePath, goldenPath, listGoldens, readGolden, runScenario } from "./scenarios";
-
-/** UPDATE_GOLDENS=name1,name2 (or "all") rewrites those goldens from the current code. */
-function updateRequested(name: string): boolean {
-  const requested = (process.env["UPDATE_GOLDENS"] ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return requested.includes("all") || requested.includes(name);
-}
+import {
+  comparableOutcome,
+  fixturePath,
+  goldenPath,
+  listGoldens,
+  readGolden,
+  runScenario,
+  updateRequested,
+} from "./scenarios";
 
 /**
  * Characterization tests: every golden in test/golden is replayed against its

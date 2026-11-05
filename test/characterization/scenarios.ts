@@ -76,6 +76,15 @@ export function readGolden(name: string): Golden {
   return JSON.parse(fs.readFileSync(goldenPath(name), "utf8")) as Golden;
 }
 
+/** UPDATE_GOLDENS=name1,name2 (or "all") rewrites those goldens from the current code. */
+export function updateRequested(name: string): boolean {
+  const requested = (process.env["UPDATE_GOLDENS"] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return requested.includes("all") || requested.includes(name);
+}
+
 export function listGoldens(): string[] {
   if (!fs.existsSync(GOLDEN_DIR)) return [];
   return fs

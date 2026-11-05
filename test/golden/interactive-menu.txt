@@ -1,0 +1,629 @@
+===== private key: every task
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Private Key"
+? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
+> "pk"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "LocalHost"
+ENV localflare {}
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "View chain addresses"
+[log] P-chain address: P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
+[log] C-chain address hex: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC
+[log] secp256k1 public key: 0x0327448e78ffa8cdb24cf19be0204ad954b1bdb4db8c51183534c1eecf2ebd094e
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Check on-chain balance"
+[log] [34mBalances on the network "localflare"[39m
+[log] C-chain 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC: 5 LFLR
+[log] P-chain P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v: 3 LFLR
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Get validator info"
+[log] [
+  {
+    "nodeID": "NodeID-A",
+    "endTime": "1800086400"
+  },
+  {
+    "nodeID": "NodeID-B"
+  }
+]
+[log] NodeID-A: auto-renews every 14d
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from C-chain to P-chain"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "10"
+ESTIMATE {"type":"exportCP","amount":"10000000000n"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> ""
+[log] Please approve export transaction
+TX {"type":"exportCP","amount":"10000000000n","fee":"22460n"} signer=privateKey
+[log] [32mTransaction with hash tx1 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"}
+[log] Please approve import transaction
+TX {"type":"importCP"} signer=privateKey
+[log] [32mTransaction with hash tx2 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from P-chain to C-chain"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m" default="2.999"
+> ""
+[log] Please approve export transaction
+TX {"type":"exportPC","amount":"2999000000n"} signer=privateKey
+[log] [32mTransaction with hash tx3 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"}
+ESTIMATE {"type":"importPC"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> "0.00000001"
+[error] [33mWarning: A fee of 0.00000001 LFLR is below the 0.00001123 LFLR this transaction costs at the current base fee; the node will reject it unless the base fee drops first[39m
+? confirm "\u001b[35mSend with this fee anyway?\u001b[39m" default=false
+> false
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> "0.00000001"
+[error] [33mWarning: A fee of 0.00000001 LFLR is below the 0.00001123 LFLR this transaction costs at the current base fee; the node will reject it unless the base fee drops first[39m
+? confirm "\u001b[35mSend with this fee anyway?\u001b[39m" default=false
+> true
+[log] Please approve import transaction
+TX {"type":"importPC","fee":"10n"} signer=privateKey
+[log] [32mTransaction with hash tx4 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from P-chain to C-chain"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m" default="2.999"
+> "1.5"
+[log] Please approve export transaction
+TX {"type":"exportPC","amount":"1500000000n"} signer=privateKey
+[log] [32mTransaction with hash tx5 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"}
+ESTIMATE {"type":"importPC"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> "1"
+[log] Please approve import transaction
+TX {"type":"importPC","fee":"1000000000n"} signer=privateKey
+[log] [32mTransaction with hash tx6 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Import Funds"
+? list "\u001b[35mPlease select the destination chain to which you want to import your funds?\u001b[39m" choices=["P","C"]
+> "P"
+TX {"type":"importCP"} signer=privateKey
+[log] [32mTransaction with hash tx7 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Import Funds"
+? list "\u001b[35mPlease select the destination chain to which you want to import your funds?\u001b[39m" choices=["P","C"]
+> "C"
+ESTIMATE {"type":"importPC"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> "0.5"
+TX {"type":"importPC","fee":"500000000n"} signer=privateKey
+[log] [32mTransaction with hash tx8 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Transfer funds"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "1.5"
+? input "\u001b[35mEnter destination P-chain address:\u001b[39m"
+> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"
+TX {"type":"transfer","amount":"1500000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"} signer=privateKey
+[log] [32mTransaction with hash tx9 built and sent to the network[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Add a validator node"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "10000"
+? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
+> "NodeID-X"
+? input "\u001b[35mEnter end time\u001b[39m \u001b[33m(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)\u001b[39m\u001b[35m:\u001b[39m"
+> "2d"
+? input "\u001b[35mEnter delegation fee\u001b[39m \u001b[33m(E.g. 10)\u001b[39m\u001b[35m:\u001b[39m"
+> ""
+? input "\u001b[35mPlease enter the popBLSPublicKey:\u001b[39m"
+> "zz"
+  ! BLS public key (--pop-bls-public-key) must be a hex string
+> "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+? input "\u001b[35mPlease enter the popBLSSignature:\u001b[39m"
+> "zz"
+  ! BLS signature (--pop-bls-signature) must be a hex string
+> "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+TX {"type":"stake","nodeId":"NodeID-X","amount":"10000000000000n","endTime":"1800172800n","delegationFeeShares":200000,"blsPublicKey":"0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","blsSignature":"0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"} signer=privateKey
+[log] [32mTransaction with hash tx10 built and sent to the network[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Delegate to a validator node"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "50"
+? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
+> "NodeID-X"
+? input "\u001b[35mEnter end time\u001b[39m \u001b[33m(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)\u001b[39m\u001b[35m:\u001b[39m"
+> "1700000000"
+[error] [33mWarning: End time 1700000000 (2023-11-14T22:13:20.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now[39m
+TX {"type":"delegate","nodeId":"NodeID-X","amount":"50000000000n","endTime":"1700000000n"} signer=privateKey
+[log] [32mTransaction with hash tx11 built and sent to the network[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Add an auto-renewed validator node"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "10000"
+? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
+> "NodeID-Y"
+? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d)\u001b[39m\u001b[35m:\u001b[39m"
+> "abc"
+  ! Invalid duration "abc": use seconds or units w/d/h/m/s in descending order without spaces, e.g. 2d12h or 90m
+> "14d"
+? input "\u001b[35mEnter delegation fee\u001b[39m \u001b[33m(E.g. 10)\u001b[39m\u001b[35m:\u001b[39m"
+> "15"
+? input "\u001b[35mPlease enter the popBLSPublicKey:\u001b[39m"
+> "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+? input "\u001b[35mPlease enter the popBLSSignature:\u001b[39m"
+> "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+TX {"type":"addAutoRenewedValidator","nodeId":"NodeID-Y","amount":"10000000000000n","period":"1209600n","delegationFeeShares":150000,"blsPublicKey":"0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","blsSignature":"0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"} signer=privateKey
+[log] [32mTransaction with hash tx12 built and sent to the network[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Change the auto-renew period"
+? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
+> "NodeID-Y"
+? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)\u001b[39m\u001b[35m:\u001b[39m"
+> "0"
+? confirm "\u001b[35mA period of 0 stops auto-renewal: the validator leaves at the end of its current cycle (2027-01-16T08:00:00.000Z) and the stake is returned. Stop auto-renewal?\u001b[39m" default=false
+> false
+[log] [34mAuto-renewal left unchanged.[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Change the auto-renew period"
+? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
+> "NodeID-Y"
+? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)\u001b[39m\u001b[35m:\u001b[39m"
+> "0"
+? confirm "\u001b[35mA period of 0 stops auto-renewal: the validator leaves at the end of its current cycle (2027-01-16T08:00:00.000Z) and the stake is returned. Stop auto-renewal?\u001b[39m" default=false
+> true
+TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-Y","period":"0n"} signer=privateKey
+[log] [32mTransaction with hash tx13 built and sent to the network[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Change the auto-renew period"
+? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
+> "NodeID-Y"
+? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)\u001b[39m\u001b[35m:\u001b[39m"
+> "7d"
+TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-Y","period":"604800n"} signer=privateKey
+[log] [32mTransaction with hash tx14 built and sent to the network[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Claim staking rewards"
+CONTRACT ValidatorRewardManager
+[log] [33mState of rewards for 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC:
+Total rewards: 7 LFLR
+Claimed rewards: 2 LFLR
+Unclaimed rewards: 5 LFLR[39m
+? list "\u001b[35mDo you want to claim all unclaimed rewards? (total unclaimed: 5 LFLR)\u001b[39m" choices=["Yes","No"]
+> "Yes"
+? list "\u001b[35mShould claimed rewards be wrapped?\u001b[39m" choices=["Yes","No"]
+> "No"
+? input "\u001b[35mPlease enter the recipient address (default address is reward owner):\u001b[39m" default="0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+> ""
+TX {"type":"claim","recipient":"0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC","wrap":false,"fees":{"type":2,"maxFeePerGas":300000000000,"maxPriorityFeePerGas":200000000000}} signer=privateKey
+[log] [32mTransaction with hash tx15 built and sent to the network[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Claim staking rewards"
+CONTRACT ValidatorRewardManager
+[log] [33mState of rewards for 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC:
+Total rewards: 7 LFLR
+Claimed rewards: 2 LFLR
+Unclaimed rewards: 5 LFLR[39m
+? list "\u001b[35mDo you want to claim all unclaimed rewards? (total unclaimed: 5 LFLR)\u001b[39m" choices=["Yes","No"]
+> "No"
+? input "\u001b[35mPlease enter the amount to claim:\u001b[39m"
+> "1.25"
+? list "\u001b[35mShould claimed rewards be wrapped?\u001b[39m" choices=["Yes","No"]
+> "Yes"
+? input "\u001b[35mPlease enter the recipient address (default address is reward owner):\u001b[39m" default="0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+> "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC"
+TX {"type":"claim","recipient":"0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC","amount":"1250000000000000000n","wrap":true,"fees":{"type":2,"maxFeePerGas":300000000000,"maxPriorityFeePerGas":200000000000}} signer=privateKey
+[log] [32mTransaction with hash tx16 built and sent to the network[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+
+===== private key: errors keep the session
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Private Key"
+? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
+> "nofile"
+[log] [31mError: File nofile doesn't exist[39m
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Private Key"
+? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
+> "pk"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "LocalHost"
+ENV localflare {}
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Transfer funds"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "1"
+? input "\u001b[35mEnter destination P-chain address:\u001b[39m"
+> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"
+TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"} signer=privateKey
+[log] [31mError: node refused transfer[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Transfer funds"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "abc"
+? input "\u001b[35mEnter destination P-chain address:\u001b[39m"
+> "P-x"
+[log] [31mError: Invalid amount "abc": expected a non-negative decimal number[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Change the auto-renew period"
+? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
+> "NodeID-Z"
+? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)\u001b[39m\u001b[35m:\u001b[39m"
+> "0"
+? confirm "\u001b[35mA period of 0 stops auto-renewal: the validator leaves at the end of its current cycle and the stake is returned. Stop auto-renewal?\u001b[39m" default=false
+> true
+TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-Z","period":"0n"} signer=privateKey
+[log] [32mTransaction with hash tx1 built and sent to the network[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+
+===== private key: a failed export is not imported
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Private Key"
+? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
+> "pk"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "LocalHost"
+ENV localflare {}
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from C-chain to P-chain"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "10"
+ESTIMATE {"type":"exportCP","amount":"10000000000n"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> ""
+[log] Please approve export transaction
+TX {"type":"exportCP","amount":"10000000000n","fee":"22460n"} signer=privateKey
+[log] [31mError: node refused exportCP[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from P-chain to C-chain"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m" default="2.999"
+> "1"
+[log] Please approve export transaction
+TX {"type":"exportPC","amount":"1000000000n"} signer=privateKey
+[log] [31mError: node refused exportPC[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+
+===== private key: no estimates, nothing to claim
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Private Key"
+? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
+> "pk"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "LocalHost"
+ENV localflare {"apiUrl":"http://127.0.0.1:1"}
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from C-chain to P-chain"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "1"
+ESTIMATE {"type":"exportCP","amount":"1000000000n"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(leave empty to estimate it at twice the current base fee)\u001b[39m\u001b[35m:\u001b[39m"
+> ""
+[log] Please approve export transaction
+TX {"type":"exportCP","amount":"1000000000n"} signer=privateKey
+[log] [32mTransaction with hash tx1 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"}
+[log] Please approve import transaction
+TX {"type":"importCP"} signer=privateKey
+[log] [32mTransaction with hash tx2 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from P-chain to C-chain"
+? input "\u001b[35mEnter amount \u001b[39m \u001b[35m(in FLR):\u001b[39m"
+> "2"
+[log] Please approve export transaction
+TX {"type":"exportPC","amount":"2000000000n"} signer=privateKey
+[log] [32mTransaction with hash tx3 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"}
+ESTIMATE {"type":"importPC"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(leave empty to estimate it at twice the current base fee)\u001b[39m\u001b[35m:\u001b[39m"
+> ""
+[log] Please approve import transaction
+TX {"type":"importPC"} signer=privateKey
+[log] [32mTransaction with hash tx4 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Import Funds"
+? list "\u001b[35mPlease select the destination chain to which you want to import your funds?\u001b[39m" choices=["P","C"]
+> "C"
+ESTIMATE {"type":"importPC"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(leave empty to estimate it at twice the current base fee)\u001b[39m\u001b[35m:\u001b[39m"
+> ""
+TX {"type":"importPC"} signer=privateKey
+[log] [32mTransaction with hash tx5 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Claim staking rewards"
+CONTRACT ValidatorRewardManager
+[log] [33mState of rewards for 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC:
+Total rewards: 1 LFLR
+Claimed rewards: 1 LFLR
+Unclaimed rewards: 0 LFLR[39m
+[log] [32mNothing to claim![39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+
+===== ledger: new context
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Ledger"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "Coston2"
+? list "\u001b[35mChoose derivation path...\u001b[39m" choices=["BIP44 (Default)","Ledger Live"]
+> "Ledger Live"
+[log] Fetching Addresses...
+LEDGER getPublicKey m/44'/60'/0'/0/0
+LEDGER getPublicKey m/44'/60'/1'/0/0
+LEDGER getPublicKey m/44'/60'/2'/0/0
+LEDGER getPublicKey m/44'/60'/3'/0/0
+LEDGER getPublicKey m/44'/60'/4'/0/0
+LEDGER getPublicKey m/44'/60'/5'/0/0
+LEDGER getPublicKey m/44'/60'/6'/0/0
+LEDGER getPublicKey m/44'/60'/7'/0/0
+LEDGER getPublicKey m/44'/60'/8'/0/0
+LEDGER getPublicKey m/44'/60'/9'/0/0
+? list "\u001b[35mWhich address do you want to use?\u001b[39m" choices=["1. 0x78C5BC3204a27285359897319add9A414919bc98","2. 0x855A8978314882161f60944e07787F3Af23b538a","3. 0x8287A615E1a5842B4a5D882D8534Fb9d943764f5","4. 0xe73c6A5bb4f9BcF456f4b4D32639F229c26966e6","5. 0x49d92f7FecbaB4AFDcc654Bf83840c29cD5d3660","6. 0x7ab909fbdFEDC4d38355845a7125215Be3f75735","7. 0x4bB4C79D49e39660D9afC63CB476a4E39B33Ff36","8. 0xC63843aA8B1CfBE7101157ab4cf8d7771D22C91b","9. 0x5A1d703E93B4b25d0195E45cF98DaCCfd0DD0F9b","10. 0x9e74B8923d312dcA8E9aFe7ae89AAe8C09fC4bF0"]
+> {"index":2}
+ENV costwo {}
+LEDGER getPublicKey m/44'/60'/2'/0/0
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "View chain addresses"
+[log] P-chain address: P-costwo193mu3gp0lse95872z9nxzfqa00hjrcj0r7jmyp
+[log] C-chain address hex: 0x8287A615E1a5842B4a5D882D8534Fb9d943764f5
+[log] secp256k1 public key: 0x0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+FILE ctx.json: {
+  "wallet": "ledger",
+  "publicKey": "0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2",
+  "network": "costwo",
+  "ethAddress": "0x8287A615E1a5842B4a5D882D8534Fb9d943764f5",
+  "flareAddress": "P-costwo193mu3gp0lse95872z9nxzfqa00hjrcj0r7jmyp",
+  "derivationPath": "m/44'/60'/2'/0/0"
+}
+
+===== ledger: keep the context
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Ledger"
+[log] [35mYou already have a ctx.json with the following parameters:[39m
+[log] [33mWallet:[39m ledger
+[log] [33mPublic Key:[39m 0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2
+[log] [33mNetwork:[39m costwo
+[log] [33mEth Address:[39m 0x8287A615E1a5842B4a5D882D8534Fb9d943764f5
+? list "\u001b[35mDo you wish to continue with this?\u001b[39m" choices=["Yes","No"]
+> "Yes"
+ENV costwo {}
+LEDGER getPublicKey m/44'/60'/2'/0/0
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "View chain addresses"
+[log] P-chain address: P-costwo193mu3gp0lse95872z9nxzfqa00hjrcj0r7jmyp
+[log] C-chain address hex: 0x8287A615E1a5842B4a5D882D8534Fb9d943764f5
+[log] secp256k1 public key: 0x0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+FILE ctx.json: {
+  "wallet": "ledger",
+  "publicKey": "0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2",
+  "network": "costwo",
+  "ethAddress": "0x8287A615E1a5842B4a5D882D8534Fb9d943764f5",
+  "flareAddress": "P-costwo193mu3gp0lse95872z9nxzfqa00hjrcj0r7jmyp",
+  "derivationPath": "m/44'/60'/2'/0/0"
+}
+
+===== ledger: replace the context
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Ledger"
+[log] [35mYou already have a ctx.json with the following parameters:[39m
+[log] [33mWallet:[39m ledger
+[log] [33mPublic Key:[39m 0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2
+[log] [33mNetwork:[39m costwo
+[log] [33mEth Address:[39m 0x8287A615E1a5842B4a5D882D8534Fb9d943764f5
+? list "\u001b[35mDo you wish to continue with this?\u001b[39m" choices=["Yes","No"]
+> "No"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "Coston "
+? list "\u001b[35mChoose derivation path...\u001b[39m" choices=["BIP44 (Default)","Ledger Live"]
+> "BIP44"
+[log] Fetching Addresses...
+LEDGER getPublicKey m/44'/60'/0'/0/0
+LEDGER getPublicKey m/44'/60'/0'/0/1
+LEDGER getPublicKey m/44'/60'/0'/0/2
+LEDGER getPublicKey m/44'/60'/0'/0/3
+LEDGER getPublicKey m/44'/60'/0'/0/4
+LEDGER getPublicKey m/44'/60'/0'/0/5
+LEDGER getPublicKey m/44'/60'/0'/0/6
+LEDGER getPublicKey m/44'/60'/0'/0/7
+LEDGER getPublicKey m/44'/60'/0'/0/8
+LEDGER getPublicKey m/44'/60'/0'/0/9
+? list "\u001b[35mWhich address do you want to use?\u001b[39m" choices=["1. 0x78C5BC3204a27285359897319add9A414919bc98","2. 0x633f21c6f466b06a4Ab7F3DE2F678D60B76f8618","3. 0x131A5C824F4C85f8C3d7094FA6fEA21DB013C720","4. 0x10BcE760f000e0b33b1b3718D5ADDA81d214C12e","5. 0x4dCECC3a62659e7f6174A1a2F4B1bC1E08875840","6. 0x606Fab99a6Be3eAb4CCb02a1e03D9c35758F2201","7. 0xBA6aeC74727D73d96da4Ff1E8c63bedD9dE84a09","8. 0xdaf81b2945A242050859237F8AbaB299CaD79fe8","9. 0xCF76695260cef5b90EE3D1F907E0f26eb1545F18","10. 0x7a0287A44670998E5D709Ee0B9A02336D1717FE9"]
+> {"index":0}
+[log] Previous ctx.json kept as ctx.json.<time>.bak
+ENV coston {}
+LEDGER getPublicKey m/44'/60'/0'/0/0
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "View chain addresses"
+[log] P-chain address: P-coston1pzg2yrhv78vnj0h55fcuulgvayutk3vv3upjqn
+[log] C-chain address hex: 0x78C5BC3204a27285359897319add9A414919bc98
+[log] secp256k1 public key: 0x0227a89efe89e2e7cafaa8719a185a05b0972f05ff6fd67fbe451ddb8004a7984e
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+FILE ctx.json: {
+  "wallet": "ledger",
+  "publicKey": "0227a89efe89e2e7cafaa8719a185a05b0972f05ff6fd67fbe451ddb8004a7984e",
+  "network": "coston",
+  "ethAddress": "0x78C5BC3204a27285359897319add9A414919bc98",
+  "flareAddress": "P-coston1pzg2yrhv78vnj0h55fcuulgvayutk3vv3upjqn",
+  "derivationPath": "m/44'/60'/0'/0/0"
+}
+FILE ctx.json.<time>.bak: {
+  "wallet": "ledger",
+  "publicKey": "0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2",
+  "network": "costwo",
+  "ethAddress": "0x8287A615E1a5842B4a5D882D8534Fb9d943764f5",
+  "flareAddress": "P-costwo193mu3gp0lse95872z9nxzfqa00hjrcj0r7jmyp",
+  "derivationPath": "m/44'/60'/2'/0/0"
+}
+
+===== ledger: one key for every path
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Ledger"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "Coston2"
+? list "\u001b[35mChoose derivation path...\u001b[39m" choices=["BIP44 (Default)","Ledger Live"]
+> "BIP44"
+[log] Fetching Addresses...
+LEDGER getPublicKey m/44'/60'/0'/0/0
+LEDGER getPublicKey m/44'/60'/0'/0/1
+LEDGER getPublicKey m/44'/60'/0'/0/2
+LEDGER getPublicKey m/44'/60'/0'/0/3
+LEDGER getPublicKey m/44'/60'/0'/0/4
+LEDGER getPublicKey m/44'/60'/0'/0/5
+LEDGER getPublicKey m/44'/60'/0'/0/6
+LEDGER getPublicKey m/44'/60'/0'/0/7
+LEDGER getPublicKey m/44'/60'/0'/0/8
+LEDGER getPublicKey m/44'/60'/0'/0/9
+? list "\u001b[35mWhich address do you want to use?\u001b[39m" choices=["1. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","2. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","3. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","4. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","5. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","6. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","7. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","8. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","9. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215","10. 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215"]
+> {"index":2}
+ENV costwo {}
+LEDGER getPublicKey m/44'/60'/0'/0/0
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "View chain addresses"
+[log] P-chain address: P-costwo1kvwgdkq7zd9gqzdrwsj303pq24qale8mrn9pys
+[log] C-chain address hex: 0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215
+[log] secp256k1 public key: 0x02bb0f8cc82963023a740cd6dfb26028a106b79e2bd695a27996e2f09fe44a12df
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+FILE ctx.json: {
+  "wallet": "ledger",
+  "publicKey": "02bb0f8cc82963023a740cd6dfb26028a106b79e2bd695a27996e2f09fe44a12df",
+  "network": "costwo",
+  "ethAddress": "0x7cA1c3685e7Fc03B3EA39B4732EBd2dCF601f215",
+  "flareAddress": "P-costwo1kvwgdkq7zd9gqzdrwsj303pq24qale8mrn9pys",
+  "derivationPath": "m/44'/60'/0'/0/0"
+}
+
+===== ledger: a ForDefi context
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Ledger"
+[log] [35mYou already have a ctx.json with the following parameters:[39m
+[log] [33mWallet:[39m publicKey
+[log] [33mPublic Key:[39m 021111111111111111111111111111111111111111111111111111111111111111
+[log] [33mNetwork:[39m costwo
+[log] [33mVault Id:[39m v-1
+? confirm "\u001b[35mReplace ctx.json with a Ledger context? The current file is kept as a ctx.json.<time>.bak backup.\u001b[39m" default=false
+> false
+[log] [31mError: Kept ctx.json; choose another wallet, or move the file away to connect a Ledger[39m
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Ledger"
+[log] [35mYou already have a ctx.json with the following parameters:[39m
+[log] [33mWallet:[39m publicKey
+[log] [33mPublic Key:[39m 021111111111111111111111111111111111111111111111111111111111111111
+[log] [33mNetwork:[39m costwo
+[log] [33mVault Id:[39m v-1
+? confirm "\u001b[35mReplace ctx.json with a Ledger context? The current file is kept as a ctx.json.<time>.bak backup.\u001b[39m" default=false
+> true
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "Flare"
+? list "\u001b[35mChoose derivation path...\u001b[39m" choices=["BIP44 (Default)","Ledger Live"]
+> "BIP44"
+[log] Fetching Addresses...
+LEDGER getPublicKey m/44'/60'/0'/0/0
+LEDGER getPublicKey m/44'/60'/0'/0/1
+LEDGER getPublicKey m/44'/60'/0'/0/2
+LEDGER getPublicKey m/44'/60'/0'/0/3
+LEDGER getPublicKey m/44'/60'/0'/0/4
+LEDGER getPublicKey m/44'/60'/0'/0/5
+LEDGER getPublicKey m/44'/60'/0'/0/6
+LEDGER getPublicKey m/44'/60'/0'/0/7
+LEDGER getPublicKey m/44'/60'/0'/0/8
+LEDGER getPublicKey m/44'/60'/0'/0/9
+? list "\u001b[35mWhich address do you want to use?\u001b[39m" choices=["1. 0x78C5BC3204a27285359897319add9A414919bc98","2. 0x633f21c6f466b06a4Ab7F3DE2F678D60B76f8618","3. 0x131A5C824F4C85f8C3d7094FA6fEA21DB013C720","4. 0x10BcE760f000e0b33b1b3718D5ADDA81d214C12e","5. 0x4dCECC3a62659e7f6174A1a2F4B1bC1E08875840","6. 0x606Fab99a6Be3eAb4CCb02a1e03D9c35758F2201","7. 0xBA6aeC74727D73d96da4Ff1E8c63bedD9dE84a09","8. 0xdaf81b2945A242050859237F8AbaB299CaD79fe8","9. 0xCF76695260cef5b90EE3D1F907E0f26eb1545F18","10. 0x7a0287A44670998E5D709Ee0B9A02336D1717FE9"]
+> {"index":1}
+[log] Previous ctx.json kept as ctx.json.<time>.bak
+ENV flare {}
+LEDGER getPublicKey m/44'/60'/0'/0/1
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "View chain addresses"
+[log] P-chain address: P-flare17jxhvdv6yfzlkea04wxqe7fttcdev85zlf0wy3
+[log] C-chain address hex: 0x633f21c6f466b06a4Ab7F3DE2F678D60B76f8618
+[log] secp256k1 public key: 0x02f9f4e83cc2f36efc89103115219e9b91e14cbfbce85b68e74d7a06044a045956
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+FILE ctx.json: {
+  "wallet": "ledger",
+  "publicKey": "02f9f4e83cc2f36efc89103115219e9b91e14cbfbce85b68e74d7a06044a045956",
+  "network": "flare",
+  "ethAddress": "0x633f21c6f466b06a4Ab7F3DE2F678D60B76f8618",
+  "flareAddress": "P-flare17jxhvdv6yfzlkea04wxqe7fttcdev85zlf0wy3",
+  "derivationPath": "m/44'/60'/0'/0/1"
+}
+FILE ctx.json.<time>.bak: {"wallet":"publicKey","publicKey":"021111111111111111111111111111111111111111111111111111111111111111","network":"costwo","vaultId":"v-1"}
+
+===== ledger: an unusable context
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Ledger"
+[log] [35mctx.json exists but cannot be used: Context file ctx.json is missing publicKey or network[39m
+? confirm "\u001b[35mReplace ctx.json with a Ledger context? The current file is kept as a ctx.json.<time>.bak backup.\u001b[39m" default=false
+> true
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "Songbird"
+? list "\u001b[35mChoose derivation path...\u001b[39m" choices=["BIP44 (Default)","Ledger Live"]
+> "BIP44"
+[log] Fetching Addresses...
+LEDGER getPublicKey m/44'/60'/0'/0/0
+LEDGER getPublicKey m/44'/60'/0'/0/1
+LEDGER getPublicKey m/44'/60'/0'/0/2
+LEDGER getPublicKey m/44'/60'/0'/0/3
+LEDGER getPublicKey m/44'/60'/0'/0/4
+LEDGER getPublicKey m/44'/60'/0'/0/5
+LEDGER getPublicKey m/44'/60'/0'/0/6
+LEDGER getPublicKey m/44'/60'/0'/0/7
+LEDGER getPublicKey m/44'/60'/0'/0/8
+LEDGER getPublicKey m/44'/60'/0'/0/9
+? list "\u001b[35mWhich address do you want to use?\u001b[39m" choices=["1. 0x78C5BC3204a27285359897319add9A414919bc98","2. 0x633f21c6f466b06a4Ab7F3DE2F678D60B76f8618","3. 0x131A5C824F4C85f8C3d7094FA6fEA21DB013C720","4. 0x10BcE760f000e0b33b1b3718D5ADDA81d214C12e","5. 0x4dCECC3a62659e7f6174A1a2F4B1bC1E08875840","6. 0x606Fab99a6Be3eAb4CCb02a1e03D9c35758F2201","7. 0xBA6aeC74727D73d96da4Ff1E8c63bedD9dE84a09","8. 0xdaf81b2945A242050859237F8AbaB299CaD79fe8","9. 0xCF76695260cef5b90EE3D1F907E0f26eb1545F18","10. 0x7a0287A44670998E5D709Ee0B9A02336D1717FE9"]
+> {"index":9}
+[log] Previous ctx.json kept as ctx.json.<time>.bak
+ENV songbird {}
+LEDGER getPublicKey m/44'/60'/0'/0/9
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "View chain addresses"
+[log] P-chain address: P-songbird1kj3efha08zdsz007qg2d7q3h7qnhyke69xs9hm
+[log] C-chain address hex: 0x7a0287A44670998E5D709Ee0B9A02336D1717FE9
+[log] secp256k1 public key: 0x02a30f38228106fb96b520ee285c7e19678610a622f21b77b738828857fbba0d8e
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+FILE ctx.json: {
+  "wallet": "ledger",
+  "publicKey": "02a30f38228106fb96b520ee285c7e19678610a622f21b77b738828857fbba0d8e",
+  "network": "songbird",
+  "ethAddress": "0x7a0287A44670998E5D709Ee0B9A02336D1717FE9",
+  "flareAddress": "P-songbird1kj3efha08zdsz007qg2d7q3h7qnhyke69xs9hm",
+  "derivationPath": "m/44'/60'/0'/0/9"
+}
+FILE ctx.json.<time>.bak: {}
