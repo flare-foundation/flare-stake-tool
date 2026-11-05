@@ -115,6 +115,45 @@ describe("cli/inputs, cli/requests and cli/options", () => {
     });
   });
 
+  describe("refused requests", () => {
+    const BLS = { popBlsPublicKey: "0x" + "a1".repeat(48), popBlsSignature: "0x" + "b2".repeat(96) };
+
+    it("names the missing option and its flag", () => {
+      expect(() => parseAtomicTxRequest("delegate", { amount: "1", endTime: "14d" })).to.throw(
+        "nodeId is required for delegate transaction. Use --node-id <nodeId> to specify the nodeId"
+      );
+      expect(() => parseEvmTxRequest("custom", { value: "1" })).to.throw(
+        "to is required for customCChainTx transaction. Use --to <address> to specify the to"
+      );
+    });
+
+    it("refuses auto-compound shares that are not an integer from 0 to 1000000", () => {
+      for (const autoCompoundShares of ["1000001", "-1", "0.5", "abc"]) {
+        const options = { amount: "10000", nodeId: "NodeID-X", period: "14d", ...BLS, autoCompoundShares };
+        expect(() => parseAtomicTxRequest("addAutoRenewedValidator", options), autoCompoundShares).to.throw(
+          "--auto-compound-shares must be an integer between 0 and 1000000 (millionths)"
+        );
+      }
+      const options = { amount: "10000", nodeId: "NodeID-X", period: "14d", ...BLS, autoCompoundShares: "1000000" };
+      expect(parseAtomicTxRequest("addAutoRenewedValidator", options).request).to.include({ autoCompoundShares: 1e6 });
+    });
+
+    it("needs the validator of an auto-renew config change, by node id or validation tx id", () => {
+      expect(() => parseAtomicTxRequest("setAutoRenewedValidatorConfig", { period: "0" })).to.throw(
+        "setAutoRenewedValidatorConfig needs the validator: use --node-id <nodeId> or --validator-tx-id <txID>"
+      );
+    });
+
+    it("refuses an unknown transaction type and a --value that is not an integer amount of wei", () => {
+      expect(() => parseAtomicTxRequest("stakeAll", {})).to.throw("Unknown transaction type: stakeAll");
+      for (const value of ["1.5", "1e18", "-1", "0x10"]) {
+        expect(() => parseEvmTxRequest("custom", { to: TO, value }), value).to.throw(
+          "--value must be an integer amount of wei"
+        );
+      }
+    });
+  });
+
   describe("globalOptions", () => {
     it("merges the program options with the command's, the command's winning", () => {
       const merged = globalOptions(

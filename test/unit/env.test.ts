@@ -48,6 +48,17 @@ describe("app/env context file", () => {
     expect(readContextFile(file).vaultId).to.equal("vault-456");
   });
 
+  it("refuses to read a missing context file and to overwrite an existing one", () => {
+    expect(() => readContextFile(file)).to.throw(
+      `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
+    );
+    writeContextFile(FORDEFI_CONTEXT, file);
+    expect(() => writeContextFile({ ...FORDEFI_CONTEXT, vaultId: "vault-456" }, file)).to.throw(
+      "ctx.json already exists"
+    );
+    expect(readContextFile(file).vaultId).to.equal("vault-123");
+  });
+
   describe("the network to act on", () => {
     it("is --network when given, even with a context file of another network", () => {
       writeContextFile(FORDEFI_CONTEXT, file);

@@ -74,6 +74,8 @@ describe("chain/keys", () => {
     expect(() => parsePrivateKey({})).to.throw(/No private key/);
     expect(() => parsePrivateKey({ hex: "1234" })).to.throw(/32 bytes/);
     expect(() => parsePrivateKey({ cb58: "not-base58!" })).to.throw(/base58check/);
+    const short = futils.base58check.encode(new Uint8Array(31).fill(1));
+    expect(() => parsePrivateKey({ cb58: `PrivateKey-${short}` })).to.throw("PRIVATE_KEY_CB58 must decode to 32 bytes");
     expect(() => parsePrivateKey({ hex: "11".repeat(32), cb58: EWOQ_PRIVATE_KEY_CB58 })).to.throw(/different keys/);
   });
 });
