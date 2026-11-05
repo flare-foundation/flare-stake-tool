@@ -31,8 +31,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Transaction with hash 25D9Y66qvsgzTgYrhrLcByV3qRSgS1AmfTokPgpgpSEfe1VWpr built and sent to the network\n",
-    "stderr": "",
+    "stdout": "Transaction with hash 25D9Y66qvsgzTgYrhrLcByV3qRSgS1AmfTokPgpgpSEfe1VWpr built and sent to the network\nFee paid: 0.00317275 LFLR\n",
+    "stderr": "Transaction 25D9Y66qvsgzTgYrhrLcByV3qRSgS1AmfTokPgpgpSEfe1VWpr submitted, waiting for the chain to accept it\n",
     "txIds": [
       "25D9Y66qvsgzTgYrhrLcByV3qRSgS1AmfTokPgpgpSEfe1VWpr"
     ],

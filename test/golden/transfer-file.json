@@ -19,7 +19,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nUnsigned transaction transfer-file constructed\nForDefi hash: QXFDpx09Wl+QHwtdLM8A6oLBDCIw5xgaH765WZ/wtcM=\n",
+    "stdout": "Unsigned transaction transfer-file constructed\nForDefi hash: QXFDpx09Wl+QHwtdLM8A6oLBDCIw5xgaH765WZ/wtcM=\nFee: 0.005179 LFLR (burned when the signed transaction is sent)\n",
     "stderr": "",
     "txIds": [],
     "submissions": [],

@@ -9,8 +9,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "RESULT {\"unsignedTxHex\":\"0x00000000001a000000a200000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000076f05915256b38e84000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c000000011237ad7f006c73a11b9357695ca2eed57929e9d1150b98a32053793a4323ae920000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000056f059a6aa545f76d000000010000000000000000de31b4d8b22991d51aa6aa1fc733f23a851a8c94000000006553f100000000006ae33724000009184e72a00000000000000000000000000000000000000000000000000000000000000000000000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd552800000007000009184e72a000000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c0000000b000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c\",\"unsignedTxHash\":\"0xc435ca1e9d0a57b859228e777658270d5c926197c0995f47b2634afa0f1a7e35\",\"signature\":\"e64e387c184508e7e3804f6613878036e1332657371c139145dbcf5a01bfbfca2e3f0ec28865c1ba405048e3be6d975bdaf52f69383e81fdd312764104232c6000\",\"txId\":\"yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA\"}\n",
-    "stderr": "",
+    "stdout": "Transaction with hash yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA built and sent to the network\nFee paid: 0.002083049 LFLR\n",
+    "stderr": "Warning: FLARE_FAKE_LEDGER_KEY is set: --ledger signs with that software key, not with a Ledger device (tests only)\nWarning: --start-time does not delay the stake: the network starts it when it accepts the transaction (since the Durango upgrade), whatever start time the transaction carries\nWarning: End time 1793275684 (2026-10-29T12:08:04.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now\nTransaction yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA submitted, waiting for the chain to accept it\n",
     "txIds": [
       "yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA"
     ],

@@ -19,7 +19,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nCreating claim transaction...\nTransaction claim-file-amount-wrap constructed\nForDefi hash: pok91efSP64BWD79gQVcc7FguMFEw5JduEl6PKtjnAA=\n",
+    "stdout": "Unsigned transaction claim-file-amount-wrap constructed\nForDefi hash: pok91efSP64BWD79gQVcc7FguMFEw5JduEl6PKtjnAA=\n",
     "stderr": "",
     "txIds": [],
     "submissions": [],

@@ -208,13 +208,15 @@ export async function runScenario(spec: ScenarioSpec, ctx: RunContext): Promise<
   return outcome;
 }
 
-/** The fields of an outcome that must be identical between runs / implementations. */
+/** The fields of an outcome that must be identical between runs: everything the command produced or printed. */
 export function comparableOutcome(outcome: ScenarioOutcome): unknown {
   return {
     exitCode: outcome.exitCode,
     txIds: outcome.txIds,
     unsignedTxJson: outcome.unsignedTxJson ?? null,
     submissions: outcome.submissions,
+    stdout: outcome.stdout,
+    stderr: outcome.stderr,
   };
 }
 

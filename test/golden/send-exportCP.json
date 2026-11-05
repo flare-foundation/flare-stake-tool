@@ -15,8 +15,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nSigned transaction exportCP-file with hash qrYiqS2Hk6FGgVk5Usx5FGsTwDRNpLfS3v3nrWW4sg1NhxLBZ sent to the node\n",
-    "stderr": "",
+    "stdout": "Signed transaction exportCP-file with hash qrYiqS2Hk6FGgVk5Usx5FGsTwDRNpLfS3v3nrWW4sg1NhxLBZ sent to the node\n",
+    "stderr": "Transaction qrYiqS2Hk6FGgVk5Usx5FGsTwDRNpLfS3v3nrWW4sg1NhxLBZ submitted, waiting for the chain to accept it\n",
     "txIds": [
       "qrYiqS2Hk6FGgVk5Usx5FGsTwDRNpLfS3v3nrWW4sg1NhxLBZ"
     ],

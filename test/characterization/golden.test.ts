@@ -19,9 +19,9 @@ function updateRequested(name: string): boolean {
 /**
  * Characterization tests: every golden in test/golden is replayed against its
  * recorded RPC fixture and must reproduce the same unsigned bytes, signatures,
- * submitted transactions and ids. A difference is a behaviour change: either a
- * bug, or an intentional change that must update the golden together with
- * CHANGELOG.md and docs/COMMANDS.md.
+ * submitted transactions and ids, and print the same stdout and stderr. A
+ * difference is a behaviour change: either a bug, or an intentional change that
+ * must update the golden together with CHANGELOG.md and docs/COMMANDS.md.
  */
 describe("characterization goldens (offline replay)", function () {
   this.timeout(120_000);
@@ -62,7 +62,10 @@ describe("characterization goldens (offline replay)", function () {
         if (updateRequested(name)) {
           // Intentional behaviour change: re-capture the outcome against the recorded fixture.
           expect(outcome.exitCode, `stderr: ${outcome.stderr}\nstdout: ${outcome.stdout}`).to.equal(0);
-          fs.writeFileSync(goldenPath(name), JSON.stringify({ spec: golden.spec, outcome }, null, 2) + "\n");
+          // The replay does not produce the reference data of the legacy Ledger recording, which is kept.
+          const { ledger } = golden.outcome as { ledger?: unknown };
+          const updated = { ...outcome, ...(ledger === undefined ? {} : { ledger }) };
+          fs.writeFileSync(goldenPath(name), JSON.stringify({ spec: golden.spec, outcome: updated }, null, 2) + "\n");
           return;
         }
         expect(outcome.exitCode, `stderr: ${outcome.stderr}\nstdout: ${outcome.stdout}`).to.equal(

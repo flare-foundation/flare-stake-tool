@@ -15,8 +15,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nTransaction with hash 24MN5zUKgXoAeVpFYyQmP4SxPwwVxVe3zLXc98sADqs6qAngPu built and sent to the network\n",
-    "stderr": "",
+    "stdout": "Transaction with hash 24MN5zUKgXoAeVpFYyQmP4SxPwwVxVe3zLXc98sADqs6qAngPu built and sent to the network\nFee paid: 0.00103375 LFLR\n",
+    "stderr": "Transaction 24MN5zUKgXoAeVpFYyQmP4SxPwwVxVe3zLXc98sADqs6qAngPu submitted, waiting for the chain to accept it\n",
     "txIds": [
       "24MN5zUKgXoAeVpFYyQmP4SxPwwVxVe3zLXc98sADqs6qAngPu"
     ],

@@ -195,11 +195,15 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
 `pnpm test:record-fixtures` runs ~45 scenarios against a live localflare with
 all JSON-RPC traffic proxied through `rpc-replay.ts`, saving per-scenario
 fixtures (`test/fixtures/rpc/`) and goldens (`test/golden/`: unsigned tx
-bytes, message hash, ForDefi hash, submitted signed bytes, tx ids). `pnpm test`
+bytes, message hash, ForDefi hash, submitted signed bytes, tx ids, printed
+stdout and stderr). `pnpm test`
 replays every golden offline; a difference means behaviour changed. An
 intentional change must update the golden **in the same commit** as the
 CHANGELOG and `docs/COMMANDS.md` entry. Re-record only when the scenario
-inputs change, never to make a failing golden pass.
+inputs change, never to make a failing golden pass. The printed output
+includes the warning for an end time that is not in the future, which
+depends on the clock: keep the recorded end times in the past so that it
+always prints.
 
 ## Tests as executable specifications
 
