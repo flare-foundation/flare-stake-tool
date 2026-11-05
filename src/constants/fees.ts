@@ -9,27 +9,29 @@ const GWEI = 1_000_000_000;
  * transaction hash, so nothing in the signed payload may depend on chain state
  * at the moment it happens to be built.
  *
- * Type 2 is what makes a fixed fee workable. `maxFeePerGas` is a ceiling, not a
- * price: the transaction pays `baseFee + maxPriorityFeePerGas` at inclusion and
- * the unused part of the ceiling is never charged. A legacy transaction has no
- * such separation - its gas price is paid in full - so it cannot carry headroom
- * for a base fee spike without paying for that headroom on every call.
+ * Type 2 is what makes a fixed fee workable. `maxFeePerGas` is a cap, not a
+ * price: the transaction pays `min(maxFeePerGas, baseFee + maxPriorityFeePerGas)`
+ * per gas at inclusion, so while the base fee stays well below the cap the
+ * headroom above it is not charged. A legacy transaction has no such separation
+ * - its gas price is paid in full - so it cannot carry headroom for a base fee
+ * spike without paying for that headroom on every call.
  */
 
 /**
- * Ceiling per operation, never paid in full.
+ * Cap per operation; paid in full only when the base fee comes within the tip
+ * of it.
  *
  * The Flare C-chain base fee floor is 500 gwei, and reward-claiming rushes have
  * pushed it to 5420 gwei. 8000 gwei clears a spike well past the worst
  * observed, and is used for the operations that move funds, which may need to
  * land while one is happening.
  *
- * The ceiling is not entirely free: the sender's balance has to cover
- * `maxFeePerGas * gasLimit` before the transaction runs, even though the unused
- * remainder is never spent. The two commands that only rewrite a stored address
- * list can be rerun once a spike passes, so they reserve less; 4000 gwei is
- * still eight times the floor. Everything else, including a custom call whose
- * calldata and value the tool cannot interpret, gets the spike-proof ceiling.
+ * The cap is not entirely free: the sender's balance has to cover
+ * `maxFeePerGas * gasLimit` before the transaction runs, even though only the
+ * price actually charged is spent. The two commands that only rewrite a stored
+ * address list can be rerun once a spike passes, so they reserve less; 4000
+ * gwei is still eight times the floor. Everything else, including a custom call
+ * whose calldata and value the tool cannot interpret, gets the spike-proof cap.
  */
 export const DEFAULT_MAX_FEE_PER_GAS = {
   claim: 8_000 * GWEI,
@@ -40,10 +42,11 @@ export const DEFAULT_MAX_FEE_PER_GAS = {
 } as const;
 
 /**
- * Tip, paid in full on top of the base fee. Deliberately modest: Flare C-chain
- * blocks ran only 11-22% full even at the peak of the worst fee spike, so there
- * is no block-space competition to bid against, and the tip has no bearing on
- * whether a transaction clears the base fee floor.
+ * Maximum tip on top of the base fee (less when the base fee comes within it of
+ * the cap). Deliberately modest: Flare C-chain blocks ran only 11-22% full even
+ * at the peak of the worst fee spike, so there is no block-space competition to
+ * bid against, and the tip has no bearing on whether a transaction clears the
+ * base fee floor.
  */
 export const DEFAULT_MAX_PRIORITY_FEE_PER_GAS = 200 * GWEI;
 

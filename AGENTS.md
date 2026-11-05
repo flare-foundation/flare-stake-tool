@@ -262,8 +262,12 @@ it — both example-based and property-based where applicable.
 - `src/ledger/` talks to the device: `transport.ts` opens and always closes the
   USB transport (`withApp`), `bytes.ts` normalizes signatures (`rsvHex`,
   `evmSignatureHex`), and `index.ts` routes each call to the open app, which
-  is detected once with the dashboard APDU. None of it runs in the tests; check
-  changes on a real device (Flare, Avalanche and Ethereum apps).
+  is asked again with the dashboard APDU before every operation, so the user
+  can switch apps in between. The tests cover the signature helpers, the
+  Avalanche path split, app detection with an injected answer and
+  `LedgerSigner` with a fake device; the transport and the app clients run only
+  against a device, so check changes there on a real one (Flare, Avalanche and
+  Ethereum apps).
 
 ## Release process
 

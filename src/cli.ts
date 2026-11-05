@@ -59,7 +59,7 @@ export function cli(program: Command): void {
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option(
       "--max-fee-per-gas <gwei>",
-      "C-chain EVM max fee per gas, in gwei. A ceiling, not a price: the transaction pays base fee plus tip"
+      "C-chain EVM max fee per gas, in gwei. A cap, not a price: the transaction pays base fee plus tip, at most this"
     )
     .option("--priority-fee-per-gas <gwei>", "C-chain EVM priority fee (tip) per gas, in gwei")
     .option("--gas-limit <units>", "C-chain EVM gas limit")
