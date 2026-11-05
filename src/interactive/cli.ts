@@ -69,7 +69,7 @@ export async function interactiveCli(baseArgv: string[]): Promise<void> {
   const evmFees = evmFeeOverridesFromArgv(baseArgv);
   const session: Session = { ...(await connectWalletWithRetry(node)), evmFees };
   for (;;) {
-    const { task } = await prompts.selectTask();
+    const task = await prompts.selectTask();
     if (task === "quit") {
       logInfo("Exiting interactive cli.");
       return;
@@ -123,8 +123,8 @@ async function runTask(task: Exclude<TaskId, "quit">, session: Session): Promise
       await movePC(session);
       break;
     case "import": {
-      const { type } = await prompts.importTrxType();
-      if (type === "P") {
+      const destination = await prompts.importTrxType();
+      if (destination === "P") {
         await execute(session, { type: "importCP" });
       } else {
         const fee = await askCChainFee(session, { type: "importPC" });
@@ -133,9 +133,9 @@ async function runTask(task: Exclude<TaskId, "quit">, session: Session): Promise
       break;
     }
     case "transfer": {
-      const { amount } = await prompts.amount("");
-      const { transferAddress } = await prompts.transferAddress();
-      await execute(session, { type: "transfer", amount: parseFlr(amount), to: transferAddress });
+      const amount = await prompts.amount();
+      const to = await prompts.transferAddress();
+      await execute(session, { type: "transfer", amount: parseFlr(amount), to });
       break;
     }
     case "stake":
@@ -148,9 +148,9 @@ async function runTask(task: Exclude<TaskId, "quit">, session: Session): Promise
       await execute(session, await askAutoRenewedValidator());
       break;
     case "setAutoRenewedValidatorConfig": {
-      const { id } = await prompts.nodeId();
-      const period = parseDuration((await prompts.period("change")).period);
-      if (period === 0n && !(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id))).stop) {
+      const id = await prompts.nodeId();
+      const period = parseDuration(await prompts.period("change"));
+      if (period === 0n && !(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id)))) {
         logInfo("Auto-renewal left unchanged.");
         break;
       }
@@ -174,19 +174,19 @@ async function execute(session: Session, request: TxRequest): Promise<void> {
 
 /** Asks for an end time and warns (as the command line does) when it is not in the future. */
 async function askEndTime(): Promise<bigint> {
-  const endTime = parseEndTime((await prompts.unixTime("end")).time);
+  const endTime = parseEndTime(await prompts.unixTime("end"));
   const warning = pastEndTimeWarning(endTime);
   if (warning) logWarning(warning);
   return endTime;
 }
 
 async function askStake(): Promise<TxRequest> {
-  const { amount } = await prompts.amount("");
-  const { id } = await prompts.nodeId();
+  const amount = await prompts.amount();
+  const id = await prompts.nodeId();
   const endTime = await askEndTime();
-  const { fee } = await prompts.delegationFee();
-  const { popBLSPublicKey } = await prompts.popBLSPublicKey();
-  const { popBLSSignature } = await prompts.popBLSSignature();
+  const fee = await prompts.delegationFee();
+  const popBLSPublicKey = await prompts.popBLSPublicKey();
+  const popBLSSignature = await prompts.popBLSSignature();
   return {
     type: "stake",
     nodeId: id,
@@ -199,19 +199,19 @@ async function askStake(): Promise<TxRequest> {
 }
 
 async function askDelegate(): Promise<TxRequest> {
-  const { amount } = await prompts.amount("");
-  const { id } = await prompts.nodeId();
+  const amount = await prompts.amount();
+  const id = await prompts.nodeId();
   const endTime = await askEndTime();
   return { type: "delegate", nodeId: id, amount: parseFlr(amount), endTime };
 }
 
 async function askAutoRenewedValidator(): Promise<TxRequest> {
-  const { amount } = await prompts.amount("");
-  const { id } = await prompts.nodeId();
-  const { period } = await prompts.period("add");
-  const { fee } = await prompts.delegationFee();
-  const { popBLSPublicKey } = await prompts.popBLSPublicKey();
-  const { popBLSSignature } = await prompts.popBLSSignature();
+  const amount = await prompts.amount();
+  const id = await prompts.nodeId();
+  const period = await prompts.period("add");
+  const fee = await prompts.delegationFee();
+  const popBLSPublicKey = await prompts.popBLSPublicKey();
+  const popBLSSignature = await prompts.popBLSSignature();
   return {
     type: "addAutoRenewedValidator",
     nodeId: id,
@@ -255,19 +255,19 @@ async function askCChainFee(
     estimate = undefined;
   }
   for (;;) {
-    const { fees } = await prompts.fees(estimate === undefined ? undefined : formatFlr(estimate), symbol);
-    if (fees.trim() === "") return undefined;
-    const fee = parseFlr(fees);
+    const answer = await prompts.fees(estimate === undefined ? undefined : formatFlr(estimate), symbol);
+    if (answer.trim() === "") return undefined;
+    const fee = parseFlr(answer);
     const warning = estimate === undefined ? undefined : underpricedFeeWarning(fee, estimate, symbol);
     if (!warning) return fee;
     logWarning(warning);
-    if ((await prompts.confirmLowFee()).send) return fee;
+    if (await prompts.confirmLowFee()) return fee;
   }
 }
 
 /** Export from the C-chain, wait for the UTXO to reach the P-chain, import. */
 async function moveCP(session: Session): Promise<void> {
-  const { amount } = await prompts.amount("");
+  const amount = await prompts.amount();
   const exportCP: TxRequestOf<"exportCP"> = { type: "exportCP", amount: parseFlr(amount) };
   const fee = await askCChainFee(session, exportCP);
   log("Please approve export transaction");
@@ -287,7 +287,7 @@ async function movePC(session: Session): Promise<void> {
   } catch {
     defaultAmount = undefined; // nothing to export, or the node is unreachable: no default
   }
-  const { amount } = await prompts.amount("", defaultAmount);
+  const amount = await prompts.amount(defaultAmount);
   log("Please approve export transaction");
   await execute(session, { type: "exportPC", amount: parseFlr(amount) });
   await waitForPendingImport(session, "C");
@@ -328,27 +328,27 @@ async function claim(session: Session): Promise<void> {
     log(styleText("green", "Nothing to claim!"));
     return;
   }
-  const { claimAllUnclaimed } = await prompts.claimAllUnclaimed(formatWei(rewards.unclaimedWei), symbol);
-  const amount = claimAllUnclaimed ? undefined : parseFlrToWei(String((await prompts.claimAmount()).claimAmount));
-  const { wrapRewards } = await prompts.wrapRewards();
-  const { recipientAddress } = await prompts.recipientAddress(session.account.cAddress);
+  const claimAll = await prompts.claimAllUnclaimed(formatWei(rewards.unclaimedWei), symbol);
+  const amount = claimAll ? undefined : parseFlrToWei(await prompts.claimAmount());
+  const wrap = await prompts.wrapRewards();
+  const recipient = await prompts.recipientAddress(session.account.cAddress);
   await execute(session, {
     type: "claim",
-    recipient: recipientAddress,
+    recipient,
     amount,
-    wrap: wrapRewards,
+    wrap,
     fees: resolveEvmFees("claim", session.evmFees),
   });
 }
 
 async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
-  const { wallet } = await prompts.connectWallet();
+  const wallet = await prompts.connectWallet();
   if (wallet === "privateKey") {
-    const { pvtKeyPath } = await prompts.pvtKeyPath();
+    const pvtKeyPath = await prompts.pvtKeyPath();
     if (!fs.existsSync(pvtKeyPath)) {
       throw new Error(`File ${pvtKeyPath} doesn't exist`);
     }
-    const { network } = await prompts.selectNetwork();
+    const network = await prompts.selectNetwork();
     const env = createEnv(network, node);
     const signer = PrivateKeySigner.fromEnvFile(pvtKeyPath, env.network.hrp);
     return { env, signer, account: await signer.account() };
@@ -388,17 +388,16 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
       if (existing.vaultId) log(`${styleText("yellow", "Vault Id:")} ${existing.vaultId}`);
     }
     if (existing?.wallet === "ledger") {
-      const { isContinue } = await prompts.ctxFile();
-      if (isContinue) return existing;
-    } else if (!(await prompts.replaceCtxFile(DEFAULT_CTX_FILE)).replace) {
+      if (await prompts.ctxFile()) return existing;
+    } else if (!(await prompts.replaceCtxFile(DEFAULT_CTX_FILE))) {
       throw new Error(`Kept ${DEFAULT_CTX_FILE}; choose another wallet, or move the file away to connect a Ledger`);
     }
   }
-  const { network } = await prompts.selectNetwork();
-  const { derivation } = await prompts.derivationType();
+  const network = await prompts.selectNetwork();
+  const derivation = await prompts.derivationType();
   log("Fetching Addresses...");
   const addresses = await derivedAddresses(device, network, derivation);
-  const { address } = await prompts.selectAddress(
+  const address = await prompts.selectAddress(
     addresses.map((a, i) => ({ name: `${i + 1}. ${a.ethAddress}`, value: a.ethAddress }))
   );
   const chosen = addresses.find((a) => a.ethAddress === address);
