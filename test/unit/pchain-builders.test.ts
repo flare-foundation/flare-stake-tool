@@ -10,7 +10,7 @@ import { accountFromPrivateKey } from "../../src/chain/keys";
 import { buildTransaction } from "../../src/core/builders";
 import { UTXO_PAGE_SIZE, allUtxos, maxExportPCAmount, spendableAmount } from "../../src/core/builders/pchain";
 import { atomicTxFee } from "../../src/core/fee";
-import { FILE_SIGNER_POLICY, IMMEDIATE_SIGNER_POLICY } from "../../src/core/types";
+import { FILE_SIGNER_POLICY, IMMEDIATE_SIGNER_POLICY, type Env } from "../../src/core/types";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 import { startReplay, type Replay, type ReplayEnv } from "../helpers/replay";
 
@@ -68,6 +68,22 @@ describe("core/builders/pchain", function () {
       ).then(
         () => expect.fail("the previous default amount should not be exportable"),
         (error: unknown) => expect(String(error)).to.match(/Insufficient funds/)
+      );
+    });
+
+    it("refuses to export when nothing is spendable", async () => {
+      // the calls the P-chain builders gather their inputs with: here, no UTXOs at all
+      const clients = {
+        context: () => replay.env.clients.context(),
+        pvm: {
+          getFeeState: () => replay.env.clients.pvm.getFeeState(),
+          getUTXOs: () => Promise.resolve({ numFetched: 0, utxos: [], endIndex: { address: "", utxo: "" } }),
+        },
+      };
+      const empty = { network: replay.env.network, clients } as unknown as Env;
+      await buildTransaction({ type: "exportPC" }, empty, account, IMMEDIATE_SIGNER_POLICY).then(
+        () => expect.fail("exported from an empty account"),
+        (error: unknown) => expect(String(error)).to.include("Export amount is smaller than or equal to zero")
       );
     });
   });
