@@ -42,6 +42,7 @@ import {
   pastEndTimeWarning,
 } from "../cli/inputs";
 import { nodeOverridesFromArgv } from "../cli/node";
+import type { DerivationMode, TaskId } from "../constants/screen";
 import { prompts } from "./prompts";
 
 interface DerivedAddress {
@@ -92,7 +93,7 @@ async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWal
   }
 }
 
-async function runTask(task: string, session: Session): Promise<void> {
+async function runTask(task: Exclude<TaskId, "quit">, session: Session): Promise<void> {
   switch (task) {
     case "addresses":
       log(`P-chain address: ${session.account.pAddress}`);
@@ -159,8 +160,10 @@ async function runTask(task: string, session: Session): Promise<void> {
     case "claim":
       await claim(session);
       break;
-    default:
-      log("Task not supported");
+    default: {
+      const unsupported: never = task; // a task added to the menu without a case here fails to compile
+      throw new Error(`Task not supported: ${String(unsupported)}`);
+    }
   }
 }
 
@@ -357,7 +360,8 @@ async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
     const signer = new LedgerSigner(device, context.derivationPath ?? BASE_DERIVATION_PATH, env.network.hrp);
     return { env, signer, account: await signer.account() };
   }
-  throw new Error(`Unsupported wallet ${wallet}`);
+  const unsupported: never = wallet; // a wallet added to the menu without a branch here fails to compile
+  throw new Error(`Unsupported wallet ${String(unsupported)}`);
 }
 
 /**
@@ -394,7 +398,9 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
   const { derivation } = await prompts.derivationType();
   log("Fetching Addresses...");
   const addresses = await derivedAddresses(device, network, derivation);
-  const { address } = await prompts.selectAddress(addresses.map((a, i) => `${i + 1}. ${a.ethAddress}`));
+  const { address } = await prompts.selectAddress(
+    addresses.map((a, i) => ({ name: `${i + 1}. ${a.ethAddress}`, value: a.ethAddress }))
+  );
   const chosen = addresses.find((a) => a.ethAddress === address);
   if (!chosen) throw new Error("No address selected");
   const context: ContextFile = {
@@ -416,7 +422,7 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
 async function derivedAddresses(
   device: LedgerDevice,
   network: string,
-  derivationMode: string
+  derivationMode: DerivationMode
 ): Promise<DerivedAddress[]> {
   const paths: string[] = [];
   for (let i = 0; i < 10; i++) {

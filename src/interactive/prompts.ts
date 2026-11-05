@@ -2,7 +2,32 @@ import { styleText } from "node:util";
 import inquirer from "inquirer";
 import { parseDuration, parseFlr } from "../chain/units";
 import { parseBlsHex } from "../cli/inputs";
-import { taskConstants, networkConstants, walletConstants, derivationModeConstants } from "../constants/screen";
+import {
+  derivationModeConstants,
+  networkConstants,
+  taskConstants,
+  walletConstants,
+  type DerivationMode,
+  type NetworkId,
+  type TaskId,
+  type WalletId,
+} from "../constants/screen";
+
+/** A list choice: inquirer shows `name` and answers `value`. */
+export interface Choice<T> {
+  name: string;
+  value: T;
+}
+
+/** The choices of a label table, in its order: each shows its label and answers its key. */
+function choicesOf<K extends string>(labels: Readonly<Record<K, string>>): Choice<K>[] {
+  return (Object.keys(labels) as K[]).map((value) => ({ name: labels[value], value }));
+}
+
+const YES_NO: Choice<boolean>[] = [
+  { name: "Yes", value: true },
+  { name: "No", value: false },
+];
 
 /** inquirer `validate`: true when `parse` accepts the input, else its error message (the prompt asks again). */
 function validationOf(parse: () => unknown): true | string {
@@ -24,14 +49,10 @@ export const prompts = {
         type: "list",
         name: "wallet",
         message: styleText("magenta", "How do you want to connect your wallet?"),
-        choices: [...Object.values(walletConstants)],
-        filter: (val: string) => {
-          const key = Object.keys(walletConstants).find((key) => walletConstants[key] === val);
-          return key;
-        },
+        choices: choicesOf(walletConstants),
       },
     ];
-    return inquirer.prompt<{ wallet: string }>(questions);
+    return inquirer.prompt<{ wallet: WalletId }>(questions);
   },
   derivationType: async () => {
     const questions = [
@@ -39,14 +60,10 @@ export const prompts = {
         type: "list",
         name: "derivation",
         message: styleText("magenta", "Choose derivation path..."),
-        choices: [...Object.values(derivationModeConstants)],
-        filter: (val: string) => {
-          const key = Object.keys(derivationModeConstants).find((key) => derivationModeConstants[key] === val);
-          return key;
-        },
+        choices: choicesOf(derivationModeConstants),
       },
     ];
-    return inquirer.prompt<{ derivation: string }>(questions);
+    return inquirer.prompt<{ derivation: DerivationMode }>(questions);
   },
   pvtKeyPath: async () => {
     const questions = [
@@ -167,10 +184,7 @@ export const prompts = {
         type: "list",
         name: "isContinue",
         message: styleText("magenta", "Do you wish to continue with this?"),
-        choices: ["Yes", "No"],
-        filter: (val: string) => {
-          return val === "Yes" ? true : false;
-        },
+        choices: YES_NO,
       },
     ];
     return inquirer.prompt<{ isContinue: boolean }>(questions);
@@ -211,14 +225,10 @@ export const prompts = {
         type: "list",
         name: "network",
         message: styleText("magenta", "Which network do you want to connect to?"),
-        choices: [...Object.values(networkConstants)],
-        filter: (val: string) => {
-          const key = Object.keys(networkConstants).find((key) => networkConstants[key] === val);
-          return key;
-        },
+        choices: choicesOf(networkConstants),
       },
     ];
-    return inquirer.prompt<{ network: string }>(questions);
+    return inquirer.prompt<{ network: NetworkId }>(questions);
   },
 
   selectTask: async () => {
@@ -227,30 +237,22 @@ export const prompts = {
         type: "list",
         name: "task",
         message: styleText("magenta", "What do you want to do?"),
-        choices: [...Object.values(taskConstants)],
-        filter: (val: string) => {
-          const key = Object.keys(taskConstants).find((key) => taskConstants[key] === val);
-          return key;
-        },
+        choices: choicesOf(taskConstants),
       },
     ];
-    return inquirer.prompt<{ task: string }>(questions);
+    return inquirer.prompt<{ task: TaskId }>(questions);
   },
 
-  selectAddress: async (choiceList: string[]) => {
+  selectAddress: async <T>(choices: Choice<T>[]) => {
     const questions = [
       {
         type: "list",
         name: "address",
         message: styleText("magenta", "Which address do you want to use?"),
-        choices: [...choiceList],
-        filter: (val: string) => {
-          const address = val.split(" ")[1];
-          return address;
-        },
+        choices,
       },
     ];
-    return inquirer.prompt<{ address: string }>(questions);
+    return inquirer.prompt<{ address: T }>(questions);
   },
 
   delegationFee: async () => {
@@ -277,7 +279,7 @@ export const prompts = {
         choices: ["P", "C"],
       },
     ];
-    return inquirer.prompt<{ type: string }>(questions);
+    return inquirer.prompt<{ type: "P" | "C" }>(questions);
   },
   popBLSPublicKey: async () => {
     const questions = [
@@ -318,10 +320,7 @@ export const prompts = {
         type: "list",
         name: "wrapRewards",
         message: styleText("magenta", "Should claimed rewards be wrapped?"),
-        choices: ["Yes", "No"],
-        filter: (val: string) => {
-          return val === "Yes" ? true : false;
-        },
+        choices: YES_NO,
       },
     ];
     return inquirer.prompt<{ wrapRewards: boolean }>(questions);
@@ -357,10 +356,7 @@ export const prompts = {
           "magenta",
           `Do you want to claim all unclaimed rewards? ${totalUnclaimed ? "(total unclaimed: " + totalUnclaimed + " " + symbol + ")" : ""}`
         ),
-        choices: ["Yes", "No"],
-        filter: (val: string) => {
-          return val === "Yes" ? true : false;
-        },
+        choices: YES_NO,
       },
     ];
     return inquirer.prompt<{ claimAllUnclaimed: boolean }>(questions);
