@@ -1,7 +1,7 @@
 import { styleText } from "node:util";
 import inquirer from "inquirer";
 import { parseDuration, parseFlr } from "../chain/units";
-import { parseBlsHex } from "../cli/options";
+import { parseBlsHex } from "../cli/inputs";
 import { taskConstants, networkConstants, walletConstants, derivationModeConstants } from "../constants/screen";
 
 /** inquirer `validate`: true when `parse` accepts the input, else its error message (the prompt asks again). */

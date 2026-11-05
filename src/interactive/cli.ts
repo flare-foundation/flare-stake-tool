@@ -40,7 +40,7 @@ import {
   evmFeeOverridesFromArgv,
   parseBlsHex,
   pastEndTimeWarning,
-} from "../cli/options";
+} from "../cli/inputs";
 import { nodeOverridesFromArgv } from "../cli/node";
 import { prompts } from "./prompts";
 

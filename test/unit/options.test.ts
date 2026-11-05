@@ -1,16 +1,10 @@
 import { expect } from "chai";
-import {
-  evmFeeOverridesFromArgv,
-  parseAtomicTxRequest,
-  parseBlsHex,
-  parseEvmTxRequest,
-  parseNonce,
-  pastEndTimeWarning,
-} from "../../src/cli/options";
+import { evmFeeOverridesFromArgv, parseBlsHex, parseNonce, pastEndTimeWarning } from "../../src/cli/inputs";
+import { parseAtomicTxRequest, parseEvmTxRequest } from "../../src/cli/requests";
 
 const TO = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC";
 
-describe("cli/options", () => {
+describe("cli/inputs and cli/requests", () => {
   describe("--nonce", () => {
     it("accepts non-negative integers and leaves an absent nonce to the chain", () => {
       expect(parseNonce(undefined)).to.equal(undefined);

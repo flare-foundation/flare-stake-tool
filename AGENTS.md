@@ -17,7 +17,9 @@ install. Hardware-wallet support: Ledger (Flare, Avalanche and Ethereum apps).
 src/
   run.ts                    Entry script: alias rewrite (exportCP → transaction exportCP), banner in interactive mode, Commander dispatch
   cli.ts                    Commander definitions; each action parses options, resolves env + signer and calls app/
-  cli/options.ts            Typed option parsing (FLR → nFLR/wei bigint, durations, percentages), signer and env resolution
+  cli/requests.ts           Command options → TxRequest (FLR → nFLR/wei bigint, durations, percentages)
+  cli/inputs.ts             Input parsers shared with interactive mode (BLS hex, nonce, times, fee flags from argv)
+  cli/options.ts            Options every command shares; signer, env and account resolution
   app/env.ts                Network resolution (--network, else ctx.json, else flare) and the ctx.json file
   app/transactions.ts       Pre-flight checks (max 3 nodes, validator exists/period, Helicon gate) + the pipeline
   app/send.ts               send -i: attach an external signature to a stored transaction and submit
@@ -92,7 +94,7 @@ recipient has contract code.
 
 ## Unit conventions (read carefully)
 
-- `-a` (amount) and `-f` (fee) are in **FLR** on every path; `cli/options.ts`
+- `-a` (amount) and `-f` (fee) are in **FLR** on every path; `cli/requests.ts`
   converts them with `parseFlr` to **nFLR** (bigint, 9 decimals) for
   P-chain/atomic requests and with `parseFlrToWei` to **wei** (18 decimals)
   for C-chain commands. Extra non-zero decimals and commas are errors, never
