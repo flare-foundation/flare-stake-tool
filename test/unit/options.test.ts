@@ -1,10 +1,17 @@
 import { expect } from "chai";
-import { evmFeeOverridesFromArgv, parseBlsHex, parseNonce, pastEndTimeWarning } from "../../src/cli/inputs";
+import {
+  BASE_DERIVATION_PATH,
+  evmFeeOverridesFromArgv,
+  parseBlsHex,
+  parseNonce,
+  pastEndTimeWarning,
+} from "../../src/cli/inputs";
+import { globalOptions } from "../../src/cli/options";
 import { parseAtomicTxRequest, parseEvmTxRequest } from "../../src/cli/requests";
 
 const TO = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC";
 
-describe("cli/inputs and cli/requests", () => {
+describe("cli/inputs, cli/requests and cli/options", () => {
   describe("--nonce", () => {
     it("accepts non-negative integers and leaves an absent nonce to the chain", () => {
       expect(parseNonce(undefined)).to.equal(undefined);
@@ -105,6 +112,35 @@ describe("cli/inputs and cli/requests", () => {
       expect(() => evmFeeOverridesFromArgv(["node", "run.js", "interactive", "--gas-limit", "abc"])).to.throw(
         /--gas-limit must be a positive integer/
       );
+    });
+  });
+
+  describe("globalOptions", () => {
+    it("merges the program options with the command's, the command's winning", () => {
+      const merged = globalOptions(
+        { network: "costwo", transactionId: "from-program", ledger: true },
+        { transactionId: "from-command", amount: "5" }
+      );
+      expect(merged).to.deep.equal({
+        network: "costwo",
+        transactionId: "from-command",
+        ledger: true,
+        amount: "5",
+        derivationPath: BASE_DERIVATION_PATH,
+        ctxFile: "ctx.json",
+      });
+    });
+
+    it("defaults the derivation path and the context file only when they are not strings", () => {
+      expect(globalOptions({}, {})).to.include({ derivationPath: BASE_DERIVATION_PATH, ctxFile: "ctx.json" });
+      expect(globalOptions({ derivationPath: 3, ctxFile: true })).to.include({
+        derivationPath: BASE_DERIVATION_PATH,
+        ctxFile: "ctx.json",
+      });
+      expect(globalOptions({ derivationPath: "m/44'/60'/1'/0/0", ctxFile: "other.json" })).to.include({
+        derivationPath: "m/44'/60'/1'/0/0",
+        ctxFile: "other.json",
+      });
     });
   });
 });

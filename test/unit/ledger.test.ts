@@ -1,13 +1,23 @@
 /**
  * The Ledger code that runs without a device: signature shapes, the Avalanche
- * app's path split, and the software stand-in used by tests.
+ * app's path split, the software stand-in used by tests, and how LedgerSigner
+ * handles the Flare app's refusals.
  */
 import { expect } from "chai";
 import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
 import { detectApp } from "../../src/ledger/index";
-import { FAKE_LEDGER_KEY_ENV, fakeLedgerDevice, ledgerDevice } from "../../src/signers/ledger";
+import { getBytes } from "ethers";
+import { bundleFromUnsignedTxJson, type UnsignedTxJson } from "../../src/core/files";
+import {
+  FAKE_LEDGER_KEY_ENV,
+  LedgerSigner,
+  fakeLedgerDevice,
+  ledgerDevice,
+  type LedgerDevice,
+} from "../../src/signers/ledger";
+import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 
 /** The normalization each app module carried a copy of up to 5.0.0, kept as the reference. */
@@ -138,6 +148,81 @@ describe("ledger", () => {
         console.error = original;
       }
       expect(printed.join("\n")).to.include(`${FAKE_LEDGER_KEY_ENV} is set: --ledger signs with that software key`);
+    });
+  });
+
+  describe("LedgerSigner with the Flare app", () => {
+    const bundle = bundleFromUnsignedTxJson(readGolden("delegate-file").outcome.unsignedTxJson as UnsignedTxJson);
+    const HASH_SIGNATURE = "ab".repeat(65);
+
+    /** An answer of the Flare app with status 0x6984 ("Data is invalid"), shaped like the Zondax ResponseError. */
+    const invalidData = (detail: string): Error =>
+      Object.assign(new Error(`Data is invalid : ${detail}`), {
+        returnCode: 0x6984,
+        errorMessage: `Data is invalid : ${detail}`,
+      });
+
+    /** A Flare app whose full-transaction signing fails with `refusal`; records the hashes it signs. */
+    function flareApp(refusal: Error): { device: LedgerDevice; signedHashes: string[] } {
+      const signedHashes: string[] = [];
+      const device: LedgerDevice = {
+        detectApp: () => Promise.resolve("Flare"),
+        getPublicKey: () => Promise.resolve(EWOQ_PUBLIC_KEY_COMPRESSED),
+        signHash: (_path, hashHex) => {
+          signedHashes.push(hashHex);
+          return Promise.resolve(HASH_SIGNATURE);
+        },
+        signTransaction: () => Promise.reject(refusal),
+        signEvmTransaction: () => Promise.reject(new Error("not an EVM transaction")),
+      };
+      return { device, signedHashes };
+    }
+
+    /** Runs `action` with console.log captured; returns what it printed. */
+    async function logged(action: () => Promise<unknown>): Promise<string> {
+      const original = console.log;
+      const printed: string[] = [];
+      console.log = (message: string) => printed.push(message);
+      try {
+        await action();
+      } finally {
+        console.log = original;
+      }
+      return printed.join("\n");
+    }
+
+    it("reports a device error with its message and keeps the device's error as the cause", async () => {
+      const refusal = new Error("Transaction rejected by the user");
+      const { device, signedHashes } = flareApp(refusal);
+      await new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare").sign(bundle).then(
+        () => expect.fail("signing should fail"),
+        (error: unknown) => {
+          expect(error).to.be.instanceOf(Error);
+          expect((error as Error).message).to.equal("Ledger signing error: Transaction rejected by the user");
+          expect((error as Error).cause).to.equal(refusal);
+        }
+      );
+      expect(signedHashes).to.deep.equal([]); // no fallback to blind signing
+    });
+
+    it("falls back to signing the hash when the app does not recognise the transaction", async () => {
+      const { device, signedHashes } = flareApp(invalidData("Unrecognized error code"));
+      let result: unknown;
+      const printed = await logged(async () => {
+        result = await new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare").sign(bundle);
+      });
+      expect(result).to.deep.equal({ status: "signed", signature: getBytes(`0x${HASH_SIGNATURE}`) });
+      expect(signedHashes).to.deep.equal([Buffer.from(bundle.digest).toString("hex")]);
+      expect(printed).to.include("does not recognise delegate transactions; signing the transaction hash instead");
+    });
+
+    it("does not fall back on other invalid-data answers, which fail instead", async () => {
+      const { device, signedHashes } = flareApp(invalidData("Value out of range"));
+      await new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare").sign(bundle).then(
+        () => expect.fail("signing should fail"),
+        (error: unknown) => expect(String(error)).to.include("Ledger signing error")
+      );
+      expect(signedHashes).to.deep.equal([]);
     });
   });
 });
