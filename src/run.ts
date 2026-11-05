@@ -31,6 +31,11 @@ function expandAliases(argv: string[]): string[] {
 }
 
 if (command === "interactive" || command === "-i") {
+  if (!process.stdin.isTTY) {
+    // inquirer reads keystrokes from a terminal; without one it would crash after the first question
+    console.error(styleText("red", "Error: interactive mode needs a terminal; use the commands instead (see --help)"));
+    process.exit(1);
+  }
   banner();
   interactiveCli(baseArgv)
     .then(() => {

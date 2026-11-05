@@ -1,12 +1,12 @@
 /**
  * Failure modes of the built CLI that need no node: every error must end with
  * exit code 1 so scripts notice, and nothing secret may reach the output. Also
- * the commands that need no node: the info shortcuts and the interactive banner.
+ * the commands that need no node: the info shortcuts, and interactive mode
+ * refusing to start without a terminal.
  */
 import { expect } from "chai";
 import fs from "fs";
 import path from "path";
-import { version } from "../../package.json";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { markSentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { readGolden } from "../characterization/scenarios";
@@ -147,11 +147,15 @@ describe("CLI commands that need no node (built CLI)", function () {
     expect(runCli(["info", "addresses"], { cwd, env: PLAIN }).stdout).to.equal(shortcut.stdout);
   });
 
-  it("interactive mode shows the banner with the version, then asks for the wallet", () => {
-    // without a terminal, inquirer cannot read an answer and the process ends after the first question
-    const result = runCli(["interactive"], { cwd, env: PLAIN, timeoutMs: 20_000 });
-    expect(result.exitCode, "the process ended").to.not.equal(-1);
-    expect(result.stdout).to.include(`Version: ${version}`);
-    expect(result.stdout).to.include("How do you want to connect your wallet?");
+  // The banner and the menu need a terminal: test/integration/cli-interactive.test.ts drives them through a PTY.
+  it("interactive mode refuses to start without a terminal, before the banner", () => {
+    for (const command of ["interactive", "-i"]) {
+      const result = runCli([command], { cwd, env: PLAIN, timeoutMs: 20_000 });
+      expect(result.exitCode, command).to.equal(1);
+      expect(result.stderr, command).to.equal(
+        "Error: interactive mode needs a terminal; use the commands instead (see --help)\n"
+      );
+      expect(result.stdout, command).to.equal("");
+    }
   });
 });

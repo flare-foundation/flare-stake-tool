@@ -363,14 +363,15 @@ yet (nothing to import yet), an empty answer is estimated when the transaction
 is built. Invalid input (amounts, fees, periods, BLS keys) is refused at the
 prompt, which asks again. `--gas-limit`, `--max-fee-per-gas` and
 `--priority-fee-per-gas` given with `interactive` apply to its C-chain
-transactions (`claim`).
+transactions (`claim`). It needs a terminal: with stdin redirected or piped it
+refuses to start, with an error and exit code 1.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | stdin |
+| Inputs | stdin (a terminal) |
 | Side effects | Interactive prompts; ultimately calls the same action handlers. Connecting a Ledger writes `ctx.json`; an existing non-Ledger `ctx.json` (e.g. a ForDefi one) is replaced only after confirmation, and every replaced file is kept as `ctx.json.<time>.bak` |
 | Output | Same as the underlying commands |
-| Failures | Same as the underlying commands |
+| Failures | Same as the underlying commands; exit code 1 without a terminal |
 
 Tested via `node-pty` in `test/integration/cli-interactive.test.ts` (balance check
 and stake flows).

@@ -4,6 +4,7 @@ import { createFundedAccount, type FundedAccount } from "./accounts";
 import { fromNow, pickFreeNode, waitForLocalNetwork, type NodeInfo } from "./local-network";
 import { spawnInteractive, KEYS } from "./interactive-helper";
 import { networkConstants, taskConstants, walletConstants } from "../../src/constants/screen";
+import { version } from "../../package.json";
 
 /** Number of DOWN presses to reach `key` in an inquirer list built from `table`. */
 const menuIndex = (table: Record<string, string>, key: string): number => {
@@ -63,7 +64,8 @@ describe("CLI interactive mode (with network)", function () {
   it("connects with private key, picks localflare, checks balance, and exits", async () => {
     const session = spawnInteractive(["interactive"], tempDir);
 
-    // Menu 1: wallet type. Select Private Key.
+    // The banner with the version, then menu 1: wallet type. Select Private Key.
+    await session.waitFor(`Version: ${version}`);
     await session.waitFor("How do you want to connect your wallet?");
     pressDown(session, menuIndex(walletConstants, "privateKey"));
     session.send(KEYS.ENTER);
