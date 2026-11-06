@@ -49,17 +49,35 @@ export class LedgerSigner implements Signer {
   readonly kind = "ledger" as const;
   readonly policy: BuildPolicy = IMMEDIATE_SIGNER_POLICY;
 
+  /** The account of the first key the device answered; a session shows it and its transactions are built for it. */
+  private pinned: Account | undefined;
+
   constructor(
     private readonly device: LedgerDevice,
     private readonly derivationPath: string,
     private readonly hrp: string
   ) {}
 
+  /**
+   * The account the device has at the derivation path, read from the device every time: another Ledger (or seed)
+   * connected since the first read is refused, as transactions would be built and signed for an account other than
+   * the one shown.
+   */
   async account(): Promise<Account> {
-    return accountFromPublicKey(await this.device.getPublicKey(this.derivationPath, this.hrp), this.hrp);
+    const current = accountFromPublicKey(await this.device.getPublicKey(this.derivationPath, this.hrp), this.hrp);
+    if (this.pinned === undefined) {
+      this.pinned = current;
+    } else if (current.publicKeyHex !== this.pinned.publicKeyHex) {
+      throw new Error(
+        `The connected Ledger has ${current.cAddress} at ${this.derivationPath}, not ${this.pinned.cAddress} as ` +
+          "when it was connected; reconnect that Ledger"
+      );
+    }
+    return this.pinned;
   }
 
   async sign(bundle: UnsignedTxBundle): Promise<SignResult> {
+    await this.account(); // the device still holds the key the transaction was built for
     if (bundle.kind === "evm") {
       return {
         status: "signed",

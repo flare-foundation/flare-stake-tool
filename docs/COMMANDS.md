@@ -14,7 +14,7 @@ focuses on inputs / outputs / side effects / failure modes.
 | Flag | Purpose |
 |---|---|
 | `--network <flare\|songbird\|costwo\|coston\|localflare>` | Network to act on |
-| `--ledger` | Sign transactions on a connected Ledger device |
+| `--ledger` | Sign transactions on a connected Ledger device. The device must keep the key it had at the first read: another Ledger connected while the command runs is refused before anything is signed |
 | `--blind` | Blind signing on Ledger (default true) |
 | `--derivation-path <path>` | Ledger derivation path (default `m/44'/60'/0'/0/0`) |
 | `--ctx-file <file>` | Context file path (default `ctx.json`) |
@@ -387,7 +387,7 @@ and exit code 1.
 | Aspect | Detail |
 |---|---|
 | Inputs | stdin (a terminal) |
-| Side effects | Interactive prompts; ultimately calls the same action handlers. Connecting a Ledger writes `ctx.json`; an existing non-Ledger `ctx.json` (e.g. a ForDefi one) is replaced only after confirmation, and every replaced file is kept as `ctx.json.<time>.bak`. A Ledger `ctx.json` is reused only when the connected device has its key at its derivation path; otherwise the tool names both addresses and offers to replace it |
+| Side effects | Interactive prompts; ultimately calls the same action handlers. Connecting a Ledger writes `ctx.json`; an existing non-Ledger `ctx.json` (e.g. a ForDefi one) is replaced only after confirmation, and every replaced file is kept as `ctx.json.<time>.bak`. A Ledger `ctx.json` is reused only when the connected device has its key at its derivation path; otherwise the tool names both addresses and offers to replace it. Another Ledger plugged in during the session is refused at the next transaction, which is neither built nor signed |
 | Output | Same as the underlying commands |
 | Failures | Same as the underlying commands; exit code 1 without a terminal |
 

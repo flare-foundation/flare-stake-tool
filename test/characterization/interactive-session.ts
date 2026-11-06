@@ -70,6 +70,8 @@ interface Flags {
   noCycle?: boolean;
   /** The Ledger answers one key whatever the path, like the FLARE_FAKE_LEDGER_KEY stand-in. */
   sameKey?: boolean;
+  /** Another Ledger is plugged in once the menu is shown: from then on every path answers another key. */
+  swapLedger?: boolean;
   /**
    * An earlier export is still pending on both chains, and a new export's UTXO shows up only on the second look,
    * so a move must wait for its own.
@@ -82,6 +84,7 @@ let script: Answer[] = [];
 let flags: Flags = {};
 let exhausted = 0;
 let txCount = 0;
+let ledgerSwapped = false;
 /** How often the pending UTXOs were read since the last transaction. */
 let utxoReads = 0;
 
@@ -121,6 +124,7 @@ async function prompt(questions: Question[]): Promise<Record<string, unknown>> {
   const answers: Record<string, unknown> = {};
   for (const q of questions) {
     const choices = q.choices;
+    if (flags.swapLedger && q.message.includes("What do you want to do?")) ledgerSwapped = true;
     record(
       `? ${q.type} ${show(q.message)}` +
         (q.default !== undefined ? ` default=${show(q.default)}` : "") +
@@ -191,21 +195,22 @@ stub(envModule, "createEnv", (network, node = {}) => {
 });
 
 const transactions = fromDist<typeof TransactionsModule>("app/transactions.js");
-stub(transactions, "runTransaction", (request, _env, signer) => {
+stub(transactions, "runTransaction", async (request, _env, signer) => {
+  await signer.account(); // as runTransaction does before building
   record(`TX ${show(request)} signer=${signer.kind}`);
   if (flags.failTx?.includes(request.type)) {
     flags.failTx = flags.failTx.filter((type) => type !== request.type);
-    return Promise.reject(new Error(`node refused ${request.type}`));
+    throw new Error(`node refused ${request.type}`);
   }
   txCount++;
   utxoReads = 0;
   const atomic = /^(export|import)/.test(request.type);
-  return Promise.resolve({
+  return {
     status: "sent" as const,
     txId: `tx${txCount}`,
     chainStatus: "Committed",
     ...(atomic ? { fee: 1_234_000n } : {}),
-  });
+  };
 });
 stub(transactions, "estimateAtomicFee", (request) => {
   record(`ESTIMATE ${show(request)}`);
@@ -250,7 +255,7 @@ const fakeDevice: LedgerDevice = {
   detectApp: () => Promise.resolve("Flare"),
   getPublicKey: (derivationPath) => {
     record(`LEDGER getPublicKey ${derivationPath}`);
-    const seed = flags.sameKey ? "same" : derivationPath;
+    const seed = (ledgerSwapped ? "another Ledger " : "") + (flags.sameKey ? "same" : derivationPath);
     return Promise.resolve(new SigningKey(keccak256(toUtf8Bytes(seed))).compressedPublicKey.slice(2));
   },
   signHash: () => Promise.reject(new Error("not used")),
@@ -357,6 +362,13 @@ const SCENARIOS: Scenario[] = [
   },
   { name: "ledger: keep the context", ctx: "ledger", script: ["Ledger", "Yes", TASK.addresses, TASK.quit] },
   {
+    // the claim shows the first Ledger's account; the transaction is refused rather than built for the other one
+    name: "ledger: another Ledger plugged in during the session",
+    ctx: "ledger",
+    flags: { swapLedger: true },
+    script: ["Ledger", "Yes", TASK.claim, "Yes", "No", "", TASK.quit],
+  },
+  {
     // every path of this device answers another key than the one saved: kept (and refused), then replaced
     name: "ledger: a context from another Ledger",
     ctx: "ledger",
@@ -401,6 +413,7 @@ async function main(): Promise<void> {
     flags = { ...scenario.flags };
     exhausted = 0;
     txCount = 0;
+    ledgerSwapped = false;
     utxoReads = 0;
     record(`\n===== ${scenario.name}`);
     try {
