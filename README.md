@@ -119,14 +119,12 @@ This describes how to view your P- and C-chain balances.
 flare-stake-tool balance --ledger --network <network>
 ```
 
-Where:
+Sample response (balances are printed without trailing zeros):
 
-````
-Sample response:
-```bash
-C-chain 0x5a6a8c28a2fc040df3b7490440c50f00099c957a: 999.000000000000000000 FLR
-P-chain P-flare1mwy6yvuk8xjl87scxfvvl63xtex3ennvkkpasz: 1.000000000 FLR
-````
+```text
+C-chain 0x5a6a8c28a2Fc040Df3b7490440c50f00099c957a: 999 FLR
+P-chain P-flare1mwy6yvuk8xjl87scxfvvl63xtex3ennvkkpasz: 1 FLR
+```
 
 ### Export and import assets
 
@@ -293,10 +291,10 @@ flare-stake-tool send -i <transaction-id>
 Commands for obtaining unsigned transactions are the same as for the ledger in previous section, except that you omit the `--ledger` flag and additionally have to specify transaction id `-i <transaction-id>`. For example:
 
 ```bash
-flare-stake-tool exportCP -a <amount> -i <transaction-id> --ctx-file <path to your context file>
+flare-stake-tool exportCP -a <amount> -f <fee> -i <transaction-id> --ctx-file <path to your context file>
 ```
 
-where --ctx-file is optional and specifies the path to the context file. If not specified, the default context file (`ctx.json`) is used.
+where --ctx-file is optional and specifies the path to the context file. If not specified, the default context file (`ctx.json`) is used. `-f <fee>` (in FLR) is required in this flow, so that every signer builds the same transaction.
 
 ## Operations with private key
 

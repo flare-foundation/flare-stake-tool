@@ -15,7 +15,7 @@ focuses on inputs / outputs / side effects / failure modes.
 |---|---|
 | `--network <flare\|songbird\|costwo\|coston\|localflare>` | Network to act on |
 | `--ledger` | Sign transactions on a connected Ledger device. The device must keep the key it had at the first read: another Ledger connected while the command runs is refused before anything is signed |
-| `--blind` | Blind signing on Ledger (default true) |
+| `--blind` | Accepted for compatibility and has no effect: the signing mode follows the open Ledger app (the Flare app parses the transaction and falls back to signing its hash only for a type it cannot parse; the Avalanche app signs the hash) |
 | `--derivation-path <path>` | Ledger derivation path (default `m/44'/60'/0'/0/0`) |
 | `--ctx-file <file>` | Context file path (default `ctx.json`) |
 | `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58`. A `PRIVATE_KEY_CB58` whose checksum doesn't match (a typo) is refused |
@@ -280,7 +280,7 @@ Custodial signing flow via the ForDefi API.
 |---|---|
 | Inputs | `forDefi sign -i <id>` or `forDefi fetch -i <id>`. Optional `--evm-tx`. |
 | Reads | `private.pem` and `token` files in cwd, plus the unsigned tx JSON |
-| Side effects | `sign`: posts the unsigned tx to ForDefi's API. `fetch`: polls for the signature and writes the signed tx file. |
+| Side effects | `sign`: posts the unsigned tx to ForDefi's API. `fetch`: asks ForDefi once for the signature and writes the signed tx file; it does not wait, so run it again until the transaction is signed. |
 | Output | `sign`: the ForDefi transaction id; `fetch`: the signature |
 | Failures | Missing `private.pem` / `token`. A refused ForDefi request is reported with its HTTP status and answer (`ForDefi vault lookup (…) failed: HTTP 401 Unauthorized: …`), as is an answer that is not JSON. Vault id mismatch. `fetch` before the signature exists: "Transaction is not signed yet (ForDefi state: …)". |
 
