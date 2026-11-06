@@ -1,8 +1,8 @@
 /**
  * The checks that refuse a P-chain request before anything is built or signed:
  * a delegation to an unknown node or past the validator's period, Helicon
- * requests on a network without Helicon, and the validator an auto-renew
- * config change targets.
+ * requests on a network without Helicon, the limit of three nodes per account,
+ * and the validator an auto-renew config change targets.
  */
 import { expect } from "chai";
 import { runTransaction } from "../../src/app/transactions";
@@ -38,11 +38,11 @@ const VALIDATORS = [
  * whether Helicon is active); a request that passed them would fail on the
  * first other call.
  */
-function node(helicon = true): Env {
+function node(helicon = true, validators: object[] = VALIDATORS): Env {
   const clients = {
     verifyNetwork: () => Promise.resolve(),
     isHeliconActive: () => Promise.resolve(helicon),
-    pvm: { getCurrentValidators: () => Promise.resolve({ validators: VALIDATORS }) },
+    pvm: { getCurrentValidators: () => Promise.resolve({ validators }) },
   };
   return { network: networkConfig("localflare", {}), clients } as unknown as Env;
 }
@@ -122,6 +122,61 @@ describe("checks before a P-chain request is built", () => {
             `The configured account ${ACCOUNT.pAddress} is not in the validator authority of NodeID-Foreign (${OTHER})`
           )
       );
+    });
+  });
+
+  describe("the limit of three nodes per account", () => {
+    const delegation = (nodeID: string) => ({
+      txID: `delegation-${nodeID}`,
+      nodeID,
+      startTime: "1700000000",
+      endTime: String(PERIOD_END),
+      stakeAmount: "50000000000000",
+      rewardOwner: { locktime: "0", threshold: "1", addresses: [ACCOUNT.pAddress] },
+    });
+    const delegatedTo = (nodeID: string) => ({
+      ...validator(nodeID, `tx-${nodeID}`),
+      delegators: [delegation(nodeID)],
+    });
+    // the account delegates to three nodes until PERIOD_END; NodeID-Fourth is a validator it has no stake with
+    const STAKED = [
+      delegatedTo("NodeID-One"),
+      delegatedTo("NodeID-Two"),
+      delegatedTo("NodeID-Three"),
+      validator("NodeID-Fourth", "tx-fourth"),
+    ];
+    const LIMIT = "In the selected time period the account already has active stakes to 3 different nodes";
+    const endTime = BigInt(PERIOD_END - 86_400);
+    const bls = { blsPublicKey: new Uint8Array(48), blsSignature: new Uint8Array(96) };
+
+    it("refuses a stake, a delegation or an auto-renewed validator on a fourth node, on every path", async () => {
+      const requests: TxRequest[] = [
+        { type: "stake", nodeId: "NodeID-New", amount: 10n ** 13n, endTime, delegationFeeShares: 200_000, ...bls },
+        { type: "delegate", nodeId: "NodeID-Fourth", amount: 10n ** 12n, endTime },
+        // no end: it overlaps every stake that has not ended
+        {
+          type: "addAutoRenewedValidator",
+          nodeId: "NodeID-New",
+          amount: 10n ** 13n,
+          period: 1_209_600n,
+          delegationFeeShares: 200_000,
+          ...bls,
+        },
+      ];
+      for (const req of requests) {
+        expect(await refusalOf(req, node(true, STAKED)), req.type).to.include(LIMIT);
+      }
+    });
+
+    it("lets a request on one of the three nodes past it", async () => {
+      const requests: TxRequest[] = [
+        { type: "delegate", nodeId: "NodeID-Two", amount: 10n ** 12n, endTime },
+        { type: "stake", nodeId: "NodeID-Three", amount: 10n ** 13n, endTime, delegationFeeShares: 200_000, ...bls },
+      ];
+      for (const req of requests) {
+        // the fake node has no chain context, so a request past every check fails when the builder asks for it
+        expect(await refusalOf(req, node(true, STAKED)), req.type).to.include("env.clients.context is not a function");
+      }
     });
   });
 });
