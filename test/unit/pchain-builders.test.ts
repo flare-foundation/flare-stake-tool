@@ -1,8 +1,9 @@
 /**
  * P-chain builder details that need chain data: exporting the whole balance
  * (exportPC without -a), importing only the UTXOs the account can spend alone
- * (importPC), paying a transfer's recipient, following getUTXOs pagination, and
- * checking P-chain addresses.
+ * (importPC), paying a transfer's recipient, the owners and auto-compounding of
+ * auto-renewed validators, following getUTXOs pagination, and checking P-chain
+ * addresses.
  * Offline, against recorded sessions and scripted nodes.
  */
 import {
@@ -14,6 +15,7 @@ import {
   TransferableOutput,
   Utxo,
   avaxSerial,
+  pvmSerial,
   utils as futils,
 } from "@flarenetwork/flarejs";
 import { expect } from "chai";
@@ -24,6 +26,7 @@ import { buildTransaction } from "../../src/core/builders";
 import { UTXO_PAGE_SIZE, allUtxos, maxExportPCAmount, spendableAmount } from "../../src/core/builders/pchain";
 import { atomicTxFee } from "../../src/core/fee";
 import { FILE_SIGNER_POLICY, IMMEDIATE_SIGNER_POLICY, type Env } from "../../src/core/types";
+import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 import { startReplay, withReplay, type Replay, type ReplayEnv } from "../helpers/replay";
 
@@ -217,6 +220,67 @@ describe("core/builders/pchain", function () {
         const change = described.filter((output) => output.owners.includes(account.pAddress));
         expect(paid).to.deep.equal([{ owners: [recipient], threshold: 1, locktime: 0n, amount }]);
         for (const output of change) expect(output.owners).to.deep.equal([account.pAddress]);
+      }));
+  });
+
+  describe("auto-renewed validators", () => {
+    // The recorded sessions use the defaults (the account as owner, no auto-compounding), so a builder that dropped
+    // either option would still match them. They were recorded for their own account, which the replay needs.
+    const recordedAccount = (scenario: string) =>
+      accountFromPrivateKey(getBytes(`0x${readGolden(scenario).spec.account!.privateKeyHex}`), "localflare");
+    const bech32 = (owners: OutputOwners) =>
+      owners.addrs.map((a) => `P-${futils.formatBech32("localflare", a.toBytes())}`);
+    const other = accountFromPrivateKey(getBytes(`0x${"22".repeat(32)}`), "localflare").pAddress;
+
+    it("addAutoRenewedValidator puts the owners and auto-compound shares given into the transaction", () =>
+      withReplay("addAutoRenewedValidator-pk", async (env) => {
+        const signer = recordedAccount("addAutoRenewedValidator-pk");
+        // the recorded BLS key and proof of possession: flarejs checks they are points on the curve
+        const args = readGolden("addAutoRenewedValidator-pk").spec.args;
+        const argOf = (flag: string): string => args[args.indexOf(flag) + 1]!;
+        const built = await buildTransaction(
+          {
+            type: "addAutoRenewedValidator",
+            nodeId: "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
+            amount: 10n ** 13n,
+            period: 900n,
+            delegationFeeShares: 100_000,
+            blsPublicKey: getBytes(argOf("--pop-bls-public-key")),
+            blsSignature: getBytes(argOf("--pop-bls-signature")),
+            ownerAddresses: [other, signer.pAddress],
+            autoCompoundShares: 500_000,
+          },
+          env,
+          signer,
+          IMMEDIATE_SIGNER_POLICY
+        );
+        if (built.kind !== "atomic") throw new Error("addAutoRenewedValidator must be a P-chain transaction");
+        const tx = built.unsignedTx.getTx() as pvmSerial.AddAutoRenewedValidatorTx;
+        // the owners are the validator's authority: they, not the signing key, change its configuration later
+        expect(bech32(tx.getValidatorAuthority()).sort()).to.deep.equal([other, signer.pAddress].sort());
+        expect(tx.autoCompoundRewardShares.value()).to.equal(500_000);
+        expect(tx.delegationShares.value()).to.equal(100_000);
+        expect(tx.period.value()).to.equal(900n);
+        expect(bech32(tx.getValidatorRewardsOwner())).to.deep.equal([signer.pAddress]);
+      }));
+
+    it("setAutoRenewedValidatorConfig puts the auto-compound shares and period given into the transaction", () =>
+      withReplay("setAutoRenewedValidatorConfig-pk", async (env) => {
+        const built = await buildTransaction(
+          {
+            type: "setAutoRenewedValidatorConfig",
+            nodeId: "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
+            period: 604_800n,
+            autoCompoundShares: 500_000,
+          },
+          env,
+          recordedAccount("setAutoRenewedValidatorConfig-pk"),
+          IMMEDIATE_SIGNER_POLICY
+        );
+        if (built.kind !== "atomic") throw new Error("setAutoRenewedValidatorConfig must be a P-chain transaction");
+        const tx = built.unsignedTx.getTx() as pvmSerial.SetAutoRenewedValidatorConfigTx;
+        expect(tx.autoCompoundRewardShares.value()).to.equal(500_000);
+        expect(tx.period.value()).to.equal(604_800n);
       }));
   });
 
