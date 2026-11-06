@@ -12,6 +12,7 @@ import { markSentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../s
 import { readGolden } from "../characterization/scenarios";
 import { cleanupTempDir, makeTempDir, runCli, writeEnvFile } from "../helpers/cli";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+import { version } from "../../package.json";
 
 /** Nothing listens here, so a command that gets as far as the node fails fast. */
 const CLOSED_NODE = "http://127.0.0.1:1";
@@ -161,10 +162,54 @@ describe("CLI commands that need no node (built CLI)", function () {
     expect(runCli(["info", "addresses"], { cwd, env: PLAIN }).stdout).to.equal(shortcut.stdout);
   });
 
+  it("finds a shortcut after the global options, skipping their values", () => {
+    // a context file named like a command: its name is the value of --ctx-file, not the command
+    const init = runCli(
+      ["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo", "--ctx-file", "balance"],
+      {
+        cwd,
+      }
+    );
+    expect(init.exitCode).to.equal(0);
+    const plain = runCli(["info", "addresses", "--ctx-file", "balance"], { cwd, env: PLAIN });
+    expect(plain.exitCode).to.equal(0);
+    for (const args of [
+      ["--network", "costwo", "--ctx-file", "balance", "addresses"],
+      ["--ctx-file=balance", "--blind", "addresses"],
+    ]) {
+      const shortcut = runCli(args, { cwd, env: PLAIN });
+      expect(shortcut.exitCode, args.join(" ")).to.equal(0);
+      expect(shortcut.stdout, args.join(" ")).to.equal(plain.stdout);
+    }
+    // a transaction shortcut too: it gets as far as asking for the signing mode
+    const exportCP = runCli(["--network", "costwo", "exportCP", "-a", "1", "-f", "0.001"], { cwd });
+    expect(exportCP.exitCode).to.equal(1);
+    expect(exportCP.stderr).to.include("A transaction id is required for the unsigned-file flow");
+  });
+
+  it("--version prints the version whatever command follows it, interactive mode included", () => {
+    for (const args of [
+      ["--version", "interactive"],
+      ["-V", "-i"],
+      ["--network", "costwo", "--version", "balance"],
+    ]) {
+      const result = runCli(args, { cwd, env: PLAIN });
+      expect(result.exitCode, args.join(" ")).to.equal(0);
+      expect(result.stdout, args.join(" ")).to.equal(`${version}\n`);
+    }
+  });
+
   // The banner and the menu need a terminal: test/integration/cli-interactive.test.ts drives them through a PTY.
   it("interactive mode refuses to start without a terminal, before the banner", () => {
-    for (const command of ["interactive", "-i"]) {
-      const result = runCli([command], { cwd, env: PLAIN, timeoutMs: 20_000 });
+    // also after global options, which used to end in Commander's empty interactive command with exit code 0
+    for (const args of [
+      ["interactive"],
+      ["-i"],
+      ["--rpc-url", CLOSED_NODE, "interactive"],
+      ["--gas-limit=250000", "-i"],
+    ]) {
+      const command = args.join(" ");
+      const result = runCli(args, { cwd, env: PLAIN, timeoutMs: 20_000 });
       expect(result.exitCode, command).to.equal(1);
       expect(result.stderr, command).to.equal(
         "Error: interactive mode needs a terminal; use the commands instead (see --help)\n"

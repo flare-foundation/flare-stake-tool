@@ -23,6 +23,12 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command |
 | `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes (or env `FLARE_API_KEY`) |
 
+Global options can come before or after the command. The transaction types
+(`exportCP`, `stake`, …) can be given without `transaction`, and `addresses`,
+`balance` and `validators` without `info`, also after global options:
+`flare-stake-tool --network costwo balance` is
+`flare-stake-tool info balance --network costwo`.
+
 `-a`/`-f` (amount/fee) are in **FLR** on every signing path, written with `.`
 as the decimal separator; commas are refused (`1,5` and `10,000` are errors,
 write `1.5` and `10000`). P-chain and atomic amounts and fees take at most 9
