@@ -45,7 +45,8 @@ of them; an unsigned file and `exportCP` take the next nonce after the accepted
 ones. Times (`-e`,
 `-s`, `--period`) are unix seconds or durations such as `2d12h` (units w, d, h,
 m, s); an end time given as a duration is added to now and the resolved value is
-printed. A plain integer is a unix time, so an end time that is not in the
+printed. A time after the year 275760 (`8640000000000`) or a period above
+2^64−1 seconds is refused. A plain integer is a unix time, so an end time that is not in the
 future (such as `-e 1209600` meant as 14 days) gets a warning on stderr; the
 network then rejects the transaction. Every path prints the transaction id and
 waits until the transaction is accepted; P-chain and atomic transactions also

@@ -76,12 +76,26 @@ const UNIT_SECONDS: ReadonlyArray<[string, bigint]> = [
 ];
 const DURATION_RE = /^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/;
 
+/** Times and durations are uint64 on chain: a larger value takes more bytes and shifts every later field. */
+const UINT64_MAX = 2n ** 64n - 1n;
+
+/** The latest time a JavaScript Date can show (year 275760); far below UINT64_MAX, so it bounds times for both. */
+export const MAX_TIME_SECONDS = 8_640_000_000_000n;
+
 /**
  * Parses a duration into seconds. A plain integer is already seconds; otherwise
  * a sequence of `<integer><unit>` with units w, d, h, m (minutes), s in that
  * order, each at most once and without spaces: "900", "15m", "2d12h", "1w".
  */
 export function parseDuration(input: string): bigint {
+  const seconds = durationSeconds(input);
+  if (seconds > UINT64_MAX) {
+    throw new Error(`Invalid duration "${input}": at most ${UINT64_MAX} seconds`);
+  }
+  return seconds;
+}
+
+function durationSeconds(input: string): bigint {
   const text = input.trim();
   if (/^\d+$/.test(text)) {
     return BigInt(text);
@@ -124,14 +138,17 @@ export function formatDuration(seconds: bigint): string {
 
 /**
  * An end time is either absolute unix seconds (a plain integer) or a duration
- * added to now. Returns unix seconds.
+ * added to now. Returns unix seconds, at most MAX_TIME_SECONDS.
  */
 export function parseEndTime(input: string, nowMs: () => number = () => Date.now()): bigint {
   const text = input.trim();
-  if (/^\d+$/.test(text)) {
-    return BigInt(text);
+  const time = /^\d+$/.test(text) ? BigInt(text) : BigInt(Math.floor(nowMs() / 1000)) + parseDuration(text);
+  if (time > MAX_TIME_SECONDS) {
+    throw new Error(
+      `Invalid time "${input}": after ${MAX_TIME_SECONDS} (year 275760), the latest date that can be shown`
+    );
   }
-  return BigInt(Math.floor(nowMs() / 1000)) + parseDuration(text);
+  return time;
 }
 
 export function isDurationInput(input: string): boolean {

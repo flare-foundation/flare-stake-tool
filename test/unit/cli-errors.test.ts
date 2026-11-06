@@ -99,6 +99,26 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("refuses a time or period the chain can't hold, rather than building a malformed transaction or crashing", () => {
+    expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
+    const bls = ["--pop-bls-public-key", "ab".repeat(48), "--pop-bls-signature", "cd".repeat(96)];
+    for (const [args, message] of [
+      [["delegate", "-n", NODE_ID, "-a", "1", "-e", "15000000w"], 'Invalid time "15000000w"'], // was a RangeError
+      [["delegate", "-n", NODE_ID, "-a", "1", "-e", "18446744073709551621"], 'Invalid time "18446744073709551621"'],
+      [
+        ["addAutoRenewedValidator", "-n", NODE_ID, "-a", "10000", "--period", "40000000000000w", ...bls],
+        'Invalid duration "40000000000000w"',
+      ],
+    ] as const) {
+      const result = runCli([...args, "-i", "t1", "--network", "costwo"], {
+        cwd,
+        env: { FLARE_RPC_URL: CLOSED_NODE },
+      });
+      expect(result.exitCode, args[0]).to.equal(1);
+      expect(result.stderr, args[0]).to.include(message).and.not.include("RangeError");
+    }
+  });
+
   it("send and forDefi need the transaction id", () => {
     for (const [args, message] of [
       [["send"], "send needs the transaction id: -i <id>"],
