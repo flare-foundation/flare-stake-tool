@@ -179,7 +179,9 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   request of every client (`chain/clients.ts` assembles the flarejs Context
   itself, because `Context.getContextFromURI` would build keyless clients), and
   a copied endpoint URL with `?x-apikey=` works as the URL. `interactive` is a
-  Commander command like the others and takes the two flags the same way.
+  Commander command like the others and takes the two flags the same way; it
+  checks the URL before the banner and refuses the account and network options,
+  which its menu asks for.
 - The signing suites create a fresh account funded from the ewoq key for every
   run (`test/integration/accounts.ts`), so they are rerun-safe and independent
   of the max-three-validators rule, and all end times are relative to now.

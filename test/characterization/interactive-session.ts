@@ -345,6 +345,11 @@ const SCENARIOS: Scenario[] = [
     ],
   },
   {
+    // connecting used to ask again after every error, with no way out but Ctrl-C
+    name: "wallet menu: Quit after a failed connection",
+    script: ["Private Key", "nofile", "Quit"],
+  },
+  {
     name: "private key: a failed export is not imported",
     flags: { failTx: ["exportCP", "exportPC"] },
     script: [...PRIVATE_KEY, TASK.CP, "10", "", TASK.PC, "1", TASK.quit],

@@ -7,6 +7,7 @@ import { Command } from "commander";
 import { styleText } from "node:util";
 import figlet from "figlet";
 import { accountFromPublicKey } from "./chain/keys";
+import { overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
@@ -81,7 +82,11 @@ export function cli(program: Command): void {
     .command("interactive")
     .description("Interactive mode (also -i)")
     .action(async () => {
-      await interactive(globalOptions(program.opts()));
+      const given = NOT_INTERACTIVE_OPTIONS.filter(([key]) => program.getOptionValueSource(key) === "cli");
+      await interactive(
+        globalOptions(program.opts()),
+        given.map(([, flag]) => flag)
+      );
     });
 
   program
@@ -285,11 +290,33 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
 }
 
 /**
- * Starts the menu. Commander has handled --help and refused unknown options by now; the fee options are checked
- * before anything is shown, and the menu needs a terminal, as the prompts read keystrokes from one.
+ * Global options interactive mode has no use for: it asks for the wallet and the network itself, and keeps a Ledger
+ * context in ./ctx.json. They are refused rather than ignored.
  */
-async function interactive(options: GlobalOptions): Promise<void> {
+const NOT_INTERACTIVE_OPTIONS = [
+  ["network", "--network"],
+  ["ledger", "--ledger"],
+  ["blind", "--blind"],
+  ["derivationPath", "--derivation-path"],
+  ["ctxFile", "--ctx-file"],
+  ["envPath", "--env-path"],
+  ["getHacked", "--get-hacked"],
+] as const;
+
+/**
+ * Starts the menu. Commander has handled --help and refused unknown options by now; the options interactive mode
+ * doesn't use (`ignored`, the ones given), the fee options and the node URL are checked before anything is shown, and
+ * the menu needs a terminal, as the prompts read keystrokes from one.
+ */
+async function interactive(options: GlobalOptions, ignored: readonly string[]): Promise<void> {
+  if (ignored.length > 0) {
+    throw new Error(
+      `interactive mode asks for the wallet and network itself; leave out ${ignored.join(", ")} ` +
+        "(it uses --rpc-url, --api-key and the C-chain fee options)"
+    );
+  }
   const settings = { node: nodeOverrides(options), evmFees: evmFeeOverrides(options) };
+  overriddenNode(settings.node); // a bad --rpc-url fails now, not after the wallet questions
   if (!process.stdin.isTTY) {
     // without a terminal inquirer would crash after the first question
     throw new Error("interactive mode needs a terminal; use the commands instead (see --help)");

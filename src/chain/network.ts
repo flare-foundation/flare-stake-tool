@@ -116,6 +116,15 @@ export function assertNodeNetwork(network: NetworkConfig, nodeNetworkId: number)
   );
 }
 
+/** The node `--rpc-url` (else `FLARE_RPC_URL`) selects, parsed, or undefined for the network's own; throws on a bad URL. */
+export function overriddenNode(
+  overrides: NodeOverrides,
+  env: NodeJS.ProcessEnv = process.env
+): ParsedNodeUrl | undefined {
+  const urlInput = nonEmpty(overrides.apiUrl) ?? nonEmpty(env[RPC_URL_ENV]);
+  return urlInput === undefined ? undefined : parseNodeUrl(urlInput);
+}
+
 /**
  * Resolves a network by name. The node URL and API key come from the
  * overrides (`--rpc-url`, `--api-key`), else from `FLARE_RPC_URL` and
@@ -133,8 +142,7 @@ export function networkConfig(
     throw new Error(`Unknown network "${name}"; expected one of ${NETWORK_NAMES.join(", ")}`);
   }
   const definition = DEFINITIONS[name];
-  const urlInput = nonEmpty(overrides.apiUrl) ?? nonEmpty(env[RPC_URL_ENV]);
-  const node = urlInput === undefined ? undefined : parseNodeUrl(urlInput);
+  const node = overriddenNode(overrides, env);
   const apiUrl = node?.apiUrl ?? definition.apiUrl;
   return {
     name,

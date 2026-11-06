@@ -1,5 +1,5 @@
 ===== private key: every task
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Private Key"
 ? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
 > "pk"
@@ -231,12 +231,12 @@ TX {"type":"claim","recipient":"0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC","amo
 EXIT ok
 
 ===== private key: errors keep the session
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Private Key"
 ? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
 > "nofile"
 [log] [31mError: File nofile doesn't exist[39m
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Private Key"
 ? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
 > "pk"
@@ -280,8 +280,19 @@ TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-NFBbbJ4qCmNaCzeW7sxE
 [log] [34mExiting interactive cli.[39m
 EXIT ok
 
+===== wallet menu: Quit after a failed connection
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
+> "Private Key"
+? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
+> "nofile"
+[log] [31mError: File nofile doesn't exist[39m
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+
 ===== private key: a failed export is not imported
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Private Key"
 ? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
 > "pk"
@@ -311,7 +322,7 @@ TX {"type":"exportPC","amount":"1000000000n"} signer=privateKey
 EXIT ok
 
 ===== private key: a move waits for its own export, not an earlier one
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Private Key"
 ? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
 > "pk"
@@ -358,7 +369,7 @@ TX {"type":"importPC","fee":"22460n"} signer=privateKey
 EXIT ok
 
 ===== private key: no estimates, nothing to claim
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Private Key"
 ? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
 > "pk"
@@ -421,7 +432,7 @@ Unclaimed rewards: 0 LFLR[39m
 EXIT ok
 
 ===== ledger: new context
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 ? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
 > "Coston2"
@@ -461,7 +472,7 @@ FILE ctx.json: {
 }
 
 ===== ledger: keep the context
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 [log] [35mYou already have a ctx.json with the following parameters:[39m
 [log] [33mWallet:[39m ledger
@@ -492,7 +503,7 @@ FILE ctx.json: {
 }
 
 ===== ledger: another Ledger plugged in during the session
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 [log] [35mYou already have a ctx.json with the following parameters:[39m
 [log] [33mWallet:[39m ledger
@@ -533,7 +544,7 @@ FILE ctx.json: {
 }
 
 ===== ledger: another Ledger plugged in while choosing the address
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 ? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
 > "Coston2"
@@ -555,7 +566,7 @@ LEDGER getPublicKey m/44'/60'/0'/0/9
 ENV costwo {}
 LEDGER getPublicKey m/44'/60'/0'/0/0
 [log] [31mError: The connected Ledger has 0xf8569244442ed3755ef434Fcb2e924c11A99ca11 at m/44'/60'/0'/0/0, not 0x78C5BC3204a27285359897319add9A414919bc98 as when it was connected; reconnect that Ledger[39m
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 [log] [35mYou already have a ctx.json with the following parameters:[39m
 [log] [33mWallet:[39m ledger
@@ -615,7 +626,7 @@ FILE ctx.json.<time>.bak: {
 }
 
 ===== ledger: a context from another Ledger
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 [log] [35mYou already have a ctx.json with the following parameters:[39m
 [log] [33mWallet:[39m ledger
@@ -629,7 +640,7 @@ LEDGER getPublicKey m/44'/60'/2'/0/0
 ? confirm "\u001b[35mReplace ctx.json with a Ledger context? The current file is kept as a ctx.json.<time>.bak backup.\u001b[39m" default=false
 > false
 [log] [31mError: Kept ctx.json; connect the Ledger it was made with, or replace it[39m
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 [log] [35mYou already have a ctx.json with the following parameters:[39m
 [log] [33mWallet:[39m ledger
@@ -689,7 +700,7 @@ FILE ctx.json.<time>.bak: {
 }
 
 ===== ledger: replace the context
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 [log] [35mYou already have a ctx.json with the following parameters:[39m
 [log] [33mWallet:[39m ledger
@@ -745,7 +756,7 @@ FILE ctx.json.<time>.bak: {
 }
 
 ===== ledger: one key for every path
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 ? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
 > "Coston2"
@@ -785,7 +796,7 @@ FILE ctx.json: {
 }
 
 ===== ledger: a ForDefi context
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 [log] [35mYou already have a ctx.json with the following parameters:[39m
 [log] [33mWallet:[39m publicKey
@@ -795,7 +806,7 @@ FILE ctx.json: {
 ? confirm "\u001b[35mReplace ctx.json with a Ledger context? The current file is kept as a ctx.json.<time>.bak backup.\u001b[39m" default=false
 > false
 [log] [31mError: Kept ctx.json; choose another wallet, or move the file away to connect a Ledger[39m
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 [log] [35mYou already have a ctx.json with the following parameters:[39m
 [log] [33mWallet:[39m publicKey
@@ -844,7 +855,7 @@ FILE ctx.json: {
 FILE ctx.json.<time>.bak: {"wallet":"publicKey","publicKey":"021111111111111111111111111111111111111111111111111111111111111111","network":"costwo","vaultId":"v-1"}
 
 ===== ledger: an unusable context
-? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
 [log] [35mctx.json exists but cannot be used: Context file ctx.json is missing publicKey or network[39m
 ? confirm "\u001b[35mReplace ctx.json with a Ledger context? The current file is kept as a ctx.json.<time>.bak backup.\u001b[39m" default=false

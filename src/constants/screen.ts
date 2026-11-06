@@ -34,6 +34,7 @@ export type NetworkId = keyof typeof networkConstants;
 export const walletConstants = {
   ledger: "Ledger",
   privateKey: "Private Key " + styleText("red", "(not recommended!)"),
+  quit: "Quit",
 } as const;
 
 export type WalletId = keyof typeof walletConstants;

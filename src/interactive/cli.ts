@@ -64,7 +64,12 @@ export interface InteractiveOptions {
 }
 
 export async function interactiveCli(options: InteractiveOptions): Promise<void> {
-  const session: Session = { ...(await connectWalletWithRetry(options.node)), evmFees: options.evmFees };
+  const wallet = await connectWalletWithRetry(options.node);
+  if (wallet === undefined) {
+    logInfo("Exiting interactive cli.");
+    return;
+  }
+  const session: Session = { ...wallet, evmFees: options.evmFees };
   for (;;) {
     const task = await prompts.selectTask();
     if (task === "quit") {
@@ -80,7 +85,8 @@ export async function interactiveCli(options: InteractiveOptions): Promise<void>
   }
 }
 
-async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWallet> {
+/** Asks again after an error, until a wallet is connected; undefined when the user quits. */
+async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWallet | undefined> {
   for (;;) {
     try {
       return await connectWallet(node);
@@ -350,8 +356,11 @@ async function claim(session: Session): Promise<void> {
   });
 }
 
-async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
+async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet | undefined> {
   const wallet = await prompts.connectWallet();
+  if (wallet === "quit") {
+    return undefined;
+  }
   if (wallet === "privateKey") {
     const pvtKeyPath = await prompts.pvtKeyPath();
     if (!fs.existsSync(pvtKeyPath)) {

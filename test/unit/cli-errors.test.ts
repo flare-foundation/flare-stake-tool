@@ -280,6 +280,38 @@ describe("CLI commands that need no node (built CLI)", function () {
     expect(bad.stdout).to.equal("");
   });
 
+  it("interactive refuses the options it doesn't use and a bad node URL, before it looks for a terminal", () => {
+    const refused = (flags: string): string =>
+      `Error: interactive mode asks for the wallet and network itself; leave out ${flags} ` +
+      "(it uses --rpc-url, --api-key and the C-chain fee options)\n";
+    for (const [args, flags] of [
+      [["--network", "costwo", "-i"], "--network"],
+      [["interactive", "--ledger"], "--ledger"],
+      [["interactive", "--blind"], "--blind"],
+      [["interactive", "--derivation-path", "m/44'/60'/0'/0/1"], "--derivation-path"],
+      [["interactive", "--ctx-file", "other.json"], "--ctx-file"],
+      [["interactive", "--env-path", "keys"], "--env-path"],
+      [["interactive", "--get-hacked"], "--get-hacked"],
+      [["--network", "costwo", "-i", "--ctx-file", "other.json"], "--network, --ctx-file"],
+    ] as const) {
+      const result = runCli([...args], { cwd, env: PLAIN });
+      expect(result.exitCode, flags).to.equal(1);
+      expect(result.stderr, flags).to.equal(refused(flags));
+      expect(result.stdout, flags).to.equal("");
+    }
+    // a bad node URL used to fail only after the wallet questions, and every wallet then failed again
+    for (const [args, env] of [
+      [["-i", "--rpc-url", "ftp://node"], PLAIN],
+      [["interactive"], { ...PLAIN, FLARE_RPC_URL: "ftp://node" }],
+    ] as const) {
+      const result = runCli([...args], { cwd, env });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(
+        'Error: Invalid node URL "ftp://node"; only http and https are supported\n'
+      );
+    }
+  });
+
   // The banner and the menu need a terminal: test/integration/cli-interactive.test.ts drives them through a PTY.
   it("interactive mode refuses to start without a terminal, before the banner", () => {
     // also after global options, which used to end in Commander's empty interactive command with exit code 0
