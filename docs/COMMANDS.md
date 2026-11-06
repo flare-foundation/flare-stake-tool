@@ -18,7 +18,7 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--blind` | Blind signing on Ledger (default true) |
 | `--derivation-path <path>` | Ledger derivation path (default `m/44'/60'/0'/0/0`) |
 | `--ctx-file <file>` | Context file path (default `ctx.json`) |
-| `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58` |
+| `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58`. A `PRIVATE_KEY_CB58` whose checksum doesn't match (a typo) is refused |
 | `--get-hacked` | Use the env file's private key for direct in-process signing |
 | `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command |
 | `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes (or env `FLARE_API_KEY`) |

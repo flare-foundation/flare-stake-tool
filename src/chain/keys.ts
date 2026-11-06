@@ -120,10 +120,16 @@ export function parsePrivateKey(options: { hex?: string | undefined; cb58?: stri
   }
   if (cb58) {
     const encoded = cb58.startsWith(CB58_PREFIX) ? cb58.slice(CB58_PREFIX.length) : cb58;
+    let decoded: Uint8Array;
     try {
-      fromCb58 = futils.base58check.decode(encoded);
+      decoded = futils.base58.decode(encoded);
     } catch {
       throw new Error("PRIVATE_KEY_CB58 is not valid base58check");
+    }
+    // flarejs' base58check.decode drops the 4 checksum bytes without checking them, so a typo gave another valid key
+    fromCb58 = decoded.subarray(0, -4);
+    if (hexlify(futils.addChecksum(fromCb58)) !== hexlify(decoded)) {
+      throw new Error("PRIVATE_KEY_CB58 has a bad checksum; check it for a typo");
     }
     if (fromCb58.length !== 32) {
       throw new Error("PRIVATE_KEY_CB58 must decode to 32 bytes");

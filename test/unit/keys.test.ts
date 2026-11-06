@@ -102,4 +102,17 @@ describe("chain/keys", () => {
     expect(() => parsePrivateKey({ cb58: `PrivateKey-${short}` })).to.throw("PRIVATE_KEY_CB58 must decode to 32 bytes");
     expect(() => parsePrivateKey({ hex: "11".repeat(32), cb58: EWOQ_PRIVATE_KEY_CB58 })).to.throw(/different keys/);
   });
+
+  it("refuses a cb58 private key with any one character mistyped", () => {
+    // flarejs' base58check.decode never checks the checksum: most of these decoded to another, valid key
+    const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    const encoded = EWOQ_PRIVATE_KEY_CB58.replace("PrivateKey-", "");
+    for (let i = 0; i < encoded.length; i++) {
+      const typo = alphabet[(alphabet.indexOf(encoded[i]!) + 1) % alphabet.length]!;
+      const mistyped = `PrivateKey-${encoded.slice(0, i)}${typo}${encoded.slice(i + 1)}`;
+      expect(() => parsePrivateKey({ cb58: mistyped }), mistyped).to.throw(
+        "PRIVATE_KEY_CB58 has a bad checksum; check it for a typo"
+      );
+    }
+  });
 });

@@ -102,7 +102,8 @@ recipient has contract code.
 - `-e`, `-s` and `--period` accept unix seconds or durations (`2d12h`);
   `parseEndTime` resolves a duration against now.
 - The `--env-path` file uses `PRIVATE_KEY_HEX` (hex) and/or `PRIVATE_KEY_CB58`
-  (base58check).
+  (base58check). `parsePrivateKey` checks the CB58 checksum itself: flarejs'
+  `base58check.decode` only drops it.
 - Network minimums (P-chain) differ per network — validator self-bond /
   delegation: flare, songbird, costwo = 1,000,000 / 50,000; coston =
   100,000 / 10,000. Verify against the chain rather than this file:
