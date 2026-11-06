@@ -13,7 +13,9 @@ import {
   type UnsignedTx,
 } from "@flarenetwork/flarejs";
 import { pChainAddressBytes, type Account } from "../../chain/keys";
+import { formatFlr } from "../../chain/units";
 import { currentValidators } from "../../chain/validators";
+import { atomicTxFee } from "../fee";
 import {
   chainOfAtomicTx,
   type AtomicTxType,
@@ -113,17 +115,24 @@ async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sou
 
 type PChainInputs = Awaited<ReturnType<typeof pChainInputs>>;
 
-/** AVAX the account can spend alone now: unlocked, not stake-locked, threshold 1 (getUTXOs only returns its own). */
-export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: string, nowSeconds: bigint): bigint {
+type UtxoInfo = ReturnType<typeof futils.getUtxoInfo>;
+
+/**
+ * Whether the account can spend a UTXO alone now: threshold 1, no lock running. getUTXOs also returns outputs the
+ * address only co-owns (a 2-of-2, say), which anyone can create for any address.
+ */
+function spendableAlone(info: UtxoInfo, now: bigint): boolean {
+  return info.threshold <= 1 && info.locktime <= now && info.stakeableLocktime <= now;
+}
+
+const nowSeconds = (): bigint => BigInt(Math.floor(Date.now() / 1000));
+
+/** AVAX the account can spend alone now. */
+export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: string, now: bigint): bigint {
   let total = 0n;
   for (const utxo of utxos) {
     const info = futils.getUtxoInfo(utxo);
-    if (
-      info.assetId === avaxAssetID &&
-      info.threshold <= 1 &&
-      info.locktime <= nowSeconds &&
-      info.stakeableLocktime <= nowSeconds
-    ) {
+    if (info.assetId === avaxAssetID && spendableAlone(info, now)) {
       total += info.amount;
     }
   }
@@ -152,7 +161,7 @@ const FEE_SHORTFALL_RE = /need (\d+) more unlocked nAVAX .*to cover fee/;
  * minus that fee then spends the same inputs with nothing left over.
  */
 function exportAllPC(inputs: PChainInputs): { amount: bigint; unsignedTx: UnsignedTx } {
-  const total = spendableAmount(inputs.utxos, inputs.context.avaxAssetID, BigInt(Math.floor(Date.now() / 1000)));
+  const total = spendableAmount(inputs.utxos, inputs.context.avaxAssetID, nowSeconds());
   let fee = 0n;
   for (let attempt = 0; attempt < 4; attempt++) {
     const amount = total - fee;
@@ -253,28 +262,53 @@ export async function buildImportPC(
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
   requireFeeForPolicy("importPC", req.fee, policy);
-  const [context, utxos] = await Promise.all([
+  const [context, pending] = await Promise.all([
     env.clients.context(),
     allUtxos((query) => env.clients.evm.getUTXOs(query), { sourceChain: "P", addresses: [account.cAddressBech] }),
   ]);
-  if (req.fee === undefined) {
-    const baseFee = await env.clients.evm.getBaseFee();
-    return bundle(
-      "importPC",
-      evm.newImportTxFromBaseFee(
-        context,
-        account.cAddressBytes,
-        [account.addressBytes],
-        utxos,
-        context.pBlockchainID,
-        estimatedGasPriceGwei(baseFee)
-      )
+  // flarejs (5.2.0) charges the fee to the first UTXO before checking that the account can spend it, so a co-owned
+  // UTXO in front made it build an import that pays nothing; it only gets the ones the account can spend alone.
+  const now = nowSeconds();
+  const utxos = pending.filter((utxo) => spendableAlone(futils.getUtxoInfo(utxo), now));
+  if (utxos.length === 0) {
+    throw new Error(
+      pending.length === 0
+        ? "Nothing to import from the P-chain"
+        : `Nothing to import from the P-chain that this account can spend alone (${pending.length} UTXO(s) need more signatures or are still locked)`
     );
   }
-  return bundle(
-    "importPC",
-    evm.newImportTx(context, account.cAddressBytes, [account.addressBytes], utxos, context.pBlockchainID, req.fee)
-  );
+  let unsignedTx: UnsignedTx;
+  if (req.fee === undefined) {
+    const baseFee = await env.clients.evm.getBaseFee();
+    unsignedTx = evm.newImportTxFromBaseFee(
+      context,
+      account.cAddressBytes,
+      [account.addressBytes],
+      utxos,
+      context.pBlockchainID,
+      estimatedGasPriceGwei(baseFee)
+    );
+  } else {
+    unsignedTx = evm.newImportTx(
+      context,
+      account.cAddressBytes,
+      [account.addressBytes],
+      utxos,
+      context.pBlockchainID,
+      req.fee
+    );
+  }
+  // what the chain burns, read from the transaction itself: exactly -f, or something when estimated
+  const paid = atomicTxFee(unsignedTx, context);
+  if (req.fee === undefined ? paid <= 0n : paid !== req.fee) {
+    const symbol = env.network.symbol;
+    throw new Error(
+      `The import would pay a fee of ${formatFlr(paid)} ${symbol}` +
+        (req.fee === undefined ? "" : ` instead of the ${formatFlr(req.fee)} ${symbol} given`) +
+        "; it is not signed"
+    );
+  }
+  return bundle("importPC", unsignedTx);
 }
 
 export async function buildStake(

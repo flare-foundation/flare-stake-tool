@@ -1,9 +1,19 @@
 /**
  * P-chain builder details that need chain data: exporting the whole balance
- * (exportPC without -a) and following getUTXOs pagination. Offline, against the
- * recorded exportPC-pk session and a scripted paginated node.
+ * (exportPC without -a), importing only the UTXOs the account can spend alone
+ * (importPC), following getUTXOs pagination, and checking P-chain addresses.
+ * Offline, against recorded sessions and scripted nodes.
  */
-import { utils as futils, type Utxo } from "@flarenetwork/flarejs";
+import {
+  BigIntPr,
+  Id,
+  Int,
+  OutputOwners,
+  TransferOutput,
+  Utxo,
+  avaxSerial,
+  utils as futils,
+} from "@flarenetwork/flarejs";
 import { expect } from "chai";
 import { getBytes } from "ethers";
 import { accountFromPrivateKey } from "../../src/chain/keys";
@@ -86,6 +96,73 @@ describe("core/builders/pchain", function () {
         () => expect.fail("exported from an empty account"),
         (error: unknown) => expect(String(error)).to.include("Export amount is smaller than or equal to zero")
       );
+    });
+  });
+
+  describe("importPC", () => {
+    let replay: Replay;
+    beforeEach(async () => {
+      replay = await startReplay("importPC-pk");
+    });
+    afterEach(() => replay.close());
+
+    const other = accountFromPrivateKey(getBytes(`0x${"11".repeat(32)}`), "localflare");
+    const FEE = 10_000_000n; // 0.01 FLR
+
+    /** A P→C export output of `amount` nFLR held by `owners`, `threshold` of them needed, locked until `locktime`. */
+    async function exported(owners: Uint8Array[], threshold: number, amount: bigint, index: number, locktime = 0n) {
+      const { avaxAssetID } = await replay.env.clients.context();
+      return new Utxo(
+        new avaxSerial.UTXOID(Id.fromHex(`0x${String(index + 1).padStart(64, "0")}`), new Int(index)),
+        Id.fromString(avaxAssetID),
+        new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative(owners, locktime, threshold))
+      );
+    }
+
+    /** The recorded context, with `utxos` pending on the C-chain. */
+    function pendingEnv(utxos: Utxo[]): Env {
+      const clients = {
+        context: () => replay.env.clients.context(),
+        evm: {
+          getUTXOs: () =>
+            Promise.resolve({ numFetched: utxos.length, utxos, endIndex: { address: "", utxo: "" }, encoding: "hex" }),
+          getBaseFee: () => Promise.resolve(25_000_000_000n),
+        },
+      };
+      return { network: replay.env.network, clients } as unknown as Env;
+    }
+
+    const importedInputs = (bundle: { unsignedTx: { getTx: () => unknown } }) =>
+      (bundle.unsignedTx.getTx() as { importedInputs: unknown[] }).importedInputs.length;
+
+    it("imports only what the account can spend alone, and pays the fee given even with a co-owned UTXO in front", async () => {
+      const utxos = [
+        await exported([account.addressBytes, other.addressBytes], 2, 5_000_000_000n, 0), // needs both keys
+        await exported([account.addressBytes], 1, 3_000_000_000n, 1, now() + 86_400n), // locked for a day
+        await exported([account.addressBytes], 1, 10_000_000_000n, 2),
+      ];
+      const env = pendingEnv(utxos);
+      const context = await env.clients.context();
+      const given = await buildTransaction({ type: "importPC", fee: FEE }, env, account, IMMEDIATE_SIGNER_POLICY);
+      const estimated = await buildTransaction({ type: "importPC" }, env, account, IMMEDIATE_SIGNER_POLICY);
+      if (given.kind !== "atomic" || estimated.kind !== "atomic") throw new Error("not an atomic transaction");
+      expect(importedInputs(given)).to.equal(1);
+      expect(importedInputs(estimated)).to.equal(1);
+      expect(atomicTxFee(given.unsignedTx, context)).to.equal(FEE); // flarejs alone built one that paid 0
+      expect(atomicTxFee(estimated.unsignedTx, context) > 0n).to.equal(true);
+    });
+
+    it("refuses when nothing pending can be spent alone, and when nothing is pending", async () => {
+      const refusal = (utxos: Utxo[], message: string) =>
+        buildTransaction({ type: "importPC", fee: FEE }, pendingEnv(utxos), account, IMMEDIATE_SIGNER_POLICY).then(
+          () => expect.fail("built an import"),
+          (error: unknown) => expect(String(error)).to.include(message)
+        );
+      await refusal(
+        [await exported([account.addressBytes, other.addressBytes], 2, 5_000_000_000n, 0)],
+        "Nothing to import from the P-chain that this account can spend alone (1 UTXO(s) need more signatures or are still locked)"
+      );
+      await refusal([], "Nothing to import from the P-chain");
     });
   });
 

@@ -136,14 +136,16 @@ Move FLR from the P-chain to the C-chain (reverse of exportCP).
 
 ## transaction importPC
 
-Complete the P→C transfer started by `exportPC`. Reads pending UTXOs.
+Complete the P→C transfer started by `exportPC`. Reads pending UTXOs and
+imports those the account can spend alone: one that needs more signatures (a
+2-of-2 that includes the address) or is still locked is left pending.
 
 | Aspect | Detail |
 |---|---|
 | Inputs | `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path). |
 | Side effects | Submits an atomic import tx on the C-chain |
 | Output | Tx hash, "sent to the network" |
-| Failures | "tx has no imported inputs" if exportPC hasn't propagated to the C-chain atomic mempool yet (3s delay typically suffices on local) |
+| Failures | "Nothing to import from the P-chain" if exportPC hasn't propagated to the C-chain yet (3s delay typically suffices on local), or "… that this account can spend alone" when only UTXOs it cannot spend alone are pending. Refused before signing if the built transaction would not pay exactly `-f` (or would pay nothing when estimated). |
 
 ---
 
