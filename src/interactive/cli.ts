@@ -34,14 +34,7 @@ import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types
 import { describeError, log, logError, logInfo, logWarning, reportOutcome } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
-import {
-  DEFAULT_DELEGATION_FEE_PERCENT,
-  BASE_DERIVATION_PATH,
-  evmFeeOverridesFromArgv,
-  parseBlsHex,
-  pastEndTimeWarning,
-} from "../cli/inputs";
-import { nodeOverridesFromArgv } from "../cli/node";
+import { DEFAULT_DELEGATION_FEE_PERCENT, BASE_DERIVATION_PATH, parseBlsHex, pastEndTimeWarning } from "../cli/inputs";
 import type { DerivationMode, TaskId } from "../constants/screen";
 import { prompts } from "./prompts";
 
@@ -64,10 +57,14 @@ type ConnectedWallet = Omit<Session, "evmFees">;
 const PENDING_IMPORT_TIMEOUT_MS = 90_000;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export async function interactiveCli(baseArgv: string[]): Promise<void> {
-  const node = nodeOverridesFromArgv(baseArgv);
-  const evmFees = evmFeeOverridesFromArgv(baseArgv);
-  const session: Session = { ...(await connectWalletWithRetry(node)), evmFees };
+/** What the command line gives interactive mode: the node to use and the C-chain fee options. */
+export interface InteractiveOptions {
+  node: NodeOverrides;
+  evmFees: EvmFeeOverrides;
+}
+
+export async function interactiveCli(options: InteractiveOptions): Promise<void> {
+  const session: Session = { ...(await connectWalletWithRetry(options.node)), evmFees: options.evmFees };
   for (;;) {
     const task = await prompts.selectTask();
     if (task === "quit") {

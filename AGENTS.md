@@ -15,10 +15,10 @@ install. Hardware-wallet support: Ledger (Flare, Avalanche and Ethereum apps).
 
 ```
 src/
-  run.ts                    Entry script: alias rewrite (exportCP → transaction exportCP), banner in interactive mode, Commander dispatch
-  cli.ts                    Commander definitions; each action parses options, resolves env + signer and calls app/
+  run.ts                    Entry script: alias rewrite (exportCP → transaction exportCP, -i → interactive), Commander dispatch
+  cli.ts                    Commander definitions; each action parses options, resolves env + signer and calls app/ (interactive: terminal check, banner, menu)
   cli/requests.ts           Command options → TxRequest (FLR → nFLR/wei bigint, durations, percentages)
-  cli/inputs.ts             Input parsers shared with interactive mode (BLS hex, nonce, times, fee flags from argv)
+  cli/inputs.ts             Input parsers shared with interactive mode (BLS hex, nonce, times, fee flags)
   cli/options.ts            Options every command shares; signer, env and account resolution
   app/env.ts                Network resolution (--network, else ctx.json, else flare) and the ctx.json file
   app/transactions.ts       Pre-flight checks (max 3 nodes, validator exists/period, Helicon gate) + the pipeline
@@ -177,8 +177,8 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   Flare's API gateway. The key travels as the `x-apikey` header on every
   request of every client (`chain/clients.ts` assembles the flarejs Context
   itself, because `Context.getContextFromURI` would build keyless clients), and
-  a copied endpoint URL with `?x-apikey=` works as the URL. `interactive` reads
-  the two flags from argv (`cli/node.ts`), as it is dispatched before Commander.
+  a copied endpoint URL with `?x-apikey=` works as the URL. `interactive` is a
+  Commander command like the others and takes the two flags the same way.
 - The signing suites create a fresh account funded from the ewoq key for every
   run (`test/integration/accounts.ts`), so they are rerun-safe and independent
   of the max-three-validators rule, and all end times are relative to now.

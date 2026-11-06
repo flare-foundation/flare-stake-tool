@@ -4,6 +4,8 @@
  * no transaction logic lives here.
  */
 import { Command } from "commander";
+import { styleText } from "node:util";
+import figlet from "figlet";
 import { accountFromPublicKey } from "./chain/keys";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
@@ -25,15 +27,18 @@ import {
   END_TIME,
   START_TIME,
   START_TIME_NOT_USED_WARNING,
+  evmFeeOverrides,
   pastEndTimeWarning,
   type ParsedTime,
 } from "./cli/inputs";
 import { globalOptions, resolveAccount, resolveEnv, resolveSigner, type GlobalOptions } from "./cli/options";
 import { parseAtomicTxRequest, parseEvmTxRequest, type AtomicTxOptions, type EvmTxOptions } from "./cli/requests";
-import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION } from "./cli/node";
+import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
+import { interactiveCli } from "./interactive/cli";
 import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
 import { FAKE_LEDGER_KEY_ENV, ledgerDevice } from "./signers/ledger";
 import * as ledger from "./ledger";
+import { version } from "../package.json";
 
 const TRANSACTION_TYPES = ATOMIC_TX_TYPES.join("|");
 
@@ -74,9 +79,9 @@ export function cli(program: Command): void {
 
   program
     .command("interactive")
-    .description("Interactive mode")
-    .action(() => {
-      // never runs: src/run.ts dispatches "interactive" before Commander; listed for --help
+    .description("Interactive mode (also -i)")
+    .action(async () => {
+      await interactive(globalOptions(program.opts()));
     });
 
   program
@@ -279,6 +284,23 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
   } else {
     throw new Error(`Unknown forDefi action ${type}; use sign or fetch`);
   }
+}
+
+/**
+ * Starts the menu. Commander has handled --help and refused unknown options by now; the fee options are checked
+ * before anything is shown, and the menu needs a terminal, as the prompts read keystrokes from one.
+ */
+async function interactive(options: GlobalOptions): Promise<void> {
+  const settings = { node: nodeOverrides(options), evmFees: evmFeeOverrides(options) };
+  if (!process.stdin.isTTY) {
+    // without a terminal inquirer would crash after the first question
+    throw new Error("interactive mode needs a terminal; use the commands instead (see --help)");
+  }
+  process.stdout.write("\x1Bc");
+  console.log(styleText("white", figlet.textSync("Flare Stake CLI")));
+  console.log(styleText("green", `Version: ${version}`));
+  await interactiveCli(settings);
+  console.log("Finished execution");
 }
 
 async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {

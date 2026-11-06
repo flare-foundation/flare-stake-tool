@@ -2,7 +2,7 @@
  * Failure modes of the built CLI that need no node: every error must end with
  * exit code 1 so scripts notice, and nothing secret may reach the output. Also
  * the commands that need no node: the info shortcuts, and interactive mode
- * refusing to start without a terminal.
+ * handling its options and refusing to start without a terminal.
  */
 import { expect } from "chai";
 import fs from "fs";
@@ -197,6 +197,30 @@ describe("CLI commands that need no node (built CLI)", function () {
       expect(result.exitCode, args.join(" ")).to.equal(0);
       expect(result.stdout, args.join(" ")).to.equal(`${version}\n`);
     }
+  });
+
+  it("interactive --help shows the help of interactive mode and starts nothing, -i included", () => {
+    for (const args of [
+      ["interactive", "--help"],
+      ["-i", "--help"],
+      ["--network", "costwo", "-i", "-h"],
+    ]) {
+      const result = runCli(args, { cwd, env: PLAIN });
+      expect(result.exitCode, args.join(" ")).to.equal(0);
+      expect(result.stdout, args.join(" ")).to.match(/^Usage: flare-stake-tool interactive \[options\]\n/);
+      expect(result.stderr, args.join(" ")).to.equal("");
+    }
+  });
+
+  it("interactive refuses an unknown option or a bad value before it looks for a terminal", () => {
+    const misspelled = runCli(["interactive", "--gas-lmit", "250000"], { cwd, env: PLAIN });
+    expect(misspelled.exitCode).to.equal(1);
+    expect(misspelled.stderr).to.include("error: unknown option '--gas-lmit'");
+    expect(misspelled.stdout).to.equal("");
+    const bad = runCli(["-i", "--gas-limit", "abc"], { cwd, env: PLAIN });
+    expect(bad.exitCode).to.equal(1);
+    expect(bad.stderr).to.match(/^Error: Option --gas-limit must be a positive integer/);
+    expect(bad.stdout).to.equal("");
   });
 
   // The banner and the menu need a terminal: test/integration/cli-interactive.test.ts drives them through a PTY.

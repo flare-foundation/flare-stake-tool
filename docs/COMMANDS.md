@@ -378,8 +378,11 @@ yet (nothing to import yet), an empty answer is estimated when the transaction
 is built. Invalid input (amounts, fees, periods, BLS keys) is refused at the
 prompt, which asks again. `--gas-limit`, `--max-fee-per-gas` and
 `--priority-fee-per-gas` given with `interactive` apply to its C-chain
-transactions (`claim`). It needs a terminal: with stdin redirected or piped it
-refuses to start, with an error and exit code 1.
+transactions (`claim`). Its options are checked as for the other commands
+before anything starts: `interactive --help` (or `-i --help`) prints its help,
+and an unknown option or a bad value is refused with exit code 1. It needs a
+terminal: with stdin redirected or piped it refuses to start, with an error
+and exit code 1.
 
 | Aspect | Detail |
 |---|---|

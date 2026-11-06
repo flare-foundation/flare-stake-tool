@@ -7,7 +7,6 @@
 import { getBytes } from "ethers";
 import { isDurationInput, parseEndTime } from "../chain/units";
 import { resolveEvmFees, type EvmFeeOverrides } from "../constants/fees";
-import { argvValue } from "./node";
 
 export const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0";
 export const DEFAULT_DELEGATION_FEE_PERCENT = "20";
@@ -84,15 +83,15 @@ export function parseTime(value: string): ParsedTime {
 }
 
 /**
- * The C-chain fee options from a raw argv, for `interactive`, which is
- * dispatched before Commander parses the command line. Validated here, so that
- * a bad value stops the session before it starts.
+ * The C-chain fee options given with `interactive`. Validated here, so that a
+ * bad value stops the session before it starts rather than at its first
+ * C-chain transaction.
  */
-export function evmFeeOverridesFromArgv(argv: readonly string[]): EvmFeeOverrides {
+export function evmFeeOverrides(options: EvmFeeOverrides): EvmFeeOverrides {
   const overrides = {
-    maxFeePerGas: argvValue(argv, "--max-fee-per-gas"),
-    priorityFeePerGas: argvValue(argv, "--priority-fee-per-gas"),
-    gasLimit: argvValue(argv, "--gas-limit"),
+    maxFeePerGas: options.maxFeePerGas,
+    priorityFeePerGas: options.priorityFeePerGas,
+    gasLimit: options.gasLimit,
   };
   resolveEvmFees("custom", overrides);
   return overrides;

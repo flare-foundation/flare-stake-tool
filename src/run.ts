@@ -1,21 +1,12 @@
 import { Command } from "commander";
 import { styleText } from "node:util";
-import figlet from "figlet";
 import { cli } from "./cli";
 import { describeError } from "./output";
-import { interactiveCli } from "./interactive/cli";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { version } from "../package.json";
 
 const INFO_ALIASES = ["addresses", "balance", "validators"];
 
-function banner(): void {
-  process.stdout.write("\x1Bc");
-  console.log(styleText("white", figlet.textSync("Flare Stake CLI")));
-  console.log(styleText("green", `Version: ${version}`));
-}
-
-const baseArgv = process.argv;
 const program = new Command("flare-stake-tool");
 program.version(version);
 cli(program);
@@ -40,10 +31,14 @@ function commandIndex(argv: readonly string[]): number {
   return -1;
 }
 
-/** Lets `exportCP ...` stand for `transaction exportCP ...`, and `balance` for `info balance`, after options too. */
+/**
+ * Lets `exportCP ...` stand for `transaction exportCP ...`, `balance` for `info balance` and `-i` for `interactive`,
+ * after options too.
+ */
 function expandAliases(argv: string[], index: number): string[] {
   const name = index < 0 ? undefined : argv[index];
   if (name === undefined) return argv;
+  if (name === "-i") return [...argv.slice(0, index), "interactive", ...argv.slice(index + 1)];
   const group = (ATOMIC_TX_TYPES as readonly string[]).includes(name)
     ? "transaction"
     : INFO_ALIASES.includes(name)
@@ -52,27 +47,7 @@ function expandAliases(argv: string[], index: number): string[] {
   return group === undefined ? argv : [...argv.slice(0, index), group, ...argv.slice(index)];
 }
 
-const index = commandIndex(baseArgv);
-const command = index < 0 ? undefined : baseArgv[index];
-
-if (command === "interactive" || command === "-i") {
-  if (!process.stdin.isTTY) {
-    // inquirer reads keystrokes from a terminal; without one it would crash after the first question
-    console.error(styleText("red", "Error: interactive mode needs a terminal; use the commands instead (see --help)"));
-    process.exit(1);
-  }
-  banner();
-  interactiveCli(baseArgv)
-    .then(() => {
-      console.log("Finished execution");
-    })
-    .catch((error: unknown) => {
-      console.error(styleText("red", `Error: ${describeError(error)}`));
-      process.exit(1);
-    });
-} else {
-  program.parseAsync(expandAliases(baseArgv, index)).catch((error: unknown) => {
-    console.error(styleText("red", `Error: ${describeError(error)}`));
-    process.exit(1);
-  });
-}
+program.parseAsync(expandAliases(process.argv, commandIndex(process.argv))).catch((error: unknown) => {
+  console.error(styleText("red", `Error: ${describeError(error)}`));
+  process.exit(1);
+});

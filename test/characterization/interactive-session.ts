@@ -285,7 +285,8 @@ const BLS_SIGNATURE = "0x" + "b2".repeat(96);
 
 interface Scenario {
   name: string;
-  argv?: string[];
+  /** What the command line gives the session (Commander parses it; see test/unit/cli-errors.test.ts). */
+  options?: Partial<InteractiveModule.InteractiveOptions>;
   flags?: Flags;
   /** The ctx.json present at the start: the Ledger one an earlier scenario wrote, a ForDefi one, or an unusable one. */
   ctx?: "ledger" | "fordefi" | "unusable";
@@ -298,7 +299,7 @@ interface Scenario {
 const SCENARIOS: Scenario[] = [
   {
     name: "private key: every task",
-    argv: ["interactive", "--max-fee-per-gas", "300"],
+    options: { evmFees: { maxFeePerGas: "300" } },
     script: [
       ...PRIVATE_KEY,
       TASK.addresses,
@@ -346,7 +347,7 @@ const SCENARIOS: Scenario[] = [
   {
     name: "private key: no estimates, nothing to claim",
     flags: { noEstimate: true, noMax: true, zeroRewards: true },
-    argv: ["interactive", "--gas-limit", "250000", "--rpc-url", "http://127.0.0.1:1"],
+    options: { node: { apiUrl: "http://127.0.0.1:1" }, evmFees: { gasLimit: "250000" } },
     script: [...PRIVATE_KEY, TASK.CP, "1", "", TASK.PC, "2", "", TASK.import, "C", "", TASK.claim, TASK.quit],
   },
   {
@@ -403,7 +404,7 @@ async function main(): Promise<void> {
     utxoReads = 0;
     record(`\n===== ${scenario.name}`);
     try {
-      await interactiveCli(scenario.argv ?? ["interactive"]);
+      await interactiveCli({ node: {}, evmFees: {}, ...scenario.options });
       record("EXIT ok");
     } catch (error) {
       record(`EXIT error: ${error instanceof Error ? error.message : String(error)}`);

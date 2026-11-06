@@ -5,7 +5,7 @@ import { createEnv, writeContextFile } from "../../src/app/env";
 import { accountFromPrivateKey } from "../../src/chain/keys";
 import {
   BASE_DERIVATION_PATH,
-  evmFeeOverridesFromArgv,
+  evmFeeOverrides,
   parseBlsHex,
   parseNonce,
   pastEndTimeWarning,
@@ -92,31 +92,23 @@ describe("cli/inputs, cli/requests and cli/options", () => {
     });
   });
 
-  describe("evmFeeOverridesFromArgv (interactive)", () => {
-    it("reads the C-chain fee options from the raw argv, in both forms", () => {
-      expect(
-        evmFeeOverridesFromArgv(["node", "run.js", "interactive", "--gas-limit", "600000", "--max-fee-per-gas=3000"])
-      ).to.deep.equal({ maxFeePerGas: "3000", priorityFeePerGas: undefined, gasLimit: "600000" });
-      expect(evmFeeOverridesFromArgv(["node", "run.js", "interactive"])).to.deep.equal({
+  describe("evmFeeOverrides (interactive)", () => {
+    it("takes the C-chain fee options and nothing else from the parsed options", () => {
+      const options = globalOptions({ gasLimit: "600000", maxFeePerGas: "3000", network: "costwo" });
+      expect(evmFeeOverrides(options)).to.deep.equal({
+        maxFeePerGas: "3000",
+        priorityFeePerGas: undefined,
+        gasLimit: "600000",
+      });
+      expect(evmFeeOverrides(globalOptions({}))).to.deep.equal({
         maxFeePerGas: undefined,
         priorityFeePerGas: undefined,
         gasLimit: undefined,
       });
     });
 
-    it("takes the last occurrence, as Commander does, and refuses a flag without a value", () => {
-      const argv = ["node", "run.js", "interactive", "--gas-limit", "100000", "--gas-limit", "500000"];
-      expect(evmFeeOverridesFromArgv(argv).gasLimit).to.equal("500000");
-      expect(() => evmFeeOverridesFromArgv(["node", "run.js", "interactive", "--gas-limit"])).to.throw(
-        /--gas-limit needs a value/
-      );
-      expect(() =>
-        evmFeeOverridesFromArgv(["node", "run.js", "interactive", "--max-fee-per-gas", "--gas-limit", "1"])
-      ).to.throw(/--max-fee-per-gas needs a value/);
-    });
-
     it("refuses a bad value before the session starts", () => {
-      expect(() => evmFeeOverridesFromArgv(["node", "run.js", "interactive", "--gas-limit", "abc"])).to.throw(
+      expect(() => evmFeeOverrides(globalOptions({ gasLimit: "abc" }))).to.throw(
         /--gas-limit must be a positive integer/
       );
     });
