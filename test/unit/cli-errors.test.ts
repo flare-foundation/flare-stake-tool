@@ -11,7 +11,7 @@ import { accountFromPublicKey } from "../../src/chain/keys";
 import { markSentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { readGolden } from "../characterization/scenarios";
 import { cleanupTempDir, makeTempDir, runCli, writeEnvFile } from "../helpers/cli";
-import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED, signMessageHash } from "../helpers/keys";
 import { version } from "../../package.json";
 
 /** Nothing listens here, so a command that gets as far as the node fails fast. */
@@ -172,6 +172,23 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stderr).to.include(
       "--get-hacked requires --env-path <file> with PRIVATE_KEY_HEX or PRIVATE_KEY_CB58"
     );
+  });
+
+  it("send refuses a file signed by another key than ctx.json's, before it contacts the node", () => {
+    // without the check, an EVM transaction signed by any key is valid on its own and would be sent from that key
+    const context = { wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "localflare" };
+    fs.writeFileSync(path.join(cwd, "ctx.json"), JSON.stringify(context));
+    const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson & { message: string };
+    writeSignedTxJson({ ...unsigned, signature: signMessageHash(unsigned.message, "22".repeat(32)) }, "w1", cwd);
+    const result = runCli(["send", "-i", "w1"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.equal(
+      "Error: The signature does not belong to the configured account (recovered address differs)\n"
+    );
+    const signed = JSON.parse(
+      fs.readFileSync(path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "w1.signedTx.json"), "utf8")
+    ) as { isSentToChain?: boolean };
+    expect(signed.isSentToChain).to.equal(undefined);
   });
 
   it("setClaimExecutors and setAllowedClaimRecipients need their list before anything is signed", () => {
