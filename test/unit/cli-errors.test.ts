@@ -87,6 +87,18 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stderr).to.include("Node ID (--node-id) has a bad checksum; check it for a typo");
   });
 
+  it("refuses an empty -a rather than exporting or claiming everything", () => {
+    expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
+    for (const args of [
+      ["exportPC", "-a", "", "-i", "t1"],
+      ["claim", "-a", "", "-r", "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC", "-i", "t1"],
+    ]) {
+      const result = runCli([...args, "--network", "costwo"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      expect(result.exitCode, args[0]).to.equal(1);
+      expect(result.stderr, args[0]).to.include("Option --amount is empty; leave it out to use the default");
+    }
+  });
+
   it("send and forDefi need the transaction id", () => {
     for (const [args, message] of [
       [["send"], "send needs the transaction id: -i <id>"],

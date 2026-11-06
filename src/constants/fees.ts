@@ -252,8 +252,11 @@ function _gwei(value: unknown, option: string): number | undefined {
 }
 
 function _units(value: unknown, option: string): number | undefined {
-  if (value === undefined || value === null || value === "") {
+  if (value === undefined || value === null) {
     return undefined;
+  }
+  if (value === "") {
+    throw new Error(`Option ${option} is empty; leave it out to use the default`);
   }
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {

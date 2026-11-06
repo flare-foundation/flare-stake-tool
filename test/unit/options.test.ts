@@ -25,7 +25,6 @@ describe("cli/inputs, cli/requests and cli/options", () => {
   describe("--nonce", () => {
     it("accepts non-negative integers and leaves an absent nonce to the chain", () => {
       expect(parseNonce(undefined)).to.equal(undefined);
-      expect(parseNonce("")).to.equal(undefined);
       expect(parseNonce("0")).to.equal(0);
       expect(parseNonce("7")).to.equal(7);
     });
@@ -42,6 +41,41 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       expect(() => parseAtomicTxRequest("exportCP", { amount: "1", nonce: "abc" })).to.throw(/--nonce must be/);
       expect(parseEvmTxRequest("withdrawal", { to: TO, amount: "1", nonce: "3" })).to.include({ nonce: 3 });
       expect(() => parseEvmTxRequest("withdrawal", { to: TO, amount: "1", nonce: "-1" })).to.throw(/--nonce must be/);
+    });
+  });
+
+  describe("an empty option value", () => {
+    const empty = (flag: string): string => `Option ${flag} is empty; leave it out to use the default`;
+
+    it("is refused where leaving the option out means a default, so an unset shell variable can't pick it", () => {
+      const bls = { popBlsPublicKey: "ab".repeat(48), popBlsSignature: "cd".repeat(96) };
+      const stake = { nodeId: NODE_ID, amount: "10000", endTime: "14d", ...bls };
+      const atomic: [string, Record<string, string>, string][] = [
+        ["exportPC", { amount: "" }, "--amount"], // would export the whole balance
+        ["exportCP", { amount: "1", fee: "" }, "--fee"],
+        ["importPC", { fee: "" }, "--fee"],
+        ["exportCP", { amount: "1", nonce: "" }, "--nonce"], // would read the nonce from the chain
+        ["stake", { ...stake, delegationFee: "" }, "--delegation-fee"],
+      ];
+      for (const [type, options, flag] of atomic) {
+        expect(() => parseAtomicTxRequest(type, options), `${type} ${flag}`).to.throw(empty(flag));
+      }
+      const evm: [Parameters<typeof parseEvmTxRequest>[0], Record<string, string>, string][] = [
+        ["claim", { recipient: TO, amount: "" }, "--amount"], // would claim every reward
+        ["custom", { to: TO, value: "" }, "--value"],
+        ["withdrawal", { to: TO, amount: "1", nonce: "" }, "--nonce"],
+        ["withdrawal", { to: TO, amount: "1", gasLimit: "" }, "--gas-limit"],
+        ["withdrawal", { to: TO, amount: "1", maxFeePerGas: "" }, "--max-fee-per-gas"],
+        ["withdrawal", { to: TO, amount: "1", priorityFeePerGas: "" }, "--priority-fee-per-gas"],
+      ];
+      for (const [operation, options, flag] of evm) {
+        expect(() => parseEvmTxRequest(operation, options), `${operation} ${flag}`).to.throw(empty(flag));
+      }
+    });
+
+    it("still clears the stored list of setClaimExecutors and setAllowedClaimRecipients", () => {
+      expect(parseEvmTxRequest("setClaimExecutors", { executors: [""] })).to.deep.include({ executors: [] });
+      expect(parseEvmTxRequest("setAllowedClaimRecipients", { recipients: [""] })).to.deep.include({ recipients: [] });
     });
   });
 

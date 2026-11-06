@@ -27,6 +27,17 @@ export const START_TIME_NOT_USED_WARNING =
 export const optionalString = (value: unknown): string | undefined =>
   typeof value === "string" && value !== "" ? value : undefined;
 
+/**
+ * The value of an option whose absence means a default, or undefined when it is absent. An empty value is refused
+ * rather than taken as absent: `claim -a "$AMT"` with AMT unset claimed every reward.
+ */
+export function optionValue(value: unknown, flag: string): string | undefined {
+  if (value === "") {
+    throw new Error(`Option ${flag} is empty; leave it out to use the default`);
+  }
+  return typeof value === "string" ? value : undefined;
+}
+
 /** Byte lengths of a BLS proof of possession: the compressed G1 public key and the G2 signature. */
 const BLS_LENGTHS = { publicKey: 48, signature: 96 } as const;
 
@@ -71,7 +82,7 @@ export function parseNodeId(value: string): string {
 
 /** `--nonce`: a non-negative integer, or undefined when not given. */
 export function parseNonce(value: unknown): number | undefined {
-  const text = optionalString(value);
+  const text = optionValue(value, "--nonce");
   if (text === undefined) return undefined;
   const nonce = Number(text);
   if (!/^\d+$/.test(text) || !Number.isSafeInteger(nonce)) {
