@@ -42,15 +42,33 @@ export function resolveEnv(options: GlobalOptions): Env {
   return createEnv(resolveNetworkName(options.network, options.ctxFile), nodeOverrides(options));
 }
 
-/** Private key → Ledger → external file, in that order of precedence. */
-export async function resolveSigner(options: GlobalOptions, env: Env): Promise<Signer> {
-  if (options.getHacked) {
-    if (!options.envPath) {
-      throw new Error("--get-hacked requires --env-path <file> with PRIVATE_KEY_HEX or PRIVATE_KEY_CB58");
-    }
-    return PrivateKeySigner.fromEnvFile(options.envPath, env.network.hrp);
+/**
+ * Which account the options select, in one order for every command: the key file with --get-hacked, the Ledger, a
+ * key file, the context file. Transactions sign for it, and info and send report and check it, so a command never
+ * shows one account and signs for another.
+ */
+type AccountSource = "keyFile" | "ledger" | "contextFile";
+
+function accountSource(options: GlobalOptions): AccountSource {
+  if (options.getHacked) return "keyFile";
+  if (options.ledger) return "ledger";
+  return options.envPath ? "keyFile" : "contextFile";
+}
+
+function keyFileSigner(options: GlobalOptions, env: Env): PrivateKeySigner {
+  if (!options.envPath) {
+    throw new Error("--get-hacked requires --env-path <file> with PRIVATE_KEY_HEX or PRIVATE_KEY_CB58");
   }
-  if (options.ledger) {
+  return PrivateKeySigner.fromEnvFile(options.envPath, env.network.hrp);
+}
+
+/** Signs with the key file (--get-hacked) or the Ledger; otherwise writes an unsigned file for the selected account. */
+export async function resolveSigner(options: GlobalOptions, env: Env): Promise<Signer> {
+  const source = accountSource(options);
+  if (source === "keyFile" && options.getHacked) {
+    return keyFileSigner(options, env);
+  }
+  if (source === "ledger") {
     return new LedgerSigner(ledgerDevice(), options.derivationPath, env.network.hrp);
   }
   if (!options.transactionId) {
@@ -58,19 +76,17 @@ export async function resolveSigner(options: GlobalOptions, env: Env): Promise<S
       "A transaction id is required for the unsigned-file flow: use -i <id>, or sign directly with --ledger or --get-hacked --env-path <file>"
     );
   }
-  const account = options.envPath
-    ? await PrivateKeySigner.fromEnvFile(options.envPath, env.network.hrp).account()
-    : accountFromContextFile(readContextFile(options.ctxFile), env.network.hrp);
-  return new ExternalFileSigner(account, options.transactionId);
+  return new ExternalFileSigner(await resolveAccount(options, env), options.transactionId);
 }
 
-/** The account to report on (info commands): key file, Ledger or context file. */
+/** The account the options select (info commands, send's signature check): the one transactions sign for. */
 export async function resolveAccount(options: GlobalOptions, env: Env): Promise<Account> {
-  if (options.envPath) {
-    return PrivateKeySigner.fromEnvFile(options.envPath, env.network.hrp).account();
+  switch (accountSource(options)) {
+    case "keyFile":
+      return keyFileSigner(options, env).account();
+    case "ledger":
+      return new LedgerSigner(ledgerDevice(), options.derivationPath, env.network.hrp).account();
+    case "contextFile":
+      return accountFromContextFile(readContextFile(options.ctxFile), env.network.hrp);
   }
-  if (options.ledger) {
-    return new LedgerSigner(ledgerDevice(), options.derivationPath, env.network.hrp).account();
-  }
-  return accountFromContextFile(readContextFile(options.ctxFile), env.network.hrp);
 }

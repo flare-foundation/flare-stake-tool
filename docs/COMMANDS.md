@@ -72,7 +72,10 @@ network. It does **not** contain the private key.
 
 Read-only queries against the configured network. Requires either a
 context file (`--ctx-file ctx.json`), `--ledger`, or
-`--get-hacked --env-path`.
+`--get-hacked --env-path`. The account is chosen as transactions choose the
+one they sign for (and `send` the one it checks the signature against): the
+key file with `--get-hacked --env-path`, else the Ledger with `--ledger`, else
+the key file of `--env-path`, else the context file.
 
 ### info addresses
 

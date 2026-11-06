@@ -1,4 +1,8 @@
 import { expect } from "chai";
+import path from "path";
+import { getBytes, hexlify } from "ethers";
+import { createEnv, writeContextFile } from "../../src/app/env";
+import { accountFromPrivateKey } from "../../src/chain/keys";
 import {
   BASE_DERIVATION_PATH,
   evmFeeOverridesFromArgv,
@@ -6,8 +10,11 @@ import {
   parseNonce,
   pastEndTimeWarning,
 } from "../../src/cli/inputs";
-import { globalOptions } from "../../src/cli/options";
+import { globalOptions, resolveAccount, resolveSigner, type GlobalOptions } from "../../src/cli/options";
 import { parseAtomicTxRequest, parseEvmTxRequest } from "../../src/cli/requests";
+import { FAKE_LEDGER_KEY_ENV } from "../../src/signers/ledger";
+import { cleanupTempDir, makeTempDir, writeEnvFile } from "../helpers/cli";
+import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 
 const TO = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC";
 
@@ -191,6 +198,66 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         derivationPath: "m/44'/60'/1'/0/0",
         ctxFile: "other.json",
       });
+    });
+  });
+
+  describe("the selected account", () => {
+    // three accounts: the key file's, the (software) Ledger's and the context file's
+    const keyFile = accountFromPrivateKey(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), "localflare");
+    const ledgerKey = getBytes(`0x${"11".repeat(32)}`);
+    const ledger = accountFromPrivateKey(ledgerKey, "localflare");
+    const context = accountFromPrivateKey(getBytes(`0x${"22".repeat(32)}`), "localflare");
+    const env = createEnv("localflare");
+    let dir: string;
+    let base: GlobalOptions;
+    let previousFakeKey: string | undefined;
+    let originalConsoleError: typeof console.error;
+
+    before(() => {
+      dir = makeTempDir("account-");
+      const ctxFile = path.join(dir, "ctx.json");
+      writeContextFile({ wallet: "publicKey", publicKey: context.publicKeyHex, network: "localflare" }, ctxFile);
+      base = { derivationPath: BASE_DERIVATION_PATH, ctxFile, transactionId: "account-test" };
+      previousFakeKey = process.env[FAKE_LEDGER_KEY_ENV];
+      process.env[FAKE_LEDGER_KEY_ENV] = hexlify(ledgerKey);
+      originalConsoleError = console.error;
+      console.error = () => undefined; // the stand-in announces itself on every use
+    });
+
+    after(() => {
+      console.error = originalConsoleError;
+      if (previousFakeKey === undefined) delete process.env[FAKE_LEDGER_KEY_ENV];
+      else process.env[FAKE_LEDGER_KEY_ENV] = previousFakeKey;
+      cleanupTempDir(dir);
+    });
+
+    it("is the one transactions sign for, whatever the combination of selectors", async () => {
+      const envPath = writeEnvFile(dir, EWOQ_PRIVATE_KEY_HEX);
+      const cases: [string, Partial<GlobalOptions>, string][] = [
+        ["--env-path", { envPath }, keyFile.pAddress],
+        ["--ledger", { ledger: true }, ledger.pAddress],
+        // info and send took the key file here, while transactions signed with the Ledger
+        ["--ledger --env-path", { ledger: true, envPath }, ledger.pAddress],
+        ["--get-hacked --env-path", { getHacked: true, envPath }, keyFile.pAddress],
+        ["--get-hacked --env-path --ledger", { getHacked: true, envPath, ledger: true }, keyFile.pAddress],
+        ["no selector", {}, context.pAddress],
+      ];
+      for (const [flags, selectors, expected] of cases) {
+        const options = { ...base, ...selectors };
+        const signer = await resolveSigner(options, env);
+        expect((await signer.account()).pAddress, `${flags}: signer`).to.equal(expected);
+        expect((await resolveAccount(options, env)).pAddress, `${flags}: account`).to.equal(expected);
+      }
+    });
+
+    it("needs the key file of --get-hacked for info as well", async () => {
+      const options = { ...base, getHacked: true };
+      for (const resolve of [resolveSigner, resolveAccount]) {
+        await resolve(options, env).then(
+          () => expect.fail("resolved without a key file"),
+          (error: unknown) => expect(String(error)).to.include("--get-hacked requires --env-path <file>")
+        );
+      }
     });
   });
 });
