@@ -7,6 +7,7 @@ import { utils as futils, type Utxo } from "@flarenetwork/flarejs";
 import { expect } from "chai";
 import { getBytes } from "ethers";
 import { accountFromPrivateKey } from "../../src/chain/keys";
+import { networkConfig } from "../../src/chain/network";
 import { buildTransaction } from "../../src/core/builders";
 import { UTXO_PAGE_SIZE, allUtxos, maxExportPCAmount, spendableAmount } from "../../src/core/builders/pchain";
 import { atomicTxFee } from "../../src/core/fee";
@@ -129,5 +130,41 @@ describe("core/builders/pchain", function () {
         startIndex: { address: "P-x", utxo: `u${UTXO_PAGE_SIZE - 1}` },
       });
     });
+  });
+
+  describe("P-chain addresses", () => {
+    // Every node call fails the build: the addresses are checked before the builder reads the UTXOs.
+    const clients = new Proxy(
+      {},
+      {
+        get: (_target, name) => {
+          throw new Error(`asked the node for ${String(name)}`);
+        },
+      }
+    );
+    const offline = { network: networkConfig("localflare", {}), clients } as unknown as Env;
+    // the account's own key on Coston2: the same address bytes, so it used to be paid on localflare
+    const costwo = `P-${futils.formatBech32("costwo", account.addressBytes)}`;
+    const refusal = `"${costwo}" is an address of costwo, not of this network (localflare): expected P-localflare1…`;
+    const refused = (request: Parameters<typeof buildTransaction>[0]) =>
+      buildTransaction(request, offline, account, IMMEDIATE_SIGNER_POLICY).then(
+        () => expect.fail("built"),
+        (error: unknown) => expect(String(error)).to.include(refusal)
+      );
+
+    it("transfer refuses a recipient of another network before asking the node", () =>
+      refused({ type: "transfer", amount: 1n, to: costwo }));
+
+    it("addAutoRenewedValidator refuses an owner of another network before asking the node", () =>
+      refused({
+        type: "addAutoRenewedValidator",
+        nodeId: "NodeID-X",
+        amount: 1n,
+        period: 1n,
+        delegationFeeShares: 0,
+        blsPublicKey: new Uint8Array(48),
+        blsSignature: new Uint8Array(96),
+        ownerAddresses: [account.pAddress, costwo],
+      }));
   });
 });

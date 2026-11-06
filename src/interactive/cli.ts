@@ -143,7 +143,7 @@ async function importFunds(session: Session): Promise<void> {
 
 async function transfer(session: Session): Promise<void> {
   const amount = await prompts.amount();
-  const to = await prompts.transferAddress();
+  const to = await prompts.transferAddress(session.env.network.hrp);
   await execute(session, { type: "transfer", amount: parseFlr(amount), to });
 }
 

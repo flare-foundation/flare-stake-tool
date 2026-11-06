@@ -106,8 +106,8 @@ TX {"type":"importPC","fee":"500000000n"} signer=privateKey
 ? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
 > "1.5"
 ? input "\u001b[35mEnter destination P-chain address:\u001b[39m"
-> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"
-TX {"type":"transfer","amount":"1500000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"} signer=privateKey
+> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+TX {"type":"transfer","amount":"1500000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"} signer=privateKey
 [log] [32mTransaction with hash tx9 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Add a validator node"
@@ -244,8 +244,8 @@ ENV localflare {}
 ? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
 > "1"
 ? input "\u001b[35mEnter destination P-chain address:\u001b[39m"
-> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"
-TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"} signer=privateKey
+> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"} signer=privateKey
 [log] [31mError: node refused transfer[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Transfer funds"
@@ -254,8 +254,12 @@ TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4a
   ! Invalid amount "abc": expected a non-negative decimal number
 > "1"
 ? input "\u001b[35mEnter destination P-chain address:\u001b[39m"
-> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"
-TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"} signer=privateKey
+> "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0"
+  ! "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0" is an address of costwo, not of this network (localflare): expected P-localflare1…
+> "C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+  ! "C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v" is not a P-chain address: expected P-localflare1…
+> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"} signer=privateKey
 [log] [32mTransaction with hash tx1 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Change the auto-renew period"

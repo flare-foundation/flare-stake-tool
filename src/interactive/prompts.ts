@@ -1,5 +1,6 @@
 import { styleText } from "node:util";
 import inquirer from "inquirer";
+import { pChainAddressBytes } from "../chain/keys";
 import { parseDuration, parseFlr, parseFlrToWei } from "../chain/units";
 import { parseBlsHex } from "../cli/inputs";
 import {
@@ -160,7 +161,10 @@ export const prompts = {
       validate: (value) => validationOf(() => parseBlsHex(value, "signature")),
     }),
 
-  transferAddress: (): Promise<string> => input(ask("Enter destination P-chain address:")),
+  transferAddress: (hrp: string): Promise<string> =>
+    input(ask("Enter destination P-chain address:"), {
+      validate: (value) => validationOf(() => pChainAddressBytes(value, hrp)),
+    }),
 
   wrapRewards: (): Promise<boolean> => select(ask("Should claimed rewards be wrapped?"), YES_NO),
 

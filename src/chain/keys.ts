@@ -69,6 +69,32 @@ export function accountFromPublicKey(publicKey: string | Uint8Array, hrp: string
   };
 }
 
+/**
+ * The address bytes of a P-chain address the user gave, checked to belong to the network of `hrp`. The bech32
+ * decoding alone keeps only the bytes, so "P-costwo1…" or "C-flare1…" would pay the same key on whichever network
+ * is selected.
+ */
+export function pChainAddressBytes(address: string, hrp: string): Uint8Array {
+  const expected = `expected P-${hrp}1…`;
+  let parsed: [string, string, Uint8Array];
+  try {
+    parsed = futils.parse(address.trim());
+  } catch {
+    throw new Error(`Invalid P-chain address "${address}": ${expected}`);
+  }
+  const [chain, addressHrp, bytes] = parsed;
+  if (chain !== "P") {
+    throw new Error(`"${address}" is not a P-chain address: ${expected}`);
+  }
+  if (addressHrp !== hrp) {
+    throw new Error(`"${address}" is an address of ${addressHrp}, not of this network (${hrp}): ${expected}`);
+  }
+  if (bytes.length !== 20) {
+    throw new Error(`Invalid P-chain address "${address}": it holds ${bytes.length} bytes, not 20`);
+  }
+  return bytes;
+}
+
 export function accountFromPrivateKey(privateKey: Uint8Array, hrp: string): Account {
   return accountFromPublicKey(secp256k1.getPublicKey(privateKey), hrp);
 }

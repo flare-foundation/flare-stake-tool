@@ -29,7 +29,7 @@ import type * as InteractiveModule from "../../src/interactive/cli";
 import type * as LedgerSignerModule from "../../src/signers/ledger";
 import type { LedgerDevice } from "../../src/signers/ledger";
 import { SigningKey, keccak256, toUtf8Bytes } from "ethers";
-import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
+import { EWOQ_P_ADDRESS, EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 
 const DIST = path.resolve(__dirname, "..", "..", "dist");
 const load = createRequire(__filename);
@@ -266,7 +266,7 @@ const TASK = {
   quit: "Quit",
 };
 const PRIVATE_KEY = ["Private Key", "pk", "LocalHost"];
-const P_ADDRESS = "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u";
+const P_ADDRESS = EWOQ_P_ADDRESS;
 const BLS_PUBLIC_KEY = "0x" + "a1".repeat(48);
 const BLS_SIGNATURE = "0x" + "b2".repeat(96);
 
@@ -315,7 +315,7 @@ const SCENARIOS: Scenario[] = [
       "Private Key", "nofile",
       ...PRIVATE_KEY,
       TASK.transfer, "1", P_ADDRESS,
-      TASK.transfer, "abc", "1", P_ADDRESS,
+      TASK.transfer, "abc", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS,
       TASK.setARV, "NodeID-Z", "0", true,
       TASK.quit,
     ],

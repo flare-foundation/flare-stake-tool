@@ -177,10 +177,10 @@ Move FLR between two P-chain addresses (P → P).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-a <amount>`, `--transfer-address <P-...>` |
+| Inputs | `-a <amount>`, `--transfer-address <P-...>` (a P-chain address of the selected network, e.g. `P-flare1…` on Flare) |
 | Side effects | Submits a P-chain base tx |
 | Output | Tx hash, "sent to the network" |
-| Failures | Invalid bech32 address. Insufficient P-chain funds. |
+| Failures | Invalid bech32 address, or an address of another network or chain (`P-costwo1…` on Flare, `C-flare1…`), refused before anything is built. Insufficient P-chain funds. |
 
 ---
 
@@ -193,10 +193,10 @@ uptime.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `--period <seconds\|duration>` (e.g. `14d`; within the network's minimum and maximum validation duration), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>` (48 bytes), `--pop-bls-signature <hex>` (96 bytes), optional `--owner-address <P-…>...` (the validator authority allowed to change the configuration later; default: own address), optional `--auto-compound-shares <millionths>` (share of rewards restaked each cycle; rewards are 0 on Flare networks, so it has no effect) |
+| Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `--period <seconds\|duration>` (e.g. `14d`; within the network's minimum and maximum validation duration), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>` (48 bytes), `--pop-bls-signature <hex>` (96 bytes), optional `--owner-address <P-…>...` (the validator authority allowed to change the configuration later, P-chain addresses of the selected network; default: own address), optional `--auto-compound-shares <millionths>` (share of rewards restaked each cycle; rewards are 0 on Flare networks, so it has no effect) |
 | Side effects | Locks the stake on the P-chain. The stake returns to the staking address at the end of the cycle in which auto-renewal was stopped. |
 | Output | Tx hash, "sent to the network" |
-| Failures | "Auto-renewed validators (Helicon upgrade) are not active on <network>". Validator already registered. Period outside the allowed range. Invalid BLS signature. The max-three-nodes rule. |
+| Failures | "Auto-renewed validators (Helicon upgrade) are not active on <network>". An owner address of another network or chain. Validator already registered. Period outside the allowed range. Invalid BLS signature. The max-three-nodes rule. |
 
 The configuration can only be changed by the validator authority; this tool
 supports a single-address authority with threshold 1.

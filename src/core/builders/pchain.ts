@@ -12,7 +12,7 @@ import {
   utils as futils,
   type UnsignedTx,
 } from "@flarenetwork/flarejs";
-import type { Account } from "../../chain/keys";
+import { pChainAddressBytes, type Account } from "../../chain/keys";
 import { currentValidators } from "../../chain/validators";
 import {
   chainOfAtomicTx,
@@ -337,6 +337,7 @@ export async function buildTransfer(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
+  const to = pChainAddressBytes(req.to, env.network.hrp);
   const { context, feeState, utxos, from } = await pChainInputs(env, account, policy);
   return bundle(
     "transfer",
@@ -345,7 +346,7 @@ export async function buildTransfer(
         feeState,
         utxos,
         fromAddressesBytes: from,
-        outputs: [TransferableOutput.fromNative(context.avaxAssetID, req.amount, [futils.bech32ToBytes(req.to)])],
+        outputs: [TransferableOutput.fromNative(context.avaxAssetID, req.amount, [to])],
       },
       context
     )
@@ -358,9 +359,9 @@ export async function buildAddAutoRenewedValidator(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
+  const ownerBytes = (req.ownerAddresses ?? []).map((a) => pChainAddressBytes(a, env.network.hrp));
   const { context, feeState, utxos, from } = await pChainInputs(env, account, policy);
-  const owners =
-    req.ownerAddresses && req.ownerAddresses.length > 0 ? req.ownerAddresses.map((a) => futils.bech32ToBytes(a)) : from;
+  const owners = ownerBytes.length > 0 ? ownerBytes : from;
   return bundle(
     "addAutoRenewedValidator",
     pvm.newAddAutoRenewedValidatorTx(
