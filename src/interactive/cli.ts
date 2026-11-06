@@ -354,11 +354,18 @@ async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
   throw new Error(`Unsupported wallet ${String(unsupported)}`);
 }
 
+/** The account the connected Ledger has at a saved context's derivation path. */
+async function connectedAccount(device: LedgerDevice, context: ContextFile): Promise<Account> {
+  const path = context.derivationPath ?? BASE_DERIVATION_PATH;
+  return accountFromPublicKey(await device.getPublicKey(path, context.network), context.network);
+}
+
 /**
- * Reuses an existing Ledger ctx.json when the user wants to, otherwise creates
- * one. Any other context (a ForDefi one with its vault id, or an unreadable
- * file) is replaced only after confirmation, and the replaced file is kept as
- * a backup rather than deleted.
+ * Reuses an existing Ledger ctx.json when the user wants to and the connected
+ * device has its key, otherwise creates one: a different device or seed would
+ * sign for another account than the one just shown. Any other context (a
+ * ForDefi one with its vault id, or an unreadable file) is replaced only after
+ * confirmation, and the replaced file is kept as a backup rather than deleted.
  */
 async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
   const replacing = contextFileExists(DEFAULT_CTX_FILE);
@@ -378,7 +385,18 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
       if (existing.vaultId) log(`${styleText("yellow", "Vault Id:")} ${existing.vaultId}`);
     }
     if (existing?.wallet === "ledger") {
-      if (await prompts.ctxFile()) return existing;
+      if (await prompts.ctxFile()) {
+        const connected = await connectedAccount(device, existing);
+        const saved = accountFromPublicKey(existing.publicKey, existing.network);
+        if (connected.publicKeyHex === saved.publicKeyHex) return existing;
+        logWarning(
+          `The connected Ledger has ${connected.cAddress} at ${existing.derivationPath ?? BASE_DERIVATION_PATH}, ` +
+            `not the ${saved.cAddress} saved in ${DEFAULT_CTX_FILE}`
+        );
+        if (!(await prompts.replaceCtxFile(DEFAULT_CTX_FILE))) {
+          throw new Error(`Kept ${DEFAULT_CTX_FILE}; connect the Ledger it was made with, or replace it`);
+        }
+      }
     } else if (!(await prompts.replaceCtxFile(DEFAULT_CTX_FILE))) {
       throw new Error(`Kept ${DEFAULT_CTX_FILE}; choose another wallet, or move the file away to connect a Ledger`);
     }

@@ -338,6 +338,13 @@ const SCENARIOS: Scenario[] = [
   },
   { name: "ledger: keep the context", ctx: "ledger", script: ["Ledger", "Yes", TASK.addresses, TASK.quit] },
   {
+    // every path of this device answers another key than the one saved: kept (and refused), then replaced
+    name: "ledger: a context from another Ledger",
+    ctx: "ledger",
+    flags: { sameKey: true },
+    script: ["Ledger", "Yes", false, "Ledger", "Yes", true, "Coston2", "BIP44", { index: 0 }, TASK.addresses, TASK.quit],
+  },
+  {
     name: "ledger: replace the context",
     ctx: "ledger",
     script: ["Ledger", "No", "Coston ", "BIP44", { index: 0 }, TASK.addresses, TASK.quit],
