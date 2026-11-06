@@ -182,6 +182,11 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
 - The signing suites create a fresh account funded from the ewoq key for every
   run (`test/integration/accounts.ts`), so they are rerun-safe and independent
   of the max-three-validators rule, and all end times are relative to now.
+- `cli-evm.test.ts` signs `withdrawal` and `customCChainTx` directly, including
+  the nonce taken while another transaction of the account waits in the node.
+  `claim`, `setClaimExecutors` and `setAllowedClaimRecipients` have no live
+  test: localflare has none of Flare's reward contracts, so only the fixture
+  recorder runs them, with those contract reads stubbed.
 - Funded test account: ewoq private key
   `56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027` is
   publicly known and funded on **both** the C-chain (huge balance) and the
