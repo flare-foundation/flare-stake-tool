@@ -48,10 +48,10 @@ commands.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | One of: `-p <publicKey>`, `--ledger`, `--get-hacked --env-path <file>`. `--network <name>`. |
-| Side effects | Writes `ctx.json` in the current working directory |
+| Inputs | One of: `-p <publicKey>`, `--ledger` (the address at `--derivation-path`). `--network <name>`. Optional `--vault-id <id>`, stored for ForDefi. |
+| Side effects | Writes `ctx.json` (or the `--ctx-file` path) in the current working directory |
 | Output | Success message |
-| Failures | Throws if `ctx.json` already exists, or if `-p` is not a valid secp256k1 public key (exit code 1, no file written) |
+| Failures | Throws if neither `-p` nor `--ledger` is given, if the file already exists, or if `-p` is not a valid secp256k1 public key (exit code 1, no file written) |
 
 The resulting file contains the public key, derived addresses, and the
 network. It does **not** contain the private key.
