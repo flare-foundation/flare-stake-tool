@@ -249,7 +249,9 @@ Submit a previously-built signed transaction to the network.
 
 `v` in the signature may be `00`/`01` or `1b`/`1c`. The signed tx file is produced by:
 1. `transaction <op> -i <id>` (no `--ledger`/`--get-hacked`) writes
-   `<id>.unsignedTx.json` with a message hash to sign
+   `<id>.unsignedTx.json` with a message hash to sign. It refuses an id that
+   already has an unsigned or a signed file: `send` reads only the signed
+   file, so an old one left under the id would be sent instead
 2. External signer (Ledger, ForDefi, manual) signs the message hash
 3. Caller writes the signature into `<id>.signedTx.json`
 4. `send -i <id>` submits

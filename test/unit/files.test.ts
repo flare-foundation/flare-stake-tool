@@ -100,4 +100,20 @@ describe("core/files", () => {
       fs.rmSync(cwd, { recursive: true, force: true });
     }
   });
+
+  it("refuses to build under an id whose signed file is still there, which send would submit instead", () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "files-test-"));
+    try {
+      const { file } = saveUnsignedTxJson(recordedAtomic, "t3", cwd);
+      writeSignedTxJson({ ...recordedAtomic, signature: "00".repeat(65) }, "t3", cwd);
+      fs.rmSync(file); // the user deletes the unsigned file to build another transaction under the same id
+      expect(() => saveUnsignedTxJson(recordedAtomic, "t3", cwd)).to.throw(
+        `signedTx file ${path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "t3.signedTx.json")} already exists: ` +
+          "transaction t3 was already signed; use another id"
+      );
+      expect(fs.existsSync(file)).to.equal(false);
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
 });
