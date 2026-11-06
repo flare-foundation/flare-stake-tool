@@ -287,6 +287,11 @@ const PRIVATE_KEY = ["Private Key", "pk", "LocalHost"];
 const P_ADDRESS = EWOQ_P_ADDRESS;
 const BLS_PUBLIC_KEY = "0x" + "a1".repeat(48);
 const BLS_SIGNATURE = "0x" + "b2".repeat(96);
+// node ids with valid checksums (the prompt refuses others), and one with its last character mistyped
+const NODE_X = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
+const NODE_Y = "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu";
+const NODE_Z = "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN";
+const NODE_X_MISTYPED = `${NODE_X.slice(0, -1)}Y`;
 
 interface Scenario {
   name: string;
@@ -316,12 +321,12 @@ const SCENARIOS: Scenario[] = [
       TASK.import, "P",
       TASK.import, "C", "0.5",
       TASK.transfer, "1.5", P_ADDRESS,
-      TASK.stake, "10000", "NodeID-X", "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE,
-      TASK.delegate, "50", "NodeID-X", "1700000000",
-      TASK.addARV, "10000", "NodeID-Y", "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE,
-      TASK.setARV, "NodeID-Y", "0", false,
-      TASK.setARV, "NodeID-Y", "0", true,
-      TASK.setARV, "NodeID-Y", "7d",
+      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE,
+      TASK.delegate, "50", NODE_X, "1700000000",
+      TASK.addARV, "10000", NODE_Y, "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE,
+      TASK.setARV, NODE_Y, "0", false,
+      TASK.setARV, NODE_Y, "0", true,
+      TASK.setARV, NODE_Y, "7d",
       TASK.claim, "Yes", "No", "",
       TASK.claim, "No", "1,25", "0.0000000000000000001", "1.25", "Yes", "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
       TASK.quit,
@@ -335,7 +340,7 @@ const SCENARIOS: Scenario[] = [
       ...PRIVATE_KEY,
       TASK.transfer, "1", P_ADDRESS,
       TASK.transfer, "abc", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS,
-      TASK.setARV, "NodeID-Z", "0", true,
+      TASK.setARV, NODE_Z, "0", true,
       TASK.quit,
     ],
   },

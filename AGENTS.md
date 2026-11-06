@@ -18,7 +18,7 @@ src/
   run.ts                    Entry script: alias rewrite (exportCP → transaction exportCP, -i → interactive), Commander dispatch
   cli.ts                    Commander definitions; each action parses options, resolves env + signer and calls app/ (interactive: terminal check, banner, menu)
   cli/requests.ts           Command options → TxRequest (FLR → nFLR/wei bigint, durations, percentages)
-  cli/inputs.ts             Input parsers shared with interactive mode (BLS hex, nonce, times, fee flags)
+  cli/inputs.ts             Input parsers shared with interactive mode (BLS hex, node id, nonce, times, fee flags)
   cli/options.ts            Options every command shares; signer, env and account resolution
   app/env.ts                Network resolution (--network, else ctx.json, else flare) and the ctx.json file
   app/transactions.ts       Pre-flight checks (max 3 nodes, validator exists/period, Helicon gate) + the pipeline
@@ -37,7 +37,7 @@ src/
   signers/file.ts           default + -i <id>: writes the unsigned file and stops (ForDefi / manual signing)
   chain/network.ts          The single network table (ids, hrp, URLs, symbol) + node URL / API key overrides
   chain/clients.ts          flarejs APIs, ethers provider, cached Context, Helicon gate
-  chain/keys.ts             Key/address derivation (flarejs secp256k1 + ethers)
+  chain/keys.ts             Key/address derivation (flarejs secp256k1 + ethers), CB58 decoding with its checksum checked
   chain/units.ts            parseFlr/formatFlr, percentages → shares, durations
   chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
   chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries

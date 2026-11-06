@@ -99,6 +99,25 @@ export function accountFromPrivateKey(privateKey: Uint8Array, hrp: string): Acco
   return accountFromPublicKey(secp256k1.getPublicKey(privateKey), hrp);
 }
 
+/**
+ * Decodes CB58 (base58 of the bytes followed by the last 4 bytes of their sha256) and checks the checksum. flarejs'
+ * `base58check.decode` (and so `NodeId.fromString`) drops those 4 bytes without checking them, so a mistyped
+ * character decoded to other, valid bytes. `label` names the value in the errors.
+ */
+export function decodeCb58(encoded: string, label: string): Uint8Array {
+  let decoded: Uint8Array;
+  try {
+    decoded = futils.base58.decode(encoded);
+  } catch {
+    throw new Error(`${label} is not valid base58check`);
+  }
+  const bytes = decoded.subarray(0, -4);
+  if (hexlify(futils.addChecksum(bytes)) !== hexlify(decoded)) {
+    throw new Error(`${label} has a bad checksum; check it for a typo`);
+  }
+  return bytes;
+}
+
 const CB58_PREFIX = "PrivateKey-";
 
 /**
@@ -119,18 +138,7 @@ export function parsePrivateKey(options: { hex?: string | undefined; cb58?: stri
     fromHex = getBytes("0x" + digits);
   }
   if (cb58) {
-    const encoded = cb58.startsWith(CB58_PREFIX) ? cb58.slice(CB58_PREFIX.length) : cb58;
-    let decoded: Uint8Array;
-    try {
-      decoded = futils.base58.decode(encoded);
-    } catch {
-      throw new Error("PRIVATE_KEY_CB58 is not valid base58check");
-    }
-    // flarejs' base58check.decode drops the 4 checksum bytes without checking them, so a typo gave another valid key
-    fromCb58 = decoded.subarray(0, -4);
-    if (hexlify(futils.addChecksum(fromCb58)) !== hexlify(decoded)) {
-      throw new Error("PRIVATE_KEY_CB58 has a bad checksum; check it for a typo");
-    }
+    fromCb58 = decodeCb58(cb58.startsWith(CB58_PREFIX) ? cb58.slice(CB58_PREFIX.length) : cb58, "PRIVATE_KEY_CB58");
     if (fromCb58.length !== 32) {
       throw new Error("PRIVATE_KEY_CB58 must decode to 32 bytes");
     }

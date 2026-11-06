@@ -16,6 +16,8 @@ import { version } from "../../package.json";
 
 /** Nothing listens here, so a command that gets as far as the node fails fast. */
 const CLOSED_NODE = "http://127.0.0.1:1";
+/** A node id with a valid checksum. */
+const NODE_ID = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
 
 describe("CLI errors (built CLI, no node)", function () {
   this.timeout(30_000);
@@ -54,10 +56,10 @@ describe("CLI errors (built CLI, no node)", function () {
 
   it("warns on stderr about an end time in the past, such as 14 days given as plain seconds", () => {
     expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
-    const result = runCli(
-      ["delegate", "-n", "NodeID-x", "-a", "1", "-e", "1209600", "-i", "t1", "--network", "costwo"],
-      { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } }
-    );
+    const result = runCli(["delegate", "-n", NODE_ID, "-a", "1", "-e", "1209600", "-i", "t1", "--network", "costwo"], {
+      cwd,
+      env: { FLARE_RPC_URL: CLOSED_NODE },
+    });
     expect(result.stderr).to.include("Warning: End time 1209600 (1970-01-15T00:00:00.000Z) is not in the future");
     expect(result.stdout).to.not.include("Warning");
     expect(result.exitCode).to.equal(1); // the closed node, not the warning, ends the command
@@ -66,11 +68,23 @@ describe("CLI errors (built CLI, no node)", function () {
   it("warns on stderr that --start-time does not delay a stake", () => {
     expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
     const result = runCli(
-      ["delegate", "-n", "NodeID-x", "-a", "1", "-s", "2d", "-e", "14d", "-i", "t1", "--network", "costwo"],
+      ["delegate", "-n", NODE_ID, "-a", "1", "-s", "2d", "-e", "14d", "-i", "t1", "--network", "costwo"],
       { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } }
     );
     expect(result.stderr).to.include("Warning: --start-time does not delay the stake");
     expect(result.stdout).to.not.include("Warning");
+  });
+
+  it("refuses a mistyped --node-id before anything is built", () => {
+    expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
+    const bls = ["--pop-bls-public-key", "ab".repeat(48), "--pop-bls-signature", "cd".repeat(96)];
+    const mistyped = `${NODE_ID.slice(0, -1)}Y`;
+    const result = runCli(
+      ["stake", "-n", mistyped, "-a", "10000", "-e", "14d", ...bls, "-i", "t1", "--network", "costwo"],
+      { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } }
+    );
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.include("Node ID (--node-id) has a bad checksum; check it for a typo");
   });
 
   it("send and forDefi need the transaction id", () => {

@@ -114,7 +114,11 @@ TX {"type":"transfer","amount":"1500000000n","to":"P-localflare18jma8ppw3nhx5r4a
 ? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
 > "10000"
 ? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
-> "NodeID-X"
+> "MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ"
+  ! Node ID (--node-id) must start with "NodeID-", got "MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ"
+> "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXY"
+  ! Node ID (--node-id) has a bad checksum; check it for a typo
+> "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ"
 ? input "\u001b[35mEnter end time\u001b[39m \u001b[33m(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)\u001b[39m\u001b[35m:\u001b[39m"
 > "2d"
 ? input "\u001b[35mEnter delegation fee\u001b[39m \u001b[33m(E.g. 10)\u001b[39m\u001b[35m:\u001b[39m"
@@ -127,25 +131,25 @@ TX {"type":"transfer","amount":"1500000000n","to":"P-localflare18jma8ppw3nhx5r4a
 > "zz"
   ! BLS signature (--pop-bls-signature) must be a hex string
 > "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
-TX {"type":"stake","nodeId":"NodeID-X","amount":"10000000000000n","endTime":"1800172800n","delegationFeeShares":200000,"blsPublicKey":"0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","blsSignature":"0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"} signer=privateKey
+TX {"type":"stake","nodeId":"NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ","amount":"10000000000000n","endTime":"1800172800n","delegationFeeShares":200000,"blsPublicKey":"0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","blsSignature":"0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"} signer=privateKey
 [log] [32mTransaction with hash tx10 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Delegate to a validator node"
 ? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
 > "50"
 ? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
-> "NodeID-X"
+> "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ"
 ? input "\u001b[35mEnter end time\u001b[39m \u001b[33m(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)\u001b[39m\u001b[35m:\u001b[39m"
 > "1700000000"
 [error] [33mWarning: End time 1700000000 (2023-11-14T22:13:20.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now[39m
-TX {"type":"delegate","nodeId":"NodeID-X","amount":"50000000000n","endTime":"1700000000n"} signer=privateKey
+TX {"type":"delegate","nodeId":"NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ","amount":"50000000000n","endTime":"1700000000n"} signer=privateKey
 [log] [32mTransaction with hash tx11 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Add an auto-renewed validator node"
 ? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
 > "10000"
 ? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
-> "NodeID-Y"
+> "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu"
 ? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d)\u001b[39m\u001b[35m:\u001b[39m"
 > "abc"
   ! Invalid duration "abc": use seconds or units w/d/h/m/s in descending order without spaces, e.g. 2d12h or 90m
@@ -156,12 +160,12 @@ TX {"type":"delegate","nodeId":"NodeID-X","amount":"50000000000n","endTime":"170
 > "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
 ? input "\u001b[35mPlease enter the popBLSSignature:\u001b[39m"
 > "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
-TX {"type":"addAutoRenewedValidator","nodeId":"NodeID-Y","amount":"10000000000000n","period":"1209600n","delegationFeeShares":150000,"blsPublicKey":"0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","blsSignature":"0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"} signer=privateKey
+TX {"type":"addAutoRenewedValidator","nodeId":"NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu","amount":"10000000000000n","period":"1209600n","delegationFeeShares":150000,"blsPublicKey":"0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","blsSignature":"0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"} signer=privateKey
 [log] [32mTransaction with hash tx12 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Change the auto-renew period"
 ? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
-> "NodeID-Y"
+> "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu"
 ? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)\u001b[39m\u001b[35m:\u001b[39m"
 > "0"
 ? confirm "\u001b[35mA period of 0 stops auto-renewal: the validator leaves at the end of its current cycle (2027-01-16T08:00:00.000Z) and the stake is returned. Stop auto-renewal?\u001b[39m" default=false
@@ -170,20 +174,20 @@ TX {"type":"addAutoRenewedValidator","nodeId":"NodeID-Y","amount":"1000000000000
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Change the auto-renew period"
 ? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
-> "NodeID-Y"
+> "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu"
 ? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)\u001b[39m\u001b[35m:\u001b[39m"
 > "0"
 ? confirm "\u001b[35mA period of 0 stops auto-renewal: the validator leaves at the end of its current cycle (2027-01-16T08:00:00.000Z) and the stake is returned. Stop auto-renewal?\u001b[39m" default=false
 > true
-TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-Y","period":"0n"} signer=privateKey
+TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu","period":"0n"} signer=privateKey
 [log] [32mTransaction with hash tx13 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Change the auto-renew period"
 ? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
-> "NodeID-Y"
+> "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu"
 ? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)\u001b[39m\u001b[35m:\u001b[39m"
 > "7d"
-TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-Y","period":"604800n"} signer=privateKey
+TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu","period":"604800n"} signer=privateKey
 [log] [32mTransaction with hash tx14 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Claim staking rewards"
@@ -264,12 +268,12 @@ TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4a
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Change the auto-renew period"
 ? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
-> "NodeID-Z"
+> "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN"
 ? input "\u001b[35mEnter the validation period\u001b[39m \u001b[33m(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)\u001b[39m\u001b[35m:\u001b[39m"
 > "0"
 ? confirm "\u001b[35mA period of 0 stops auto-renewal: the validator leaves at the end of its current cycle and the stake is returned. Stop auto-renewal?\u001b[39m" default=false
 > true
-TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-Z","period":"0n"} signer=privateKey
+TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN","period":"0n"} signer=privateKey
 [log] [32mTransaction with hash tx2 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Quit"

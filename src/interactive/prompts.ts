@@ -2,7 +2,7 @@ import { styleText } from "node:util";
 import inquirer from "inquirer";
 import { pChainAddressBytes } from "../chain/keys";
 import { parseDuration, parseFlr, parseFlrToWei } from "../chain/units";
-import { parseBlsHex } from "../cli/inputs";
+import { parseBlsHex, parseNodeId } from "../cli/inputs";
 import {
   derivationModeConstants,
   networkConstants,
@@ -101,7 +101,12 @@ export const prompts = {
     });
   },
 
-  nodeId: (): Promise<string> => input(askWithHint("Enter NodeId", "(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)")),
+  nodeId: async (): Promise<string> =>
+    parseNodeId(
+      await input(askWithHint("Enter NodeId", "(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)"), {
+        validate: (value) => validationOf(() => parseNodeId(value)),
+      })
+    ),
 
   unixTime: (timeType: string): Promise<string> =>
     input(

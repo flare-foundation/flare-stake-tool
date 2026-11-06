@@ -5,6 +5,7 @@
  * signer.
  */
 import { getBytes } from "ethers";
+import { decodeCb58 } from "../chain/keys";
 import { isDurationInput, parseEndTime } from "../chain/units";
 import { resolveEvmFees, type EvmFeeOverrides } from "../constants/fees";
 
@@ -46,6 +47,26 @@ export function parseBlsHex(value: string, part: keyof typeof BLS_LENGTHS): Uint
     throw new Error(`${label} must be ${BLS_LENGTHS[part]} bytes, got ${bytes.length}`);
   }
   return bytes;
+}
+
+const NODE_ID_PREFIX = "NodeID-";
+const NODE_ID_BYTES = 20;
+
+/**
+ * Checks a node id ("NodeID-" and the CB58 of 20 bytes), for the command line and the interactive menu, and returns
+ * it trimmed. Its checksum is checked here because flarejs doesn't: a mistyped id would stake to a node nobody runs.
+ */
+export function parseNodeId(value: string): string {
+  const label = "Node ID (--node-id)";
+  const text = value.trim();
+  if (!text.startsWith(NODE_ID_PREFIX)) {
+    throw new Error(`${label} must start with "${NODE_ID_PREFIX}", got "${text}"`);
+  }
+  const bytes = decodeCb58(text.slice(NODE_ID_PREFIX.length), label);
+  if (bytes.length !== NODE_ID_BYTES) {
+    throw new Error(`${label} must be ${NODE_ID_BYTES} bytes, got ${bytes.length}`);
+  }
+  return text;
 }
 
 /** `--nonce`: a non-negative integer, or undefined when not given. */

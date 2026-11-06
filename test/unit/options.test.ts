@@ -1,12 +1,14 @@
 import { expect } from "chai";
 import path from "path";
 import { getBytes, hexlify } from "ethers";
+import { utils as futils } from "@flarenetwork/flarejs";
 import { createEnv, writeContextFile } from "../../src/app/env";
 import { accountFromPrivateKey } from "../../src/chain/keys";
 import {
   BASE_DERIVATION_PATH,
   evmFeeOverrides,
   parseBlsHex,
+  parseNodeId,
   parseNonce,
   pastEndTimeWarning,
 } from "../../src/cli/inputs";
@@ -17,6 +19,7 @@ import { cleanupTempDir, makeTempDir, writeEnvFile } from "../helpers/cli";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 
 const TO = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC";
+const NODE_ID = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
 
 describe("cli/inputs, cli/requests and cli/options", () => {
   describe("--nonce", () => {
@@ -74,6 +77,44 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       expect(() => parseBlsHex(key.slice(2), "publicKey")).to.throw(/must be 48 bytes, got 47/);
       expect(() => parseBlsHex(key, "signature")).to.throw(/BLS signature .* must be 96 bytes, got 48/);
       expect(() => parseBlsHex("", "signature")).to.throw(/must be 96 bytes, got 0/);
+    });
+  });
+
+  describe("parseNodeId", () => {
+    const BAD_CHECKSUM = "Node ID (--node-id) has a bad checksum; check it for a typo";
+
+    it("accepts a node id with a valid checksum, trimmed", () => {
+      expect(parseNodeId(NODE_ID)).to.equal(NODE_ID);
+      expect(parseNodeId(` ${NODE_ID} `)).to.equal(NODE_ID);
+    });
+
+    it("refuses a node id with any one character mistyped, which flarejs would encode as another node", () => {
+      const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+      const encoded = NODE_ID.slice("NodeID-".length);
+      for (let i = 0; i < encoded.length; i++) {
+        const typo = alphabet[(alphabet.indexOf(encoded[i]!) + 1) % alphabet.length]!;
+        const mistyped = `NodeID-${encoded.slice(0, i)}${typo}${encoded.slice(i + 1)}`;
+        expect(() => parseNodeId(mistyped), mistyped).to.throw(BAD_CHECKSUM);
+      }
+    });
+
+    it("refuses a missing prefix, characters outside base58 and a wrong length", () => {
+      expect(() => parseNodeId(NODE_ID.slice("NodeID-".length))).to.throw(
+        `Node ID (--node-id) must start with "NodeID-", got "${NODE_ID.slice("NodeID-".length)}"`
+      );
+      expect(() => parseNodeId("NodeID-0OIl")).to.throw("Node ID (--node-id) is not valid base58check");
+      expect(() => parseNodeId(`NodeID-${futils.base58check.encode(new Uint8Array(19).fill(7))}`)).to.throw(
+        "Node ID (--node-id) must be 20 bytes, got 19"
+      );
+    });
+
+    it("is checked by every transaction that takes --node-id", () => {
+      const mistyped = `${NODE_ID.slice(0, -1)}Y`;
+      const common = { nodeId: mistyped, amount: "10000", endTime: "14d", period: "14d" };
+      const bls = { popBlsPublicKey: "ab".repeat(48), popBlsSignature: "cd".repeat(96) };
+      for (const type of ["stake", "delegate", "addAutoRenewedValidator", "setAutoRenewedValidatorConfig"]) {
+        expect(() => parseAtomicTxRequest(type, { ...common, ...bls }), type).to.throw(BAD_CHECKSUM);
+      }
     });
   });
 
@@ -139,12 +180,12 @@ describe("cli/inputs, cli/requests and cli/options", () => {
 
     it("refuses auto-compound shares that are not an integer from 0 to 1000000", () => {
       for (const autoCompoundShares of ["1000001", "-1", "0.5", "abc"]) {
-        const options = { amount: "10000", nodeId: "NodeID-X", period: "14d", ...BLS, autoCompoundShares };
+        const options = { amount: "10000", nodeId: NODE_ID, period: "14d", ...BLS, autoCompoundShares };
         expect(() => parseAtomicTxRequest("addAutoRenewedValidator", options), autoCompoundShares).to.throw(
           "--auto-compound-shares must be an integer between 0 and 1000000 (millionths)"
         );
       }
-      const options = { amount: "10000", nodeId: "NodeID-X", period: "14d", ...BLS, autoCompoundShares: "1000000" };
+      const options = { amount: "10000", nodeId: NODE_ID, period: "14d", ...BLS, autoCompoundShares: "1000000" };
       expect(parseAtomicTxRequest("addAutoRenewedValidator", options).request).to.include({ autoCompoundShares: 1e6 });
     });
 

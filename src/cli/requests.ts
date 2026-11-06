@@ -14,6 +14,7 @@ import {
   START_TIME,
   optionalString,
   parseBlsHex,
+  parseNodeId,
   parseNonce,
   parseTime,
   type ParsedTime,
@@ -94,7 +95,7 @@ export function parseAtomicTxRequest(
     const text = optionalString(options.fee);
     return text ? parseFlr(text) : undefined;
   };
-  const nodeId = (): string => required(options.nodeId, "nodeId", "--node-id <nodeId>", type);
+  const nodeId = (): string => parseNodeId(required(options.nodeId, "nodeId", "--node-id <nodeId>", type));
   const resolvedTimes: { name: string; time: ParsedTime }[] = [];
   const endTime = (): bigint => {
     const time = parseTime(required(options.endTime, "endTime", "--end-time <endTime>", type));
@@ -181,7 +182,7 @@ export function parseAtomicTxRequest(
       }
       request = {
         type,
-        nodeId: node,
+        nodeId: node === undefined ? undefined : parseNodeId(node),
         validatorTxId,
         period: period(),
         autoCompoundShares: parseShares(options.autoCompoundShares),
