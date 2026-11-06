@@ -117,6 +117,17 @@ describe("CLI errors (built CLI, no node)", function () {
     );
   });
 
+  it("send needs the key file of --get-hacked too, rather than checking against the context file", () => {
+    // the account in ctx.json is not the one --get-hacked selects, so it must not stand in for the missing key file
+    const context = { wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "costwo" };
+    fs.writeFileSync(path.join(cwd, "ctx.json"), JSON.stringify(context));
+    const result = runCli(["send", "-i", "t1", "--get-hacked", "--network", "costwo"], { cwd });
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.include(
+      "--get-hacked requires --env-path <file> with PRIVATE_KEY_HEX or PRIVATE_KEY_CB58"
+    );
+  });
+
   it("setClaimExecutors and setAllowedClaimRecipients need their list before anything is signed", () => {
     // signing directly: without the check, an omitted list would be signed and sent as a clearing call
     const keyFile = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);

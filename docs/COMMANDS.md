@@ -245,7 +245,7 @@ Submit a previously-built signed transaction to the network.
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
 | Side effects | Submits the signed tx to the appropriate VM API and prints its id on stderr; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
 | Output | "Transaction with hash ... sent to the node" |
-| Failures | "Tx already sent to chain" (the flag was already set). Missing or malformed signed tx file. The signature does not belong to the configured account (`ctx.json`, `--ledger` or `--env-path`). |
+| Failures | "Tx already sent to chain" (the flag was already set). Missing or malformed signed tx file. The signature does not belong to the account the options select, in the order transactions use (`--get-hacked` with its `--env-path`, `--ledger`, `--env-path`, else `ctx.json`); `--get-hacked` without `--env-path` is refused. |
 
 `v` in the signature may be `00`/`01` or `1b`/`1c`. The signed tx file is produced by:
 1. `transaction <op> -i <id>` (no `--ledger`/`--get-hacked`) writes

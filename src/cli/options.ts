@@ -55,6 +55,11 @@ function accountSource(options: GlobalOptions): AccountSource {
   return options.envPath ? "keyFile" : "contextFile";
 }
 
+/** Whether the options select an account themselves (key file or Ledger) rather than leave it to the context file. */
+export function selectsAccount(options: GlobalOptions): boolean {
+  return accountSource(options) !== "contextFile";
+}
+
 function keyFileSigner(options: GlobalOptions, env: Env): PrivateKeySigner {
   if (!options.envPath) {
     throw new Error("--get-hacked requires --env-path <file> with PRIVATE_KEY_HEX or PRIVATE_KEY_CB58");

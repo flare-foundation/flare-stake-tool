@@ -10,14 +10,7 @@ import { accountFromPublicKey } from "./chain/keys";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
-import {
-  contextFileExists,
-  readContextFile,
-  resolveNetworkName,
-  writeContextFile,
-  accountFromContextFile,
-  type ContextFile,
-} from "./app/env";
+import { contextFileExists, readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
 import { describeAutoRenewal, getBalances, getValidators } from "./app/info";
 import { sendSignedTransaction } from "./app/send";
@@ -31,7 +24,14 @@ import {
   pastEndTimeWarning,
   type ParsedTime,
 } from "./cli/inputs";
-import { globalOptions, resolveAccount, resolveEnv, resolveSigner, type GlobalOptions } from "./cli/options";
+import {
+  globalOptions,
+  resolveAccount,
+  resolveEnv,
+  resolveSigner,
+  selectsAccount,
+  type GlobalOptions,
+} from "./cli/options";
 import { parseAtomicTxRequest, parseEvmTxRequest, type AtomicTxOptions, type EvmTxOptions } from "./cli/requests";
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
@@ -257,12 +257,10 @@ async function send(options: GlobalOptions): Promise<void> {
     throw new Error("send needs the transaction id: -i <id>");
   }
   const env = resolveEnv(options);
+  // the signature is checked against the account the options select, as info and transactions choose it; with no
+  // selector and no context file there is nothing to check it against
   const expected =
-    options.ledger || options.envPath
-      ? await resolveAccount(options, env)
-      : contextFileExists(options.ctxFile)
-        ? accountFromContextFile(readContextFile(options.ctxFile), env.network.hrp)
-        : undefined;
+    selectsAccount(options) || contextFileExists(options.ctxFile) ? await resolveAccount(options, env) : undefined;
   const { txId } = await sendSignedTransaction(id, env, expected);
   logSuccess(`Signed transaction ${id} with hash ${txId} sent to the node`);
 }
