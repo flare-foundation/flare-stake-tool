@@ -1,6 +1,6 @@
 import { styleText } from "node:util";
 import inquirer from "inquirer";
-import { parseDuration, parseFlr } from "../chain/units";
+import { parseDuration, parseFlr, parseFlrToWei } from "../chain/units";
 import { parseBlsHex } from "../cli/inputs";
 import {
   derivationModeConstants,
@@ -82,7 +82,11 @@ export const prompts = {
   pvtKeyPath: (): Promise<string> =>
     input(askWithHint("Enter Path to Private Key file", "(E.g. /home/wallet/pvtKeyFile)")),
 
-  amount: (defaultAmount?: string): Promise<string> => input(ask("Enter amount (in FLR):"), { default: defaultAmount }),
+  amount: (defaultAmount?: string): Promise<string> =>
+    input(ask("Enter amount (in FLR):"), {
+      default: defaultAmount,
+      validate: (value) => validationOf(() => parseFlr(value)),
+    }),
 
   // exportCP and importPC fee: the default is the estimate from the current base fee, when there is one
   fees: (estimate: string | undefined, symbol: string): Promise<string> => {
@@ -163,7 +167,11 @@ export const prompts = {
   recipientAddress: (defaultAddress?: string): Promise<string> =>
     input(ask("Please enter the recipient address (default address is reward owner):"), { default: defaultAddress }),
 
-  claimAmount: (): Promise<string> => input(ask("Please enter the amount to claim:")),
+  // a C-chain amount: wei precision (18 decimals)
+  claimAmount: (): Promise<string> =>
+    input(ask("Please enter the amount to claim:"), {
+      validate: (value) => validationOf(() => parseFlrToWei(value)),
+    }),
 
   claimAllUnclaimed: (totalUnclaimed?: string, symbol?: string): Promise<boolean> =>
     select(

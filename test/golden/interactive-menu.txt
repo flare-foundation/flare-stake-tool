@@ -210,6 +210,10 @@ Unclaimed rewards: 5 LFLR[39m
 ? list "\u001b[35mDo you want to claim all unclaimed rewards? (total unclaimed: 5 LFLR)\u001b[39m" choices=["Yes","No"]
 > "No"
 ? input "\u001b[35mPlease enter the amount to claim:\u001b[39m"
+> "1,25"
+  ! Invalid amount "1,25": commas are not accepted, neither as decimal nor as thousands separator; use "." for decimals, e.g. 1.5 or 10000
+> "0.0000000000000000001"
+  ! Invalid amount "0.0000000000000000001": at most 18 decimal places are supported
 > "1.25"
 ? list "\u001b[35mShould claimed rewards be wrapped?\u001b[39m" choices=["Yes","No"]
 > "Yes"
@@ -247,9 +251,12 @@ TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4a
 > "Transfer funds"
 ? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
 > "abc"
+  ! Invalid amount "abc": expected a non-negative decimal number
+> "1"
 ? input "\u001b[35mEnter destination P-chain address:\u001b[39m"
-> "P-x"
-[log] [31mError: Invalid amount "abc": expected a non-negative decimal number[39m
+> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"
+TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u"} signer=privateKey
+[log] [32mTransaction with hash tx1 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Change the auto-renew period"
 ? input "\u001b[35mEnter NodeId\u001b[39m \u001b[33m(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)\u001b[39m\u001b[35m:\u001b[39m"
@@ -259,7 +266,7 @@ TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4a
 ? confirm "\u001b[35mA period of 0 stops auto-renewal: the validator leaves at the end of its current cycle and the stake is returned. Stop auto-renewal?\u001b[39m" default=false
 > true
 TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-Z","period":"0n"} signer=privateKey
-[log] [32mTransaction with hash tx1 built and sent to the network[39m
+[log] [32mTransaction with hash tx2 built and sent to the network[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Quit"
 [log] [34mExiting interactive cli.[39m
