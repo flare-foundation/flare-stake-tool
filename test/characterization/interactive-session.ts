@@ -70,6 +70,11 @@ interface Flags {
   noCycle?: boolean;
   /** The Ledger answers one key whatever the path, like the FLARE_FAKE_LEDGER_KEY stand-in. */
   sameKey?: boolean;
+  /**
+   * An earlier export is still pending on both chains, and a new export's UTXO shows up only on the second look,
+   * so a move must wait for its own.
+   */
+  earlierExport?: boolean;
 }
 type Answer = string | boolean | { index: number };
 
@@ -77,6 +82,8 @@ let script: Answer[] = [];
 let flags: Flags = {};
 let exhausted = 0;
 let txCount = 0;
+/** How often the pending UTXOs were read since the last transaction. */
+let utxoReads = 0;
 
 // ---- inquirer ----
 
@@ -159,9 +166,14 @@ const { networkConfig } = fromDist<typeof NetworkModule>("chain/network.js");
 
 /** Only the client calls interactive mode makes itself; everything else goes through the stubs below. */
 const fakeClients = () => {
+  // a pending UTXO as allUtxos and the wait for an export read it: its own id and its export's tx id
+  const utxo = (txId: string) => ({ ID: () => `${txId}-0`, utxoId: { txID: { toString: () => txId } } });
   const getUTXOs = (chain: string) => (query: unknown) => {
-    record(`UTXOS ${chain} ${show(query)}`);
-    return Promise.resolve({ utxos: [{}] });
+    utxoReads++;
+    const latest = `tx${txCount}`;
+    const txIds = flags.earlierExport ? ["tx-earlier", ...(utxoReads > 1 ? [latest] : [])] : [latest];
+    record(`UTXOS ${chain} ${show(query)} -> ${txIds.join(", ")}`);
+    return Promise.resolve({ numFetched: txIds.length, utxos: txIds.map(utxo), endIndex: { address: "", utxo: "" } });
   };
   return {
     verifyNetwork: () => (flags.noMax ? Promise.reject(new Error("unreachable")) : Promise.resolve()),
@@ -186,6 +198,7 @@ stub(transactions, "runTransaction", (request, _env, signer) => {
     return Promise.reject(new Error(`node refused ${request.type}`));
   }
   txCount++;
+  utxoReads = 0;
   const atomic = /^(export|import)/.test(request.type);
   return Promise.resolve({
     status: "sent" as const,
@@ -326,6 +339,11 @@ const SCENARIOS: Scenario[] = [
     script: [...PRIVATE_KEY, TASK.CP, "10", "", TASK.PC, "1", TASK.quit],
   },
   {
+    name: "private key: a move waits for its own export, not an earlier one",
+    flags: { earlierExport: true },
+    script: [...PRIVATE_KEY, TASK.CP, "10", "", TASK.PC, "1", "", TASK.quit],
+  },
+  {
     name: "private key: no estimates, nothing to claim",
     flags: { noEstimate: true, noMax: true, zeroRewards: true },
     argv: ["interactive", "--gas-limit", "250000", "--rpc-url", "http://127.0.0.1:1"],
@@ -382,6 +400,7 @@ async function main(): Promise<void> {
     flags = { ...scenario.flags };
     exhausted = 0;
     txCount = 0;
+    utxoReads = 0;
     record(`\n===== ${scenario.name}`);
     try {
       await interactiveCli(scenario.argv ?? ["interactive"]);

@@ -39,7 +39,7 @@ ESTIMATE {"type":"exportCP","amount":"10000000000n"}
 TX {"type":"exportCP","amount":"10000000000n","fee":"22460n"} signer=privateKey
 [log] [32mTransaction with hash tx1 built and sent to the network[39m
 [log] [34mFee paid: 0.001234 LFLR[39m
-UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"}
+UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"} -> tx1
 [log] Please approve import transaction
 TX {"type":"importCP"} signer=privateKey
 [log] [32mTransaction with hash tx2 built and sent to the network[39m
@@ -52,7 +52,7 @@ TX {"type":"importCP"} signer=privateKey
 TX {"type":"exportPC","amount":"2999000000n"} signer=privateKey
 [log] [32mTransaction with hash tx3 built and sent to the network[39m
 [log] [34mFee paid: 0.001234 LFLR[39m
-UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"}
+UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"} -> tx3
 ESTIMATE {"type":"importPC"}
 ? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
 > "0.00000001"
@@ -76,7 +76,7 @@ TX {"type":"importPC","fee":"10n"} signer=privateKey
 TX {"type":"exportPC","amount":"1500000000n"} signer=privateKey
 [log] [32mTransaction with hash tx5 built and sent to the network[39m
 [log] [34mFee paid: 0.001234 LFLR[39m
-UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"}
+UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"} -> tx5
 ESTIMATE {"type":"importPC"}
 ? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
 > "1"
@@ -306,6 +306,53 @@ TX {"type":"exportPC","amount":"1000000000n"} signer=privateKey
 [log] [34mExiting interactive cli.[39m
 EXIT ok
 
+===== private key: a move waits for its own export, not an earlier one
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Private Key"
+? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
+> "pk"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "LocalHost"
+ENV localflare {}
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from C-chain to P-chain"
+? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
+> "10"
+ESTIMATE {"type":"exportCP","amount":"10000000000n"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> ""
+[log] Please approve export transaction
+TX {"type":"exportCP","amount":"10000000000n","fee":"22460n"} signer=privateKey
+[log] [32mTransaction with hash tx1 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"} -> tx-earlier
+UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"} -> tx-earlier, tx1
+[log] Please approve import transaction
+TX {"type":"importCP"} signer=privateKey
+[log] [32mTransaction with hash tx2 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from P-chain to C-chain"
+? input "\u001b[35mEnter amount (in FLR):\u001b[39m" default="2.999"
+> "1"
+[log] Please approve export transaction
+TX {"type":"exportPC","amount":"1000000000n"} signer=privateKey
+[log] [32mTransaction with hash tx3 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"} -> tx-earlier
+UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"} -> tx-earlier, tx3
+ESTIMATE {"type":"importPC"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> ""
+[log] Please approve import transaction
+TX {"type":"importPC","fee":"22460n"} signer=privateKey
+[log] [32mTransaction with hash tx4 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+
 ===== private key: no estimates, nothing to claim
 ? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
 > "Private Key"
@@ -325,7 +372,7 @@ ESTIMATE {"type":"exportCP","amount":"1000000000n"}
 TX {"type":"exportCP","amount":"1000000000n"} signer=privateKey
 [log] [32mTransaction with hash tx1 built and sent to the network[39m
 [log] [34mFee paid: 0.001234 LFLR[39m
-UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"}
+UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"} -> tx1
 [log] Please approve import transaction
 TX {"type":"importCP"} signer=privateKey
 [log] [32mTransaction with hash tx2 built and sent to the network[39m
@@ -338,7 +385,7 @@ TX {"type":"importCP"} signer=privateKey
 TX {"type":"exportPC","amount":"2000000000n"} signer=privateKey
 [log] [32mTransaction with hash tx3 built and sent to the network[39m
 [log] [34mFee paid: 0.001234 LFLR[39m
-UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"}
+UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"} -> tx3
 ESTIMATE {"type":"importPC"}
 ? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(leave empty to estimate it at twice the current base fee)\u001b[39m\u001b[35m:\u001b[39m"
 > ""

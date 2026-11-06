@@ -28,9 +28,9 @@ import {
   type ContextFile,
 } from "../app/env";
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
-import { maxExportPCAmount } from "../core/builders/pchain";
+import { allUtxos, maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
-import type { Env, Signer, TxRequest, TxRequestOf } from "../core/types";
+import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
 import { describeError, log, logError, logInfo, logWarning, reportOutcome } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
@@ -100,12 +100,18 @@ const TASKS: Record<Exclude<TaskId, "quit">, (session: Session) => Promise<void>
   validators: showValidators,
   CP: moveCP,
   PC: movePC,
-  stake: async (session) => execute(session, await askStake()),
-  delegate: async (session) => execute(session, await askDelegate()),
+  stake: async (session) => {
+    await execute(session, await askStake());
+  },
+  delegate: async (session) => {
+    await execute(session, await askDelegate());
+  },
   import: importFunds,
   transfer,
   claim,
-  addAutoRenewedValidator: async (session) => execute(session, await askAutoRenewedValidator()),
+  addAutoRenewedValidator: async (session) => {
+    await execute(session, await askAutoRenewedValidator());
+  },
   setAutoRenewedValidatorConfig: setAutoRenewal,
 };
 
@@ -159,8 +165,10 @@ async function setAutoRenewal(session: Session): Promise<void> {
 }
 
 /** Builds, signs and sends (or writes) a transaction, and reports it as the command line does. */
-async function execute(session: Session, request: TxRequest): Promise<void> {
-  reportOutcome(await runTransaction(request, session.env, session.signer), session.env.network.symbol);
+async function execute(session: Session, request: TxRequest): Promise<Outcome> {
+  const outcome = await runTransaction(request, session.env, session.signer);
+  reportOutcome(outcome, session.env.network.symbol);
+  return outcome;
 }
 
 /** Asks for an end time and warns (as the command line does) when it is not in the future. */
@@ -256,14 +264,14 @@ async function askCChainFee(
   }
 }
 
-/** Export from the C-chain, wait for the UTXO to reach the P-chain, import. */
+/** Export from the C-chain, wait for its UTXO to reach the P-chain, import. */
 async function moveCP(session: Session): Promise<void> {
   const amount = await prompts.amount();
   const exportCP: TxRequestOf<"exportCP"> = { type: "exportCP", amount: parseFlr(amount) };
   const fee = await askCChainFee(session, exportCP);
   log("Please approve export transaction");
-  await execute(session, { ...exportCP, fee });
-  await waitForPendingImport(session, "P");
+  const exported = await execute(session, { ...exportCP, fee });
+  await waitForExport(session, "P", exported);
   log("Please approve import transaction");
   await execute(session, { type: "importCP" });
 }
@@ -279,25 +287,39 @@ async function movePC(session: Session): Promise<void> {
   }
   const amount = await prompts.amount(defaultAmount);
   log("Please approve export transaction");
-  await execute(session, { type: "exportPC", amount: parseFlr(amount) });
-  await waitForPendingImport(session, "C");
+  const exported = await execute(session, { type: "exportPC", amount: parseFlr(amount) });
+  await waitForExport(session, "C", exported);
   const fee = await askCChainFee(session, { type: "importPC" });
   log("Please approve import transaction");
   await execute(session, { type: "importPC", fee });
 }
 
-async function waitForPendingImport(session: Session, destination: "P" | "C"): Promise<void> {
+/**
+ * Waits until the export's own UTXOs reach the destination chain. An earlier export that was never imported is
+ * pending there as well, and importing as soon as it showed up could leave this one behind.
+ */
+async function waitForExport(session: Session, destination: "P" | "C", exported: Outcome): Promise<void> {
+  if (exported.status !== "sent") {
+    throw new Error("The export was not sent, so there is nothing to import yet");
+  }
+  const { env, account } = session;
   const deadline = Date.now() + PENDING_IMPORT_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const { utxos } =
+    const utxos =
       destination === "P"
-        ? await session.env.clients.pvm.getUTXOs({ addresses: [session.account.pAddress], sourceChain: "C" })
-        : await session.env.clients.evm.getUTXOs({ addresses: [session.account.cAddressBech], sourceChain: "P" });
-    if (utxos.length > 0) return;
+        ? await allUtxos((query) => env.clients.pvm.getUTXOs(query), {
+            addresses: [account.pAddress],
+            sourceChain: "C",
+          })
+        : await allUtxos((query) => env.clients.evm.getUTXOs(query), {
+            addresses: [account.cAddressBech],
+            sourceChain: "P",
+          });
+    if (utxos.some((utxo) => utxo.utxoId.txID.toString() === exported.txId)) return;
     await sleep(1_000);
   }
   throw new Error(
-    `The exported funds did not show up on the ${destination}-chain within ${PENDING_IMPORT_TIMEOUT_MS / 1000}s`
+    `The exported funds (${exported.txId}) did not show up on the ${destination}-chain within ${PENDING_IMPORT_TIMEOUT_MS / 1000}s`
   );
 }
 
