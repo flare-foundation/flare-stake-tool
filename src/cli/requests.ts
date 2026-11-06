@@ -60,6 +60,17 @@ const required = (value: unknown, name: string, flag: string, type: string): str
   return value;
 };
 
+/**
+ * The list a setClaimExecutors / setAllowedClaimRecipients transaction stores. Required: an empty list clears the
+ * stored one, so clearing takes an explicit empty string rather than a forgotten option.
+ */
+function storedList(value: string[] | undefined, flag: string, type: string): string[] {
+  if (value === undefined) {
+    throw new Error(`${flag} is required for ${type}; to clear the stored list, pass ${flag} ""`);
+  }
+  return normalizeAddressList(value);
+}
+
 function parseShares(value: unknown): number | undefined {
   const text = optionalString(value);
   if (text === undefined) return undefined;
@@ -206,7 +217,7 @@ export function parseEvmTxRequest(operation: EvmOperation, options: EvmTxOptions
       };
     }
     case "setClaimExecutors": {
-      const executors = normalizeAddressList(options.executors);
+      const executors = storedList(options.executors, "--executors", "setClaimExecutors");
       return {
         type: "setClaimExecutors",
         executors,
@@ -215,7 +226,7 @@ export function parseEvmTxRequest(operation: EvmOperation, options: EvmTxOptions
       };
     }
     case "setAllowedClaimRecipients": {
-      const recipients = normalizeAddressList(options.recipients);
+      const recipients = storedList(options.recipients, "--recipients", "setAllowedClaimRecipients");
       return {
         type: "setAllowedClaimRecipients",
         recipients,

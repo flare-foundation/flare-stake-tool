@@ -314,10 +314,10 @@ configured C-chain address (ClaimSetupManager contract).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | List of executor addresses |
+| Inputs | `--executors <address...>`, required: the whole new list. `--executors ""` removes every executor. |
 | Side effects | Builds the EVM tx (value = sum of the executors' fees); signed and sent with `--get-hacked`/`--ledger`, otherwise written as an unsigned file for `send -i` |
 | Output | Tx hash, or the ForDefi hash of the unsigned file |
-| Failures | An executor in the list is not registered on-chain. More than 50 addresses. Insufficient C-balance for the fee. |
+| Failures | `--executors` missing. An executor in the list is not registered on-chain. More than 50 addresses. Insufficient C-balance for the fee. |
 
 ---
 
@@ -328,10 +328,10 @@ contract).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | List of recipient addresses |
+| Inputs | `--recipients <address...>`, required: the whole new list. `--recipients ""` removes every recipient. |
 | Side effects | Builds the EVM tx; signed and sent with `--get-hacked`/`--ledger`, otherwise written as an unsigned file for `send -i` |
 | Output | Tx hash, or the ForDefi hash of the unsigned file |
-| Failures | More than 50 addresses. Insufficient C-balance. Contract not deployed. |
+| Failures | `--recipients` missing. More than 50 addresses. Insufficient C-balance. Contract not deployed. |
 
 ---
 

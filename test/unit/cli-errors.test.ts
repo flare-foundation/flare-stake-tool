@@ -10,8 +10,8 @@ import path from "path";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { markSentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { readGolden } from "../characterization/scenarios";
-import { cleanupTempDir, makeTempDir, runCli } from "../helpers/cli";
-import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+import { cleanupTempDir, makeTempDir, runCli, writeEnvFile } from "../helpers/cli";
+import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 
 /** Nothing listens here, so a command that gets as far as the node fails fast. */
 const CLOSED_NODE = "http://127.0.0.1:1";
@@ -114,6 +114,20 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(unsignedFile.stderr).to.include(
       "A transaction id is required for the unsigned-file flow: use -i <id>, or sign directly with --ledger or --get-hacked --env-path <file>"
     );
+  });
+
+  it("setClaimExecutors and setAllowedClaimRecipients need their list before anything is signed", () => {
+    // signing directly: without the check, an omitted list would be signed and sent as a clearing call
+    const keyFile = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const signing = ["--get-hacked", "--env-path", keyFile, "--network", "localflare", "--rpc-url", CLOSED_NODE];
+    for (const [command, flag] of [
+      ["setClaimExecutors", "--executors"],
+      ["setAllowedClaimRecipients", "--recipients"],
+    ] as const) {
+      const result = runCli([command, ...signing], { cwd });
+      expect(result.exitCode).to.equal(1);
+      expect(result.stderr).to.include(`${flag} is required for ${command}; to clear the stored list, pass ${flag} ""`);
+    }
   });
 });
 

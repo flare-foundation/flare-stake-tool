@@ -127,6 +127,17 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       );
     });
 
+    it("needs the list of setClaimExecutors and setAllowedClaimRecipients; an empty string clears it", () => {
+      expect(() => parseEvmTxRequest("setClaimExecutors", {})).to.throw(
+        '--executors is required for setClaimExecutors; to clear the stored list, pass --executors ""'
+      );
+      expect(() => parseEvmTxRequest("setAllowedClaimRecipients", {})).to.throw(
+        '--recipients is required for setAllowedClaimRecipients; to clear the stored list, pass --recipients ""'
+      );
+      expect(parseEvmTxRequest("setClaimExecutors", { executors: [""] })).to.deep.include({ executors: [] });
+      expect(parseEvmTxRequest("setAllowedClaimRecipients", { recipients: [""] })).to.deep.include({ recipients: [] });
+    });
+
     it("refuses auto-compound shares that are not an integer from 0 to 1000000", () => {
       for (const autoCompoundShares of ["1000001", "-1", "0.5", "abc"]) {
         const options = { amount: "10000", nodeId: "NodeID-X", period: "14d", ...BLS, autoCompoundShares };

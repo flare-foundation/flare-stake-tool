@@ -189,7 +189,10 @@ export function cli(program: Command): void {
     .description("Set allowed claim recipients for claiming FSP rewards")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize (unsigned-file flow)")
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
-    .option("--recipients <recipients...>", "Addresses of the allowed claim recipients (space separated)")
+    .option(
+      "--recipients <recipients...>",
+      "Addresses of the allowed claim recipients to set (space separated); empty string to remove all recipients"
+    )
     .action(async (options: EvmTxOptions) => {
       await evmTransaction("setAllowedClaimRecipients", globalOptions(program.opts(), options));
     });
