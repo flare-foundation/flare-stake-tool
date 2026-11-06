@@ -8,6 +8,8 @@
  *   LOCALFLARE_NODE_URLS  comma-separated base URLs of all nodes, used to find a
  *                         node that is not validating yet for the stake tests
  */
+import { randomBytes } from "crypto";
+import { utils as futils } from "@flarenetwork/flarejs";
 import { rpcCall, sleep } from "../helpers/rpc";
 
 const trimSlash = (url: string): string => url.trim().replace(/\/+$/, "");
@@ -138,6 +140,26 @@ export async function waitForPTxCommitted(txID: string, timeoutMs = 60_000): Pro
     await sleep(1_000);
   }
   throw new Error(`P-chain tx ${txID} not committed within ${timeoutMs}ms`);
+}
+
+/** The P-chain balance of `address` in nFLR. */
+export async function getPBalance(address: string): Promise<bigint> {
+  const result = await rpcCall<{ balance: string }>(LOCAL_RPC_URL, "/ext/bc/P", "platform.getBalance", {
+    addresses: [address],
+  });
+  return BigInt(result.balance);
+}
+
+/** A random P-chain address no run has used, so its balance is whatever the test sends it. */
+export function freshPAddress(): string {
+  return `P-${futils.formatBech32("localflare", randomBytes(20))}`;
+}
+
+/** The transaction id in the CLI's "Transaction with hash … sent to the network" line. */
+export function sentTxId(stdout: string): string {
+  const txId = /hash (\w+)/.exec(stdout)?.[1];
+  if (txId === undefined) throw new Error(`no transaction hash in: ${stdout}`);
+  return txId;
 }
 
 /** Unix seconds for "now + seconds", for end times that must lie in the future. */

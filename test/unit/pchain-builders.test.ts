@@ -1,7 +1,8 @@
 /**
  * P-chain builder details that need chain data: exporting the whole balance
  * (exportPC without -a), importing only the UTXOs the account can spend alone
- * (importPC), following getUTXOs pagination, and checking P-chain addresses.
+ * (importPC), paying a transfer's recipient, following getUTXOs pagination, and
+ * checking P-chain addresses.
  * Offline, against recorded sessions and scripted nodes.
  */
 import {
@@ -10,6 +11,7 @@ import {
   Int,
   OutputOwners,
   TransferOutput,
+  TransferableOutput,
   Utxo,
   avaxSerial,
   utils as futils,
@@ -23,7 +25,7 @@ import { UTXO_PAGE_SIZE, allUtxos, maxExportPCAmount, spendableAmount } from "..
 import { atomicTxFee } from "../../src/core/fee";
 import { FILE_SIGNER_POLICY, IMMEDIATE_SIGNER_POLICY, type Env } from "../../src/core/types";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
-import { startReplay, type Replay, type ReplayEnv } from "../helpers/replay";
+import { startReplay, withReplay, type Replay, type ReplayEnv } from "../helpers/replay";
 
 const account = accountFromPrivateKey(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), "localflare");
 const now = () => BigInt(Math.floor(Date.now() / 1000));
@@ -164,6 +166,37 @@ describe("core/builders/pchain", function () {
       );
       await refusal([], "Nothing to import from the P-chain");
     });
+  });
+
+  describe("transfer", () => {
+    // Every recorded transfer pays 1 FLR to one address, so a builder that ignored either would still match them.
+    it("pays the amount given to the recipient given, and only the change back to the account", () =>
+      withReplay("transfer-pk", async (env) => {
+        const recipient = accountFromPrivateKey(getBytes(`0x${"22".repeat(32)}`), "localflare").pAddress;
+        const amount = 1_234_567_891n;
+        const built = await buildTransaction(
+          { type: "transfer", amount, to: recipient },
+          env,
+          account,
+          IMMEDIATE_SIGNER_POLICY
+        );
+        if (built.kind !== "atomic") throw new Error("transfer must be a P-chain transaction");
+        const { outputs } = (built.unsignedTx.getTx() as unknown as { baseTx: { outputs: TransferableOutput[] } })
+          .baseTx;
+        const described = outputs.map((transferable) => {
+          const output = transferable.output as TransferOutput;
+          return {
+            owners: output.getOwners().map((bytes) => `P-${futils.formatBech32("localflare", bytes)}`),
+            threshold: output.getThreshold(),
+            locktime: output.getLocktime(),
+            amount: output.amount(),
+          };
+        });
+        const paid = described.filter((output) => !output.owners.includes(account.pAddress));
+        const change = described.filter((output) => output.owners.includes(account.pAddress));
+        expect(paid).to.deep.equal([{ owners: [recipient], threshold: 1, locktime: 0n, amount }]);
+        for (const output of change) expect(output.owners).to.deep.equal([account.pAddress]);
+      }));
   });
 
   describe("allUtxos", () => {

@@ -1,18 +1,28 @@
 import { expect } from "chai";
 import { runCli, makeTempDir, cleanupTempDir } from "./cli-helper";
 import { createFundedAccount, type FundedAccount } from "./accounts";
-import { fromNow, getCurrentValidators, pickFreeNode, waitForLocalNetwork, type NodeInfo } from "./local-network";
+import {
+  freshPAddress,
+  fromNow,
+  getCurrentValidators,
+  getPBalance,
+  pickFreeNode,
+  sentTxId,
+  waitForLocalNetwork,
+  waitForPTxCommitted,
+  type NodeInfo,
+} from "./local-network";
 
 const NETWORK = "localflare";
-// Genesis allocation 1 P-address (a known funded address that exists on the network)
-const ANOTHER_P_ADDRESS = "P-localflare1g65uqn6t77p656w64023nh8nd9updzmxe63cr6";
 
 // Amounts are in FLR (the CLI converts to nFLR internally via getOptions)
 const FEE = "1";
 const EXPORT_AMOUNT = "100000";
 const DELEGATE_AMOUNT = "10000"; // network minimum
 const STAKE_AMOUNT = "10000"; // network minimum
-const TRANSFER_AMOUNT = "1";
+// a fractional amount no other transaction pays, so the recipient's balance shows exactly this transfer
+const TRANSFER_AMOUNT = "1.234567891";
+const TRANSFER_NFLR = 1_234_567_891n;
 // leaves room for the 1 FLR total import fee on the way back
 const SMALL_AMOUNT = "10";
 const STAKE_DURATION_S = 60 * 60; // localflare minimum is 15 minutes
@@ -116,14 +126,17 @@ describe("CLI signing commands (with network)", function () {
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
   });
 
-  it("transfer: sends 1 FLR to another P-chain address", async () => {
+  it("transfer: pays exactly the amount to the recipient given", async () => {
     await new Promise((r) => setTimeout(r, 2_000));
+    const recipient = freshPAddress();
     const result = runCli(
-      ["transaction", "transfer", "-a", TRANSFER_AMOUNT, "--transfer-address", ANOTHER_P_ADDRESS, ...signArgs()],
+      ["transaction", "transfer", "-a", TRANSFER_AMOUNT, "--transfer-address", recipient, ...signArgs()],
       { timeoutMs: 90_000 }
     );
     expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
+    await waitForPTxCommitted(sentTxId(result.stdout));
+    expect(await getPBalance(recipient)).to.equal(TRANSFER_NFLR);
   });
 
   it("exportPC: moves 10 FLR from P-chain back to C-chain", async () => {
