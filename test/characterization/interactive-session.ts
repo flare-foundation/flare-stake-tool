@@ -70,8 +70,8 @@ interface Flags {
   noCycle?: boolean;
   /** The Ledger answers one key whatever the path, like the FLARE_FAKE_LEDGER_KEY stand-in. */
   sameKey?: boolean;
-  /** Another Ledger is plugged in once the menu is shown: from then on every path answers another key. */
-  swapLedger?: boolean;
+  /** Another Ledger is plugged in when a question with this text is asked: from then on every path answers another key. */
+  swapLedgerAt?: string;
   /**
    * An earlier export is still pending on both chains, and a new export's UTXO shows up only on the second look,
    * so a move must wait for its own.
@@ -124,7 +124,7 @@ async function prompt(questions: Question[]): Promise<Record<string, unknown>> {
   const answers: Record<string, unknown> = {};
   for (const q of questions) {
     const choices = q.choices;
-    if (flags.swapLedger && q.message.includes("What do you want to do?")) ledgerSwapped = true;
+    if (flags.swapLedgerAt !== undefined && q.message.includes(flags.swapLedgerAt)) ledgerSwapped = true;
     record(
       `? ${q.type} ${show(q.message)}` +
         (q.default !== undefined ? ` default=${show(q.default)}` : "") +
@@ -365,8 +365,18 @@ const SCENARIOS: Scenario[] = [
     // the claim shows the first Ledger's account; the transaction is refused rather than built for the other one
     name: "ledger: another Ledger plugged in during the session",
     ctx: "ledger",
-    flags: { swapLedger: true },
+    flags: { swapLedgerAt: "What do you want to do?" },
     script: ["Ledger", "Yes", TASK.claim, "Yes", "No", "", TASK.quit],
+  },
+  {
+    // the addresses listed are the first Ledger's: the session does not start on the other one, whose key does not
+    // match the saved context either, until it is chosen by replacing the context
+    name: "ledger: another Ledger plugged in while choosing the address",
+    flags: { swapLedgerAt: "Which address do you want to use?" },
+    script: [
+      "Ledger", "Coston2", "BIP44", { index: 0 },
+      "Ledger", "Yes", true, "Coston2", "BIP44", { index: 0 }, TASK.addresses, TASK.quit,
+    ],
   },
   {
     // every path of this device answers another key than the one saved: kept (and refused), then replaced

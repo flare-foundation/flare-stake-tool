@@ -49,19 +49,28 @@ export class LedgerSigner implements Signer {
   readonly kind = "ledger" as const;
   readonly policy: BuildPolicy = IMMEDIATE_SIGNER_POLICY;
 
-  /** The account of the first key the device answered; a session shows it and its transactions are built for it. */
+  /**
+   * The account the device must have: the one given as expected, otherwise the first key the device answered. A
+   * session shows it and its transactions are built for it.
+   */
   private pinned: Account | undefined;
 
+  /** `expectedPublicKey`: the key the account was chosen by (a Ledger ctx.json's), which even the first read must answer. */
   constructor(
     private readonly device: LedgerDevice,
     private readonly derivationPath: string,
-    private readonly hrp: string
-  ) {}
+    private readonly hrp: string,
+    expectedPublicKey?: string
+  ) {
+    if (expectedPublicKey !== undefined) {
+      this.pinned = accountFromPublicKey(expectedPublicKey, hrp);
+    }
+  }
 
   /**
    * The account the device has at the derivation path, read from the device every time: another Ledger (or seed)
-   * connected since the first read is refused, as transactions would be built and signed for an account other than
-   * the one shown.
+   * than the expected one, or connected since the first read, is refused, as transactions would be built and signed
+   * for an account other than the one shown.
    */
   async account(): Promise<Account> {
     const current = accountFromPublicKey(await this.device.getPublicKey(this.derivationPath, this.hrp), this.hrp);

@@ -528,6 +528,88 @@ FILE ctx.json: {
   "derivationPath": "m/44'/60'/2'/0/0"
 }
 
+===== ledger: another Ledger plugged in while choosing the address
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Ledger"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "Coston2"
+? list "\u001b[35mChoose derivation path...\u001b[39m" choices=["BIP44 (Default)","Ledger Live"]
+> "BIP44"
+[log] Fetching Addresses...
+LEDGER getPublicKey m/44'/60'/0'/0/0
+LEDGER getPublicKey m/44'/60'/0'/0/1
+LEDGER getPublicKey m/44'/60'/0'/0/2
+LEDGER getPublicKey m/44'/60'/0'/0/3
+LEDGER getPublicKey m/44'/60'/0'/0/4
+LEDGER getPublicKey m/44'/60'/0'/0/5
+LEDGER getPublicKey m/44'/60'/0'/0/6
+LEDGER getPublicKey m/44'/60'/0'/0/7
+LEDGER getPublicKey m/44'/60'/0'/0/8
+LEDGER getPublicKey m/44'/60'/0'/0/9
+? list "\u001b[35mWhich address do you want to use?\u001b[39m" choices=["1. 0x78C5BC3204a27285359897319add9A414919bc98","2. 0x633f21c6f466b06a4Ab7F3DE2F678D60B76f8618","3. 0x131A5C824F4C85f8C3d7094FA6fEA21DB013C720","4. 0x10BcE760f000e0b33b1b3718D5ADDA81d214C12e","5. 0x4dCECC3a62659e7f6174A1a2F4B1bC1E08875840","6. 0x606Fab99a6Be3eAb4CCb02a1e03D9c35758F2201","7. 0xBA6aeC74727D73d96da4Ff1E8c63bedD9dE84a09","8. 0xdaf81b2945A242050859237F8AbaB299CaD79fe8","9. 0xCF76695260cef5b90EE3D1F907E0f26eb1545F18","10. 0x7a0287A44670998E5D709Ee0B9A02336D1717FE9"]
+> {"index":0}
+ENV costwo {}
+LEDGER getPublicKey m/44'/60'/0'/0/0
+[log] [31mError: The connected Ledger has 0xf8569244442ed3755ef434Fcb2e924c11A99ca11 at m/44'/60'/0'/0/0, not 0x78C5BC3204a27285359897319add9A414919bc98 as when it was connected; reconnect that Ledger[39m
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
+> "Ledger"
+[log] [35mYou already have a ctx.json with the following parameters:[39m
+[log] [33mWallet:[39m ledger
+[log] [33mPublic Key:[39m 0227a89efe89e2e7cafaa8719a185a05b0972f05ff6fd67fbe451ddb8004a7984e
+[log] [33mNetwork:[39m costwo
+[log] [33mEth Address:[39m 0x78C5BC3204a27285359897319add9A414919bc98
+? list "\u001b[35mDo you wish to continue with this?\u001b[39m" choices=["Yes","No"]
+> "Yes"
+LEDGER getPublicKey m/44'/60'/0'/0/0
+[error] [33mWarning: The connected Ledger has 0xf8569244442ed3755ef434Fcb2e924c11A99ca11 at m/44'/60'/0'/0/0, not the 0x78C5BC3204a27285359897319add9A414919bc98 saved in ctx.json[39m
+? confirm "\u001b[35mReplace ctx.json with a Ledger context? The current file is kept as a ctx.json.<time>.bak backup.\u001b[39m" default=false
+> true
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "Coston2"
+? list "\u001b[35mChoose derivation path...\u001b[39m" choices=["BIP44 (Default)","Ledger Live"]
+> "BIP44"
+[log] Fetching Addresses...
+LEDGER getPublicKey m/44'/60'/0'/0/0
+LEDGER getPublicKey m/44'/60'/0'/0/1
+LEDGER getPublicKey m/44'/60'/0'/0/2
+LEDGER getPublicKey m/44'/60'/0'/0/3
+LEDGER getPublicKey m/44'/60'/0'/0/4
+LEDGER getPublicKey m/44'/60'/0'/0/5
+LEDGER getPublicKey m/44'/60'/0'/0/6
+LEDGER getPublicKey m/44'/60'/0'/0/7
+LEDGER getPublicKey m/44'/60'/0'/0/8
+LEDGER getPublicKey m/44'/60'/0'/0/9
+? list "\u001b[35mWhich address do you want to use?\u001b[39m" choices=["1. 0xf8569244442ed3755ef434Fcb2e924c11A99ca11","2. 0x63eC0cB930C5180f22C1070225993d944b9Ea2C5","3. 0x8911c8D8B0C89631a835f569576Fe3494d453D87","4. 0x2035114BA7B5d0dfB3313A97b3ea188Aa999f4B7","5. 0x1b4239c4B2b9C523F5cB6df6fc85808Aa12dC2F5","6. 0xeEDa83ae2043bF097C9511E3810Dc952C2c4012C","7. 0xC8C4066af6641ae1b286e4CfeB747b3351358157","8. 0xBC45361961b80ED30D860eA852b9f6135ff035A6","9. 0x0c86354D0cC43015Cb6ea6089185594BC9fE05E5","10. 0x29D6472AEEF7593DD2E4f4aC5585fEd1Bc4bEb04"]
+> {"index":0}
+[log] Previous ctx.json kept as ctx.json.<time>.bak
+ENV costwo {}
+LEDGER getPublicKey m/44'/60'/0'/0/0
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "View chain addresses"
+[log] P-chain address: P-costwo10tfx7fq08sa06vmkfzwjw636fwwahreczsev74
+[log] C-chain address hex: 0xf8569244442ed3755ef434Fcb2e924c11A99ca11
+[log] secp256k1 public key: 0x0284c823c15f31051df2e7e0b36b487005099f580a1b0cb47847cc8b00ce688229
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+FILE ctx.json: {
+  "wallet": "ledger",
+  "publicKey": "0284c823c15f31051df2e7e0b36b487005099f580a1b0cb47847cc8b00ce688229",
+  "network": "costwo",
+  "ethAddress": "0xf8569244442ed3755ef434Fcb2e924c11A99ca11",
+  "flareAddress": "P-costwo10tfx7fq08sa06vmkfzwjw636fwwahreczsev74",
+  "derivationPath": "m/44'/60'/0'/0/0"
+}
+FILE ctx.json.<time>.bak: {
+  "wallet": "ledger",
+  "publicKey": "0227a89efe89e2e7cafaa8719a185a05b0972f05ff6fd67fbe451ddb8004a7984e",
+  "network": "costwo",
+  "ethAddress": "0x78C5BC3204a27285359897319add9A414919bc98",
+  "flareAddress": "P-costwo1pzg2yrhv78vnj0h55fcuulgvayutk3vv8485yp",
+  "derivationPath": "m/44'/60'/0'/0/0"
+}
+
 ===== ledger: a context from another Ledger
 ? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m"]
 > "Ledger"

@@ -285,5 +285,24 @@ describe("ledger", () => {
       key.current = EWOQ_PUBLIC_KEY_COMPRESSED; // the first Ledger back: accepted again
       expect(await signer.account()).to.equal(first);
     });
+
+    it("given the key the account was chosen by, refuses even the first read of another key", async () => {
+      const key = { current: OTHER_KEY };
+      const { device, signed } = swappableDevice(key);
+      // as a ctx.json may hold it: uncompressed, with 0x
+      const expected = new SigningKey(`0x${EWOQ_PRIVATE_KEY_HEX}`).publicKey;
+      const signer = new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare", expected);
+      await signer.account().then(
+        () => expect.fail("answered another account"),
+        (error: unknown) => expect((error as Error).message).to.match(/^The connected Ledger has 0x[0-9a-fA-F]{40} /)
+      );
+      await signer.sign(bundle).then(
+        () => expect.fail("signed with another Ledger"),
+        (error: unknown) => expect((error as Error).message).to.match(/^The connected Ledger has /)
+      );
+      expect(signed).to.deep.equal([]);
+      key.current = EWOQ_PUBLIC_KEY_COMPRESSED;
+      expect((await signer.account()).publicKeyHex).to.equal(EWOQ_PUBLIC_KEY_COMPRESSED);
+    });
   });
 });

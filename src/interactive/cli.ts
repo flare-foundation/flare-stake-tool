@@ -366,7 +366,10 @@ async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
     const device = ledgerDevice();
     const context = await ledgerContext(device);
     const env = createEnv(context.network, node);
-    const signer = new LedgerSigner(device, context.derivationPath ?? BASE_DERIVATION_PATH, env.network.hrp);
+    // the device must still have the context's key: another Ledger plugged in while choosing the address, or since
+    // the saved context was checked, would otherwise become the session's account
+    const path = context.derivationPath ?? BASE_DERIVATION_PATH;
+    const signer = new LedgerSigner(device, path, env.network.hrp, context.publicKey);
     return { env, signer, account: await signer.account() };
   }
   const unsupported: never = wallet; // a wallet added to the menu without a branch here fails to compile
