@@ -161,7 +161,7 @@ Register a new fixed-term validator using locked P-chain funds. (For validators 
 | Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `-e <endTime>` (unix seconds or duration from now), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>` (48 bytes), `--pop-bls-signature <hex>` (96 bytes), optional `-s <startTime>` |
 | Side effects | Locks the staked amount on the P-chain for the duration. Funds return to the staking address on `endTime`. |
 | Output | Tx hash, "sent to the network" |
-| Failures | "Insufficient funds" if P-balance < stake amount. Validator already registered. Invalid BLS signature. End time before start time or after the configured maximum. The account already stakes to three other nodes in an overlapping period (checked on every path). |
+| Failures | "Insufficient funds" if P-balance < stake amount. Validator already registered. Invalid BLS signature. End time before start time or after the configured maximum. The account already stakes to three other nodes in an overlapping period (checked on every path, also for `delegate` and `addAutoRenewedValidator`; refused when the node counts a validator's delegations without listing them all, since the account's could be among those left out). |
 
 `-s <startTime>` does not delay the stake: since the Durango upgrade the network
 starts a stake when it accepts the transaction (the tool warns when `-s` is

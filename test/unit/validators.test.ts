@@ -83,6 +83,28 @@ describe("chain/validators", () => {
     expect(() => checkNodeLimit(three.slice(0, 2), account, "NodeID-D", 3000n, 2000n)).to.not.throw();
   });
 
+  it("refuses to count on a node that counts delegations without listing them", () => {
+    const account = { ...accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "flare"), pAddress: target };
+    const node = (delegatorCount: string, listed: number): CurrentValidator => ({
+      ...validators[0]!,
+      delegatorCount,
+      delegators: validators[0]!.delegators!.slice(0, listed),
+    });
+    // two delegations counted, fewer listed: one left out may be the account's
+    for (const listed of [0, 1]) {
+      expect(() => checkNodeLimit([node("2", listed)], account, "NodeID-D", 3000n, 2000n)).to.throw(
+        `The node lists ${listed} of the 2 delegations to NodeID-A, so the account's stakes cannot be checked against the limit of 3 nodes`
+      );
+    }
+    // the delegators field left out altogether
+    const omitted = node("2", 0);
+    delete omitted.delegators;
+    expect(() => checkNodeLimit([omitted], account, "NodeID-D", 3000n, 2000n)).to.throw(/lists 0 of the 2 delegations/);
+    // every delegation listed, or no count given: counted as before
+    expect(() => checkNodeLimit([node("2", 2)], account, "NodeID-D", 3000n, 2000n)).to.not.throw();
+    expect(() => checkNodeLimit(validators, account, "NodeID-D", 3000n, 2000n)).to.not.throw();
+  });
+
   it("counts the period from now, since the chain starts a stake when it accepts it (a later --start-time is not used)", () => {
     const account = { ...accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "flare"), pAddress: target };
     const three: CurrentValidator[] = ["NodeID-A", "NodeID-B", "NodeID-C"].map((nodeID) => ({
