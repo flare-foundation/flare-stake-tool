@@ -154,6 +154,27 @@ describe("core/builders/pchain", function () {
       expect(atomicTxFee(estimated.unsignedTx, context) > 0n).to.equal(true);
     });
 
+    it("leaves a time-locked UTXO pending even once its lock has passed, which flarejs cannot import", async () => {
+      const expired = await exported([account.addressBytes], 1, 1_000_000_000n, 0, 1n); // locked until 1970
+      const env = pendingEnv([expired, await exported([account.addressBytes], 1, 10_000_000_000n, 1)]);
+      const built = await buildTransaction({ type: "importPC", fee: FEE }, env, account, IMMEDIATE_SIGNER_POLICY);
+      if (built.kind !== "atomic") throw new Error("not an atomic transaction");
+      expect(importedInputs(built)).to.equal(1);
+      expect(atomicTxFee(built.unsignedTx, await env.clients.context())).to.equal(FEE); // flarejs alone paid 0
+      await buildTransaction(
+        { type: "importPC", fee: FEE },
+        pendingEnv([expired]),
+        account,
+        IMMEDIATE_SIGNER_POLICY
+      ).then(
+        () => expect.fail("built an import"),
+        (error: unknown) =>
+          expect(String(error)).to.include(
+            "(1 UTXO(s) need more signatures or have a time lock, which cannot be imported even once it has passed)"
+          )
+      );
+    });
+
     it("refuses when nothing pending can be spent alone, and when nothing is pending", async () => {
       const refusal = (utxos: Utxo[], message: string) =>
         buildTransaction({ type: "importPC", fee: FEE }, pendingEnv(utxos), account, IMMEDIATE_SIGNER_POLICY).then(
@@ -162,7 +183,7 @@ describe("core/builders/pchain", function () {
         );
       await refusal(
         [await exported([account.addressBytes, other.addressBytes], 2, 5_000_000_000n, 0)],
-        "Nothing to import from the P-chain that this account can spend alone (1 UTXO(s) need more signatures or are still locked)"
+        "Nothing to import from the P-chain that this account can spend alone (1 UTXO(s) need more signatures or have a time lock, which cannot be imported even once it has passed)"
       );
       await refusal([], "Nothing to import from the P-chain");
     });

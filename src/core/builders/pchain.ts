@@ -266,15 +266,16 @@ export async function buildImportPC(
     env.clients.context(),
     allUtxos((query) => env.clients.evm.getUTXOs(query), { sourceChain: "P", addresses: [account.cAddressBech] }),
   ]);
-  // flarejs (5.2.0) charges the fee to the first UTXO before checking that the account can spend it, so a co-owned
-  // UTXO in front made it build an import that pays nothing; it only gets the ones the account can spend alone.
-  const now = nowSeconds();
-  const utxos = pending.filter((utxo) => spendableAlone(futils.getUtxoInfo(utxo), now));
+  // flarejs (5.2.0) charges the fee to the first UTXO before checking that the account can spend it, and checks time
+  // locks against time 0 rather than now, so a co-owned UTXO in front, or a time-locked one even once its lock has
+  // passed, made it build an import that pays nothing. It only gets the UTXOs it can import: spendable alone and
+  // without a time lock (spendable at time 0).
+  const utxos = pending.filter((utxo) => spendableAlone(futils.getUtxoInfo(utxo), 0n));
   if (utxos.length === 0) {
     throw new Error(
       pending.length === 0
         ? "Nothing to import from the P-chain"
-        : `Nothing to import from the P-chain that this account can spend alone (${pending.length} UTXO(s) need more signatures or are still locked)`
+        : `Nothing to import from the P-chain that this account can spend alone (${pending.length} UTXO(s) need more signatures or have a time lock, which cannot be imported even once it has passed)`
     );
   }
   let unsignedTx: UnsignedTx;

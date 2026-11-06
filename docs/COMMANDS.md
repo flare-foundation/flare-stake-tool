@@ -141,7 +141,9 @@ Move FLR from the P-chain to the C-chain (reverse of exportCP).
 
 Complete the P→C transfer started by `exportPC`. Reads pending UTXOs and
 imports those the account can spend alone: one that needs more signatures (a
-2-of-2 that includes the address) or is still locked is left pending.
+2-of-2 that includes the address) or has a time lock is left pending. flarejs
+checks time locks against time 0, so a time-locked UTXO cannot be imported
+even once its lock has passed.
 
 | Aspect | Detail |
 |---|---|
