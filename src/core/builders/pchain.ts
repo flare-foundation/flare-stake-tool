@@ -183,7 +183,9 @@ export async function buildExportCP(
 ): Promise<UnsignedTxBundle> {
   requireFeeForPolicy("exportCP", req.fee, policy);
   const context = await env.clients.context();
-  const nonce = req.nonce ?? BigInt(await env.clients.provider.getTransactionCount(account.cAddress));
+  // "latest", whatever the signer: the C-chain checks an atomic transaction's nonce against the accepted state,
+  // without the transactions waiting in the node
+  const nonce = req.nonce ?? BigInt(await env.clients.provider.getTransactionCount(account.cAddress, "latest"));
   if (req.fee === undefined) {
     const baseFee = await env.clients.evm.getBaseFee();
     return bundle(

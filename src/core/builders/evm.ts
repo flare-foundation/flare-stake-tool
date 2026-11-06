@@ -9,7 +9,7 @@ import {
 } from "../../chain/contracts";
 import type { Account } from "../../chain/keys";
 import { defaultGasLimit, normalizeAddressList, type EvmFees } from "../../constants/fees";
-import type { EvmEnv, EvmTxType, TxRequestOf, UnsignedTxBundle } from "../types";
+import type { BuildPolicy, EvmEnv, EvmTxType, TxRequestOf, UnsignedTxBundle } from "../types";
 
 function evmBundle(txType: EvmTxType, rawTx: TransactionLike): UnsignedTxBundle {
   // Build exactly what gets signed. The builders always set the type (2, EIP-1559 fees); without one ethers would
@@ -19,8 +19,13 @@ function evmBundle(txType: EvmTxType, rawTx: TransactionLike): UnsignedTxBundle 
   return { kind: "evm", txType, tx, rawTx, digest: getBytes(tx.unsignedHash) };
 }
 
-async function nonceOf(env: EvmEnv, account: Account, requested: number | undefined): Promise<number> {
-  return requested ?? (await env.clients.provider.getTransactionCount(account.cAddress));
+async function nonceOf(
+  env: EvmEnv,
+  account: Account,
+  requested: number | undefined,
+  policy: BuildPolicy
+): Promise<number> {
+  return requested ?? (await env.clients.provider.getTransactionCount(account.cAddress, policy.evmNonce));
 }
 
 /** The fee fields, with `gasLimit` being `--gas-limit` or else the operation's default. */
@@ -44,9 +49,10 @@ async function contractRecipient(env: EvmEnv, fees: EvmFees, recipient: string):
 export async function buildWithdrawal(
   req: TxRequestOf<"withdrawal">,
   env: EvmEnv,
-  account: Account
+  account: Account,
+  policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
-  const nonce = await nonceOf(env, account, req.nonce);
+  const nonce = await nonceOf(env, account, req.nonce, policy);
   const to = getAddress(req.to);
   const contract = await contractRecipient(env, req.fees, to);
   return evmBundle("withdrawal", {
@@ -58,10 +64,15 @@ export async function buildWithdrawal(
   });
 }
 
-export async function buildClaim(req: TxRequestOf<"claim">, env: EvmEnv, account: Account): Promise<UnsignedTxBundle> {
+export async function buildClaim(
+  req: TxRequestOf<"claim">,
+  env: EvmEnv,
+  account: Account,
+  policy: BuildPolicy
+): Promise<UnsignedTxBundle> {
   const recipient = getAddress(req.recipient);
   const rewardManager = await contractAddress(env, "ValidatorRewardManager");
-  const nonce = await nonceOf(env, account, req.nonce);
+  const nonce = await nonceOf(env, account, req.nonce, policy);
   const rewards = await stateOfRewards(env, rewardManager, account.cAddress);
   const amountWei = req.amount ?? rewards.unclaimedWei;
   if (amountWei > rewards.unclaimedWei || rewards.unclaimedWei === 0n || amountWei === 0n) {
@@ -84,10 +95,11 @@ export async function buildClaim(req: TxRequestOf<"claim">, env: EvmEnv, account
 export async function buildSetClaimExecutors(
   req: TxRequestOf<"setClaimExecutors">,
   env: EvmEnv,
-  account: Account
+  account: Account,
+  policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
   const claimSetupManager = await contractAddress(env, "ClaimSetupManager");
-  const nonce = await nonceOf(env, account, req.nonce);
+  const nonce = await nonceOf(env, account, req.nonce, policy);
   const executors = normalizeAddressList(req.executors);
   let totalFeeWei = 0n;
   for (const executor of executors) {
@@ -110,10 +122,11 @@ export async function buildSetClaimExecutors(
 export async function buildSetAllowedClaimRecipients(
   req: TxRequestOf<"setAllowedClaimRecipients">,
   env: EvmEnv,
-  account: Account
+  account: Account,
+  policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
   const claimSetupManager = await contractAddress(env, "ClaimSetupManager");
-  const nonce = await nonceOf(env, account, req.nonce);
+  const nonce = await nonceOf(env, account, req.nonce, policy);
   const recipients = normalizeAddressList(req.recipients);
   return evmBundle("setAllowedClaimRecipients", {
     nonce,
@@ -127,9 +140,10 @@ export async function buildSetAllowedClaimRecipients(
 export async function buildCustomCChainTx(
   req: TxRequestOf<"customCChainTx">,
   env: EvmEnv,
-  account: Account
+  account: Account,
+  policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
-  const nonce = await nonceOf(env, account, req.nonce);
+  const nonce = await nonceOf(env, account, req.nonce, policy);
   return evmBundle("customCChainTx", {
     nonce,
     ...feeFields(req.fees, defaultGasLimit("custom")),

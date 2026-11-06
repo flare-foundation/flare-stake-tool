@@ -19,7 +19,13 @@ import {
   resolveEvmFees,
 } from "../../src/constants/fees";
 import { buildClaim, buildSetClaimExecutors, buildWithdrawal } from "../../src/core/builders/evm";
-import type { EvmEnv, UnsignedTxBundle } from "../../src/core/types";
+import {
+  FILE_SIGNER_POLICY,
+  IMMEDIATE_SIGNER_POLICY,
+  type BuildPolicy,
+  type EvmEnv,
+  type UnsignedTxBundle,
+} from "../../src/core/types";
 import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 
 const ACCOUNT = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
@@ -38,12 +44,19 @@ interface Chain {
   codeLookupFails?: boolean;
 }
 
-/** A C-chain with one contract (CONTRACT) and the given rewards and executors; records the getCode lookups. */
-function chainEnv(chain: Chain = {}): { env: EvmEnv; codeLookups: string[] } {
+/**
+ * A C-chain with one contract (CONTRACT) and the given rewards and executors; records the getCode lookups and the
+ * block tag of every nonce lookup.
+ */
+function chainEnv(chain: Chain = {}): { env: EvmEnv; codeLookups: string[]; nonceTags: string[] } {
   const codeLookups: string[] = [];
+  const nonceTags: string[] = [];
   const selectorOf = (fn: string) => contractInterface.getFunction(fn)!.selector;
   const provider: EvmEnv["clients"]["provider"] = {
-    getTransactionCount: () => Promise.resolve(0),
+    getTransactionCount: (_address, blockTag) => {
+      nonceTags.push(String(blockTag));
+      return Promise.resolve(0);
+    },
     getCode: (address: string) => {
       codeLookups.push(address);
       if (chain.codeLookupFails) return Promise.reject(new Error("eth_getCode failed"));
@@ -69,7 +82,7 @@ function chainEnv(chain: Chain = {}): { env: EvmEnv; codeLookups: string[] } {
       return Promise.reject(new Error(`unexpected call ${data.slice(0, 10)}`));
     },
   };
-  return { env: { network: networkConfig("localflare", {}), clients: { provider } }, codeLookups };
+  return { env: { network: networkConfig("localflare", {}), clients: { provider } }, codeLookups, nonceTags };
 }
 
 const gasLimitOf = (bundle: UnsignedTxBundle): bigint => {
@@ -81,7 +94,12 @@ describe("core/builders/evm: default gas limit by recipient", () => {
   it("withdrawal: the low limit to an ordinary account, the 4.4.0 limit to a contract", async () => {
     const { env } = chainEnv();
     const withdrawal = (to: string) =>
-      buildWithdrawal({ type: "withdrawal", to, amount: 1n, fees: resolveEvmFees("withdrawal") }, env, ACCOUNT);
+      buildWithdrawal(
+        { type: "withdrawal", to, amount: 1n, fees: resolveEvmFees("withdrawal") },
+        env,
+        ACCOUNT,
+        IMMEDIATE_SIGNER_POLICY
+      );
     expect(gasLimitOf(await withdrawal(ORDINARY))).to.equal(BigInt(DEFAULT_GAS_LIMIT.withdrawal));
     expect(gasLimitOf(await withdrawal(CONTRACT))).to.equal(BigInt(CONTRACT_RECIPIENT_GAS_LIMIT.withdrawal));
   });
@@ -89,7 +107,12 @@ describe("core/builders/evm: default gas limit by recipient", () => {
   it("claim: the low limit to an ordinary account, the 4.4.0 limit to a contract or when wrapping", async () => {
     const { env, codeLookups } = chainEnv();
     const claim = (recipient: string, wrap: boolean) =>
-      buildClaim({ type: "claim", recipient, wrap, fees: resolveEvmFees("claim") }, env, ACCOUNT);
+      buildClaim(
+        { type: "claim", recipient, wrap, fees: resolveEvmFees("claim") },
+        env,
+        ACCOUNT,
+        IMMEDIATE_SIGNER_POLICY
+      );
     expect(gasLimitOf(await claim(ORDINARY, false))).to.equal(BigInt(DEFAULT_GAS_LIMIT.claim));
     expect(gasLimitOf(await claim(CONTRACT, false))).to.equal(BigInt(CONTRACT_RECIPIENT_GAS_LIMIT.claim));
     const lookups = codeLookups.length;
@@ -100,12 +123,18 @@ describe("core/builders/evm: default gas limit by recipient", () => {
   it("uses --gas-limit as given and then does not look the recipient up", async () => {
     const { env, codeLookups } = chainEnv();
     const fees = resolveEvmFees("claim", { gasLimit: "450000" });
-    const bundle = await buildClaim({ type: "claim", recipient: CONTRACT, wrap: false, fees }, env, ACCOUNT);
+    const bundle = await buildClaim(
+      { type: "claim", recipient: CONTRACT, wrap: false, fees },
+      env,
+      ACCOUNT,
+      IMMEDIATE_SIGNER_POLICY
+    );
     expect(gasLimitOf(bundle)).to.equal(450_000n);
     const withdrawal = await buildWithdrawal(
       { type: "withdrawal", to: ORDINARY, amount: 1n, fees: resolveEvmFees("withdrawal", { gasLimit: "70000" }) },
       env,
-      ACCOUNT
+      ACCOUNT,
+      IMMEDIATE_SIGNER_POLICY
     );
     expect(gasLimitOf(withdrawal)).to.equal(70_000n);
     expect(codeLookups).to.deep.equal([]);
@@ -117,7 +146,8 @@ describe("core/builders/evm: refusals before anything is signed", () => {
     buildClaim(
       { type: "claim", recipient: ORDINARY, wrap: false, fees: resolveEvmFees("claim"), amount },
       env,
-      ACCOUNT
+      ACCOUNT,
+      IMMEDIATE_SIGNER_POLICY
     );
 
   it("claim: refuses more than the unclaimed rewards, zero, and a claim when nothing is unclaimed", async () => {
@@ -153,7 +183,8 @@ describe("core/builders/evm: refusals before anything is signed", () => {
         buildWithdrawal(
           { type: "withdrawal", to: CONTRACT, amount: 1n, fees: resolveEvmFees("withdrawal") },
           env,
-          ACCOUNT
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
         ),
       claim: () => claim(env),
     };
@@ -173,7 +204,8 @@ describe("core/builders/evm: refusals before anything is signed", () => {
       buildSetClaimExecutors(
         { type: "setClaimExecutors", executors, fees: resolveEvmFees("setClaimExecutors", {}, executors.length) },
         env,
-        ACCOUNT
+        ACCOUNT,
+        IMMEDIATE_SIGNER_POLICY
       );
     await setExecutors([registered, ORDINARY]).then(
       () => expect.fail("set an unregistered executor"),
@@ -182,5 +214,24 @@ describe("core/builders/evm: refusals before anything is signed", () => {
     const bundle = await setExecutors([registered]);
     if (bundle.kind !== "evm") throw new Error("not an EVM transaction");
     expect(bundle.tx.value).to.equal(3n * 10n ** 18n);
+  });
+});
+
+describe("core/builders/evm: the nonce", () => {
+  it("counts the node's waiting transactions when sending now, not for a ForDefi file, and is not looked up with --nonce", async () => {
+    const { env, nonceTags } = chainEnv();
+    const withdrawal = (policy: BuildPolicy, nonce?: number) =>
+      buildWithdrawal(
+        { type: "withdrawal", to: ORDINARY, amount: 1n, nonce, fees: resolveEvmFees("withdrawal") },
+        env,
+        ACCOUNT,
+        policy
+      );
+    await withdrawal(IMMEDIATE_SIGNER_POLICY);
+    await withdrawal(FILE_SIGNER_POLICY);
+    const pinned = await withdrawal(IMMEDIATE_SIGNER_POLICY, 7);
+    expect(nonceTags).to.deep.equal(["pending", "latest"]);
+    if (pinned.kind !== "evm") throw new Error("not an EVM transaction");
+    expect(pinned.tx.nonce).to.equal(7);
   });
 });

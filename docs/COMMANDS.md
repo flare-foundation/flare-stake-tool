@@ -28,7 +28,11 @@ as the decimal separator; commas are refused (`1,5` and `10,000` are errors,
 write `1.5` and `10000`). P-chain and atomic amounts and fees take at most 9
 decimals (nFLR); the C-chain amounts of `withdrawal` and `claim` take up to 18
 (wei). More non-zero decimals are an error rather than being cut off.
-`--nonce` is a non-negative integer. Times (`-e`,
+`--nonce` is a non-negative integer. Without it, a C-chain transaction signed
+with `--get-hacked` or `--ledger` takes the next nonce after the account's
+transactions still waiting in the node, so it neither reuses nor replaces one
+of them; an unsigned file and `exportCP` take the next nonce after the accepted
+ones. Times (`-e`,
 `-s`, `--period`) are unix seconds or durations such as `2d12h` (units w, d, h,
 m, s); an end time given as a duration is added to now and the resolved value is
 printed. A plain integer is a unix time, so an end time that is not in the
