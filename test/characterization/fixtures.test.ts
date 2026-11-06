@@ -1,15 +1,20 @@
 /**
  * The replay server answers by request key, not by content: it returns the
- * recorded hash for any eth_sendRawTransaction, and the recorded receipt for
- * that hash. A fixture rewritten for new transaction bytes therefore has to be
- * kept describing them, which this checks for every recorded EVM submission:
- * the recorded hash is keccak256 of the recorded bytes, every receipt for it
- * names that hash, and no receipt uses more gas than the transaction's limit.
+ * recorded id for any submission, and the recorded receipt or status for that
+ * id. A fixture rewritten for new transaction bytes therefore has to be kept
+ * describing them, which this checks for every recorded submission:
+ * - EVM: the recorded hash is keccak256 of the recorded bytes, every receipt
+ *   for it names that hash, and no receipt uses more gas than the transaction's
+ *   limit;
+ * - atomic (every P-chain one, and the C-chain imports and exports): the
+ *   recorded id is the id of the recorded bytes, and every status query names
+ *   a recorded submission.
  */
 import { expect } from "chai";
 import { Transaction, keccak256 } from "ethers";
 import fs from "fs";
 import path from "path";
+import { ATOMIC_SUBMISSION_METHODS, atomicTxId } from "./rpc-replay";
 
 interface Entry {
   method: string;
@@ -23,10 +28,16 @@ interface Receipt {
 }
 
 const FIXTURES = path.join(__dirname, "..", "fixtures", "rpc");
+const FIXTURE_FILES = fs.readdirSync(FIXTURES).filter((f) => f.endsWith(".json"));
+const ATOMIC_STATUS_METHODS = new Set(["platform.getTxStatus", "avax.getAtomicTxStatus"]);
+
+function entriesOf(file: string): Entry[] {
+  return (JSON.parse(fs.readFileSync(path.join(FIXTURES, file), "utf8")) as { entries: Entry[] }).entries;
+}
 
 describe("characterization fixtures: recorded EVM submissions", () => {
-  for (const file of fs.readdirSync(FIXTURES).filter((f) => f.endsWith(".json"))) {
-    const { entries } = JSON.parse(fs.readFileSync(path.join(FIXTURES, file), "utf8")) as { entries: Entry[] };
+  for (const file of FIXTURE_FILES) {
+    const entries = entriesOf(file);
     const submissions = entries.filter((e) => e.method === "eth_sendRawTransaction");
     if (submissions.length === 0) continue;
 
@@ -48,6 +59,25 @@ describe("characterization fixtures: recorded EVM submissions", () => {
             `gasUsed ${receipt.gasUsed} within gasLimit ${gasLimit}`
           ).to.equal(true);
         }
+      }
+    });
+  }
+});
+
+describe("characterization fixtures: recorded atomic submissions", () => {
+  for (const file of FIXTURE_FILES) {
+    const entries = entriesOf(file);
+    const submissions = entries.filter((e) => ATOMIC_SUBMISSION_METHODS.has(e.method));
+    if (submissions.length === 0) continue;
+
+    it(file, () => {
+      const ids = submissions.map((submission) => {
+        const id = atomicTxId((submission.params as { tx: string }).tx);
+        expect((submission.response.result as { txID?: string } | undefined)?.txID, "recorded id").to.equal(id);
+        return id;
+      });
+      for (const status of entries.filter((e) => ATOMIC_STATUS_METHODS.has(e.method))) {
+        expect(ids, "a status query names a recorded submission").to.include((status.params as { txID: string }).txID);
       }
     });
   }

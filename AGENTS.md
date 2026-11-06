@@ -200,6 +200,11 @@ stdout and stderr). `pnpm test` replays every golden offline; a difference
 means behaviour changed. An intentional change must update the golden **in
 the same commit** as the CHANGELOG and `docs/COMMANDS.md` entry
 (`UPDATE_GOLDENS=<name>,…` or `all` rewrites goldens from the current code).
+The replay answers every submission with the recorded id whatever bytes are
+sent, so an update that changes the submitted bytes must also change the
+fixture's submission, its id and the receipts or status queries for it: the
+goldens check that each reported id is the id of the bytes sent, and
+`fixtures.test.ts` that each recorded id is the id of its recorded bytes.
 Re-record only when the scenario inputs change, never to make a failing
 golden pass. The printed output includes the warning for an end time that is
 not in the future, which depends on the clock: keep the recorded end times in
