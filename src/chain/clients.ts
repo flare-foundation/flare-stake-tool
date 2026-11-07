@@ -142,11 +142,23 @@ export function notingNode<T extends object>(api: T, node: string): T {
   });
 }
 
+/**
+ * Remembers a URL credential for masking, as written and decoded. Decoding is best effort: a `%` that starts no
+ * escape is valid in a URL, and masking must not refuse a URL the clients accept.
+ */
+function rememberCredential(serialized: string): void {
+  rememberSecret(serialized);
+  try {
+    rememberSecret(decodeURIComponent(serialized));
+  } catch {
+    // not decodable: the serialized form is what an error would show
+  }
+}
+
 export function createClients(network: NetworkConfig): Clients {
   rememberSecret(network.apiKey);
   const { username, password } = new URL(network.apiUrl);
-  rememberSecret(decodeURIComponent(username));
-  rememberSecret(decodeURIComponent(password));
+  for (const credential of [username, password]) rememberCredential(credential);
   // The API key travels as a header, never in the URL, so it stays out of logs and error messages.
   const headers = network.apiKey === undefined ? undefined : { [API_KEY_HEADER]: network.apiKey };
   const keyed = <T extends { setFetchOptions(options: RequestInit | undefined): void }>(api: T): T => {

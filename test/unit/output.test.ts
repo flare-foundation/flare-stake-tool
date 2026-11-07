@@ -132,6 +132,12 @@ describe("output/describeError: node errors", () => {
     expect(describeError(ledger)).to.equal("Ledger signing error: rejected by the user");
   });
 
+  it("builds clients for a URL whose credentials don't decode, and masks them as written", () => {
+    const clients = createClients(networkConfig("localflare", {}, { apiUrl: "https://user:abc%def@node.example" }));
+    clients.provider.destroy();
+    expect(describeError(new Error("seen abc%def in a message"))).to.equal("seen *** in a message");
+  });
+
   it("masks URL credentials, the x-apikey parameter and remembered secrets anywhere in the message", () => {
     rememberSecret("k3y-0f-th3-n0de");
     const message =
