@@ -77,8 +77,8 @@ commands.
 |---|---|
 | Inputs | One of: `-p <publicKey>`, `--ledger` (the address at `--derivation-path`). `--network <name>`. Optional `--vault-id <id>`, stored for ForDefi. |
 | Side effects | Writes `ctx.json` (or the `--ctx-file` path) in the current working directory |
-| Output | Success message |
-| Failures | Throws if neither `-p` nor `--ledger` is given, if the file already exists, or if `-p` is not a valid secp256k1 public key (exit code 1, no file written) |
+| Output | Success message. With `--ledger`, first the C-chain address (on stderr), which the device then shows: approve it only if they match |
+| Failures | Throws if neither `-p` nor `--ledger` is given, if the file already exists, if `-p` is not a valid secp256k1 public key, or if the Ledger shows another address than the one of the key it returned, or the user rejects it (exit code 1, no file written) |
 
 The resulting file contains the public key, derived addresses, and the
 network. It does **not** contain the private key.

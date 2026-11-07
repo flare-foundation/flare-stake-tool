@@ -37,8 +37,7 @@ import { parseAtomicTxRequest, parseEvmTxRequest, type AtomicTxOptions, type Evm
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
 import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
-import { FAKE_LEDGER_KEY_ENV, ledgerDevice } from "./signers/ledger";
-import * as ledger from "./ledger";
+import { confirmLedgerAccount, ledgerDevice } from "./signers/ledger";
 import { version } from "../package.json";
 
 const TRANSACTION_TYPES = ATOMIC_TX_TYPES.join("|");
@@ -334,12 +333,7 @@ async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
   const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;
   let context: ContextFile;
   if (options.ledger) {
-    const device = ledgerDevice();
-    const publicKey = await device.getPublicKey(options.derivationPath, env.network.hrp);
-    const account = accountFromPublicKey(publicKey, env.network.hrp);
-    if (!process.env[FAKE_LEDGER_KEY_ENV]) {
-      await ledger.verifyCAddress(options.derivationPath);
-    }
+    const { publicKey, account } = await confirmLedgerAccount(ledgerDevice(), options.derivationPath, env.network.hrp);
     context = {
       wallet: "ledger",
       publicKey,

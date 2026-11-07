@@ -38,6 +38,24 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(fs.existsSync(path.join(cwd, "ctx.json"))).to.equal(false);
   });
 
+  it("init-ctx --ledger prints the address to check on the device and saves the device's key", () => {
+    const account = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "costwo");
+    const result = runCli(["init-ctx", "--ledger", "--network", "costwo"], {
+      cwd,
+      env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+    });
+    expect(result.exitCode, result.stderr).to.equal(0);
+    expect(result.stderr).to.include(`Check that the Ledger shows the address ${account.cAddress} at m/44'/60'/0'/0/0`);
+    expect(JSON.parse(fs.readFileSync(path.join(cwd, "ctx.json"), "utf8"))).to.deep.equal({
+      wallet: "ledger",
+      publicKey: EWOQ_PUBLIC_KEY_COMPRESSED,
+      ethAddress: account.cAddress,
+      flareAddress: account.pAddress,
+      network: "costwo",
+      derivationPath: "m/44'/60'/0'/0/0",
+    });
+  });
+
   it("info with an unknown type exits 1 before looking for a context file", () => {
     const result = runCli(["info", "foo", "--network", "costwo"], { cwd });
     expect(result.exitCode).to.equal(1);

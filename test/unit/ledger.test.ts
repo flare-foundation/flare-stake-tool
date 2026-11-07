@@ -10,7 +10,7 @@ import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
 import { checkFlareResponse } from "../../src/ledger/flare";
 import { ETHEREUM_APP_P_CHAIN, detectApp } from "../../src/ledger/index";
-import { SigningKey, Transaction, getBytes, keccak256 } from "ethers";
+import { SigningKey, Transaction, computeAddress, getBytes, keccak256 } from "ethers";
 import {
   bundleFromUnsignedTxJson,
   type UnsignedAtomicTxJson,
@@ -20,6 +20,7 @@ import {
 import {
   FAKE_LEDGER_KEY_ENV,
   LedgerSigner,
+  confirmLedgerAccount,
   fakeLedgerDevice,
   ledgerDevice,
   type LedgerApp,
@@ -158,6 +159,12 @@ describe("ledger", () => {
       }
     });
 
+    it("shows the C-chain address of its key, as a device that has it would", async () => {
+      expect(await fakeLedgerDevice(key).showCAddress("m/44'/60'/0'/0/0")).to.equal(
+        computeAddress(`0x${EWOQ_PUBLIC_KEY_COMPRESSED}`)
+      );
+    });
+
     it("is announced on stderr whenever it replaces the device", () => {
       const original = console.error;
       const printed: string[] = [];
@@ -194,6 +201,7 @@ describe("ledger", () => {
         },
         signTransaction: () => Promise.reject(refusal),
         signEvmTransaction: () => Promise.reject(new Error("not an EVM transaction")),
+        showCAddress: () => Promise.reject(new Error("not used")),
       };
       return { device, signedHashes };
     }
@@ -289,6 +297,10 @@ describe("ledger", () => {
         signHash: answer("signHash"),
         signTransaction: answer("signTransaction"),
         signEvmTransaction: answer("signEvmTransaction"),
+        showCAddress: (path) => {
+          calls.push(["showCAddress", path]);
+          return Promise.reject(new Error("showCAddress called while signing"));
+        },
       };
     }
 
@@ -344,6 +356,67 @@ describe("ledger", () => {
     });
   });
 
+  describe("confirmLedgerAccount, for init-ctx --ledger", () => {
+    const PATH = "m/44'/60'/0'/0/4";
+    const ewoqAddress = computeAddress(`0x${EWOQ_PUBLIC_KEY_COMPRESSED}`);
+
+    /** Confirms on a device with the ewoq key that shows `shown`; device calls and stderr lines go to `events`. */
+    async function confirm(shown: string, events: string[]): ReturnType<typeof confirmLedgerAccount> {
+      const device: LedgerDevice = {
+        detectApp: () => Promise.resolve("Flare"),
+        getPublicKey: (path) => {
+          events.push(`getPublicKey ${path}`);
+          return Promise.resolve(EWOQ_PUBLIC_KEY_COMPRESSED);
+        },
+        signHash: () => Promise.reject(new Error("not used")),
+        signTransaction: () => Promise.reject(new Error("not used")),
+        signEvmTransaction: () => Promise.reject(new Error("not used")),
+        showCAddress: (path) => {
+          events.push(`showCAddress ${path}`);
+          return Promise.resolve(shown);
+        },
+      };
+      const original = console.error;
+      console.error = (message: unknown) => events.push(`stderr ${String(message)}`);
+      try {
+        return await confirmLedgerAccount(device, PATH, "costwo");
+      } finally {
+        console.error = original;
+      }
+    }
+
+    it("prints the address before the device shows it, and returns the key as the device returned it", async () => {
+      const events: string[] = [];
+      const { publicKey, account } = await confirm(ewoqAddress, events);
+      expect(publicKey).to.equal(EWOQ_PUBLIC_KEY_COMPRESSED);
+      expect(account.cAddress).to.equal(ewoqAddress);
+      expect(events).to.have.length(3);
+      expect(events[0]).to.equal(`getPublicKey ${PATH}`);
+      expect(events[1]).to.include(
+        `Check that the Ledger shows the address ${ewoqAddress} at ${PATH}, then approve it`
+      );
+      expect(events[2]).to.equal(`showCAddress ${PATH}`);
+    });
+
+    it("accepts the address the device shows in lowercase", async () => {
+      expect((await confirm(ewoqAddress.toLowerCase(), [])).account.cAddress).to.equal(ewoqAddress);
+    });
+
+    it("refuses another address, or an answer that is not an address", async () => {
+      const otherAddress = computeAddress(new SigningKey(`0x${"11".repeat(32)}`));
+      for (const shown of [otherAddress, ewoqAddress.slice(0, -1), "", "not an address"]) {
+        await confirm(shown, []).then(
+          () => expect.fail(`accepted ${shown}`),
+          (error: unknown) =>
+            expect((error as Error).message, shown).to.equal(
+              `The Ledger shows ${shown} at ${PATH}, not ${ewoqAddress}, the address of the public key it returned; ` +
+                "no context file was written"
+            )
+        );
+      }
+    });
+  });
+
   describe("LedgerSigner and another Ledger connected later", () => {
     const bundle = bundleFromUnsignedTxJson(readGolden("delegate-file").outcome.unsignedTxJson as UnsignedTxJson);
     const OTHER_KEY = new SigningKey(`0x${"11".repeat(32)}`).compressedPublicKey.slice(2);
@@ -366,6 +439,7 @@ describe("ledger", () => {
           signed.push(txHex);
           return Promise.resolve("ab".repeat(65));
         },
+        showCAddress: () => Promise.reject(new Error("not used")),
       };
       return { device, signed };
     }

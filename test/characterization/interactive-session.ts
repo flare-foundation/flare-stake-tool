@@ -268,6 +268,7 @@ const fakeDevice: LedgerDevice = {
   signHash: () => Promise.reject(new Error("not used")),
   signTransaction: () => Promise.reject(new Error("not used")),
   signEvmTransaction: () => Promise.reject(new Error("not used")),
+  showCAddress: () => Promise.reject(new Error("not used")),
 };
 stub(fromDist<typeof LedgerSignerModule>("signers/ledger.js"), "ledgerDevice", () => fakeDevice);
 
