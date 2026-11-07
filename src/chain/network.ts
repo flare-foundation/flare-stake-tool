@@ -141,16 +141,15 @@ function isLoopback(hostname: string): boolean {
 
 /**
  * The warning for an API key that would go unencrypted over plain http to another machine, or undefined. The key
- * itself is not in it, and the URL's credentials are masked.
+ * is masked even where the URL repeats it, and so are the URL's credentials.
  */
 export function insecureApiKeyWarning(network: Pick<NetworkConfig, "apiUrl" | "apiKey">): string | undefined {
   if (network.apiKey === undefined) return undefined;
   const url = new URL(network.apiUrl);
   if (url.protocol !== "http:" || isLoopback(url.hostname)) return undefined;
-  return (
-    `the API key goes unencrypted to ${redactSecrets(network.apiUrl)} over plain http; ` +
-    "use an https URL, or no key for this node"
-  );
+  // the key itself is masked here: it is remembered for redactSecrets only once the clients are built
+  const shown = redactSecrets(network.apiUrl).split(network.apiKey).join("***");
+  return `the API key goes unencrypted to ${shown} over plain http; use an https URL, or no key for this node`;
 }
 
 /** The node `--rpc-url` (else `FLARE_RPC_URL`) selects, parsed, or undefined for the network's own; throws on a bad URL. */

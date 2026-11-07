@@ -186,5 +186,10 @@ describe("chain/network", () => {
     }
     expect(insecureApiKeyWarning({ apiUrl: "http://node.example", apiKey: undefined })).to.equal(undefined);
     expect(warning("http://user:pass@node.example")).to.include("http://***@node.example").and.not.include("pass");
+    // a key no other test has used, so not yet remembered for masking, repeated in the URL's path
+    const key = `KEY-IN-PATH-${Date.now()}`;
+    expect(insecureApiKeyWarning({ apiUrl: `http://node.example/${key}`, apiKey: key })).to.equal(
+      "the API key goes unencrypted to http://node.example/*** over plain http; use an https URL, or no key for this node"
+    );
   });
 });

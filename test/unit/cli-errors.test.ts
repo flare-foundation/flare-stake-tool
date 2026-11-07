@@ -99,6 +99,26 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stderr + result.stdout).to.not.include("SECRET-KEY");
   });
 
+  it("masks the API key in the http warning even where the node URL repeats it", () => {
+    const result = runCli(
+      [
+        "info",
+        "validators",
+        "--network",
+        "localflare",
+        "--rpc-url",
+        "http://node.invalid/TOPSECRET/ext/info",
+        "--api-key",
+        "TOPSECRET",
+      ],
+      { cwd }
+    );
+    expect(result.stderr).to.include(
+      "Warning: the API key goes unencrypted to http://node.invalid/*** over plain http"
+    );
+    expect(result.stderr + result.stdout).to.not.include("TOPSECRET");
+  });
+
   it("refuses an unknown info, transaction or forDefi type with the allowed ones, before looking for a context file", () => {
     for (const [args, choices] of [
       [["info", "foo"], "addresses, balance, validators"],
