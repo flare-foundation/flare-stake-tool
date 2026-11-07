@@ -1,8 +1,8 @@
 import { styleText } from "node:util";
 import inquirer from "inquirer";
 import { pChainAddressBytes } from "../chain/keys";
-import { parseDuration, parseFlr, parseFlrToWei } from "../chain/units";
-import { parseBlsHex, parseNodeId } from "../cli/inputs";
+import { parseDuration, parseEndTime, parseFlr, parseFlrToWei, parsePercentToShares } from "../chain/units";
+import { DEFAULT_DELEGATION_FEE_PERCENT, parseBlsHex, parseNodeId } from "../cli/inputs";
 import {
   derivationModeConstants,
   networkConstants,
@@ -44,6 +44,13 @@ function validationOf(parse: () => unknown): true | string {
     return error instanceof Error ? error.message : String(error);
   }
 }
+
+/** The end time prompt's check: unix seconds or a duration from now. A past time passes (it gets a warning). */
+export const validateEndTime = (value: string): true | string => validationOf(() => parseEndTime(value));
+
+/** The delegation fee prompt's check: a percentage from 0 to 100; an empty answer stands for the default. */
+export const validateDelegationFee = (value: string): true | string =>
+  validationOf(() => parsePercentToShares(value || DEFAULT_DELEGATION_FEE_PERCENT));
 
 interface InputOptions {
   /** Answered by Enter on an empty line. */
@@ -110,7 +117,8 @@ export const prompts = {
 
   unixTime: (timeType: string): Promise<string> =>
     input(
-      askWithHint(`Enter ${timeType} time`, "(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)")
+      askWithHint(`Enter ${timeType} time`, "(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)"),
+      { validate: validateEndTime }
     ),
 
   // No default: for a configuration change, a default of 0 would stop the validator on a stray Enter.
@@ -148,7 +156,11 @@ export const prompts = {
 
   selectAddress: <T>(choices: Choice<T>[]): Promise<T> => select(ask("Which address do you want to use?"), choices),
 
-  delegationFee: (): Promise<string> => input(askWithHint("Enter delegation fee", "(E.g. 10)")),
+  // the default in the hint, not as inquirer's default: an empty answer stays empty, and the caller applies it
+  delegationFee: (): Promise<string> =>
+    input(askWithHint("Enter delegation fee", `(E.g. 10; Enter accepts ${DEFAULT_DELEGATION_FEE_PERCENT}%)`), {
+      validate: validateDelegationFee,
+    }),
 
   importTrxType: (): Promise<"P" | "C"> =>
     select(ask("Please select the destination chain to which you want to import your funds?"), [

@@ -68,7 +68,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Moves between the chains import only after their own export has arrived.
   * Connecting a Ledger no longer deletes `ctx.json`; another context is replaced only after confirmation and kept as a `.bak` file.
   * A failed action or wallet connection no longer ends the session, and the wallet menu has a Quit entry.
-  * Invalid amounts, fees, periods, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again.
+  * Invalid amounts, fees, periods, end times, delegation fees, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again; a delegation fee of `10%` used to fail only after both BLS values were entered. The delegation fee prompt says that Enter accepts 20%.
   * `interactive --help` prints help instead of starting a session, and a bad node URL is reported before the banner.
 * Command line:
   * The shortcuts (`balance`, `exportCP`, …) and `interactive` work after global options, as in `--network costwo balance`.
