@@ -8,6 +8,7 @@ import { expect } from "chai";
 import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
+import { checkFlareResponse } from "../../src/ledger/flare";
 import { ETHEREUM_APP_P_CHAIN, detectApp } from "../../src/ledger/index";
 import { SigningKey, Transaction, getBytes, keccak256 } from "ethers";
 import {
@@ -90,6 +91,18 @@ describe("ledger", () => {
     expect(rsvHex({ r, s, v: Buffer.from([1]) }, "the hash")).to.equal(R + S + "01");
     expect(() => rsvHex({ r, s }, "the hash")).to.throw(
       "Failed to get the signature of the hash from the Ledger device"
+    );
+  });
+
+  it("checkFlareResponse accepts the success status whatever its text, and refuses any other status", () => {
+    for (const errorMessage of ["No errors", "", "unexpected"]) {
+      expect(() => checkFlareResponse({ returnCode: 0x9000, errorMessage }, "Failed"), errorMessage).not.to.throw();
+    }
+    expect(() =>
+      checkFlareResponse({ returnCode: 0x6986, errorMessage: "No errors" }, "Failed to sign message on ledger")
+    ).to.throw("Failed to sign message on ledger: No errors, code 27014");
+    expect(() => checkFlareResponse({ returnCode: 0x6984, errorMessage: "Data is invalid" }, "Failed")).to.throw(
+      "Failed: Data is invalid, code 27012"
     );
   });
 
