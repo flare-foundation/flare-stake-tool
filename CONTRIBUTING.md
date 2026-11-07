@@ -111,6 +111,10 @@ pnpm build
 LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
 ```
 
+A skipped test fails the run: the stake tests skip when every node is already
+validating, as on a rerun within 15 minutes. Wait for the validations to end, or
+pass `--no-forbid-pending` to allow skips.
+
 > [!NOTE]
 > Integration tests are run locally only, not in CI, because they need a
 > running node. Run them before opening an MR for any change touching signing

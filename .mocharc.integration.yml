@@ -1,5 +1,9 @@
 spec: "test/integration/**/*.test.ts"
 timeout: 180000
 exit: true
+# A skipped test fails the run: the Helicon suite skips without Helicon and the stake tests
+# skip when every node is validating, and a run that skipped them is not a pass.
+# `pnpm test:integration --no-forbid-pending` allows skips.
+forbid-pending: true
 node-option:
   - "import=tsx"

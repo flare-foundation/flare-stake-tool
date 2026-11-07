@@ -56,8 +56,8 @@ test/integration/           Mocha integration tests against an externally runnin
 pnpm install
 pnpm build              # tsc -p tsconfig.build.json (rootDir=src, outDir=dist)
 pnpm test               # mocha unit tests
-pnpm test:coverage      # nyc + mocha
-pnpm test:integration   # docker-compose up -d, run CLI E2E, down -v
+pnpm test:coverage      # c8 + mocha
+pnpm test:integration   # CLI E2E against a running localflare (see below)
 pnpm lint:check         # eslint @flarenetwork/eslint-config-flare
 pnpm format:check       # prettier @flarenetwork/prettier-config-flare
 ```
@@ -182,6 +182,10 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   Commander command like the others and takes the two flags the same way; it
   checks the URL before the banner and refuses the account and network options,
   which its menu asks for.
+- A skipped test fails the run (`forbid-pending` in `.mocharc.integration.yml`).
+  The Helicon suite skips when Helicon is not active, and the stake tests when
+  every node is validating, which a rerun within the 15-minute minimum stake
+  period hits. `pnpm test:integration --no-forbid-pending` allows skips.
 - The signing suites create a fresh account funded from the ewoq key for every
   run (`test/integration/accounts.ts`), so they are rerun-safe and independent
   of the max-three-validators rule, and all end times are relative to now.
