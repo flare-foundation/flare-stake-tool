@@ -127,8 +127,10 @@ export interface BuildPolicy {
   /**
    * The time P-chain UTXO time locks are checked against (flarejs `minIssuanceTime`). "now" for a signer that sends
    * right away. Unsigned files use 1, the earliest time at which a UTXO without a time lock can be spent, so
-   * co-signers building a few seconds apart pick the same inputs even when a lock ends in between: no time-locked
-   * UTXO is used, even one whose lock has passed.
+   * co-signers building a few seconds apart pick the same inputs even when a lock ends in between: every time-locked
+   * UTXO counts as still locked, even once its lock has passed. It is never spent as unlocked funds (a transfer, an
+   * export, a fee); stake and delegate can still stake a stakeable-locked one without an owner lock, and the stake
+   * keeps its lock.
    */
   readonly lockCheckTime: bigint | "now";
 }

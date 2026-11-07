@@ -269,9 +269,12 @@ Co-signers who rebuild the transaction with the same command get the same
 hash only while the account's P-chain UTXOs are the same: the inputs are the
 UTXOs the node reports at build time, so funds arriving or leaving in between
 (a stake ending, a transfer) change the transaction. Rebuild and compare again
-in that case. Unsigned files use only UTXOs without a time lock, even once the
-lock has passed, so a lock ending between two builds doesn't change the inputs;
-such a UTXO can be spent with `--ledger` or `--get-hacked`. Values left out of the
+in that case. Unsigned files treat every time-locked UTXO as still locked, even
+once the lock has passed, so a lock ending between two builds doesn't change the
+inputs. Such a UTXO isn't transferred, exported or used for a fee in an unsigned
+file; once its lock has passed, use `--ledger` or `--get-hacked` for that. Stake
+and delegate can still stake a stakeable-locked UTXO, and the stake keeps its
+lock. Values left out of the
 command are read from the chain as well (`--nonce`, `claim -a`, `exportPC -a`,
 and the default `--gas-limit` of `claim`/`withdrawal`, which depends on whether
 the recipient has contract code); passing them pins them.

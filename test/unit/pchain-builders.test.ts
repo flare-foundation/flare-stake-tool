@@ -262,18 +262,60 @@ describe("core/builders/pchain", function () {
         expect(exportAfter!.spent, "immediate, a second later").to.include(lockedId);
       });
 
-      it("counts a UTXO as spendable from the second flarejs spends it, for owner and stakeable locks", async () => {
+      /** A P-chain UTXO of `amount` nFLR the account owns, stakeable-locked until UNLOCK, without an owner lock. */
+      async function stakeableLocked(amount: bigint): Promise<Utxo> {
         const { avaxAssetID } = await env.clients.context();
-        const ownerLocked = await owned(1_000n, 0, UNLOCK);
-        const stakeableLocked = new Utxo(
+        return new Utxo(
           new avaxSerial.UTXOID(Id.fromHex(`0x${"ab".repeat(32)}`), new Int(0)),
           Id.fromString(avaxAssetID),
           new pvmSerial.StakeableLockOut(
             new BigIntPr(UNLOCK),
-            new TransferOutput(new BigIntPr(2_000n), OutputOwners.fromNative([account.addressBytes], 0n, 1))
+            new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative([account.addressBytes], 0n, 1))
           )
         );
-        const utxos = [ownerLocked, stakeableLocked];
+      }
+
+      it("unsigned files stake a stakeable-locked UTXO with its lock on either side of the lock's end, the fee paid from unlocked funds", async () => {
+        const locked = await stakeableLocked(50_000_000_000n); // 50 FLR
+        const free = await owned(1_000_000_000n, 1); // 1 FLR, for the fee
+        const delegateAt = async (seconds: bigint, policy: (typeof POLICIES)[number]) => {
+          Date.now = () => Number(seconds) * 1000;
+          const request = {
+            type: "delegate",
+            nodeId: "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ",
+            amount: asNFlr(50_000_000_000n),
+            startTime: UNLOCK + 7_200n,
+            endTime: UNLOCK + 86_400n,
+          } as const;
+          const bundle = await buildTransaction(request, pChainEnv([locked, free]), account, policy);
+          if (bundle.kind !== "atomic") throw new Error("delegate must be a P-chain transaction");
+          const tx = bundle.unsignedTx.getTx() as pvmSerial.AddPermissionlessDelegatorTx;
+          return {
+            bytes: Buffer.from(bundle.unsignedTx.toBytes()).toString("hex"),
+            spent: tx.baseTx.inputs.map((input) => input.utxoID.txID.toString()),
+            stakedLocked: tx.stake.map((output) => output.output instanceof pvmSerial.StakeableLockOut),
+          };
+        };
+
+        const before = await delegateAt(UNLOCK - 1n, FILE_SIGNER_POLICY);
+        const after = await delegateAt(UNLOCK + 3600n, FILE_SIGNER_POLICY);
+        expect(after.bytes, "same transaction an hour apart").to.equal(before.bytes);
+        expect(after.spent, "the locked UTXO staked, the free one for the fee").to.have.members([
+          locked.utxoId.txID.toString(),
+          free.utxoId.txID.toString(),
+        ]);
+        expect(after.stakedLocked, "the stake keeps the lock").to.deep.equal([true]);
+
+        const immediate = await delegateAt(UNLOCK + 1n, IMMEDIATE_SIGNER_POLICY);
+        expect(immediate.stakedLocked, "immediate, once the lock has ended: staked as unlocked funds").to.deep.equal([
+          false,
+        ]);
+      });
+
+      it("counts a UTXO as spendable from the second flarejs spends it, for owner and stakeable locks", async () => {
+        const { avaxAssetID } = await env.clients.context();
+        const ownerLocked = await owned(1_000n, 0, UNLOCK);
+        const utxos = [ownerLocked, await stakeableLocked(2_000n)];
         expect(spendableAmount(utxos, avaxAssetID, UNLOCK)).to.equal(0n);
         expect(spendableAmount(utxos, avaxAssetID, UNLOCK + 1n)).to.equal(3_000n);
       });
