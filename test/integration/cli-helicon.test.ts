@@ -231,7 +231,8 @@ describe("CLI auto-renewed validators (Helicon, with network)", function () {
         "--network",
         NETWORK,
       ],
-      { env: { FLARE_FAKE_LEDGER_KEY: account.privateKeyHex }, timeoutMs: 90_000 }
+      // in its own directory: a Ledger ctx.json in the working directory would set the account --ledger expects
+      { cwd: tempDir, env: { FLARE_FAKE_LEDGER_KEY: account.privateKeyHex }, timeoutMs: 90_000 }
     );
     expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
