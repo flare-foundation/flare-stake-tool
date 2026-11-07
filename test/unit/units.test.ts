@@ -17,6 +17,8 @@ import {
   parseFlrToWei,
   parsePercentToShares,
 } from "../../src/chain/units";
+import type { executorInfo } from "../../src/chain/contracts";
+import type { Stake } from "../../src/chain/validators";
 import type { TxRequestOf } from "../../src/core/types";
 
 describe("chain/units", () => {
@@ -33,8 +35,17 @@ describe("chain/units", () => {
     const withdrawal: TxRequestOf<"withdrawal">["amount"] = nFlr;
     // @ts-expect-error a C-chain amount in a P-chain transaction
     const transfer: TxRequestOf<"transfer">["amount"] = wei;
-    // at runtime both are plain bigints
-    expect([withdrawal, transfer]).to.deep.equal([1_000_000_000n, 1_000_000_000_000_000_000n]);
+    // @ts-expect-error nFLR as an executor fee, which is wei
+    const executorFee: Awaited<ReturnType<typeof executorInfo>>["feeWei"] = nFlr;
+    // @ts-expect-error wei as a stake amount, which is nFLR
+    const staked: Stake["amount"] = wei;
+    // at runtime all are plain bigints
+    expect([withdrawal, transfer, executorFee, staked]).to.deep.equal([
+      1_000_000_000n,
+      1_000_000_000_000_000_000n,
+      1_000_000_000n,
+      1_000_000_000_000_000_000n,
+    ]);
     expect(nFlrToWei(nFlr)).to.equal(wei);
   });
 

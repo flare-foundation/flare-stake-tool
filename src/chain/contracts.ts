@@ -58,7 +58,7 @@ export async function executorInfo(
   env: EvmEnv,
   claimSetupManager: string,
   executor: string
-): Promise<{ registered: boolean; feeWei: bigint }> {
+): Promise<{ registered: boolean; feeWei: Wei }> {
   const [registered, fee] = await call(env, claimSetupManager, "getExecutorInfo", [executor]);
-  return { registered: Boolean(registered), feeWei: BigInt(fee as bigint) };
+  return { registered: Boolean(registered), feeWei: asWei(BigInt(fee as bigint)) };
 }
