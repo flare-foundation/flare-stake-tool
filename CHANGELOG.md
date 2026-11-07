@@ -35,7 +35,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * The limit of three nodes per account and the delegation checks (a current validator, within its period) run on every path, including the unsigned-file path. The count starts from now, since the chain ignores `--start-time`, and a node that doesn't list all delegations is refused.
 * P-chain and atomic transactions:
   * `exportCP` exports exactly the amount given (the Ledger path added the P-chain fee).
-  * `exportPC` without `-a` exports the whole balance minus the exact fee; it always failed with insufficient funds.
+  * `exportPC` without `-a` exports the spendable balance minus the fee; it always failed with insufficient funds. Small UTXOs may stay behind on the P-chain.
   * `importPC` imports only UTXOs the account can spend alone; a co-owned or time-locked UTXO made the node refuse the import. Time-locked UTXOs stay pending even after the lock ends (a flarejs limitation). An import with nothing to import is refused.
   * UTXOs are read past the node's page of 1024, so large accounts see their whole balance.
   * `--delegation-fee` is converted exactly (`0.07` gave 700.0000000000001 shares).

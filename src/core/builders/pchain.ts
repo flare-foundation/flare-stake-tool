@@ -154,11 +154,12 @@ const exportPCTx = (inputs: PChainInputs, amount: bigint): UnsignedTx =>
 const FEE_SHORTFALL_RE = /need (\d+) more unlocked nAVAX .*to cover fee/;
 
 /**
- * Exports everything the account can spend: the amount is the spendable total
- * minus the exact fee of this very transaction. Exporting the total first makes
- * flarejs consume every UTXO and report the fee it is short by (the P-chain fee
- * depends on the inputs, so it cannot be a fixed value); exporting the total
- * minus that fee then spends the same inputs with nothing left over.
+ * Exports the spendable total minus the fee of spending every UTXO. Exporting the
+ * total first makes flarejs consume every UTXO and report the fee it is short by
+ * (the P-chain fee depends on the inputs, so it cannot be a fixed value). flarejs
+ * stops taking inputs once the amount and fee are covered, so a UTXO smaller than
+ * the fee it adds can be left out; it stays on the P-chain, and the fee saved
+ * comes back as change.
  */
 function exportAllPC(inputs: PChainInputs): { amount: bigint; unsignedTx: UnsignedTx } {
   const total = spendableAmount(inputs.utxos, inputs.context.avaxAssetID, nowSeconds());
