@@ -79,6 +79,26 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stderr).to.include("https://***@127.0.0.1:1");
   });
 
+  it("warns once on stderr, without the key, when an API key would go over plain http to another machine", () => {
+    const result = runCli(
+      [
+        "info",
+        "validators",
+        "--network",
+        "localflare",
+        "--rpc-url",
+        "http://node.invalid:9650",
+        "--api-key",
+        "SECRET-KEY",
+      ],
+      { cwd }
+    );
+    expect(result.exitCode).to.equal(1); // no such host
+    const warning = "Warning: the API key goes unencrypted to http://node.invalid:9650 over plain http";
+    expect(result.stderr.split(warning)).to.have.length(2);
+    expect(result.stderr + result.stdout).to.not.include("SECRET-KEY");
+  });
+
   it("info with an unknown type exits 1 before looking for a context file", () => {
     const result = runCli(["info", "foo", "--network", "costwo"], { cwd });
     expect(result.exitCode).to.equal(1);

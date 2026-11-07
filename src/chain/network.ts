@@ -134,6 +134,25 @@ export function assertNodeNetwork(network: NetworkConfig, nodeNetworkId: number)
   );
 }
 
+/** Whether `hostname` (as `URL.hostname` gives it) is this machine: `localhost`, 127.0.0.0/8 or `[::1]`. */
+function isLoopback(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "[::1]" || /^127(\.\d{1,3}){3}$/.test(hostname);
+}
+
+/**
+ * The warning for an API key that would go unencrypted over plain http to another machine, or undefined. The key
+ * itself is not in it, and the URL's credentials are masked.
+ */
+export function insecureApiKeyWarning(network: Pick<NetworkConfig, "apiUrl" | "apiKey">): string | undefined {
+  if (network.apiKey === undefined) return undefined;
+  const url = new URL(network.apiUrl);
+  if (url.protocol !== "http:" || isLoopback(url.hostname)) return undefined;
+  return (
+    `the API key goes unencrypted to ${redactSecrets(network.apiUrl)} over plain http; ` +
+    "use an https URL, or no key for this node"
+  );
+}
+
 /** The node `--rpc-url` (else `FLARE_RPC_URL`) selects, parsed, or undefined for the network's own; throws on a bad URL. */
 export function overriddenNode(
   overrides: NodeOverrides,
@@ -144,11 +163,10 @@ export function overriddenNode(
 }
 
 /**
- * Resolves a network by name. The node URL and API key come from the
- * overrides (`--rpc-url`, `--api-key`), else from `FLARE_RPC_URL` and
- * `FLARE_API_KEY` (or `env[...]`), else from the URL's own `x-apikey` query
- * parameter; the hrp, ids and symbol stay those of the network. That is how
- * staging deployments and private nodes are reached, and how the test harness
+ * Resolves a network by name. The node URL comes from `--rpc-url`, else `FLARE_RPC_URL` (or `env[...]`); the API key
+ * from `--api-key`, else the selected URL's own `x-apikey` query parameter, else `FLARE_API_KEY`: a key written into
+ * the URL belongs to that node, while the environment's may be left over for another one. The hrp, ids and symbol
+ * stay those of the network. That is how staging deployments and private nodes are reached, and how the test harness
  * points the tool at a replay server.
  */
 export function networkConfig(
@@ -169,7 +187,7 @@ export function networkConfig(
     chainId: definition.chainId,
     apiUrl,
     rpcUrl: `${apiUrl}/ext/bc/C/rpc`,
-    apiKey: nonEmpty(overrides.apiKey) ?? nonEmpty(env[API_KEY_ENV]) ?? node?.apiKey,
+    apiKey: nonEmpty(overrides.apiKey) ?? node?.apiKey ?? nonEmpty(env[API_KEY_ENV]),
     symbol: definition.symbol,
   };
 }

@@ -3,6 +3,7 @@ import {
   DEFAULT_NETWORK,
   NETWORK_NAMES,
   assertNodeNetwork,
+  insecureApiKeyWarning,
   isNetworkName,
   networkConfig,
   parseNodeUrl,
@@ -133,15 +134,22 @@ describe("chain/network", () => {
     });
   });
 
-  it("takes the node URL and API key from the options, then the environment, then the URL itself", () => {
+  it("takes the node URL from the options, then the environment; the key from the options, the URL, the environment", () => {
     const env = { FLARE_RPC_URL: "https://env.example/ext/info?x-apikey=from-url", FLARE_API_KEY: "from-env" };
     expect(networkConfig("costwo", env)).to.include({
       apiUrl: "https://env.example",
       rpcUrl: "https://env.example/ext/bc/C/rpc",
-      apiKey: "from-env",
+      apiKey: "from-url", // the key written into the URL belongs to that node
       hrp: "costwo",
       networkId: 114,
     });
+    expect(
+      networkConfig(
+        "costwo",
+        { FLARE_API_KEY: "from-env" },
+        { apiUrl: "https://flag.example/ext/info?x-apikey=flag-url" }
+      )
+    ).to.include({ apiUrl: "https://flag.example", apiKey: "flag-url" });
     expect(networkConfig("costwo", { FLARE_RPC_URL: env.FLARE_RPC_URL })).to.include({ apiKey: "from-url" });
     expect(networkConfig("costwo", env, { apiUrl: "https://flag.example", apiKey: "from-flag" })).to.include({
       apiUrl: "https://flag.example",
@@ -157,5 +165,26 @@ describe("chain/network", () => {
     });
     expect(networkConfig("costwo", { FLARE_API_KEY: "  " }).apiKey).to.equal(undefined);
     expect(() => networkConfig("costwo", {}, { apiUrl: "not a url" })).to.throw(/Invalid node URL/);
+  });
+
+  it("warns, without the key, when an API key would go over plain http to another machine", () => {
+    const warning = (apiUrl: string, apiKey: string | undefined = "SECRET-KEY") =>
+      insecureApiKeyWarning({ apiUrl, apiKey });
+    for (const apiUrl of ["http://node.example", "http://localhost.evil.example:9650", "http://192.168.1.10:9650"]) {
+      expect(warning(apiUrl), apiUrl).to.equal(
+        `the API key goes unencrypted to ${apiUrl} over plain http; use an https URL, or no key for this node`
+      );
+    }
+    for (const apiUrl of [
+      "https://node.example",
+      "http://localhost:9650",
+      "http://127.0.0.1:9650",
+      "http://127.5.0.1",
+      "http://[::1]:9650",
+    ]) {
+      expect(warning(apiUrl), apiUrl).to.equal(undefined);
+    }
+    expect(insecureApiKeyWarning({ apiUrl: "http://node.example", apiKey: undefined })).to.equal(undefined);
+    expect(warning("http://user:pass@node.example")).to.include("http://***@node.example").and.not.include("pass");
   });
 });
