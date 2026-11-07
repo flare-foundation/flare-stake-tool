@@ -114,6 +114,29 @@ export function parseTime(value: string): ParsedTime {
   return { value: parseEndTime(value), relative: isDurationInput(value) };
 }
 
+/** Unix seconds from this value on are past the year 5138: such a time was almost certainly given in milliseconds. */
+const MILLISECONDS_FROM = 100_000_000_000n;
+
+/**
+ * A warning for an absolute time that looks like milliseconds: `-e 1700000000000` is taken as seconds, a date some
+ * 54,000 years away. The value is not changed, and a duration is never such a time.
+ */
+export function millisecondsWarning(name: string, time: ParsedTime): string | undefined {
+  if (time.relative || time.value < MILLISECONDS_FROM) return undefined;
+  const year = new Date(Number(time.value) * 1000).getUTCFullYear();
+  return (
+    `${name} ${time.value} looks like milliseconds: as unix seconds it is in the year ${year}; ` +
+    `in seconds it would be ${time.value / 1000n}`
+  );
+}
+
+/** The warnings for an end time, on the command line and in interactive mode: milliseconds, or not in the future. */
+export function endTimeWarnings(time: ParsedTime, nowMs: number = Date.now()): string[] {
+  return [millisecondsWarning(END_TIME, time), pastEndTimeWarning(time.value, nowMs)].filter(
+    (warning): warning is string => warning !== undefined
+  );
+}
+
 /**
  * The C-chain fee options given with `interactive`. Validated here, so that a
  * bad value stops the session before it starts rather than at its first

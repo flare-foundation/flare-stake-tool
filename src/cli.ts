@@ -22,7 +22,8 @@ import {
   START_TIME,
   START_TIME_NOT_USED_WARNING,
   evmFeeOverrides,
-  pastEndTimeWarning,
+  endTimeWarnings,
+  millisecondsWarning,
   type ParsedTime,
 } from "./cli/inputs";
 import {
@@ -229,13 +230,13 @@ export function cli(program: Command): void {
 
 function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFlow: boolean): void {
   for (const { name, time } of times) {
-    const warning =
+    const warnings =
       name === END_TIME
-        ? pastEndTimeWarning(time.value)
+        ? endTimeWarnings(time)
         : name === START_TIME
-          ? START_TIME_NOT_USED_WARNING
-          : undefined;
-    if (warning) logWarning(warning);
+          ? [millisecondsWarning(START_TIME, time), START_TIME_NOT_USED_WARNING]
+          : [];
+    for (const warning of warnings) if (warning) logWarning(warning);
     if (!time.relative) continue;
     logInfo(`${name}: ${time.value} (${new Date(Number(time.value) * 1000).toISOString()})`);
     if (fileFlow) {

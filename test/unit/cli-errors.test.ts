@@ -139,6 +139,30 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stderr + result.stdout).to.not.include("SECRET-KEY");
   });
 
+  it("warns on stderr about start and end times given in milliseconds", () => {
+    expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
+    const result = runCli(
+      [
+        "delegate",
+        "-n",
+        NODE_ID,
+        "-a",
+        "1",
+        "-s",
+        "1700000000000",
+        "-e",
+        "1800000000000",
+        "-i",
+        "ms1",
+        "--network",
+        "costwo",
+      ],
+      { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } }
+    );
+    expect(result.stderr).to.include("Warning: Start time 1700000000000 looks like milliseconds");
+    expect(result.stderr).to.include("Warning: End time 1800000000000 looks like milliseconds");
+  });
+
   it("warns on stderr about an end time in the past, such as 14 days given as plain seconds", () => {
     expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
     const result = runCli(["delegate", "-n", NODE_ID, "-a", "1", "-e", "1209600", "-i", "t1", "--network", "costwo"], {
