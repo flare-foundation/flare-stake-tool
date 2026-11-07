@@ -16,9 +16,12 @@ import {
   TransferableOutput,
   Utxo,
   avaxSerial,
+  evm,
+  messageHashFromUnsignedTx,
   pvm,
   pvmSerial,
   utils as futils,
+  type UnsignedTx,
 } from "@flarenetwork/flarejs";
 import { expect } from "chai";
 import { getBytes } from "ethers";
@@ -35,14 +38,33 @@ import {
   spendableAmount,
 } from "../../src/core/builders/pchain";
 import { atomicTxFee } from "../../src/core/fee";
+import { unsignedTxJsonFromBundle } from "../../src/core/files";
 import { executeTransaction } from "../../src/core/pipeline";
-import { FILE_SIGNER_POLICY, IMMEDIATE_SIGNER_POLICY, type Env, type Signer } from "../../src/core/types";
+import {
+  FILE_SIGNER_POLICY,
+  IMMEDIATE_SIGNER_POLICY,
+  chainOfAtomicTx,
+  type AtomicTxType,
+  type Env,
+  type Signer,
+  type UnsignedTxBundle,
+} from "../../src/core/types";
+import { PrivateKeySigner } from "../../src/signers/privateKey";
 import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 import { startReplay, withReplay, type Replay, type ReplayEnv } from "../helpers/replay";
 
 const account = accountFromPrivateKey(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), "localflare");
 const now = () => BigInt(Math.floor(Date.now() / 1000));
+
+/** `unsignedTx` in a bundle as the builders make it, to compare unsigned files. */
+const atomicBundle = (txType: AtomicTxType, unsignedTx: UnsignedTx): UnsignedTxBundle => ({
+  kind: "atomic",
+  chain: chainOfAtomicTx(txType),
+  txType,
+  unsignedTx,
+  digest: messageHashFromUnsignedTx(unsignedTx),
+});
 
 describe("core/builders/pchain", function () {
   this.timeout(20_000);
@@ -352,12 +374,16 @@ describe("core/builders/pchain", function () {
 
     /** The recorded context, with `utxos` pending on the C-chain. */
     function pendingEnv(utxos: Utxo[]): Env {
+      const recorded = replay.env.clients.evm;
       const clients = {
         context: () => replay.env.clients.context(),
         evm: {
           getUTXOs: () =>
             Promise.resolve({ numFetched: utxos.length, utxos, endIndex: { address: "", utxo: "" }, encoding: "hex" }),
           getBaseFee: () => Promise.resolve(25_000_000_000n),
+          // sending: the replay answers with the recorded import's id and status, whatever is sent
+          issueSignedTx: (tx: Parameters<typeof recorded.issueSignedTx>[0]) => recorded.issueSignedTx(tx),
+          getAtomicTxStatus: (txId: string) => recorded.getAtomicTxStatus(txId),
         },
       };
       return { network: replay.env.network, clients } as unknown as Env;
@@ -519,17 +545,46 @@ describe("core/builders/pchain", function () {
       );
     });
 
-    it("passes what it left out to the outcome, for the command line and interactive mode to print", async () => {
+    it("passes what it left out to the outcome, pending or sent, for the command line and interactive mode to print", async () => {
       const utxos = [...(await many(2, () => 1_000n, 1)), await exported([account.addressBytes], 1, ONE_FLR, 0)];
-      const signer: Signer = {
+      const fileSigner: Signer = {
         kind: "file",
         policy: FILE_SIGNER_POLICY,
         account: () => Promise.resolve(account),
         sign: () => Promise.resolve({ status: "pending", id: "x", forDefiHash: "h", file: "f" }),
       };
-      const outcome = await executeTransaction({ type: "importPC", fee: FEE }, pendingEnv(utxos), signer);
-      expect(outcome.notices).to.have.length(1);
-      expect(outcome.notices![0]).to.match(/^2 UTXO\(s\) .* skipped: /);
+      const keySigner = new PrivateKeySigner(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), replay.env.network.hrp);
+      for (const signer of [fileSigner, keySigner]) {
+        const outcome = await executeTransaction({ type: "importPC", fee: FEE }, pendingEnv(utxos), signer, {
+          pollMs: 1,
+        });
+        expect(outcome.status).to.equal(signer === fileSigner ? "pending" : "sent");
+        expect(outcome.notices, outcome.status).to.have.length(1);
+        expect(outcome.notices![0], outcome.status).to.match(/^2 UTXO\(s\) .* skipped: /);
+      }
+    });
+
+    it("builds an import that leaves nothing out exactly as flarejs builds it from the node's UTXOs, file included", async () => {
+      const context = await replay.env.clients.context();
+      const utxos = [
+        await exported([account.addressBytes], 1, ONE_FLR, 0),
+        await exported([account.addressBytes], 1, 2n * ONE_FLR, 1),
+      ];
+      const built = await buildTransaction(
+        { type: "importPC", fee: FEE },
+        pendingEnv(utxos),
+        account,
+        FILE_SIGNER_POLICY
+      );
+      const direct = evm.newImportTx(
+        context,
+        account.cAddressBytes,
+        [account.addressBytes],
+        utxos,
+        context.pBlockchainID,
+        FEE
+      );
+      expect(unsignedTxJsonFromBundle(built)).to.deep.equal(unsignedTxJsonFromBundle(atomicBundle("importPC", direct)));
     });
   });
 
@@ -626,6 +681,24 @@ describe("core/builders/pchain", function () {
         `${left} UTXO(s) (${formatFlr(asNFlr((BigInt(left * (left + 1)) / 2n) * ONE_FLR))} ${symbol}) stay pending for a later import: the P-chain's gas capacity fits only ${taken} in one`,
       ]);
       expect((await importCP(exportedEnv([...utxos].reverse()))).bytes, "node order").to.equal(built.bytes);
+    });
+
+    it("builds an import that leaves nothing out exactly as flarejs builds it from the node's UTXOs, file included", async () => {
+      const context = await replay.env.clients.context();
+      const utxos = [await exported(ONE_FLR, 0), await exported(2n * ONE_FLR, 1)];
+      const built = await buildTransaction({ type: "importCP" }, exportedEnv(utxos), account, FILE_SIGNER_POLICY);
+      const direct = pvm.newImportTx(
+        {
+          feeState: { ...(await replay.env.clients.pvm.getFeeState()), price: FILE_SIGNER_POLICY.feePrice as bigint },
+          utxos,
+          fromAddressesBytes: [account.addressBytes],
+          minIssuanceTime: FILE_SIGNER_POLICY.lockCheckTime as bigint,
+          sourceChainId: context.cBlockchainID,
+          toAddressesBytes: [account.addressBytes],
+        },
+        context
+      );
+      expect(unsignedTxJsonFromBundle(built)).to.deep.equal(unsignedTxJsonFromBundle(atomicBundle("importCP", direct)));
     });
 
     it("refuses an import of nothing but dust, and leaves an empty one to flarejs as before", async () => {

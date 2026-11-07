@@ -127,18 +127,18 @@ the C-chain source.
 A UTXO worth less than the fee its own input adds at the lowest P-chain price
 (250 nFLR per gas on Flare, about 0.00074 FLR) costs more to import than it
 brings, and is skipped. One import holds at most about 300 UTXOs (the
-P-chain's gas capacity, less one second of refill so that it fits right after
-other transactions); with more, the largest are imported and the rest stay
-pending for the next import. Both rules use fixed values from the chain's fee
-config, so every ForDefi co-signer imports the same UTXOs. A warning says how
-many UTXOs were left out and what they hold.
+P-chain's gas capacity, less one second of refill as headroom); with more, the
+largest are imported and the rest stay pending for the next import. Both rules
+use fixed values from the chain's fee config, so every ForDefi co-signer
+imports the same UTXOs. A warning says how many UTXOs were left out and what
+they hold.
 
 | Aspect | Detail |
 |---|---|
 | Inputs | None (uses configured key/context) |
 | Side effects | Submits an atomic import tx on the P-chain |
 | Output | Tx hash, "sent to the network"; a warning when UTXOs were skipped or left for the next import |
-| Failures | "no UTXOs available to import" if the export hasn't propagated yet (wait a few seconds), or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it |
+| Failures | "no UTXOs available to import" if the export hasn't propagated yet (wait a few seconds), or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. A large import right after a burst of P-chain transactions can be refused with "Gas usage of transaction (…) exceeds capacity (…)"; the chain refills its capacity within seconds, so run it again |
 
 ---
 

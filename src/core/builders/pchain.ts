@@ -259,7 +259,8 @@ function largestFirst(utxos: readonly PChainUtxo[]): PChainUtxo[] {
  * price (`minPrice` nFLR per gas) brings less than it costs at any price, and anyone can send such dust to any
  * address: it is skipped. The rest are taken largest first while the import's gas (`gasOf`) stays within
  * `gasLimit`; the others stay pending for a later import. Only fixed values decide, so every co-signer takes the
- * same UTXOs, with or without -f. An import that skips nothing takes every UTXO, as before.
+ * same UTXOs, with or without -f. The UTXOs taken keep the node's order, which flarejs keeps in the unsigned file's
+ * UTXO list, so an import that leaves nothing out is built exactly as before.
  */
 function chooseImported(
   utxos: readonly PChainUtxo[],
@@ -276,7 +277,8 @@ function chooseImported(
   for (let excess = count > 0 ? gasOf(ranked) - gasLimit : 0n; excess > 0n && count > 0; count--) {
     excess -= inputGas(ranked[count - 1]!);
   }
-  return { taken: ranked.slice(0, count), skipped, later: ranked.slice(count) };
+  const taken = new Set(ranked.slice(0, count));
+  return { taken: utxos.filter((utxo) => taken.has(utxo)), skipped, later: ranked.slice(count) };
 }
 
 /** The warnings for what an import left out; `capacity` names the limit that kept the later ones out. */
@@ -297,7 +299,9 @@ function importNotices(chosen: ReturnType<typeof chooseImported>, symbol: string
  * Imports the UTXOs exported from the C-chain, skipping dust and staying within the P-chain's gas capacity (see
  * chooseImported). The lowest price and the capacity come from the fee config, which is fixed, not from the fee
  * state. flarejs checks the import against the fee state's capacity, which each transaction lowers and which refills
- * by `maxPerSecond` a second, so the import leaves one second of refill free: it fits even right after others.
+ * by `maxPerSecond` a second, so the import leaves one second of refill as headroom. That is not a guarantee: after
+ * a burst of transactions flarejs refuses it ("exceeds capacity"), and the same import fits a few seconds later.
+ * Choosing by the live capacity instead would let co-signers choose differently.
  */
 export async function buildImportCP(
   _req: TxRequestOf<"importCP">,
