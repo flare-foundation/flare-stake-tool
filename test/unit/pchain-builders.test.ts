@@ -130,6 +130,19 @@ describe("core/builders/pchain", function () {
       );
     }
 
+    /** A P-chain UTXO of `amount` nFLR the account owns, stakeable-locked until `lockTime`, without an owner lock. */
+    async function stakeable(amount: bigint, index: number, lockTime: bigint): Promise<Utxo> {
+      const { avaxAssetID } = await env.clients.context();
+      return new Utxo(
+        new avaxSerial.UTXOID(Id.fromHex(`0x${(index + 1).toString(16).padStart(64, "0")}`), new Int(index % 7)),
+        Id.fromString(avaxAssetID),
+        new pvmSerial.StakeableLockOut(
+          new BigIntPr(lockTime),
+          new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative([account.addressBytes], 0n, 1))
+        )
+      );
+    }
+
     /** The recorded context and fee state, with `utxos` on the P-chain and the gas capacity set to `capacity`. */
     function pChainEnv(utxos: Utxo[], capacity?: bigint): Env {
       const clients = {
@@ -210,9 +223,14 @@ describe("core/builders/pchain", function () {
       expect(built.notices, "not dust").to.deep.equal([]);
     });
 
-    it("transfers and delegates past dust in front of the funds, which used to push them over the gas capacity", async () => {
-      const dust = await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1n, i))); // 400 × 1 nFLR, listed first
+    it("transfers and delegates past dust in front of the funds, plain or stakeable-locked, which used to go over the gas capacity", async () => {
       const funds = await owned(100_000_000_000n, 400); // 100 FLR
+      // 400 × 1 nFLR, listed first. Anyone can send stakeable-locked outputs too; with a lock that ended long ago, a
+      // signer sending now spends them as unlocked funds, and a file (locks checked at time 1) stakes them as locked
+      const dustSets = {
+        plain: await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1n, i))),
+        "stakeable-locked": await Promise.all(Array.from({ length: 400 }, (_, i) => stakeable(1n, i, 2n))),
+      };
       const requests = [
         { type: "transfer", amount: asNFlr(5_000_000_000n), to: account.pAddress },
         {
@@ -223,20 +241,22 @@ describe("core/builders/pchain", function () {
           endTime: 1_900_086_400n,
         },
       ] as const;
-      for (const policy of POLICIES) {
-        for (const request of requests) {
-          const label = `${request.type} @${policy.feePrice}`;
-          const bundle = await buildTransaction(request, pChainEnv([...dust, funds], 1_000_000n), account, policy);
-          if (bundle.kind !== "atomic") throw new Error(`${label}: not a P-chain transaction`);
-          const { inputs } = (bundle.unsignedTx.getTx() as unknown as { baseTx: { inputs: TransferableInput[] } })
-            .baseTx;
-          expect(
-            inputs.map((input) => input.utxoID.txID.toString()),
-            label
-          ).to.deep.equal([funds.utxoId.txID.toString()]);
-          expect(bundle.notices, label).to.deep.equal([
-            `400 UTXO(s) (${formatFlr(asNFlr(400n))} ${env.network.symbol}) left out: each is worth less than the fee of spending it`,
-          ]);
+      for (const [kind, dust] of Object.entries(dustSets)) {
+        for (const policy of POLICIES) {
+          for (const request of requests) {
+            const label = `${kind} dust, ${request.type} @${policy.feePrice}`;
+            const bundle = await buildTransaction(request, pChainEnv([...dust, funds], 1_000_000n), account, policy);
+            if (bundle.kind !== "atomic") throw new Error(`${label}: not a P-chain transaction`);
+            const { inputs } = (bundle.unsignedTx.getTx() as unknown as { baseTx: { inputs: TransferableInput[] } })
+              .baseTx;
+            expect(
+              inputs.map((input) => input.utxoID.txID.toString()),
+              label
+            ).to.deep.equal([funds.utxoId.txID.toString()]);
+            expect(bundle.notices, label).to.deep.equal([
+              `400 UTXO(s) (${formatFlr(asNFlr(400n))} ${env.network.symbol}) left out: each is worth less than the fee of spending it`,
+            ]);
+          }
         }
       }
     });

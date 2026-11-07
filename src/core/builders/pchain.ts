@@ -5,6 +5,7 @@
  */
 import {
   TransferableInput,
+  TransferInput,
   TransferOutput,
   TransferableOutput,
   evm,
@@ -112,21 +113,29 @@ const totalOf = (utxos: readonly PChainUtxo[]): NFlr => asNFlr(utxos.reduce((sum
 const describeUtxos = (utxos: readonly PChainUtxo[], symbol: string) =>
   `${utxos.length} UTXO(s) (${formatFlr(totalOf(utxos))} ${symbol})`;
 
-/** The gas an input spending `utxo` with one signature adds to a P-chain transaction (flarejs `getInputComplexity`). */
+/**
+ * The gas an input spending `utxo` with one signature adds to a P-chain transaction (flarejs `getInputComplexity`):
+ * a plain input, or for a stakeable-locked UTXO the stakeable-locked input that spends it, which costs a little more.
+ */
 function pChainInputGas(utxo: PChainUtxo, weights: Context.Context["platformFeeConfig"]["weights"]): bigint {
-  const complexity = pvm.getInputComplexity([TransferableInput.fromUtxoAndSigindicies(utxo, [0])]);
+  const plain = TransferInput.fromNative(amountOf(utxo), [0]);
+  const spend =
+    utxo.output instanceof pvmSerial.StakeableLockOut
+      ? new pvmSerial.StakeableLockIn(utxo.output.lockTime, plain)
+      : plain;
+  const complexity = pvm.getInputComplexity([new TransferableInput(utxo.utxoId, utxo.assetId, spend)]);
   return ([0, 1, 2, 3] as const).reduce((gas, d) => gas + BigInt(complexity[d]) * BigInt(weights[d]), 0n);
 }
 
 /**
  * The context, fee state and UTXOs a P-chain builder works from (with `sourceChain` "C": the UTXOs exported from the
- * C-chain, for importCP). When spending P-chain UTXOs, a plain one (not stakeable-locked) worth less than the fee its
- * own input adds at the lowest price (the fee config's `minPrice`) costs more to spend than it brings at any price,
- * and anyone can send such dust to any address. flarejs spends UTXOs in the order given until the amount and fee are
- * covered, so dust in front made a transaction pay more, and enough of it pushed the transaction over the gas
- * capacity. It is left out, of the inputs and of the balance exportPC without -a exports, and `notices` says so.
- * Stakeable-locked UTXOs are kept as they are, and the rest keep the node's order: an account without dust builds
- * exactly as before.
+ * C-chain, for importCP). When spending P-chain UTXOs, one worth less than the fee its own input adds at the lowest
+ * price (the fee config's `minPrice`) costs more to spend than it brings at any price, and anyone can send such dust
+ * to any address, plain or stakeable-locked with any lock (go-flare lets unlocked funds pay for a locked output).
+ * flarejs spends UTXOs in the order given until the amount and fee are covered (a stake takes locked ones first), so
+ * dust in front made a transaction pay more, and enough of it pushed the transaction over the gas capacity. It is
+ * left out, of the inputs and of the balance exportPC without -a exports, and `notices` says so. The rest, locked or
+ * not, keep the node's order: an account without dust builds exactly as before.
  */
 async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sourceChain?: "C") {
   const [context, feeState, utxos] = await Promise.all([
@@ -148,7 +157,8 @@ async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sou
   }
   const { weights, minPrice } = context.platformFeeConfig;
   const isDust = (utxo: PChainUtxo) =>
-    utxo.output instanceof TransferOutput && amountOf(utxo) < pChainInputGas(utxo, weights) * minPrice;
+    (utxo.output instanceof TransferOutput || utxo.output instanceof pvmSerial.StakeableLockOut) &&
+    amountOf(utxo) < pChainInputGas(utxo, weights) * minPrice;
   const dust = utxos.filter(isDust);
   if (dust.length === 0) {
     return inputs;
