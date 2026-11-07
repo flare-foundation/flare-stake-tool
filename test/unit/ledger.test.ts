@@ -1,20 +1,27 @@
 /**
  * The Ledger code that runs without a device: signature shapes, the Avalanche
  * app's path split, the software stand-in used by tests, how LedgerSigner
- * handles the Flare app's refusals, and how it holds on to the device's account.
+ * handles the Flare app's refusals, which device call each transaction kind and
+ * app goes to, and how it holds on to the device's account.
  */
 import { expect } from "chai";
 import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
-import { detectApp } from "../../src/ledger/index";
-import { SigningKey, getBytes } from "ethers";
-import { bundleFromUnsignedTxJson, type UnsignedTxJson } from "../../src/core/files";
+import { ETHEREUM_APP_P_CHAIN, detectApp } from "../../src/ledger/index";
+import { SigningKey, Transaction, getBytes, keccak256 } from "ethers";
+import {
+  bundleFromUnsignedTxJson,
+  type UnsignedAtomicTxJson,
+  type UnsignedEvmTxJson,
+  type UnsignedTxJson,
+} from "../../src/core/files";
 import {
   FAKE_LEDGER_KEY_ENV,
   LedgerSigner,
   fakeLedgerDevice,
   ledgerDevice,
+  type LedgerApp,
   type LedgerDevice,
 } from "../../src/signers/ledger";
 import { readGolden } from "../characterization/scenarios";
@@ -223,6 +230,75 @@ describe("ledger", () => {
         (error: unknown) => expect(String(error)).to.include("Ledger signing error")
       );
       expect(signedHashes).to.deep.equal([]);
+    });
+  });
+
+  describe("LedgerSigner routes by transaction kind and app", () => {
+    const PATH = "m/44'/60'/3'/0/7"; // not the default one, to see it reach every device call
+    const atomicJson = readGolden("delegate-file").outcome.unsignedTxJson as UnsignedAtomicTxJson;
+    const evmJson = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedEvmTxJson;
+    const SIGNATURE = "cd".repeat(65);
+    const SIGNED = { status: "signed", signature: getBytes(`0x${SIGNATURE}`) };
+
+    /** A device with `app` open that answers every signing call with SIGNATURE and records each call in `calls`. */
+    function deviceWith(app: LedgerApp, calls: string[][]): LedgerDevice {
+      const answer = (operation: string) => (path: string, argument: string) => {
+        calls.push([operation, path, argument]);
+        return Promise.resolve(SIGNATURE);
+      };
+      return {
+        detectApp: () => Promise.resolve(app),
+        getPublicKey: (path) => {
+          calls.push(["getPublicKey", path]);
+          return Promise.resolve(EWOQ_PUBLIC_KEY_COMPRESSED);
+        },
+        signHash: answer("signHash"),
+        signTransaction: answer("signTransaction"),
+        signEvmTransaction: answer("signEvmTransaction"),
+      };
+    }
+
+    const signOn = (app: LedgerApp, json: UnsignedTxJson, calls: string[][]) =>
+      new LedgerSigner(deviceWith(app, calls), PATH, "localflare").sign(bundleFromUnsignedTxJson(json));
+
+    it("the Flare app parses and signs the atomic transaction's full unsigned bytes", async () => {
+      const calls: string[][] = [];
+      expect(await signOn("Flare", atomicJson, calls)).to.deep.equal(SIGNED);
+      expect(calls).to.deep.equal([
+        ["getPublicKey", PATH],
+        ["signTransaction", PATH, atomicJson.unsignedTransactionBuffer],
+      ]);
+    });
+
+    it("the Avalanche app signs the atomic transaction's digest, the message of its unsigned file", async () => {
+      const calls: string[][] = [];
+      expect(await signOn("Avalanche", atomicJson, calls)).to.deep.equal(SIGNED);
+      expect(calls).to.deep.equal([
+        ["getPublicKey", PATH],
+        ["signHash", PATH, atomicJson.signatureRequests[0]!.message],
+      ]);
+    });
+
+    it("the Ethereum app is refused for an atomic transaction, and nothing is signed", async () => {
+      const calls: string[][] = [];
+      await signOn("Ethereum", atomicJson, calls).then(
+        () => expect.fail("the Ethereum app signed an atomic transaction"),
+        (error: unknown) => expect((error as Error).message).to.equal(ETHEREUM_APP_P_CHAIN)
+      );
+      expect(calls).to.deep.equal([["getPublicKey", PATH]]);
+    });
+
+    it("every app signs an EVM transaction's unsigned serialization, whose keccak is the file's message", async () => {
+      const unsignedSerialized = Transaction.from(evmJson.rawTx).unsignedSerialized.slice(2);
+      expect(keccak256(`0x${unsignedSerialized}`)).to.equal(`0x${evmJson.message}`);
+      for (const app of ["Flare", "Avalanche", "Ethereum"] as const) {
+        const calls: string[][] = [];
+        expect(await signOn(app, evmJson, calls), app).to.deep.equal(SIGNED);
+        expect(calls, app).to.deep.equal([
+          ["getPublicKey", PATH],
+          ["signEvmTransaction", PATH, unsignedSerialized],
+        ]);
+      }
     });
   });
 
