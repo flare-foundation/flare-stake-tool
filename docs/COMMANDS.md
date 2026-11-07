@@ -275,7 +275,7 @@ Submit a previously-built signed transaction to the network.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-i <id>` |
+| Inputs | `-i <id>`: letters, digits, `.`, `_` and `-`, not starting with `.` (every command taking `-i` refuses other ids, which could name a file outside `ForDefiTxnFiles`) |
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
 | Side effects | Submits the signed tx to the appropriate VM API and prints its id on stderr; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
 | Output | "Transaction with hash ... sent to the node" |
@@ -314,7 +314,7 @@ Custodial signing flow via the ForDefi API.
 |---|---|
 | Inputs | `forDefi sign -i <id>` or `forDefi fetch -i <id>`. Optional `--evm-tx`. |
 | Reads | `private.pem` and `token` files in cwd, plus the unsigned tx JSON |
-| Side effects | `sign`: posts the unsigned tx to ForDefi's API. `fetch`: asks ForDefi once for the signature and writes the signed tx file; it does not wait, so run it again until the transaction is signed. |
+| Side effects | `sign`: posts the unsigned tx to ForDefi's API. `fetch`: asks ForDefi once for the signature and writes the signed tx file; it does not wait, so run it again until the transaction is signed. Fetching the same signature again leaves the signed file as it is; a new one (signed again in ForDefi) replaces it, unless the file was already sent. Files are rewritten through a temporary file, so an interrupted write never leaves half a file. |
 | Output | `sign`: the ForDefi transaction id; `fetch`: the signature |
 | Failures | Missing `private.pem` / `token`. A refused ForDefi request is reported with its HTTP status and answer (`ForDefi vault lookup (…) failed: HTTP 401 Unauthorized: …`), as is an answer that is not JSON. Vault id mismatch, or a context key that is not the vault's (compared as keys, so a compressed, uncompressed or `0x`-prefixed form of the same key is accepted). `sign` refuses a file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is not the transaction in its `serialization`, before contacting ForDefi: ForDefi signs only the hash. `fetch` before the signature exists: "Transaction is not signed yet (ForDefi state: …)". |
 

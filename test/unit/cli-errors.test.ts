@@ -56,6 +56,17 @@ describe("CLI errors (built CLI, no node)", function () {
     });
   });
 
+  it("send and forDefi refuse an id that names a file outside ForDefiTxnFiles", () => {
+    for (const args of [
+      ["send", "-i", "../../escape"],
+      ["forDefi", "fetch", "-i", "../escape"],
+    ]) {
+      const result = runCli([...args, "--network", "costwo"], { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.include(`Invalid transaction id "${args.at(-1)!}"`);
+    }
+  });
+
   it("info with an unknown type exits 1 before looking for a context file", () => {
     const result = runCli(["info", "foo", "--network", "costwo"], { cwd });
     expect(result.exitCode).to.equal(1);

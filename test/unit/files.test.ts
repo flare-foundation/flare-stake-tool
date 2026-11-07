@@ -6,14 +6,19 @@ import { Transaction } from "ethers";
 import {
   bundleFromConsistentTxJson,
   bundleFromUnsignedTxJson,
+  checkedTxId,
   forDefiHashOf,
   isAlreadySentToChain,
   markSentToChain,
   messageOf,
   readSignedTxJson,
   readUnsignedTxJson,
+  replaceFile,
+  saveSignedTxJson,
   saveUnsignedTxJson,
+  signedTxPath,
   unsignedTxJsonFromBundle,
+  unsignedTxPath,
   writeSignedTxJson,
   type UnsignedAtomicTxJson,
   type UnsignedEvmTxJson,
@@ -146,6 +151,89 @@ describe("core/files", () => {
     } finally {
       fs.rmSync(cwd, { recursive: true, force: true });
     }
+  });
+
+  describe("transaction ids and file writes", () => {
+    let cwd: string;
+    const signed = (signature: string) => ({ ...recordedAtomic, signature });
+
+    beforeEach(() => {
+      cwd = fs.mkdtempSync(path.join(os.tmpdir(), "files-test-"));
+    });
+
+    afterEach(() => {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    });
+
+    /** Runs `action` while fs.existsSync answers false, as if a file appeared right after the check. */
+    function withFileAppearingAfterCheck(action: () => void): void {
+      const original = fs.existsSync;
+      fs.existsSync = () => false;
+      try {
+        action();
+      } finally {
+        fs.existsSync = original;
+      }
+    }
+
+    it("refuses an id that names a file outside its directory, or a hidden one, in every read and write", () => {
+      for (const id of ["../x", "../../x", "a/b", "a\\b", ".hidden", "..", "", "a b", "é"]) {
+        const refusal = `Invalid transaction id "${id}": use letters, digits, ".", "_" and "-", not starting with "."`;
+        expect(() => unsignedTxPath(id, cwd), id).to.throw(refusal);
+        expect(() => signedTxPath(id, cwd), id).to.throw(refusal);
+        expect(() => saveUnsignedTxJson(recordedAtomic, id, cwd), id).to.throw(refusal);
+        expect(() => readUnsignedTxJson(id, cwd), id).to.throw(refusal);
+        expect(() => readSignedTxJson(id, cwd), id).to.throw(refusal);
+        expect(() => isAlreadySentToChain(id, cwd), id).to.throw(refusal);
+      }
+      expect(fs.readdirSync(cwd)).to.deep.equal([]);
+      for (const id of ["tx1", "A-b_c.1", "2026.11.07-stake", "_x"]) {
+        expect(checkedTxId(id)).to.equal(id);
+      }
+    });
+
+    it("saveUnsignedTxJson does not overwrite an unsigned file that appears after its check", () => {
+      const { file } = saveUnsignedTxJson(recordedAtomic, "t1", cwd);
+      fs.writeFileSync(file, "the other writer's file");
+      withFileAppearingAfterCheck(() => expect(() => saveUnsignedTxJson(recordedAtomic, "t1", cwd)).to.throw(/EEXIST/));
+      expect(fs.readFileSync(file, "utf8")).to.equal("the other writer's file");
+    });
+
+    it("saveSignedTxJson creates the file, and refuses to overwrite one that appears after its check", () => {
+      saveSignedTxJson(signed("aa".repeat(65)), "t1", cwd);
+      expect(readSignedTxJson("t1", cwd).signature).to.equal("aa".repeat(65));
+      withFileAppearingAfterCheck(() =>
+        expect(() => saveSignedTxJson(signed("bb".repeat(65)), "t1", cwd)).to.throw(/EEXIST/)
+      );
+      expect(readSignedTxJson("t1", cwd).signature).to.equal("aa".repeat(65));
+    });
+
+    it("saveSignedTxJson leaves an identical file untouched, replaces another signature, and never a sent file", () => {
+      const file = signedTxPath("t1", cwd);
+      saveSignedTxJson(signed("aa".repeat(65)), "t1", cwd);
+      const past = new Date("2020-01-01T00:00:00Z");
+      fs.utimesSync(file, past, past);
+      saveSignedTxJson(signed("aa".repeat(65)), "t1", cwd); // forDefi fetch again: the same answer
+      expect(fs.statSync(file).mtime.getTime()).to.equal(past.getTime());
+      saveSignedTxJson(signed("bb".repeat(65)), "t1", cwd); // signed again in ForDefi
+      expect(readSignedTxJson("t1", cwd).signature).to.equal("bb".repeat(65));
+      markSentToChain("t1", cwd);
+      expect(() => saveSignedTxJson(signed("cc".repeat(65)), "t1", cwd)).to.throw("Tx already sent to chain");
+      expect(readSignedTxJson("t1", cwd)).to.deep.include({ signature: "bb".repeat(65), isSentToChain: true });
+    });
+
+    it("rewrites leave no temporary file, and a failed rename removes it and keeps what was there", () => {
+      saveUnsignedTxJson(recordedAtomic, "t1", cwd);
+      writeSignedTxJson(signed("aa".repeat(65)), "t1", cwd);
+      markSentToChain("t1", cwd);
+      expect(fs.readdirSync(path.dirname(signedTxPath("t1", cwd)))).to.deep.equal(["t1.signedTx.json"]);
+      const target = path.join(cwd, "a-directory");
+      fs.mkdirSync(target);
+      fs.writeFileSync(path.join(target, "kept"), "");
+      expect(() => replaceFile(target, "new content")).to.throw();
+      expect(fs.readdirSync(cwd).sort()).to.deep.equal(["ForDefiTxnFiles", "a-directory"]);
+      expect(fs.readdirSync(target)).to.deep.equal(["kept"]);
+    });
   });
 
   it("refuses an atomic file of an unknown type, a missing unsigned file and a signed file without signature", () => {

@@ -18,6 +18,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * A mixed-case C-chain address must have a valid EIP-55 checksum (it used to be corrected). P-chain addresses (`--transfer-address`, `--owner-address`) must belong to the selected network.
 * `setClaimExecutors` needs `--executors` and `setAllowedClaimRecipients` needs `--recipients`; without them the stored list was cleared. Pass `""` to clear it.
 * `info` and `send` refuse `--get-hacked` without `--env-path`, and choose the account in the same order as transactions.
+* Transaction ids (`-i`) may contain only letters, digits, `.`, `_` and `-`, and can't start with `.`; an id such as `../x` named a file outside `ForDefiTxnFiles`. Rename an older file with another id to send it.
 * `info network` and `info mirror` are removed.
 * Output: the banner is shown only in interactive mode, progress messages (such as "Transaction … submitted, waiting") go to stderr while results, including the transaction id, stay on stdout, and every error exits with code 1.
 * `interactive` refuses unknown options, options it doesn't use (`--network`, `--ledger`, `--blind`, `--derivation-path`, `--ctx-file`, `--env-path`, `--get-hacked`), and running without a terminal.
@@ -56,6 +57,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `forDefi sign` labels the ForDefi id correctly, and ForDefi errors show the HTTP status and response instead of misleading messages.
   * `forDefi sign` compares the context's public key with the vault's as keys, so a context holding it uncompressed or with `0x` is accepted.
   * `forDefi sign` and `send` refuse a file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is another transaction. ForDefi signed the file's `message` as it was, so a changed file could show one transaction and get another one's hash signed.
+  * Transaction files and `ctx.json` are never overwritten by a write that started before they appeared, and rewrites go through a temporary file, so an interrupted write can't leave half a file. A repeated `forDefi fetch` with the same signature leaves the signed file as it is, and a sent file is never replaced.
   * `init-ctx` honours `--derivation-path` and stores the P-chain address in `flareAddress`.
   * `init-ctx --ledger` prints the address the device is about to show, and writes no context file when the device shows another address than the one of its key.
 * Interactive mode:

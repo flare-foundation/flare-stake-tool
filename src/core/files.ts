@@ -8,6 +8,7 @@
  *   ForDefiTxnFiles/SignedTxns/<id>.signedTx.json
  *     the unsigned content plus `signature` (r|s|v hex) and, once submitted, `isSentToChain: true`
  */
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { UnsignedTx, messageHashFromUnsignedTx } from "@flarenetwork/flarejs";
@@ -41,12 +42,38 @@ export type SignedTxJson = UnsignedTxJson & { signature: string; isSentToChain?:
 
 export const isEvmTxJson = (json: UnsignedTxJson): json is UnsignedEvmTxJson => json.transactionType === "EVM";
 
+/** A transaction id: a file name in ForDefiTxnFiles, never a path out of it ("../x") or a hidden file. */
+const TX_ID = /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
+
+/** The id, refused unless it names a file inside its ForDefiTxnFiles directory. */
+export function checkedTxId(id: string): string {
+  if (!TX_ID.test(id)) {
+    throw new Error(`Invalid transaction id "${id}": use letters, digits, ".", "_" and "-", not starting with "."`);
+  }
+  return id;
+}
+
 export function unsignedTxPath(id: string, cwd = process.cwd()): string {
-  return path.join(cwd, TX_FILES_DIR, UNSIGNED_TX_DIR, `${id}.unsignedTx.json`);
+  return path.join(cwd, TX_FILES_DIR, UNSIGNED_TX_DIR, `${checkedTxId(id)}.unsignedTx.json`);
 }
 
 export function signedTxPath(id: string, cwd = process.cwd()): string {
-  return path.join(cwd, TX_FILES_DIR, SIGNED_TX_DIR, `${id}.signedTx.json`);
+  return path.join(cwd, TX_FILES_DIR, SIGNED_TX_DIR, `${checkedTxId(id)}.signedTx.json`);
+}
+
+/**
+ * Replaces `file` with `content` through a temporary file in the same directory and a rename, so that an interrupted
+ * write leaves the old file or the new one, never half of one. Not a lock: two writers can still replace each other.
+ */
+export function replaceFile(file: string, content: string): void {
+  const temp = `${file}.${crypto.randomBytes(4).toString("hex")}.tmp`;
+  fs.writeFileSync(temp, content, { flag: "wx" });
+  try {
+    fs.renameSync(temp, file);
+  } catch (error) {
+    fs.rmSync(temp, { force: true });
+    throw error;
+  }
 }
 
 /** ForDefi wants the hash to sign as base64. */
@@ -158,8 +185,9 @@ export function readUnsignedTxJson(id: string, cwd = process.cwd()): UnsignedTxJ
   return JSON.parse(fs.readFileSync(file, "utf8")) as UnsignedTxJson;
 }
 
+/** Replaces the unsigned file of an id, as `forDefi sign` does to record the ForDefi transaction id. */
 export function writeUnsignedTxJson(json: UnsignedTxJson, id: string, cwd = process.cwd()): void {
-  fs.writeFileSync(unsignedTxPath(id, cwd), JSON.stringify(json));
+  replaceFile(unsignedTxPath(id, cwd), JSON.stringify(json));
 }
 
 export function readSignedTxJson(id: string, cwd = process.cwd()): SignedTxJson {
@@ -174,10 +202,32 @@ export function readSignedTxJson(id: string, cwd = process.cwd()): SignedTxJson 
   return json;
 }
 
+/** Writes the signed file of an id, replacing one that is there (marking it sent, say). */
 export function writeSignedTxJson(json: SignedTxJson, id: string, cwd = process.cwd()): void {
   const file = signedTxPath(id, cwd);
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(json));
+  replaceFile(file, JSON.stringify(json));
+}
+
+/**
+ * Saves the signed file `forDefi fetch` got: created with "wx", so that a file appearing since the check is not
+ * overwritten; left as it is when it already holds exactly this; replaced when it holds another signature, unless it
+ * was sent, which would lose the mark that stops a second submission.
+ */
+export function saveSignedTxJson(json: SignedTxJson, id: string, cwd = process.cwd()): void {
+  const file = signedTxPath(id, cwd);
+  const content = JSON.stringify(json);
+  if (!fs.existsSync(file)) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, content, { flag: "wx" });
+    return;
+  }
+  const existing = fs.readFileSync(file, "utf8");
+  if (existing === content) return;
+  if ((JSON.parse(existing) as Partial<SignedTxJson>).isSentToChain) {
+    throw new Error("Tx already sent to chain");
+  }
+  replaceFile(file, content);
 }
 
 export function isAlreadySentToChain(id: string, cwd = process.cwd()): boolean {

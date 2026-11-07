@@ -6,7 +6,7 @@
  */
 import crypto from "crypto";
 import fs from "fs";
-import { bundleFromConsistentTxJson, readUnsignedTxJson, writeSignedTxJson, writeUnsignedTxJson } from "../core/files";
+import { bundleFromConsistentTxJson, readUnsignedTxJson, saveSignedTxJson, writeUnsignedTxJson } from "../core/files";
 import { normalizePublicKey } from "../chain/keys";
 import { equalBytes } from "../core/signing/signature";
 import type { ContextFile } from "./env";
@@ -135,6 +135,6 @@ export async function fetchForDefiSignature(id: string, fetchImpl: FetchLike = f
     throw new Error(`Transaction is not signed yet${state}; run forDefi fetch again once it is`);
   }
   const signature = Buffer.from(data, "base64").toString("hex");
-  writeSignedTxJson({ ...unsigned, signature }, id);
+  saveSignedTxJson({ ...unsigned, signature }, id);
   return signature;
 }

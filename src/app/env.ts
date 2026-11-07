@@ -42,12 +42,18 @@ export function contextFileExists(file: string = DEFAULT_CTX_FILE): boolean {
   return fs.existsSync(file);
 }
 
-/** Writes ctx.json, refusing to overwrite an existing one. */
+/** Writes ctx.json, refusing to overwrite an existing one, even one that appeared since the check ("wx"). */
 export function writeContextFile(context: ContextFile, file: string = DEFAULT_CTX_FILE): void {
+  const exists = new Error(`${path.basename(file)} already exists`);
   if (fs.existsSync(file)) {
-    throw new Error(`${path.basename(file)} already exists`);
+    throw exists;
   }
-  fs.writeFileSync(file, JSON.stringify(context, null, 2));
+  try {
+    fs.writeFileSync(file, JSON.stringify(context, null, 2), { flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw exists;
+    throw error;
+  }
 }
 
 /**

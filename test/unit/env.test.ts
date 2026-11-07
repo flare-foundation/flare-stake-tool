@@ -48,6 +48,18 @@ describe("app/env context file", () => {
     expect(readContextFile(file).vaultId).to.equal("vault-456");
   });
 
+  it("does not overwrite a context file that appears after its check", () => {
+    fs.writeFileSync(file, "the other writer's file");
+    const original = fs.existsSync;
+    fs.existsSync = () => false;
+    try {
+      expect(() => writeContextFile(FORDEFI_CONTEXT, file)).to.throw("ctx.json already exists");
+    } finally {
+      fs.existsSync = original;
+    }
+    expect(fs.readFileSync(file, "utf8")).to.equal("the other writer's file");
+  });
+
   it("refuses to read a missing context file and to overwrite an existing one", () => {
     expect(() => readContextFile(file)).to.throw(
       `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
