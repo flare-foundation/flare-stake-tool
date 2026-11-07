@@ -51,6 +51,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `--nonce` must be a non-negative integer, and is stored as a number in unsigned files (the hash is unchanged).
 * Signing:
   * `send -i` accepts `v` as `1b`/`1c` as documented, and fills the validator-authority credential of `setAutoRenewedValidatorConfig`.
+  * A `--ctx-file` that doesn't exist is refused by `send` and `--ledger` too; `send` skipped the signer check then, and `--ledger` ignored it.
   * The Ledger Ethereum app is refused for P-chain and atomic transactions, which the node never accepts from it; the tool asks for the Flare app.
   * Ledger: the Avalanche app works with multi-digit path indices (`m/44'/60'/0'/0/10`), a signature with an impossible `v` is refused, and the USB connection is always closed.
   * Ledger blind signing (the Avalanche app, or the Flare app for a type it can't parse) prints the transaction hash on stderr first, to compare with the one the device shows.

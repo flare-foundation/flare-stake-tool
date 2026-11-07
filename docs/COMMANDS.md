@@ -17,7 +17,7 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--ledger` | Sign transactions on a connected Ledger device. The device must keep the key it had at the first read: another Ledger connected while the command runs is refused before anything is signed |
 | `--blind` | Accepted for compatibility and has no effect: the signing mode follows the open Ledger app (the Flare app parses the transaction and falls back to signing its hash only for a type it cannot parse; the Avalanche app signs the hash). Before signing a hash the tool prints it on stderr, to compare with the one the device shows |
 | `--derivation-path <path>` | Ledger derivation path. Without it, `--ledger` with a Ledger context file (`--ctx-file`, default `ctx.json`) uses the context's path and refuses a Ledger that doesn't have the context's key; otherwise `m/44'/60'/0'/0/0` |
-| `--ctx-file <file>` | Context file path (default `ctx.json`) |
+| `--ctx-file <file>` | Context file written by `init-ctx` (default `ctx.json`, used when it exists). A file given with `--ctx-file` must exist: a missing one is refused, not ignored |
 | `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58`. A `PRIVATE_KEY_CB58` whose checksum doesn't match (a typo) is refused |
 | `--get-hacked` | Use the env file's private key for direct in-process signing |
 | `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command |
@@ -279,7 +279,9 @@ Submit a previously-built signed transaction to the network.
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
 | Side effects | Submits the signed tx to the appropriate VM API and prints its id on stderr; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
 | Output | "Transaction with hash ... sent to the node" |
-| Failures | "Tx already sent to chain" (the flag was already set). Missing or malformed signed tx file. A file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is not the transaction in its `serialization` ("… rebuild the file"), refused before anything is sent. The signature does not belong to the account the options select, in the order transactions use (`--get-hacked` with its `--env-path`, `--ledger`, `--env-path`, else `ctx.json`); `--get-hacked` without `--env-path` is refused. |
+| Failures | "Tx already sent to chain" (the flag was already set). Missing or malformed signed tx file. A file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is not the transaction in its `serialization` ("… rebuild the file"), refused before anything is sent. The signature does not belong to the account the options select, in the order transactions use (`--get-hacked` with its `--env-path`, `--ledger`, `--env-path`, else the context file); `--get-hacked` without `--env-path` is refused, and so is a given `--ctx-file` that does not exist. |
+
+Without `--ctx-file`, `ctx.json`, `--ledger` or `--env-path`, there is no account to check the signature against: `send` takes the account from the signature itself, so any validly signed file is sent, from whichever account signed it. It can't make a transaction from your account that you didn't sign. Keep a `ctx.json` (or pass `--ctx-file`) to have the signer checked.
 
 `v` in the signature may be `00`/`01` or `1b`/`1c`. The signed tx file is produced by:
 1. `transaction <op> -i <id>` (no `--ledger`/`--get-hacked`) writes

@@ -6,7 +6,14 @@
 import type { OptionValues } from "commander";
 import type { Account } from "../chain/keys";
 import type { Env, Signer } from "../core/types";
-import { accountFromContextFile, contextFileExists, createEnv, readContextFile, resolveNetworkName } from "../app/env";
+import {
+  DEFAULT_CTX_FILE,
+  accountFromContextFile,
+  contextFileExists,
+  createEnv,
+  readContextFile,
+  resolveNetworkName,
+} from "../app/env";
 import { ExternalFileSigner } from "../signers/file";
 import { LedgerSigner, ledgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
@@ -20,7 +27,8 @@ export interface GlobalOptions {
   ledger?: boolean;
   /** Only when given: without it, --ledger takes a Ledger context file's path, else BASE_DERIVATION_PATH. */
   derivationPath?: string;
-  ctxFile: string;
+  /** Only when given, and then it must exist; DEFAULT_CTX_FILE otherwise, used when it exists. */
+  ctxFile?: string;
   envPath?: string;
   getHacked?: boolean;
   maxFeePerGas?: string;
@@ -35,7 +43,7 @@ export function globalOptions<T extends object>(programOptions: OptionValues, co
 export function globalOptions(programOptions: OptionValues, commandOptions: object = {}): GlobalOptions {
   const merged = { ...programOptions, ...commandOptions } as GlobalOptions;
   if (typeof merged.derivationPath !== "string") delete merged.derivationPath;
-  merged.ctxFile = typeof merged.ctxFile === "string" ? merged.ctxFile : "ctx.json";
+  if (typeof merged.ctxFile !== "string") delete merged.ctxFile;
   return merged;
 }
 
@@ -68,6 +76,11 @@ function keyFileSigner(options: GlobalOptions, env: Env): PrivateKeySigner {
   return PrivateKeySigner.fromEnvFile(options.envPath, env.network.hrp);
 }
 
+/** Whether a context file applies: one given with --ctx-file, which reading then requires, or ./ctx.json if there. */
+export function contextFileApplies(options: GlobalOptions): boolean {
+  return options.ctxFile !== undefined || contextFileExists(DEFAULT_CTX_FILE);
+}
+
 /**
  * The Ledger signer --ledger selects: at --derivation-path when given; else, with a Ledger context file, at its
  * derivation path and expecting its key, as interactive mode does, so that --ledger signs for the account the context
@@ -77,14 +90,14 @@ function ledgerSigner(options: GlobalOptions, env: Env): LedgerSigner {
   if (options.derivationPath !== undefined) {
     return new LedgerSigner(ledgerDevice(), options.derivationPath, env.network.hrp);
   }
-  const context = contextFileExists(options.ctxFile) ? readContextFile(options.ctxFile) : undefined;
+  const context = contextFileApplies(options) ? readContextFile(options.ctxFile) : undefined;
   if (context?.wallet === "ledger") {
     return new LedgerSigner(
       ledgerDevice(),
       context.derivationPath ?? BASE_DERIVATION_PATH,
       env.network.hrp,
       context.publicKey,
-      `as saved in ${options.ctxFile}; connect the Ledger it was made with, or pass --derivation-path`
+      `as saved in ${options.ctxFile ?? DEFAULT_CTX_FILE}; connect the Ledger it was made with, or pass --derivation-path`
     );
   }
   return new LedgerSigner(ledgerDevice(), BASE_DERIVATION_PATH, env.network.hrp);

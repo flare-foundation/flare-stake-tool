@@ -250,13 +250,12 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         transactionId: "from-command",
         ledger: true,
         amount: "5",
-        ctxFile: "ctx.json",
       });
     });
 
-    it("keeps a given derivation path and leaves it out otherwise, and defaults the context file", () => {
-      expect(globalOptions({}, {})).to.deep.equal({ ctxFile: "ctx.json" });
-      expect(globalOptions({ derivationPath: 3, ctxFile: true })).to.deep.equal({ ctxFile: "ctx.json" });
+    it("keeps a given derivation path and context file, and leaves them out otherwise", () => {
+      expect(globalOptions({}, {})).to.deep.equal({});
+      expect(globalOptions({ derivationPath: 3, ctxFile: true })).to.deep.equal({});
       expect(globalOptions({ derivationPath: "m/44'/60'/1'/0/0", ctxFile: "other.json" })).to.deep.equal({
         derivationPath: "m/44'/60'/1'/0/0",
         ctxFile: "other.json",
@@ -349,6 +348,16 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       // a given --derivation-path wins over the context
       const explicit = { ...withOther, derivationPath: "m/44'/60'/0'/0/1" };
       expect((await resolveAccount(explicit, env)).pAddress).to.equal(ledger.pAddress);
+    });
+
+    it("refuses a given --ctx-file that does not exist, also with --ledger, instead of ignoring it", async () => {
+      const missing = path.join(dir, "missing-ctx.json");
+      for (const selectors of [{}, { ledger: true }]) {
+        await resolveAccount({ ...base, ...selectors, ctxFile: missing }, env).then(
+          () => expect.fail(`resolved an account without ${missing}`),
+          (error: unknown) => expect((error as Error).message).to.include(`Context file ${missing} does not exist`)
+        );
+      }
     });
 
     it("needs the key file of --get-hacked for info as well", async () => {

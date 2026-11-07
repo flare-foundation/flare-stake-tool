@@ -11,7 +11,7 @@ import { overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
-import { contextFileExists, readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
+import { readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
 import { describeAutoRenewal, getBalances, getValidators } from "./app/info";
 import { sendSignedTransaction } from "./app/send";
@@ -26,6 +26,7 @@ import {
   type ParsedTime,
 } from "./cli/inputs";
 import {
+  contextFileApplies,
   globalOptions,
   resolveAccount,
   resolveEnv,
@@ -62,7 +63,7 @@ export function cli(program: Command): void {
       "--derivation-path <derivation-path>",
       `Ledger address derivation path (default: a Ledger context file's, else ${BASE_DERIVATION_PATH})`
     )
-    .option("--ctx-file <file>", "Context file as returned by init-ctx", "ctx.json")
+    .option("--ctx-file <file>", "Context file as returned by init-ctx (default: ctx.json)")
     .option("--env-path <path>", "Path to the .env file")
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option(
@@ -264,10 +265,11 @@ async function send(options: GlobalOptions): Promise<void> {
     throw new Error("send needs the transaction id: -i <id>");
   }
   const env = resolveEnv(options);
-  // the signature is checked against the account the options select, as info and transactions choose it; with no
-  // selector and no context file there is nothing to check it against
+  // the signature is checked against the account the options select, as info and transactions choose it (a given
+  // --ctx-file must exist); with no selector and no context file there is nothing to check it against, and the
+  // account is the one that signed
   const expected =
-    selectsAccount(options) || contextFileExists(options.ctxFile) ? await resolveAccount(options, env) : undefined;
+    selectsAccount(options) || contextFileApplies(options) ? await resolveAccount(options, env) : undefined;
   const { txId } = await sendSignedTransaction(id, env, expected);
   logSuccess(`Signed transaction ${id} with hash ${txId} sent to the node`);
 }

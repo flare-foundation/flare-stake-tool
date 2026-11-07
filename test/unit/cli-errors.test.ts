@@ -203,6 +203,20 @@ describe("CLI errors (built CLI, no node)", function () {
     );
   });
 
+  it("send refuses a given --ctx-file that does not exist; without one, it goes on to the node", () => {
+    const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson & { message: string };
+    writeSignedTxJson({ ...unsigned, signature: signMessageHash(unsigned.message) }, "w1", cwd);
+    for (const file of ["missing.json", "ctx.json"]) {
+      const result = runCli(["send", "-i", "w1", "--ctx-file", file], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      expect(result.exitCode, file).to.equal(1);
+      expect(result.stderr, file).to.include(`Context file ${file} does not exist`);
+    }
+    // no context file at all: the account is the one that signed, and the send gets as far as the node
+    const relay = runCli(["send", "-i", "w1", "--network", "localflare"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+    expect(relay.exitCode).to.equal(1);
+    expect(relay.stderr).to.equal("Error: fetch failed\n");
+  });
+
   it("send refuses a file signed by another key than ctx.json's, before it contacts the node", () => {
     // without the check, an EVM transaction signed by any key is valid on its own and would be sent from that key
     const context = { wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "localflare" };
