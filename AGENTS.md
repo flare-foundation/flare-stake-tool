@@ -43,7 +43,7 @@ src/
   chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
   chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
   ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum)
-  interactive/              inquirer menu calling app/ directly
+  interactive/              inquirer menu calling app/ directly; every question goes through askInquirer (Ctrl-C exits 130)
   constants/fees.ts         Fixed EIP-1559 fees per C-chain operation
   constants/screen.ts       Menu labels
 test/unit/                  Mocha unit tests (pure functions, signers, builders without a node)
@@ -187,7 +187,11 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   Flare's API gateway. The key travels as the `x-apikey` header on every
   request of every client (`chain/clients.ts` assembles the flarejs Context
   itself, because `Context.getContextFromURI` would build keyless clients), and
-  a copied endpoint URL with `?x-apikey=` works as the URL. `interactive` is a
+  a copied endpoint URL with `?x-apikey=` works as the URL (its key comes before
+  `FLARE_API_KEY`; `createEnv` warns about a key over plain http to another
+  machine). Every client notes its node on the errors it throws (`notingNode`),
+  and `describeError` adds the causes and the node and masks credentials
+  (`redactSecrets`): print errors through it. `interactive` is a
   Commander command like the others and takes the two flags the same way; it
   checks the URL before the banner and refuses the account and network options,
   which its menu asks for.
