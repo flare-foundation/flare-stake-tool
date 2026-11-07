@@ -158,6 +158,8 @@ export type UnsignedTxBundle =
       unsignedTx: UnsignedTx;
       /** sha256 of the unsigned bytes: what every signer signs and what the file flow calls `message`. */
       digest: Uint8Array;
+      /** What the user should know about the build, such as UTXOs it left out; printed with the outcome. */
+      notices?: readonly string[] | undefined;
     }
   | {
       kind: "evm";
@@ -180,7 +182,23 @@ export interface Signer {
   sign(bundle: UnsignedTxBundle): Promise<SignResult>;
 }
 
-/** `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. */
+/**
+ * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs.
+ * `notices` are the bundle's.
+ */
 export type Outcome =
-  | { status: "sent"; txId: string; chainStatus: string; fee?: NFlr | undefined }
-  | { status: "pending"; id: string; forDefiHash: string; file: string; fee?: NFlr | undefined };
+  | {
+      status: "sent";
+      txId: string;
+      chainStatus: string;
+      fee?: NFlr | undefined;
+      notices?: readonly string[] | undefined;
+    }
+  | {
+      status: "pending";
+      id: string;
+      forDefiHash: string;
+      file: string;
+      fee?: NFlr | undefined;
+      notices?: readonly string[] | undefined;
+    };

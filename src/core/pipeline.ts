@@ -18,11 +18,12 @@ export async function executeTransaction(
   const bundle = await buildTransaction(req, env, account, signer.policy);
   // Read before anything is signed or sent; the Context was already fetched to build an atomic transaction.
   const fee = bundle.kind === "atomic" ? atomicTxFee(bundle.unsignedTx, await env.clients.context()) : undefined;
+  const notices = bundle.kind === "atomic" && bundle.notices?.length ? { notices: bundle.notices } : {};
   const result = await signer.sign(bundle);
   if (result.status === "pending") {
-    return { ...result, fee };
+    return { ...result, fee, ...notices };
   }
   attachSignature(bundle, result.signature, account);
   const { txId, chainStatus } = await submitAndConfirm(bundle, env.clients, confirm);
-  return { status: "sent", txId, chainStatus, fee };
+  return { status: "sent", txId, chainStatus, fee, ...notices };
 }

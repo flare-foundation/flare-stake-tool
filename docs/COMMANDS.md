@@ -154,12 +154,20 @@ imports those the account can spend alone: one that needs more signatures (a
 checks time locks against time 0, so a time-locked UTXO cannot be imported
 even once its lock has passed.
 
+A UTXO worth less than the fee its own input adds at the lowest C-chain base
+fee (500 gwei, about 0.00054 FLR) costs more to import than it brings, and is
+skipped. One import holds at most about 80 UTXOs (the C-chain's atomic gas
+limit of 100,000); with more, the largest are imported and the rest stay
+pending for the next import. Both rules use fixed values, so the same UTXOs
+are imported with or without `-f`, and by every ForDefi co-signer. A warning
+says how many UTXOs were left out and what they hold.
+
 | Aspect | Detail |
 |---|---|
 | Inputs | `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path). |
 | Side effects | Submits an atomic import tx on the C-chain |
-| Output | Tx hash, "sent to the network" |
-| Failures | "Nothing to import from the P-chain" if exportPC hasn't propagated to the C-chain yet (3s delay typically suffices on local), or "… that this account can spend alone" when only UTXOs it cannot spend alone are pending. Refused before signing if the built transaction would not pay exactly `-f` (or would pay nothing when estimated). |
+| Output | Tx hash, "sent to the network"; a warning when UTXOs were skipped or left for the next import |
+| Failures | "Nothing to import from the P-chain" if exportPC hasn't propagated to the C-chain yet (3s delay typically suffices on local), "… that this account can spend alone" when only UTXOs it cannot spend alone are pending, or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. Refused before signing if the built transaction would not pay exactly `-f` (or would pay nothing when estimated). |
 
 ---
 

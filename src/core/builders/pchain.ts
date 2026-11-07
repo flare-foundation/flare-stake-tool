@@ -29,13 +29,14 @@ import {
 const WEI_PER_GWEI = 1_000_000_000n;
 const PRIMARY_NETWORK = networkIDs.PrimaryNetworkID.toString();
 
-function bundle(txType: AtomicTxType, unsignedTx: UnsignedTx): UnsignedTxBundle {
+function bundle(txType: AtomicTxType, unsignedTx: UnsignedTx, notices: readonly string[] = []): UnsignedTxBundle {
   return {
     kind: "atomic",
     chain: chainOfAtomicTx(txType),
     txType,
     unsignedTx,
     digest: messageHashFromUnsignedTx(unsignedTx),
+    ...(notices.length > 0 ? { notices } : {}),
   };
 }
 
@@ -271,6 +272,72 @@ export async function maxExportPCAmount(env: Env, account: Account, policy: Buil
   return exportAllPC(await pChainInputs(env, account, policy)).amount;
 }
 
+/**
+ * The most gas a C-chain atomic transaction can use: coreth `ap5.AtomicGasLimit`, the atomic gas of a block and of
+ * the mempool. A bigger import is never accepted.
+ */
+export const C_ATOMIC_GAS_LIMIT = 100_000n;
+
+/** The C-chain base fee floor since Granite (go-flare `granite.MinGasPrice`), in gwei: nFLR per gas. */
+const C_MIN_BASE_FEE_GWEI = 500n;
+
+/**
+ * The gas one more UTXO adds to an importPC, as coreth `UnsignedImportTx.GasUsed` and flarejs `costCorethTx` count
+ * it: the input's 88 bytes (UTXO id 36, asset id 32, type 4, amount 8, one signature index 8) and its signature.
+ */
+export const IMPORT_PC_INPUT_GAS = 88n * futils.CTxBytesGas + futils.CCostPerSignature;
+
+const amountOf = (utxo: PChainUtxo): bigint => futils.getUtxoInfo(utxo).amount;
+const totalOf = (utxos: readonly PChainUtxo[]): NFlr => asNFlr(utxos.reduce((sum, utxo) => sum + amountOf(utxo), 0n));
+
+/** Largest first, equal amounts by UTXO id in plain string order, which unlike localeCompare is the same everywhere. */
+function largestFirst(utxos: readonly PChainUtxo[]): PChainUtxo[] {
+  return [...utxos].sort((a, b) => {
+    const [x, y, idA, idB] = [amountOf(a), amountOf(b), a.ID(), b.ID()];
+    if (x !== y) return x > y ? -1 : 1;
+    return idA < idB ? -1 : idA > idB ? 1 : 0;
+  });
+}
+
+/**
+ * The UTXOs an import takes. One worth less than the fee its own input adds at the lowest price (`minPrice`
+ * nFLR per gas) brings less than it costs at any price, and anyone can send such dust to any address: it is
+ * skipped. The rest are taken largest first while the import's gas (`gasOf`) stays within `gasLimit`; the others
+ * stay pending for a later import. Only fixed values decide, so every co-signer takes the same UTXOs, with or
+ * without -f. An import that skips nothing takes every UTXO, as before.
+ */
+function chooseImported(
+  utxos: readonly PChainUtxo[],
+  inputGas: (utxo: PChainUtxo) => bigint,
+  minPrice: bigint,
+  gasLimit: bigint,
+  gasOf: (utxos: PChainUtxo[]) => bigint
+): { taken: PChainUtxo[]; skipped: PChainUtxo[]; later: PChainUtxo[] } {
+  const worth = (utxo: PChainUtxo) => amountOf(utxo) >= inputGas(utxo) * minPrice;
+  const skipped = utxos.filter((utxo) => !worth(utxo));
+  const ranked = largestFirst(utxos.filter(worth));
+  let count = ranked.length;
+  // every input adds at least its own gas, so dropping the smallest until the excess is covered is enough
+  for (let excess = count > 0 ? gasOf(ranked) - gasLimit : 0n; excess > 0n && count > 0; count--) {
+    excess -= inputGas(ranked[count - 1]!);
+  }
+  return { taken: ranked.slice(0, count), skipped, later: ranked.slice(count) };
+}
+
+/** The warnings for what an import left out; `capacity` names the limit that kept the later ones out. */
+function importNotices(chosen: ReturnType<typeof chooseImported>, symbol: string, capacity: string): string[] {
+  const { taken, skipped, later } = chosen;
+  const describe = (utxos: PChainUtxo[]) => `${utxos.length} UTXO(s) (${formatFlr(totalOf(utxos))} ${symbol})`;
+  return [
+    ...(later.length > 0
+      ? [`${describe(later)} stay pending for a later import: ${capacity} fits only ${taken.length} in one`]
+      : []),
+    ...(skipped.length > 0
+      ? [`${describe(skipped)} skipped: each is worth less than the fee of importing it, and stays pending`]
+      : []),
+  ];
+}
+
 export async function buildImportPC(
   req: TxRequestOf<"importPC">,
   env: Env,
@@ -286,14 +353,30 @@ export async function buildImportPC(
   // locks against time 0 rather than now, so a co-owned UTXO in front, or a time-locked one even once its lock has
   // passed, made it build an import that pays nothing. It only gets the UTXOs it can import: spendable alone and
   // without a time lock.
-  const utxos = pending.filter((utxo) => spendableAlone(utxo, NO_TIME_LOCK));
-  if (utxos.length === 0) {
+  const importable = pending.filter((utxo) => spendableAlone(utxo, NO_TIME_LOCK));
+  if (importable.length === 0) {
     throw new Error(
       pending.length === 0
         ? "Nothing to import from the P-chain"
         : `Nothing to import from the P-chain that this account can spend alone (${pending.length} UTXO(s) need more signatures or have a time lock, which cannot be imported even once it has passed)`
     );
   }
+  const build = (utxos: PChainUtxo[], fee: bigint) =>
+    evm.newImportTx(context, account.cAddressBytes, [account.addressBytes], utxos, context.pBlockchainID, fee);
+  const chosen = chooseImported(
+    importable,
+    () => IMPORT_PC_INPUT_GAS,
+    C_MIN_BASE_FEE_GWEI,
+    C_ATOMIC_GAS_LIMIT,
+    (utxos) => futils.costCorethTx(build(utxos, 0n))
+  );
+  const symbol = env.network.symbol;
+  if (chosen.taken.length === 0) {
+    throw new Error(
+      `Nothing worth importing from the P-chain: ${chosen.skipped.length} UTXO(s) (${formatFlr(totalOf(chosen.skipped))} ${symbol}), each worth less than the fee of importing it`
+    );
+  }
+  const utxos = chosen.taken;
   let unsignedTx: UnsignedTx;
   if (req.fee === undefined) {
     const baseFee = await env.clients.evm.getBaseFee();
@@ -306,26 +389,18 @@ export async function buildImportPC(
       estimatedGasPriceGwei(baseFee)
     );
   } else {
-    unsignedTx = evm.newImportTx(
-      context,
-      account.cAddressBytes,
-      [account.addressBytes],
-      utxos,
-      context.pBlockchainID,
-      req.fee
-    );
+    unsignedTx = build(utxos, req.fee);
   }
   // what the chain burns, read from the transaction itself: exactly -f, or something when estimated
   const paid = atomicTxFee(unsignedTx, context);
   if (req.fee === undefined ? paid <= 0n : paid !== req.fee) {
-    const symbol = env.network.symbol;
     throw new Error(
       `The import would pay a fee of ${formatFlr(paid)} ${symbol}` +
         (req.fee === undefined ? "" : ` instead of the ${formatFlr(req.fee)} ${symbol} given`) +
         "; it is not signed"
     );
   }
-  return bundle("importPC", unsignedTx);
+  return bundle("importPC", unsignedTx, importNotices(chosen, symbol, "the C-chain's atomic gas limit"));
 }
 
 export async function buildStake(

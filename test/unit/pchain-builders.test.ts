@@ -24,11 +24,19 @@ import { expect } from "chai";
 import { getBytes } from "ethers";
 import { accountFromPrivateKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
-import { asNFlr } from "../../src/chain/units";
+import { asNFlr, formatFlr, type NFlr } from "../../src/chain/units";
 import { buildTransaction } from "../../src/core/builders";
-import { UTXO_PAGE_SIZE, allUtxos, maxExportPCAmount, spendableAmount } from "../../src/core/builders/pchain";
+import {
+  C_ATOMIC_GAS_LIMIT,
+  IMPORT_PC_INPUT_GAS,
+  UTXO_PAGE_SIZE,
+  allUtxos,
+  maxExportPCAmount,
+  spendableAmount,
+} from "../../src/core/builders/pchain";
 import { atomicTxFee } from "../../src/core/fee";
-import { FILE_SIGNER_POLICY, IMMEDIATE_SIGNER_POLICY, type Env } from "../../src/core/types";
+import { executeTransaction } from "../../src/core/pipeline";
+import { FILE_SIGNER_POLICY, IMMEDIATE_SIGNER_POLICY, type Env, type Signer } from "../../src/core/types";
 import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 import { startReplay, withReplay, type Replay, type ReplayEnv } from "../helpers/replay";
@@ -407,6 +415,121 @@ describe("core/builders/pchain", function () {
         "Nothing to import from the P-chain that this account can spend alone (1 UTXO(s) need more signatures or have a time lock, which cannot be imported even once it has passed)"
       );
       await refusal([], "Nothing to import from the P-chain");
+    });
+
+    const ONE_FLR = 1_000_000_000n;
+    /** The smallest UTXO worth importing: the fee its own input adds at the 500 gwei base fee floor. */
+    const WORTH_IMPORTING = IMPORT_PC_INPUT_GAS * 500n;
+
+    /** `count` UTXOs the account can spend alone, the i-th of `amount(i)` nFLR, from index `first` on. */
+    const many = (count: number, amount: (i: number) => bigint, first = 0) =>
+      Promise.all(Array.from({ length: count }, (_, i) => exported([account.addressBytes], 1, amount(i), first + i)));
+
+    /** Builds importPC (estimated without `fee`); returns its bytes, imported amounts and ids, gas and notices. */
+    async function importPC(env: Env, fee?: NFlr, policy = IMMEDIATE_SIGNER_POLICY) {
+      const bundle = await buildTransaction({ type: "importPC", fee }, env, account, policy);
+      if (bundle.kind !== "atomic") throw new Error("importPC must be atomic");
+      const { importedInputs } = bundle.unsignedTx.getTx() as unknown as { importedInputs: TransferableInput[] };
+      return {
+        bytes: Buffer.from(bundle.unsignedTx.toBytes()).toString("hex"),
+        amounts: importedInputs.map((input) => input.amount()).sort((a, b) => (a > b ? -1 : a < b ? 1 : 0)),
+        ids: importedInputs.map((input) => input.utxoID.ID()),
+        gas: futils.costCorethTx(bundle.unsignedTx),
+        fee: atomicTxFee(bundle.unsignedTx, await env.clients.context()),
+        notices: bundle.notices ?? [],
+      };
+    }
+
+    it("each UTXO adds IMPORT_PC_INPUT_GAS to the import", async () => {
+      const utxos = await many(2, () => ONE_FLR);
+      const one = await importPC(pendingEnv(utxos.slice(0, 1)), FEE);
+      const two = await importPC(pendingEnv(utxos), FEE);
+      expect(two.gas - one.gas).to.equal(IMPORT_PC_INPUT_GAS);
+    });
+
+    it("skips UTXOs worth less than the fee of importing them, and builds the same import with or without -f", async () => {
+      const symbol = replay.env.network.symbol;
+      const dust = await many(100, () => WORTH_IMPORTING - 1n, 2);
+      const utxos = [...dust, await exported([account.addressBytes], 1, 10n * ONE_FLR, 0)];
+      utxos.push(await exported([account.addressBytes], 1, WORTH_IMPORTING, 1)); // just worth it
+      const env = pendingEnv(utxos);
+
+      const estimated = await importPC(env);
+      expect(estimated.amounts).to.deep.equal([10n * ONE_FLR, WORTH_IMPORTING]);
+      expect(estimated.notices).to.deep.equal([
+        `100 UTXO(s) (${formatFlr(asNFlr(100n * (WORTH_IMPORTING - 1n)))} ${symbol}) skipped: each is worth less than the fee of importing it, and stays pending`,
+      ]);
+      const given = await importPC(env, estimated.fee);
+      const file = await importPC(env, estimated.fee, FILE_SIGNER_POLICY);
+      expect(given.bytes, "-f the estimate").to.equal(estimated.bytes);
+      expect(file.bytes, "unsigned file, -f the estimate").to.equal(estimated.bytes);
+      expect(given.notices).to.deep.equal(estimated.notices);
+    });
+
+    it("takes the largest UTXOs the C-chain's atomic gas limit allows; the rest stay pending for a later import", async () => {
+      const symbol = replay.env.network.symbol;
+      const utxos = await many(150, (i) => BigInt(i + 1) * ONE_FLR); // 1 to 150 FLR, smallest first
+      const env = pendingEnv(utxos);
+
+      const given = await importPC(env, FEE);
+      const taken = given.amounts.length;
+      expect(given.gas <= C_ATOMIC_GAS_LIMIT, `gas ${given.gas}`).to.equal(true);
+      expect(given.gas + IMPORT_PC_INPUT_GAS > C_ATOMIC_GAS_LIMIT, "one more would not fit").to.equal(true);
+      const largest = Array.from({ length: taken }, (_, i) => BigInt(150 - i) * ONE_FLR);
+      expect(given.amounts).to.deep.equal(largest);
+      const left = 150 - taken;
+      const leftAmount = asNFlr((BigInt(left * (left + 1)) / 2n) * ONE_FLR);
+      expect(given.notices).to.deep.equal([
+        `${left} UTXO(s) (${formatFlr(leftAmount)} ${symbol}) stay pending for a later import: the C-chain's atomic gas limit fits only ${taken} in one`,
+      ]);
+      expect((await importPC(env)).amounts, "estimated").to.deep.equal(largest);
+    });
+
+    it("takes equal UTXOs over the limit by id in plain string order, whatever order the node lists them in", async () => {
+      // ids starting with N-Z come before a-m in plain order (the same on every machine) and after them in a
+      // locale's order, so the two take different UTXOs
+      const candidates = await many(1000, () => ONE_FLR);
+      const utxos = [
+        ...candidates.filter((utxo) => /^[N-Z]/.test(utxo.ID())).slice(0, 75),
+        ...candidates.filter((utxo) => /^[a-m]/.test(utxo.ID())).slice(0, 75),
+      ];
+      expect(utxos).to.have.length(150);
+      const plain = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+      const byId = utxos.map((utxo) => utxo.ID()).sort(plain);
+      const listed = await importPC(pendingEnv(utxos), FEE);
+      const reversed = await importPC(pendingEnv([...utxos].reverse()), FEE);
+      expect(reversed.bytes).to.equal(listed.bytes);
+      expect(listed.ids.length).to.be.above(75).and.below(150);
+      expect([...listed.ids].sort(plain)).to.deep.equal(byId.slice(0, listed.ids.length));
+    });
+
+    it("refuses an import of nothing but UTXOs worth less than the fee of importing them", async () => {
+      const symbol = replay.env.network.symbol;
+      await buildTransaction(
+        { type: "importPC", fee: FEE },
+        pendingEnv(await many(3, () => 1_000n)),
+        account,
+        IMMEDIATE_SIGNER_POLICY
+      ).then(
+        () => expect.fail("built an import"),
+        (error: unknown) =>
+          expect(String(error)).to.include(
+            `Nothing worth importing from the P-chain: 3 UTXO(s) (${formatFlr(asNFlr(3_000n))} ${symbol}), each worth less than the fee of importing it`
+          )
+      );
+    });
+
+    it("passes what it left out to the outcome, for the command line and interactive mode to print", async () => {
+      const utxos = [...(await many(2, () => 1_000n, 1)), await exported([account.addressBytes], 1, ONE_FLR, 0)];
+      const signer: Signer = {
+        kind: "file",
+        policy: FILE_SIGNER_POLICY,
+        account: () => Promise.resolve(account),
+        sign: () => Promise.resolve({ status: "pending", id: "x", forDefiHash: "h", file: "f" }),
+      };
+      const outcome = await executeTransaction({ type: "importPC", fee: FEE }, pendingEnv(utxos), signer);
+      expect(outcome.notices).to.have.length(1);
+      expect(outcome.notices![0]).to.match(/^2 UTXO\(s\) .* skipped: /);
     });
   });
 

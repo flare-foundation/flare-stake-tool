@@ -51,6 +51,7 @@ export function reportOutcome(outcome: Outcome, symbol: string): void {
   }
   const fee = describeFee(outcome, symbol);
   if (fee) logInfo(fee);
+  for (const notice of outcome.notices ?? []) logWarning(notice);
 }
 
 /** Warnings go to stderr so that stdout (transaction ids, hashes) stays parseable. */
