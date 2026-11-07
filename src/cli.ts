@@ -28,6 +28,7 @@ import {
 import {
   contextFileApplies,
   globalOptions,
+  requireGivenContextFile,
   resolveAccount,
   resolveEnv,
   resolveSigner,
@@ -279,6 +280,7 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
   if (!id) {
     throw new Error("forDefi needs the transaction id: -i <id>");
   }
+  requireGivenContextFile(options); // fetch does not read the context, but a given one must still exist
   if (type === "sign") {
     const forDefiTxId = await sendToForDefi(id, readContextFile(options.ctxFile));
     logSuccess(`Transaction ${id} sent to ForDefi (ForDefi transaction id ${forDefiTxId})`);

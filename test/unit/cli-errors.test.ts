@@ -233,6 +233,12 @@ describe("CLI errors (built CLI, no node)", function () {
         "Context file missing.json does not exist (given with --ctx-file)"
       );
     }
+    for (const action of ["fetch", "sign"]) {
+      // fetch reads no context, and nothing is asked of ForDefi before the refusal
+      const result = runCli(["forDefi", action, "-i", "t1", "--ctx-file", "missing.json"], { cwd });
+      expect(result.exitCode, action).to.equal(1);
+      expect(result.stderr, action).to.include("Context file missing.json does not exist (given with --ctx-file)");
+    }
     const created = runCli(
       ["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo", "--ctx-file", "new.json"],
       {

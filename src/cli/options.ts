@@ -48,13 +48,19 @@ export function globalOptions(programOptions: OptionValues, commandOptions: obje
 }
 
 /**
- * The environment of every command but init-ctx (which writes the context file). A context file given with
- * --ctx-file must exist, whatever else selects the account or the network: a mistyped one is reported, not ignored.
+ * A context file given with --ctx-file must exist, for every command but init-ctx (which writes it), whatever else
+ * selects the account or the network, and also where the command does not read it: a mistyped one is reported, not
+ * ignored.
  */
-export function resolveEnv(options: GlobalOptions): Env {
+export function requireGivenContextFile(options: GlobalOptions): void {
   if (options.ctxFile !== undefined && !contextFileExists(options.ctxFile)) {
     throw new Error(`Context file ${options.ctxFile} does not exist (given with --ctx-file)`);
   }
+}
+
+/** The environment of every command but init-ctx and forDefi, after requireGivenContextFile. */
+export function resolveEnv(options: GlobalOptions): Env {
+  requireGivenContextFile(options);
   return createEnv(resolveNetworkName(options.network, options.ctxFile), nodeOverrides(options));
 }
 
