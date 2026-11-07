@@ -15,6 +15,7 @@ import { UnsignedTx, messageHashFromUnsignedTx } from "@flarenetwork/flarejs";
 import { Transaction, getBytes, type TransactionLike } from "ethers";
 import { chainOfAtomicTx, isAtomicTxType, type EvmTxType, type UnsignedTxBundle } from "./types";
 import { toHex } from "./signing/signature";
+import { isJsonObject, parseJson } from "./json";
 
 export const TX_FILES_DIR = "ForDefiTxnFiles";
 export const UNSIGNED_TX_DIR = "UnsignedTxns";
@@ -177,12 +178,49 @@ export function saveUnsignedTxJson(
   return { file, forDefiHash };
 }
 
+/** What is wrong with a transaction file's fields the tool reads, if anything; other fields are not looked at. */
+function txJsonProblem(json: Record<string, unknown>): string | undefined {
+  if (typeof json["transactionType"] !== "string") return "transactionType is missing";
+  if (json["forDefiTxId"] !== undefined && (typeof json["forDefiTxId"] !== "string" || json["forDefiTxId"] === "")) {
+    return "forDefiTxId is not a non-empty string";
+  }
+  if (json["transactionType"] === "EVM") {
+    if (!isJsonObject(json["rawTx"])) return "rawTx is missing";
+    if (typeof json["message"] !== "string") return "message is missing";
+    return undefined;
+  }
+  const requests = json["signatureRequests"];
+  if (!Array.isArray(requests) || !isJsonObject(requests[0]) || typeof requests[0]["message"] !== "string") {
+    return "signatureRequests[0].message is missing";
+  }
+  if (typeof json["serialization"] !== "string") return "serialization is missing";
+  const buffer = json["unsignedTransactionBuffer"];
+  if (buffer !== undefined && typeof buffer !== "string") return "unsignedTransactionBuffer is not a string";
+  return undefined;
+}
+
+/**
+ * A transaction file, read and checked: only the fields the tool reads, and the object is returned as it was, so that
+ * unknown fields (older versions' metadata) stay in the file when it is rewritten.
+ */
+function readTxFile(file: string, kind: string): Record<string, unknown> {
+  const json = parseJson(fs.readFileSync(file, "utf8"), `${kind} file ${file}`);
+  if (!isJsonObject(json)) {
+    throw new Error(`${kind} file ${file} is not a transaction file: not a JSON object`);
+  }
+  const problem = txJsonProblem(json);
+  if (problem) {
+    throw new Error(`${kind} file ${file} is not a transaction file: ${problem}`);
+  }
+  return json;
+}
+
 export function readUnsignedTxJson(id: string, cwd = process.cwd()): UnsignedTxJson {
   const file = unsignedTxPath(id, cwd);
   if (!fs.existsSync(file)) {
     throw new Error(`unsignedTx file ${file} does not exist`);
   }
-  return JSON.parse(fs.readFileSync(file, "utf8")) as UnsignedTxJson;
+  return readTxFile(file, "unsignedTx") as unknown as UnsignedTxJson;
 }
 
 /** Replaces the unsigned file of an id, as `forDefi sign` does to record the ForDefi transaction id. */
@@ -195,11 +233,14 @@ export function readSignedTxJson(id: string, cwd = process.cwd()): SignedTxJson 
   if (!fs.existsSync(file)) {
     throw new Error(`signedTx file ${file} does not exist`);
   }
-  const json = JSON.parse(fs.readFileSync(file, "utf8")) as SignedTxJson;
-  if (!json.signature) {
+  const json = readTxFile(file, "signedTx");
+  if (typeof json["signature"] !== "string" || json["signature"] === "") {
     throw new Error(`signedTx file ${file} does not contain signature`);
   }
-  return json;
+  if (json["isSentToChain"] !== undefined && typeof json["isSentToChain"] !== "boolean") {
+    throw new Error(`signedTx file ${file} is not a transaction file: isSentToChain is not true or false`);
+  }
+  return json as unknown as SignedTxJson;
 }
 
 /** Writes the signed file of an id, replacing one that is there (marking it sent, say). */
@@ -224,16 +265,22 @@ export function saveSignedTxJson(json: SignedTxJson, id: string, cwd = process.c
   }
   const existing = fs.readFileSync(file, "utf8");
   if (existing === content) return;
-  if ((JSON.parse(existing) as Partial<SignedTxJson>).isSentToChain) {
+  if (isMarkedSent(existing, file)) {
     throw new Error("Tx already sent to chain");
   }
   replaceFile(file, content);
 }
 
+/** Whether a signed file's text carries the sent mark; any true-ish value counts, so that no mark is ever missed. */
+function isMarkedSent(text: string, file: string): boolean {
+  const json = parseJson(text, `signedTx file ${file}`);
+  return isJsonObject(json) && !!json["isSentToChain"];
+}
+
 export function isAlreadySentToChain(id: string, cwd = process.cwd()): boolean {
   const file = signedTxPath(id, cwd);
   if (!fs.existsSync(file)) return false;
-  return !!(JSON.parse(fs.readFileSync(file, "utf8")) as SignedTxJson).isSentToChain;
+  return isMarkedSent(fs.readFileSync(file, "utf8"), file);
 }
 
 export function markSentToChain(id: string, cwd = process.cwd()): void {

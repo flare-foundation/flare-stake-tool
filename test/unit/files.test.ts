@@ -20,6 +20,7 @@ import {
   unsignedTxJsonFromBundle,
   unsignedTxPath,
   writeSignedTxJson,
+  writeUnsignedTxJson,
   type UnsignedAtomicTxJson,
   type UnsignedEvmTxJson,
   type UnsignedTxJson,
@@ -233,6 +234,130 @@ describe("core/files", () => {
       expect(() => replaceFile(target, "new content")).to.throw();
       expect(fs.readdirSync(cwd).sort()).to.deep.equal(["ForDefiTxnFiles", "a-directory"]);
       expect(fs.readdirSync(target)).to.deep.equal(["kept"]);
+    });
+  });
+
+  describe("reading transaction files", () => {
+    let cwd: string;
+    const goldenDir = path.join(__dirname, "..", "golden");
+    const delegate = JSON.parse(fs.readFileSync(path.join(goldenDir, "delegate-file.json"), "utf8")).outcome
+      .unsignedTxJson as UnsignedAtomicTxJson;
+
+    beforeEach(() => {
+      cwd = fs.mkdtempSync(path.join(os.tmpdir(), "files-test-"));
+    });
+
+    afterEach(() => {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    });
+
+    /** Writes `content` as the file of `id` exactly as given, as another tool or an older version may have. */
+    function place(file: string, content: string): void {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, content);
+    }
+
+    it("loads every recorded file, the v4.3.3 one and older shapes as written, unknown fields included", () => {
+      const recorded = fs
+        .readdirSync(goldenDir)
+        .filter((name) => name.endsWith(".json"))
+        .map(
+          (name) =>
+            JSON.parse(fs.readFileSync(path.join(goldenDir, name), "utf8")) as {
+              outcome?: { unsignedTxJson?: unknown };
+            }
+        )
+        .flatMap(({ outcome }) => (outcome?.unsignedTxJson === undefined ? [] : [outcome.unsignedTxJson]));
+      expect(recorded.length).to.be.greaterThan(15);
+      const older = {
+        ...delegate,
+        // a filled signer, a second request, and metadata earlier versions wrote
+        signatureRequests: [
+          { message: messageOf(delegate), signer: "P-costwo18jma8ppw3nhx5r4ap8clazz0dps7rv5u6wmu4t" },
+          { message: "00".repeat(32), signer: "" },
+        ],
+        usedFee: "1000000",
+        txDetails: { nodeId: "NodeID-x", amount: 1 },
+        forDefiTxId: "fordefi-1",
+      };
+      const shapes = [...recorded, PUBLISHED_V433_TX, older];
+      shapes.forEach((json, index) => {
+        place(unsignedTxPath(`f${index}`, cwd), JSON.stringify(json));
+        expect(readUnsignedTxJson(`f${index}`, cwd), String(index)).to.deep.equal(json);
+        place(
+          signedTxPath(`f${index}`, cwd),
+          JSON.stringify({ ...json, signature: "ab".repeat(65), isSentToChain: true })
+        );
+        expect(readSignedTxJson(`f${index}`, cwd), String(index)).to.deep.equal({
+          ...json,
+          signature: "ab".repeat(65),
+          isSentToChain: true,
+        });
+      });
+      // a rewrite, as forDefi sign makes to record its id, keeps what the tool does not read
+      const index = shapes.length - 1;
+      writeUnsignedTxJson({ ...readUnsignedTxJson(`f${index}`, cwd), forDefiTxId: "fordefi-2" }, `f${index}`, cwd);
+      expect(readUnsignedTxJson(`f${index}`, cwd)).to.deep.equal({ ...older, forDefiTxId: "fordefi-2" });
+    });
+
+    it("refuses a file whose fields the tool reads are missing or of the wrong type, naming the file", () => {
+      const atomic = JSON.stringify(delegate);
+      const cases: [string, string][] = [
+        ["not json", "is not valid JSON ("],
+        ["null", "is not a transaction file: not a JSON object"],
+        ["[]", "is not a transaction file: not a JSON object"],
+        ["{}", "is not a transaction file: transactionType is missing"],
+        ['{"transactionType":"EVM","message":"aa"}', "is not a transaction file: rawTx is missing"],
+        ['{"transactionType":"EVM","rawTx":{}}', "is not a transaction file: message is missing"],
+        [
+          JSON.stringify({ ...delegate, signatureRequests: {} }),
+          "is not a transaction file: signatureRequests[0].message is missing",
+        ],
+        [
+          JSON.stringify({ ...delegate, signatureRequests: [] }),
+          "is not a transaction file: signatureRequests[0].message is missing",
+        ],
+        [
+          JSON.stringify({ ...delegate, signatureRequests: [{ message: 5 }] }),
+          "is not a transaction file: signatureRequests[0].message is missing",
+        ],
+        [
+          JSON.stringify({ ...delegate, serialization: undefined }),
+          "is not a transaction file: serialization is missing",
+        ],
+        [
+          JSON.stringify({ ...delegate, unsignedTransactionBuffer: 5 }),
+          "is not a transaction file: unsignedTransactionBuffer is not a string",
+        ],
+        [
+          JSON.stringify({ ...delegate, forDefiTxId: 5 }),
+          "is not a transaction file: forDefiTxId is not a non-empty string",
+        ],
+        [
+          JSON.stringify({ ...delegate, forDefiTxId: "" }),
+          "is not a transaction file: forDefiTxId is not a non-empty string",
+        ],
+      ];
+      for (const [content, problem] of cases) {
+        const file = unsignedTxPath("bad", cwd);
+        place(file, content);
+        expect(() => readUnsignedTxJson("bad", cwd), content).to.throw(`unsignedTx file ${file} ${problem}`);
+      }
+      const signedFile = signedTxPath("bad", cwd);
+      for (const [extra, refusal] of [
+        [{ signature: 5 }, "does not contain signature"],
+        [
+          { signature: "ab".repeat(65), isSentToChain: "yes" },
+          "is not a transaction file: isSentToChain is not true or false",
+        ],
+      ] as [object, string][]) {
+        place(signedFile, JSON.stringify({ ...JSON.parse(atomic), ...extra }));
+        expect(() => readSignedTxJson("bad", cwd)).to.throw(`signedTx file ${signedFile} ${refusal}`);
+      }
+      // a sent mark is never missed, whatever form it takes: send stops instead of submitting again
+      expect(isAlreadySentToChain("bad", cwd)).to.equal(true);
+      place(signedFile, "not json");
+      expect(() => isAlreadySentToChain("bad", cwd)).to.throw(`signedTx file ${signedFile} is not valid JSON (`);
     });
   });
 

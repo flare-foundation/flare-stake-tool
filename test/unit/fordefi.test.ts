@@ -239,6 +239,44 @@ describe("app/fordefi", () => {
     );
   });
 
+  it("refuses answers whose fields it uses are of the wrong type, and an answer that is not an object", async () => {
+    expect(
+      await rejectedWith(getVaultPublicKey(vaultId, fakeFetch({ [`GET /api/v1/vaults/${vaultId}`]: null })))
+    ).to.equal(`ForDefi vault lookup (${vaultId}) did not answer with a JSON object: null`);
+    const numericKey = fakeFetch({ [`GET /api/v1/vaults/${vaultId}`]: { id: vaultId, public_key_compressed: 5 } });
+    expect(await rejectedWith(getVaultPublicKey(vaultId, numericKey))).to.equal(
+      "public_key_compressed not found in vault response"
+    );
+    const numericId = vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED);
+    const withNumericId: FetchLike = (url, init) =>
+      init?.method === "POST" ? Promise.resolve(new Response('{"id":42}', { status: 200 })) : numericId(url, init);
+    const before = readUnsignedTxJson("tx1").forDefiTxId;
+    expect(await rejectedWith(sendToForDefi("tx1", context, withNumericId))).to.equal(
+      'ForDefi did not return a transaction id: {"id":42}'
+    );
+    expect(readUnsignedTxJson("tx1").forDefiTxId).to.equal(before);
+  });
+
+  it("refuses a signature that is not 65 bytes of base64, and reads signatures that are not a list as none", async () => {
+    const lookup = "GET /api/v1/transactions/fordefi-tx-42";
+    for (const data of [5, Buffer.alloc(64, 1).toString("base64"), "not base64!"]) {
+      const fetchImpl = fakeFetch({ [lookup]: { id: "fordefi-tx-42", signatures: [{ data }] } });
+      expect(await rejectedWith(fetchForDefiSignature("tx1", fetchImpl)), String(data)).to.match(
+        /^ForDefi answered a signature that is not 65 bytes of base64: /
+      );
+    }
+    const notAList = fakeFetch({ [lookup]: { id: "fordefi-tx-42", signatures: { data: "x" } } });
+    expect(await rejectedWith(fetchForDefiSignature("tx1", notAList))).to.match(/^Transaction is not signed yet/);
+  });
+
+  it("puts the ForDefi id and the vault id into the request path as one path segment", async () => {
+    saveUnsignedTxJson({ ...unsigned, forDefiTxId: "../vaults/other" }, "odd-fordefi-id");
+    await rejectedWith(fetchForDefiSignature("odd-fordefi-id", fakeFetch({})));
+    expect(new URL(calls.at(-1)!.url).pathname).to.equal("/api/v1/transactions/..%2Fvaults%2Fother");
+    await rejectedWith(getVaultPublicKey("../transactions", fakeFetch({})));
+    expect(new URL(calls.at(-1)!.url).pathname).to.equal("/api/v1/vaults/..%2Ftransactions");
+  });
+
   it("refuses a signature request answered without a transaction id, and records none", async () => {
     saveUnsignedTxJson(unsigned, "tx-no-id");
     const fetchImpl = fakeFetch({

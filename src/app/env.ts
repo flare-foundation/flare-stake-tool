@@ -5,6 +5,7 @@ import { createClients } from "../chain/clients";
 import { accountFromPublicKey, type Account } from "../chain/keys";
 import { DEFAULT_NETWORK, isNetworkName, networkConfig, type NodeOverrides } from "../chain/network";
 import type { Env } from "../core/types";
+import { isJsonObject, parseJson } from "../core/json";
 
 export const DEFAULT_CTX_FILE = "ctx.json";
 
@@ -31,11 +32,21 @@ export function readContextFile(file: string = DEFAULT_CTX_FILE): ContextFile {
       `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
     );
   }
-  const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<ContextFile>;
-  if (typeof parsed.publicKey !== "string" || typeof parsed.network !== "string") {
+  // only the fields the tool reads are checked, and the object is returned as it was: older files carry other fields
+  // (cached addresses, some with a C-chain address in flareAddress), which are kept and not relied on
+  const parsed = parseJson(fs.readFileSync(file, "utf8"), `Context file ${file}`);
+  if (!isJsonObject(parsed)) {
+    throw new Error(`Context file ${file} is not a JSON object`);
+  }
+  if (typeof parsed["publicKey"] !== "string" || typeof parsed["network"] !== "string") {
     throw new Error(`Context file ${file} is missing publicKey or network`);
   }
-  return parsed as ContextFile;
+  for (const field of ["wallet", "derivationPath", "vaultId"]) {
+    if (parsed[field] !== undefined && typeof parsed[field] !== "string") {
+      throw new Error(`Context file ${file} has a ${field} that is not a string`);
+    }
+  }
+  return parsed as unknown as ContextFile;
 }
 
 export function contextFileExists(file: string = DEFAULT_CTX_FILE): boolean {
