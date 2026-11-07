@@ -4,14 +4,7 @@ import { getBytes, hexlify } from "ethers";
 import { utils as futils } from "@flarenetwork/flarejs";
 import { createEnv, writeContextFile } from "../../src/app/env";
 import { accountFromPrivateKey } from "../../src/chain/keys";
-import {
-  BASE_DERIVATION_PATH,
-  evmFeeOverrides,
-  parseBlsHex,
-  parseNodeId,
-  parseNonce,
-  pastEndTimeWarning,
-} from "../../src/cli/inputs";
+import { evmFeeOverrides, parseBlsHex, parseNodeId, parseNonce, pastEndTimeWarning } from "../../src/cli/inputs";
 import { globalOptions, resolveAccount, resolveSigner, type GlobalOptions } from "../../src/cli/options";
 import { parseAtomicTxRequest, parseEvmTxRequest } from "../../src/cli/requests";
 import { FAKE_LEDGER_KEY_ENV } from "../../src/signers/ledger";
@@ -257,18 +250,14 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         transactionId: "from-command",
         ledger: true,
         amount: "5",
-        derivationPath: BASE_DERIVATION_PATH,
         ctxFile: "ctx.json",
       });
     });
 
-    it("defaults the derivation path and the context file only when they are not strings", () => {
-      expect(globalOptions({}, {})).to.include({ derivationPath: BASE_DERIVATION_PATH, ctxFile: "ctx.json" });
-      expect(globalOptions({ derivationPath: 3, ctxFile: true })).to.include({
-        derivationPath: BASE_DERIVATION_PATH,
-        ctxFile: "ctx.json",
-      });
-      expect(globalOptions({ derivationPath: "m/44'/60'/1'/0/0", ctxFile: "other.json" })).to.include({
+    it("keeps a given derivation path and leaves it out otherwise, and defaults the context file", () => {
+      expect(globalOptions({}, {})).to.deep.equal({ ctxFile: "ctx.json" });
+      expect(globalOptions({ derivationPath: 3, ctxFile: true })).to.deep.equal({ ctxFile: "ctx.json" });
+      expect(globalOptions({ derivationPath: "m/44'/60'/1'/0/0", ctxFile: "other.json" })).to.deep.equal({
         derivationPath: "m/44'/60'/1'/0/0",
         ctxFile: "other.json",
       });
@@ -291,7 +280,7 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       dir = makeTempDir("account-");
       const ctxFile = path.join(dir, "ctx.json");
       writeContextFile({ wallet: "publicKey", publicKey: context.publicKeyHex, network: "localflare" }, ctxFile);
-      base = { derivationPath: BASE_DERIVATION_PATH, ctxFile, transactionId: "account-test" };
+      base = { ctxFile, transactionId: "account-test" };
       previousFakeKey = process.env[FAKE_LEDGER_KEY_ENV];
       process.env[FAKE_LEDGER_KEY_ENV] = hexlify(ledgerKey);
       originalConsoleError = console.error;
@@ -322,6 +311,44 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         expect((await signer.account()).pAddress, `${flags}: signer`).to.equal(expected);
         expect((await resolveAccount(options, env)).pAddress, `${flags}: account`).to.equal(expected);
       }
+    });
+
+    it("--ledger takes a Ledger context file's path and key unless --derivation-path is given", async () => {
+      const matching = path.join(dir, "ledger-ctx.json");
+      writeContextFile(
+        { wallet: "ledger", publicKey: ledger.publicKeyHex, network: "localflare", derivationPath: "m/44'/60'/0'/0/5" },
+        matching
+      );
+      const other = path.join(dir, "other-ledger-ctx.json");
+      writeContextFile(
+        {
+          wallet: "ledger",
+          publicKey: context.publicKeyHex,
+          network: "localflare",
+          derivationPath: "m/44'/60'/0'/0/5",
+        },
+        other
+      );
+      // the Ledger it was made with: its account, for transactions and info alike
+      const withMatching = { ...base, ledger: true, ctxFile: matching };
+      expect((await (await resolveSigner(withMatching, env)).account()).pAddress).to.equal(ledger.pAddress);
+      expect((await resolveAccount(withMatching, env)).pAddress).to.equal(ledger.pAddress);
+      // another Ledger: refused at the context's path, naming the context, where the default path signed before
+      const refusal =
+        `The connected Ledger has ${ledger.cAddress} at m/44'/60'/0'/0/5, not ${context.cAddress} as saved in ` +
+        `${other}; connect the Ledger it was made with, or pass --derivation-path`;
+      const withOther = { ...base, ledger: true, ctxFile: other };
+      await (await resolveSigner(withOther, env)).account().then(
+        () => expect.fail("signed for another account than the context's"),
+        (error: unknown) => expect((error as Error).message).to.equal(refusal)
+      );
+      await resolveAccount(withOther, env).then(
+        () => expect.fail("reported another account than the context's"),
+        (error: unknown) => expect((error as Error).message).to.equal(refusal)
+      );
+      // a given --derivation-path wins over the context
+      const explicit = { ...withOther, derivationPath: "m/44'/60'/0'/0/1" };
+      expect((await resolveAccount(explicit, env)).pAddress).to.equal(ledger.pAddress);
     });
 
     it("needs the key file of --get-hacked for info as well", async () => {

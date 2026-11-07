@@ -6,7 +6,7 @@
 import type { OptionValues } from "commander";
 import type { Account } from "../chain/keys";
 import type { Env, Signer } from "../core/types";
-import { accountFromContextFile, createEnv, readContextFile, resolveNetworkName } from "../app/env";
+import { accountFromContextFile, contextFileExists, createEnv, readContextFile, resolveNetworkName } from "../app/env";
 import { ExternalFileSigner } from "../signers/file";
 import { LedgerSigner, ledgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
@@ -18,7 +18,8 @@ export interface GlobalOptions {
   rpcUrl?: string;
   apiKey?: string;
   ledger?: boolean;
-  derivationPath: string;
+  /** Only when given: without it, --ledger takes a Ledger context file's path, else BASE_DERIVATION_PATH. */
+  derivationPath?: string;
   ctxFile: string;
   envPath?: string;
   getHacked?: boolean;
@@ -28,12 +29,12 @@ export interface GlobalOptions {
   transactionId?: string;
 }
 
-/** Merges the program-level options with a command's own; command options win. */
+/** Merges the program-level options with a command's own; command options win. A non-string value counts as not given. */
 export function globalOptions(programOptions: OptionValues): GlobalOptions;
 export function globalOptions<T extends object>(programOptions: OptionValues, commandOptions: T): GlobalOptions & T;
 export function globalOptions(programOptions: OptionValues, commandOptions: object = {}): GlobalOptions {
   const merged = { ...programOptions, ...commandOptions } as GlobalOptions;
-  merged.derivationPath = typeof merged.derivationPath === "string" ? merged.derivationPath : BASE_DERIVATION_PATH;
+  if (typeof merged.derivationPath !== "string") delete merged.derivationPath;
   merged.ctxFile = typeof merged.ctxFile === "string" ? merged.ctxFile : "ctx.json";
   return merged;
 }
@@ -67,6 +68,28 @@ function keyFileSigner(options: GlobalOptions, env: Env): PrivateKeySigner {
   return PrivateKeySigner.fromEnvFile(options.envPath, env.network.hrp);
 }
 
+/**
+ * The Ledger signer --ledger selects: at --derivation-path when given; else, with a Ledger context file, at its
+ * derivation path and expecting its key, as interactive mode does, so that --ledger signs for the account the context
+ * was made for; else at BASE_DERIVATION_PATH.
+ */
+function ledgerSigner(options: GlobalOptions, env: Env): LedgerSigner {
+  if (options.derivationPath !== undefined) {
+    return new LedgerSigner(ledgerDevice(), options.derivationPath, env.network.hrp);
+  }
+  const context = contextFileExists(options.ctxFile) ? readContextFile(options.ctxFile) : undefined;
+  if (context?.wallet === "ledger") {
+    return new LedgerSigner(
+      ledgerDevice(),
+      context.derivationPath ?? BASE_DERIVATION_PATH,
+      env.network.hrp,
+      context.publicKey,
+      `as saved in ${options.ctxFile}; connect the Ledger it was made with, or pass --derivation-path`
+    );
+  }
+  return new LedgerSigner(ledgerDevice(), BASE_DERIVATION_PATH, env.network.hrp);
+}
+
 /** Signs with the key file (--get-hacked) or the Ledger; otherwise writes an unsigned file for the selected account. */
 export async function resolveSigner(options: GlobalOptions, env: Env): Promise<Signer> {
   const source = accountSource(options);
@@ -74,7 +97,7 @@ export async function resolveSigner(options: GlobalOptions, env: Env): Promise<S
     return keyFileSigner(options, env);
   }
   if (source === "ledger") {
-    return new LedgerSigner(ledgerDevice(), options.derivationPath, env.network.hrp);
+    return ledgerSigner(options, env);
   }
   if (!options.transactionId) {
     throw new Error(
@@ -90,7 +113,7 @@ export async function resolveAccount(options: GlobalOptions, env: Env): Promise<
     case "keyFile":
       return keyFileSigner(options, env).account();
     case "ledger":
-      return new LedgerSigner(ledgerDevice(), options.derivationPath, env.network.hrp).account();
+      return ledgerSigner(options, env).account();
     case "contextFile":
       return accountFromContextFile(readContextFile(options.ctxFile), env.network.hrp);
   }

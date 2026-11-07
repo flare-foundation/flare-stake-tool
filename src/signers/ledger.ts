@@ -64,12 +64,16 @@ export class LedgerSigner implements Signer {
    */
   private pinned: Account | undefined;
 
-  /** `expectedPublicKey`: the key the account was chosen by (a Ledger ctx.json's), which even the first read must answer. */
+  /**
+   * `expectedPublicKey`: the key the account was chosen by (a Ledger ctx.json's), which even the first read must
+   * answer. `mismatch`: what a refusal says after the expected address.
+   */
   constructor(
     private readonly device: LedgerDevice,
     private readonly derivationPath: string,
     private readonly hrp: string,
-    expectedPublicKey?: string
+    expectedPublicKey?: string,
+    private readonly mismatch = "as when it was connected; reconnect that Ledger"
   ) {
     if (expectedPublicKey !== undefined) {
       this.pinned = accountFromPublicKey(expectedPublicKey, hrp);
@@ -87,8 +91,8 @@ export class LedgerSigner implements Signer {
       this.pinned = current;
     } else if (current.publicKeyHex !== this.pinned.publicKeyHex) {
       throw new Error(
-        `The connected Ledger has ${current.cAddress} at ${this.derivationPath}, not ${this.pinned.cAddress} as ` +
-          "when it was connected; reconnect that Ledger"
+        `The connected Ledger has ${current.cAddress} at ${this.derivationPath}, not ${this.pinned.cAddress} ` +
+          this.mismatch
       );
     }
     return this.pinned;

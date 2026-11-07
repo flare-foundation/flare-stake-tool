@@ -58,7 +58,10 @@ export function cli(program: Command): void {
     .option(API_KEY_OPTION, API_KEY_DESCRIPTION)
     .option("--ledger", "Use ledger to sign transactions")
     .option("--blind", "Blind signing (accepted for compatibility; signing mode is chosen automatically)", true)
-    .option("--derivation-path <derivation-path>", "Ledger address derivation path", BASE_DERIVATION_PATH)
+    .option(
+      "--derivation-path <derivation-path>",
+      `Ledger address derivation path (default: a Ledger context file's, else ${BASE_DERIVATION_PATH})`
+    )
     .option("--ctx-file <file>", "Context file as returned by init-ctx", "ctx.json")
     .option("--env-path <path>", "Path to the .env file")
     .option("--get-hacked", "Use the .env file with the exposed private key")
@@ -333,14 +336,15 @@ async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
   const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;
   let context: ContextFile;
   if (options.ledger) {
-    const { publicKey, account } = await confirmLedgerAccount(ledgerDevice(), options.derivationPath, env.network.hrp);
+    const derivationPath = options.derivationPath ?? BASE_DERIVATION_PATH;
+    const { publicKey, account } = await confirmLedgerAccount(ledgerDevice(), derivationPath, env.network.hrp);
     context = {
       wallet: "ledger",
       publicKey,
       ethAddress: account.cAddress,
       flareAddress: account.pAddress,
       network,
-      derivationPath: options.derivationPath,
+      derivationPath,
       ...(vaultId ? { vaultId } : {}),
     };
   } else if (typeof options.publicKey === "string") {

@@ -59,6 +59,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `forDefi sign` and `send` refuse a file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is another transaction. ForDefi signed the file's `message` as it was, so a changed file could show one transaction and get another one's hash signed.
   * Transaction files and `ctx.json` are never overwritten by a write that started before they appeared, and rewrites go through a temporary file, so an interrupted write can't leave half a file. A repeated `forDefi fetch` with the same signature leaves the signed file as it is, and a sent file is never replaced.
   * `init-ctx` honours `--derivation-path` and stores the P-chain address in `flareAddress`.
+  * Without `--derivation-path`, `--ledger` uses a Ledger `ctx.json`'s derivation path and refuses a Ledger without the context's key, as interactive mode does. It used the default path, so a context made at another path signed and showed another account.
   * `init-ctx --ledger` prints the address the device is about to show, and writes no context file when the device shows another address than the one of its key.
 * Interactive mode:
   * The C-chain export and import fee defaults to the current estimate instead of 1 FLR (about 170 times the real cost). A typed fee below the current cost asks for confirmation.

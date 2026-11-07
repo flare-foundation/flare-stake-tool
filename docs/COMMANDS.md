@@ -16,7 +16,7 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--network <flare\|songbird\|costwo\|coston\|localflare>` | Network to act on |
 | `--ledger` | Sign transactions on a connected Ledger device. The device must keep the key it had at the first read: another Ledger connected while the command runs is refused before anything is signed |
 | `--blind` | Accepted for compatibility and has no effect: the signing mode follows the open Ledger app (the Flare app parses the transaction and falls back to signing its hash only for a type it cannot parse; the Avalanche app signs the hash). Before signing a hash the tool prints it on stderr, to compare with the one the device shows |
-| `--derivation-path <path>` | Ledger derivation path (default `m/44'/60'/0'/0/0`) |
+| `--derivation-path <path>` | Ledger derivation path. Without it, `--ledger` with a Ledger context file (`--ctx-file`, default `ctx.json`) uses the context's path and refuses a Ledger that doesn't have the context's key; otherwise `m/44'/60'/0'/0/0` |
 | `--ctx-file <file>` | Context file path (default `ctx.json`) |
 | `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58`. A `PRIVATE_KEY_CB58` whose checksum doesn't match (a typo) is refused |
 | `--get-hacked` | Use the env file's private key for direct in-process signing |
