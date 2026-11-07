@@ -118,11 +118,16 @@ function noteNode(error: unknown, node: string): unknown {
 }
 
 /**
- * `api` with every failure of its methods, thrown or rejected, noted with the node it asked. The methods run on the
- * object itself, so flarejs and ethers see no difference; values that are not methods are returned as they are.
+ * `api` with every failure of its methods, thrown or rejected, noted with the node it asked. Methods, reads and writes
+ * run on the object itself, so flarejs and ethers see no difference; values that are not methods are returned as they
+ * are.
  */
 export function notingNode<T extends object>(api: T, node: string): T {
   return new Proxy(api, {
+    // on the object itself, like the reads: ethers' setters write private fields the proxy doesn't have
+    set(target, property, value) {
+      return Reflect.set(target, property, value, target);
+    },
     get(target, property) {
       const value: unknown = Reflect.get(target, property, target);
       if (typeof value !== "function") return value;

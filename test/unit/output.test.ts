@@ -68,6 +68,18 @@ describe("output/describeError: node errors", () => {
     expect(describeError(failures[4])).to.equal(`connect ECONNREFUSED 127.0.0.1:1 (node ${CLOSED})`);
   });
 
+  it("sets a client's properties on the client itself, so ethers' private-field setters work", () => {
+    const clients = createClients(networkConfig("localflare", {}, { apiUrl: CLOSED }));
+    try {
+      clients.provider.pollingInterval = 3000;
+      clients.provider.disableCcipRead = true;
+      expect(clients.provider.pollingInterval).to.equal(3000);
+      expect(clients.provider.disableCcipRead).to.equal(true);
+    } finally {
+      clients.provider.destroy();
+    }
+  });
+
   it("lists each cause once, an AggregateError's errors too, without following a cycle", async () => {
     const refused = (address: string) => new Error(`connect ECONNREFUSED ${address}`);
     const both = new AggregateError([refused("::1:9650"), refused("127.0.0.1:9650")], "");
