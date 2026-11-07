@@ -533,6 +533,116 @@ describe("core/builders/pchain", function () {
     });
   });
 
+  describe("importCP", () => {
+    let replay: Replay;
+    beforeEach(async () => {
+      replay = await startReplay("importCP-pk");
+    });
+    afterEach(() => replay.close());
+
+    const ONE_FLR = 1_000_000_000n;
+    const other = accountFromPrivateKey(getBytes(`0x${"11".repeat(32)}`), "localflare");
+
+    /** A C→P export output of `amount` nFLR held by `owners`, `threshold` of them needed. */
+    async function exported(amount: bigint, index: number, owners = [account.addressBytes], threshold = 1) {
+      const { avaxAssetID } = await replay.env.clients.context();
+      return new Utxo(
+        new avaxSerial.UTXOID(Id.fromHex(`0x${(index + 1).toString(16).padStart(64, "0")}`), new Int(index % 7)),
+        Id.fromString(avaxAssetID),
+        new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative(owners, 0n, threshold))
+      );
+    }
+
+    const many = (count: number, amount: (i: number) => bigint, first = 0) =>
+      Promise.all(Array.from({ length: count }, (_, i) => exported(amount(i), first + i)));
+
+    /** The recorded context and fee state, with `utxos` exported from the C-chain. */
+    function exportedEnv(utxos: Utxo[]): Env {
+      const clients = {
+        context: () => replay.env.clients.context(),
+        pvm: {
+          getFeeState: () => replay.env.clients.pvm.getFeeState(),
+          getUTXOs: () => Promise.resolve({ numFetched: utxos.length, utxos, endIndex: { address: "", utxo: "" } }),
+        },
+      };
+      return { network: replay.env.network, clients } as unknown as Env;
+    }
+
+    /** Builds importCP; returns its bytes, imported amounts (largest first), gas and notices. */
+    async function importCP(env: Env, policy = FILE_SIGNER_POLICY) {
+      const context = await env.clients.context();
+      const bundle = await buildTransaction({ type: "importCP" }, env, account, policy);
+      if (bundle.kind !== "atomic") throw new Error("importCP must be atomic");
+      const tx = bundle.unsignedTx.getTx() as pvmSerial.ImportTx;
+      return {
+        bytes: Buffer.from(bundle.unsignedTx.toBytes()).toString("hex"),
+        amounts: tx.ins.map((input) => input.amount()).sort((a, b) => (a > b ? -1 : a < b ? 1 : 0)),
+        gas: pvm.calculateFee(tx, context.platformFeeConfig.weights, 1n),
+        notices: bundle.notices ?? [],
+      };
+    }
+
+    /** The gas one more UTXO adds to an import, measured on two built imports. */
+    async function inputGas(): Promise<bigint> {
+      const utxos = await many(2, () => ONE_FLR, 900);
+      return (await importCP(exportedEnv(utxos))).gas - (await importCP(exportedEnv(utxos.slice(0, 1)))).gas;
+    }
+
+    it("skips UTXOs worth less than the fee of importing them at the lowest price, for every signer alike", async () => {
+      const symbol = replay.env.network.symbol;
+      const { minPrice } = (await replay.env.clients.context()).platformFeeConfig;
+      const worthImporting = (await inputGas()) * minPrice;
+      const dust = await many(100, () => worthImporting - 1n, 2);
+      const coOwned = await exported(50n * ONE_FLR, 200, [account.addressBytes, other.addressBytes], 2);
+      const utxos = [...dust, coOwned, await exported(10n * ONE_FLR, 0), await exported(worthImporting, 1)];
+
+      const file = await importCP(exportedEnv(utxos));
+      expect(file.amounts, "not the dust, nor the co-owned UTXO flarejs never imported").to.deep.equal([
+        10n * ONE_FLR,
+        worthImporting,
+      ]);
+      expect(file.notices).to.deep.equal([
+        `100 UTXO(s) (${formatFlr(asNFlr(100n * (worthImporting - 1n)))} ${symbol}) skipped: each is worth less than the fee of importing it, and stays pending`,
+      ]);
+      const immediate = await importCP(exportedEnv(utxos), IMMEDIATE_SIGNER_POLICY);
+      expect(immediate.amounts, "at the chain's price").to.deep.equal(file.amounts);
+    });
+
+    it("takes the largest UTXOs the P-chain's gas capacity allows, less a second of refill; the rest stay pending", async () => {
+      const symbol = replay.env.network.symbol;
+      const { maxCapacity, maxPerSecond } = (await replay.env.clients.context()).platformFeeConfig;
+      const limit = maxCapacity - maxPerSecond;
+      const utxos = await many(400, (i) => BigInt(i + 1) * ONE_FLR); // 1 to 400 FLR, smallest first
+      utxos.push(await exported(1_000n * ONE_FLR, 500, [account.addressBytes, other.addressBytes], 2)); // not counted
+      const env = exportedEnv(utxos); // the recorded capacity, a little below the maximum
+
+      const built = await importCP(env);
+      const taken = built.amounts.length;
+      expect(built.gas <= limit, `gas ${built.gas}`).to.equal(true);
+      expect(built.gas + (await inputGas()) > limit, "one more would not fit").to.equal(true);
+      expect(built.amounts).to.deep.equal(Array.from({ length: taken }, (_, i) => BigInt(400 - i) * ONE_FLR));
+      const left = 400 - taken;
+      expect(built.notices).to.deep.equal([
+        `${left} UTXO(s) (${formatFlr(asNFlr((BigInt(left * (left + 1)) / 2n) * ONE_FLR))} ${symbol}) stay pending for a later import: the P-chain's gas capacity fits only ${taken} in one`,
+      ]);
+      expect((await importCP(exportedEnv([...utxos].reverse()))).bytes, "node order").to.equal(built.bytes);
+    });
+
+    it("refuses an import of nothing but dust, and leaves an empty one to flarejs as before", async () => {
+      const symbol = replay.env.network.symbol;
+      const refusal = (utxos: Utxo[], message: string) =>
+        buildTransaction({ type: "importCP" }, exportedEnv(utxos), account, FILE_SIGNER_POLICY).then(
+          () => expect.fail("built an import"),
+          (error: unknown) => expect(String(error)).to.include(message)
+        );
+      await refusal(
+        await many(3, () => 1_000n),
+        `Nothing worth importing from the C-chain: 3 UTXO(s) (${formatFlr(asNFlr(3_000n))} ${symbol}), each worth less than the fee of importing it`
+      );
+      await refusal([], "no UTXOs available to import");
+    });
+  });
+
   describe("transfer", () => {
     // Every recorded transfer pays 1 FLR to one address, so a builder that ignored either would still match them.
     it("pays the amount given to the recipient given, and only the change back to the account", () =>

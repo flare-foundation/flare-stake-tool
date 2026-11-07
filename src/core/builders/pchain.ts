@@ -4,6 +4,7 @@
  * state (stake limits, validator existence, fork gates) lives in app/.
  */
 import {
+  TransferableInput,
   TransferableOutput,
   evm,
   messageHashFromUnsignedTx,
@@ -241,52 +242,6 @@ export async function buildExportCP(
   );
 }
 
-export async function buildImportCP(
-  _req: TxRequestOf<"importCP">,
-  env: Env,
-  account: Account,
-  policy: BuildPolicy
-): Promise<UnsignedTxBundle> {
-  const inputs = await pChainInputs(env, account, policy, "C");
-  return bundle(
-    "importCP",
-    pvm.newImportTx(
-      { ...spending(inputs), sourceChainId: inputs.context.cBlockchainID, toAddressesBytes: inputs.from },
-      inputs.context
-    )
-  );
-}
-
-export async function buildExportPC(
-  req: TxRequestOf<"exportPC">,
-  env: Env,
-  account: Account,
-  policy: BuildPolicy
-): Promise<UnsignedTxBundle> {
-  const inputs = await pChainInputs(env, account, policy);
-  return bundle("exportPC", req.amount === undefined ? exportAllPC(inputs).unsignedTx : exportPCTx(inputs, req.amount));
-}
-
-/** The amount `exportPC` without `-a` would export now (the interactive default); nothing is signed. */
-export async function maxExportPCAmount(env: Env, account: Account, policy: BuildPolicy): Promise<NFlr> {
-  return exportAllPC(await pChainInputs(env, account, policy)).amount;
-}
-
-/**
- * The most gas a C-chain atomic transaction can use: coreth `ap5.AtomicGasLimit`, the atomic gas of a block and of
- * the mempool. A bigger import is never accepted.
- */
-export const C_ATOMIC_GAS_LIMIT = 100_000n;
-
-/** The C-chain base fee floor since Granite (go-flare `granite.MinGasPrice`), in gwei: nFLR per gas. */
-const C_MIN_BASE_FEE_GWEI = 500n;
-
-/**
- * The gas one more UTXO adds to an importPC, as coreth `UnsignedImportTx.GasUsed` and flarejs `costCorethTx` count
- * it: the input's 88 bytes (UTXO id 36, asset id 32, type 4, amount 8, one signature index 8) and its signature.
- */
-export const IMPORT_PC_INPUT_GAS = 88n * futils.CTxBytesGas + futils.CCostPerSignature;
-
 const amountOf = (utxo: PChainUtxo): bigint => futils.getUtxoInfo(utxo).amount;
 const totalOf = (utxos: readonly PChainUtxo[]): NFlr => asNFlr(utxos.reduce((sum, utxo) => sum + amountOf(utxo), 0n));
 
@@ -300,11 +255,11 @@ function largestFirst(utxos: readonly PChainUtxo[]): PChainUtxo[] {
 }
 
 /**
- * The UTXOs an import takes. One worth less than the fee its own input adds at the lowest price (`minPrice`
- * nFLR per gas) brings less than it costs at any price, and anyone can send such dust to any address: it is
- * skipped. The rest are taken largest first while the import's gas (`gasOf`) stays within `gasLimit`; the others
- * stay pending for a later import. Only fixed values decide, so every co-signer takes the same UTXOs, with or
- * without -f. An import that skips nothing takes every UTXO, as before.
+ * The UTXOs an import (importCP, importPC) takes. One worth less than the fee its own input adds at the lowest
+ * price (`minPrice` nFLR per gas) brings less than it costs at any price, and anyone can send such dust to any
+ * address: it is skipped. The rest are taken largest first while the import's gas (`gasOf`) stays within
+ * `gasLimit`; the others stay pending for a later import. Only fixed values decide, so every co-signer takes the
+ * same UTXOs, with or without -f. An import that skips nothing takes every UTXO, as before.
  */
 function chooseImported(
   utxos: readonly PChainUtxo[],
@@ -337,6 +292,79 @@ function importNotices(chosen: ReturnType<typeof chooseImported>, symbol: string
       : []),
   ];
 }
+
+/**
+ * Imports the UTXOs exported from the C-chain, skipping dust and staying within the P-chain's gas capacity (see
+ * chooseImported). The lowest price and the capacity come from the fee config, which is fixed, not from the fee
+ * state. flarejs checks the import against the fee state's capacity, which each transaction lowers and which refills
+ * by `maxPerSecond` a second, so the import leaves one second of refill free: it fits even right after others.
+ */
+export async function buildImportCP(
+  _req: TxRequestOf<"importCP">,
+  env: Env,
+  account: Account,
+  policy: BuildPolicy
+): Promise<UnsignedTxBundle> {
+  const inputs = await pChainInputs(env, account, policy, "C");
+  const { context } = inputs;
+  const { weights, minPrice, maxCapacity, maxPerSecond } = context.platformFeeConfig;
+  const build = (utxos: PChainUtxo[], feeState = inputs.feeState) =>
+    pvm.newImportTx(
+      { ...spending(inputs), feeState, utxos, sourceChainId: context.cBlockchainID, toAddressesBytes: inputs.from },
+      context
+    );
+  // what flarejs imports: an output of the account, alone, with no lock after the build's time
+  const importable = inputs.utxos.filter((utxo) => {
+    const info = futils.getUtxoInfo(utxo);
+    return info.assetId === context.avaxAssetID && info.threshold <= 1 && info.locktime <= inputs.minIssuanceTime;
+  });
+  const inputGas = (utxo: PChainUtxo) => {
+    const complexity = pvm.getInputComplexity([TransferableInput.fromUtxoAndSigindicies(utxo, [0])]);
+    return ([0, 1, 2, 3] as const).reduce((gas, d) => gas + BigInt(complexity[d]) * BigInt(weights[d]), 0n);
+  };
+  const probeFeeState = { ...inputs.feeState, price: 0n, capacity: PROBE_GAS_CAPACITY };
+  const chosen = chooseImported(importable, inputGas, minPrice, maxCapacity - maxPerSecond, (utxos) =>
+    pvm.calculateFee(build(utxos, probeFeeState).getTx(), weights, 1n)
+  );
+  const symbol = env.network.symbol;
+  if (chosen.taken.length === 0 && chosen.skipped.length > 0) {
+    throw new Error(
+      `Nothing worth importing from the C-chain: ${chosen.skipped.length} UTXO(s) (${formatFlr(totalOf(chosen.skipped))} ${symbol}), each worth less than the fee of importing it`
+    );
+  }
+  // with nothing importable at all, flarejs says so ("no UTXOs available to import")
+  return bundle("importCP", build(chosen.taken), importNotices(chosen, symbol, "the P-chain's gas capacity"));
+}
+
+export async function buildExportPC(
+  req: TxRequestOf<"exportPC">,
+  env: Env,
+  account: Account,
+  policy: BuildPolicy
+): Promise<UnsignedTxBundle> {
+  const inputs = await pChainInputs(env, account, policy);
+  return bundle("exportPC", req.amount === undefined ? exportAllPC(inputs).unsignedTx : exportPCTx(inputs, req.amount));
+}
+
+/** The amount `exportPC` without `-a` would export now (the interactive default); nothing is signed. */
+export async function maxExportPCAmount(env: Env, account: Account, policy: BuildPolicy): Promise<NFlr> {
+  return exportAllPC(await pChainInputs(env, account, policy)).amount;
+}
+
+/**
+ * The most gas a C-chain atomic transaction can use: coreth `ap5.AtomicGasLimit`, the atomic gas of a block and of
+ * the mempool. A bigger import is never accepted.
+ */
+export const C_ATOMIC_GAS_LIMIT = 100_000n;
+
+/** The C-chain base fee floor since Granite (go-flare `granite.MinGasPrice`), in gwei: nFLR per gas. */
+const C_MIN_BASE_FEE_GWEI = 500n;
+
+/**
+ * The gas one more UTXO adds to an importPC, as coreth `UnsignedImportTx.GasUsed` and flarejs `costCorethTx` count
+ * it: the input's 88 bytes (UTXO id 36, asset id 32, type 4, amount 8, one signature index 8) and its signature.
+ */
+export const IMPORT_PC_INPUT_GAS = 88n * futils.CTxBytesGas + futils.CCostPerSignature;
 
 export async function buildImportPC(
   req: TxRequestOf<"importPC">,
