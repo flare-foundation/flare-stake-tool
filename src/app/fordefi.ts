@@ -7,6 +7,8 @@
 import crypto from "crypto";
 import fs from "fs";
 import { messageOf, readUnsignedTxJson, writeSignedTxJson, writeUnsignedTxJson } from "../core/files";
+import { normalizePublicKey } from "../chain/keys";
+import { equalBytes } from "../core/signing/signature";
 import type { ContextFile } from "./env";
 
 export const FORDEFI_HOST = "api.fordefi.com";
@@ -60,13 +62,26 @@ export async function getVaultPublicKey(vaultId: string, fetchImpl: FetchLike = 
   return Buffer.from(json.public_key_compressed, "base64").toString("hex");
 }
 
+/** The compressed form of a public key given as hex in any form `normalizePublicKey` takes; `whose` names it in errors. */
+function publicKeyOf(hex: string, whose: string): Uint8Array {
+  try {
+    return normalizePublicKey(hex);
+  } catch (error) {
+    throw new Error(`${whose} is not a valid public key (${error instanceof Error ? error.message : String(error)})`, {
+      cause: error,
+    });
+  }
+}
+
 /** Posts the unsigned transaction's hash for signing and records the ForDefi transaction id in the unsigned file. */
 export async function sendToForDefi(id: string, context: ContextFile, fetchImpl: FetchLike = fetch): Promise<string> {
   if (!context.vaultId) {
     throw new Error("vaultId not found in context");
   }
   const vaultPublicKey = await getVaultPublicKey(context.vaultId, fetchImpl);
-  if (context.publicKey.replace(/^0x/, "").toLowerCase() !== vaultPublicKey.toLowerCase()) {
+  // compared as keys: a context may hold its key uncompressed or with 0x, the vault answers it compressed
+  const contextKey = publicKeyOf(context.publicKey, "The context's publicKey");
+  if (!equalBytes(contextKey, publicKeyOf(vaultPublicKey, `The public key of ForDefi vault ${context.vaultId}`))) {
     throw new Error("public key does not match the vault");
   }
   const unsigned = readUnsignedTxJson(id);

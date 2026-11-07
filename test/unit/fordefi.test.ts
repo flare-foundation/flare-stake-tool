@@ -10,7 +10,8 @@ import {
   saveUnsignedTxJson,
   type UnsignedAtomicTxJson,
 } from "../../src/core/files";
-import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+import { SigningKey } from "ethers";
+import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 
 /** The ForDefi client reads ./token and ./private.pem from the working directory and talks to api.fordefi.com. */
 describe("app/fordefi", () => {
@@ -93,19 +94,42 @@ describe("app/fordefi", () => {
     expect(readUnsignedTxJson("tx1").forDefiTxId).to.equal("fordefi-tx-42");
   });
 
-  it("refuses a vault whose key is not the context's public key", async () => {
-    const fetchImpl = fakeFetch({
+  /** A ForDefi answering the vault lookup with `vaultKeyHex` (base64, as ForDefi sends it) and the signature request. */
+  const vaultWith = (vaultKeyHex: string) =>
+    fakeFetch({
       [`GET /api/v1/vaults/${vaultId}`]: {
         id: vaultId,
-        public_key_compressed: Buffer.from("02" + "11".repeat(32), "hex").toString("base64"),
+        public_key_compressed: Buffer.from(vaultKeyHex, "hex").toString("base64"),
       },
+      "POST /api/v1/transactions": { id: "fordefi-tx-42" }, // the id the later tests fetch from tx1
     });
-    try {
-      await sendToForDefi("tx1", context, fetchImpl);
-      expect.fail("should have thrown");
-    } catch (error) {
-      expect((error as Error).message).to.match(/public key does not match the vault/);
+
+  it("refuses a vault whose key is another valid key than the context's", async () => {
+    const otherKey = new SigningKey(`0x${"11".repeat(32)}`).compressedPublicKey.slice(2);
+    expect(await rejectedWith(sendToForDefi("tx1", context, vaultWith(otherKey)))).to.equal(
+      "public key does not match the vault"
+    );
+  });
+
+  it("accepts the context's key uncompressed or with 0x, as the same key as the vault's compressed one", async () => {
+    const uncompressed = new SigningKey(`0x${EWOQ_PRIVATE_KEY_HEX}`).publicKey; // 0x04…
+    for (const publicKey of [uncompressed, uncompressed.slice(2), `0x${EWOQ_PUBLIC_KEY_COMPRESSED}`]) {
+      expect(await sendToForDefi("tx1", { ...context, publicKey }, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED))).to.equal(
+        "fordefi-tx-42"
+      );
     }
+  });
+
+  it("refuses a malformed key in the context or from the vault, naming which, before anything is posted", async () => {
+    const posted = () => calls.filter(({ init }) => init.method === "POST").length;
+    const before = posted();
+    expect(
+      await rejectedWith(sendToForDefi("tx1", { ...context, publicKey: "zz" }, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED)))
+    ).to.equal("The context's publicKey is not a valid public key (Invalid public key: not a hex string)");
+    expect(await rejectedWith(sendToForDefi("tx1", context, vaultWith("02" + "00".repeat(32))))).to.match(
+      new RegExp(`^The public key of ForDefi vault ${vaultId} is not a valid public key \\(Invalid public key: `)
+    );
+    expect(posted()).to.equal(before);
   });
 
   it("fetches the signature and writes the signed file", async () => {
