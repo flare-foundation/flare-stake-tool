@@ -18,7 +18,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * `setClaimExecutors` needs `--executors` and `setAllowedClaimRecipients` needs `--recipients`; without them the stored list was cleared. Pass `""` to clear it.
 * `info` and `send` refuse `--get-hacked` without `--env-path`, and choose the account in the same order as transactions.
 * `info network` and `info mirror` are removed.
-* Output: the banner is shown only in interactive mode, transaction ids are printed on stderr (stdout keeps only results), and every error exits with code 1.
+* Output: the banner is shown only in interactive mode, progress messages (such as "Transaction … submitted, waiting") go to stderr while results, including the transaction id, stay on stdout, and every error exits with code 1.
 * `interactive` refuses unknown options, options it doesn't use (`--network`, `--ledger`, `--blind`, `--derivation-path`, `--ctx-file`, `--env-path`, `--get-hacked`), and running without a terminal.
 * `customCChainTx` has a 300,000 gas limit by default (was 1,000,000); heavier calls need `--gas-limit`. See Changed for the other gas limits.
 
@@ -30,7 +30,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Building `-i <id>` is refused when that id already has a signed file; `send -i` would have sent the old signed transaction.
   * `send -i` checks that the signature belongs to the configured account, and marks the file as sent as soon as the node takes the transaction, so a wait that times out can't lead to a second submission. The mark is removed if the chain refuses the transaction.
   * A Ledger is held to the account it was connected with: if another device or seed answers later, or a reused Ledger `ctx.json` belongs to another device, the tool stops and names both addresses.
-  * C-chain transactions signed with `--get-hacked` or `--ledger` without `--nonce` take the next nonce after the pending ones. Reusing the nonce of a waiting transaction got it refused or replaced.
+  * C-chain EVM transactions signed with `--get-hacked` or `--ledger` without `--nonce` take the next nonce after the pending ones. Reusing the nonce of a waiting transaction got it refused or replaced. `exportCP` keeps the accepted nonce on every path, since the C-chain checks an atomic transaction's nonce against the accepted state.
   * Times after the year 275760 and periods above 2^64−1 seconds are refused; they produced a malformed transaction that was signed anyway.
   * The limit of three nodes per account and the delegation checks (a current validator, within its period) run on every path, including the unsigned-file path. The count starts from now, since the chain ignores `--start-time`, and a node that doesn't list all delegations is refused.
 * P-chain and atomic transactions:
@@ -73,7 +73,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 ### Added
 
 * Auto-renewed validators (Helicon, ACP-236): `transaction addAutoRenewedValidator`, and `transaction setAutoRenewedValidatorConfig` to change the period or stop renewal (`--period 0`). They work on every signing path and in the interactive menu, and are refused where Helicon is not active. `info validators` shows their cycle.
-* Durations for `--end-time`, `--start-time` and `--period`, such as `2d12h` or `90m`. The resolved value is printed, and ForDefi co-signers must pass that value.
+* Durations for `--end-time`, `--start-time` and `--period`, such as `2d12h` or `90m`. An end or start time given as a duration is added to now and printed as a unix time, which ForDefi co-signers must pass instead; a `--period` duration is just converted to seconds.
 * `--rpc-url` (`FLARE_RPC_URL`) and `--api-key` (`FLARE_API_KEY`) for another node or an API gateway. The tool checks that the node belongs to the selected network.
 * `claim`, `withdrawal`, `setClaimExecutors`, `setAllowedClaimRecipients` and `customCChainTx` can be signed with `--get-hacked` or `--ledger`.
 * `init-ctx --vault-id` for ForDefi contexts, `--version`, and `--gas-limit`, `--max-fee-per-gas` and `--priority-fee-per-gas` for `interactive`.
