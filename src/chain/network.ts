@@ -93,6 +93,16 @@ export function redactSecrets(text: string): string {
 }
 
 /**
+ * A node URL as given, for an error about it: without its query and fragment, which may hold a key under any
+ * spelling (`x%2Dapikey=`), and with its credentials masked. It is refused before any key is remembered.
+ */
+function shownNodeUrlInput(input: string): string {
+  const text = input.trim();
+  const cut = text.search(/[?#]/);
+  return redactSecrets(cut < 0 ? text : `${text.slice(0, cut)}?…`);
+}
+
+/**
  * Turns a node URL into the base URL the clients are built on. A full endpoint
  * URL as copied from a node's documentation (`https://host/ext/info?x-apikey=KEY`)
  * is accepted: the `/ext/...` API path is dropped and an `x-apikey` query
@@ -104,11 +114,11 @@ export function parseNodeUrl(input: string): ParsedNodeUrl {
     url = new URL(input.trim());
   } catch {
     throw new Error(
-      `Invalid node URL "${redactApiKey(input)}"; expected a base URL such as https://coston2-api.flare.network`
+      `Invalid node URL "${shownNodeUrlInput(input)}"; expected a base URL such as https://coston2-api.flare.network`
     );
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`Invalid node URL "${redactApiKey(input)}"; only http and https are supported`);
+    throw new Error(`Invalid node URL "${shownNodeUrlInput(input)}"; only http and https are supported`);
   }
   const apiKey = nonEmpty(url.searchParams.get(API_KEY_HEADER) ?? undefined);
   url.search = "";

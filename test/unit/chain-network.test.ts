@@ -128,6 +128,26 @@ describe("chain/network", () => {
       });
     });
 
+    it("leaves the query, fragment and credentials of a refused URL out of the error, whatever spells the key", () => {
+      for (const input of [
+        "https://host.example:bad/ext/info?x%2Dapikey=SECRET",
+        "https://host.example:bad/ext/info?X-APIKEY=SECRET",
+        "ftp://user:SECRET@host.example/ext/info#x-apikey=SECRET",
+      ]) {
+        let message = "";
+        try {
+          parseNodeUrl(input);
+        } catch (error) {
+          message = (error as Error).message;
+        }
+        expect(message, input).to.match(/^Invalid node URL "/);
+        expect(message, input).to.not.include("SECRET");
+      }
+      expect(() => parseNodeUrl("https://host.example:bad/ext/info?x%2Dapikey=SECRET")).to.throw(
+        'Invalid node URL "https://host.example:bad/ext/info?…"; expected a base URL'
+      );
+    });
+
     it("rejects what is not an http(s) URL", () => {
       expect(() => parseNodeUrl("coston2-api.flare.network")).to.throw(/Invalid node URL "coston2-api.flare.network"/);
       expect(() => parseNodeUrl("ftp://host.example")).to.throw(/only http and https/);

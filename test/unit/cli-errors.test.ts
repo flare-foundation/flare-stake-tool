@@ -67,6 +67,23 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("never prints a key in an invalid --rpc-url, even percent-encoded", () => {
+    const result = runCli(
+      [
+        "info",
+        "validators",
+        "--network",
+        "localflare",
+        "--rpc-url",
+        "https://host.example:bad/ext/info?x%2Dapikey=SECRET",
+      ],
+      { cwd }
+    );
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.include('Invalid node URL "https://host.example:bad/ext/info?…"');
+    expect(result.stderr + result.stdout).to.not.include("SECRET");
+  });
+
   it("never prints the password of a node URL, which the fetch error repeats", () => {
     const result = runCli(
       ["info", "validators", "--network", "localflare", "--rpc-url", "https://user:SECRET@127.0.0.1:1"],
