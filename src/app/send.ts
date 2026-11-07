@@ -7,7 +7,7 @@ import {
   markSentToChain,
   readSignedTxJson,
 } from "../core/files";
-import { attachSignature } from "../core/signing/attach";
+import { attachEvmSignature, attachSignature } from "../core/signing/attach";
 import { normalizeSignature, recoverPublicKey } from "../core/signing/signature";
 import {
   SubmittedTxError,
@@ -81,12 +81,8 @@ function recoverAccount(bundle: UnsignedTxBundle, signature: Uint8Array, hrp: st
   if (bundle.kind === "atomic") {
     return accountFromPublicKey(recoverPublicKey(bundle.digest, signature), hrp);
   }
-  const probe = Transaction.from(bundle.tx.unsignedSerialized);
-  probe.signature = {
-    r: `0x${Buffer.from(signature.slice(0, 32)).toString("hex")}`,
-    s: `0x${Buffer.from(signature.slice(32, 64)).toString("hex")}`,
-    v: signature[64]! + 27,
-  };
+  const probe = Transaction.from(bundle.tx.unsignedSerialized); // a copy: the bundle itself stays unsigned
+  attachEvmSignature(probe, signature);
   if (!probe.fromPublicKey) {
     throw new Error("Cannot recover the signer of the EVM transaction");
   }

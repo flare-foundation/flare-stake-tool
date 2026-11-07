@@ -13,7 +13,7 @@ import fs from "fs";
 import path from "path";
 import { UnsignedTx, messageHashFromUnsignedTx } from "@flarenetwork/flarejs";
 import { Transaction, getBytes, type TransactionLike } from "ethers";
-import { chainOfAtomicTx, isAtomicTxType, type EvmTxType, type UnsignedTxBundle } from "./types";
+import { chainOfAtomicTx, isAtomicTxType, type UnsignedTxBundle } from "./types";
 import { toHex } from "./signing/signature";
 import { isJsonObject, parseJson } from "./json";
 
@@ -120,14 +120,12 @@ export function unsignedTxJsonFromBundle(bundle: UnsignedTxBundle): UnsignedTxJs
 }
 
 /** Rebuilds the bundle from a file so that it can be signed/attached/submitted like a fresh one. */
-export function bundleFromUnsignedTxJson(
-  json: UnsignedTxJson,
-  evmTxType: EvmTxType = "customCChainTx"
-): UnsignedTxBundle {
+export function bundleFromUnsignedTxJson(json: UnsignedTxJson): UnsignedTxBundle {
   if (isEvmTxJson(json)) {
     // Files written before v4.4.0 carry no type; ethers then resolves EIP-2930, which is what they were signed as.
     const tx = Transaction.from(json.rawTx);
-    return { kind: "evm", txType: evmTxType, tx, rawTx: json.rawTx, digest: getBytes(tx.unsignedHash) };
+    // the file does not say which EVM operation built it; signing and sending treat them all alike
+    return { kind: "evm", txType: "customCChainTx", tx, rawTx: json.rawTx, digest: getBytes(tx.unsignedHash) };
   }
   if (!isAtomicTxType(json.transactionType)) {
     throw new Error(`Unknown transaction type: ${json.transactionType}`);
