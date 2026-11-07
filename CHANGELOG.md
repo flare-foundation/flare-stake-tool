@@ -13,6 +13,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 
 * `-f`/`--fee` for `exportCP` and `importPC` is the total fee in FLR and is paid exactly, on every path. The private key path used to ignore it and pay an estimate.
 * Amounts (`-a`, `-f`, `--delegation-fee`) refuse commas (`1,5` used to become 15) and more decimals than the chain holds (they used to be cut off).
+* `--gas-limit`, `--max-fee-per-gas` and `--priority-fee-per-gas` take plain digits only; `0x5208`, `2.1e4` and `+25` used to be accepted.
 * An empty value (`-a ""`, `-f ""`, `--nonce ""`, `--value ""`, `--delegation-fee ""`, `--auto-compound-shares ""` and the C-chain gas options) is refused. It used to count as a missing option, so `claim -a "$AMT"` with `AMT` unset claimed every reward, and `--auto-compound-shares "$X"` with `X` unset set auto-compounding to 0.
 * A mixed-case C-chain address must have a valid EIP-55 checksum (it used to be corrected). P-chain addresses (`--transfer-address`, `--owner-address`) must belong to the selected network.
 * `setClaimExecutors` needs `--executors` and `setAllowedClaimRecipients` needs `--recipients`; without them the stored list was cleared. Pass `""` to clear it.

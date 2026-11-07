@@ -39,6 +39,9 @@ An empty value (`-a ""`) is refused for `-a`, `-f`, `--nonce`, `--value`,
 absence means a default:
 leave the option out to get the default. `--executors ""` and
 `--recipients ""` clear a list.
+`--gas-limit` (gas units), `--max-fee-per-gas` and `--priority-fee-per-gas`
+(gwei) are positive integers written as plain digits: `0x5208`, `2.1e4` and
+`+25` are refused.
 `--nonce` is a non-negative integer. Without it, a C-chain transaction signed
 with `--get-hacked` or `--ledger` takes the next nonce after the account's
 transactions still waiting in the node, so it neither reuses nor replaces one

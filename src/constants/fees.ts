@@ -258,7 +258,9 @@ function _units(value: unknown, option: string): number | undefined {
   if (value === "") {
     throw new Error(`Option ${option} is empty; leave it out to use the default`);
   }
-  const parsed = Number(value);
+  // Plain digits, as for --nonce and -a: Number() alone would take 0x5208, 2.1e4 or +25.
+  const text = typeof value === "number" ? String(value) : typeof value === "string" ? value.trim() : "";
+  const parsed = /^\d+$/.test(text) ? Number(text) : NaN;
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     throw new Error(`Option ${option} must be a positive integer, got ${JSON.stringify(value) ?? typeof value}`);
   }
