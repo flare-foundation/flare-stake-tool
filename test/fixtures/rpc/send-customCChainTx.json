@@ -4,39 +4,6 @@
   "entries": [
     {
       "path": "/ext/bc/C/rpc",
-      "method": "eth_getTransactionCount",
-      "params": [
-        "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
-        "latest"
-      ],
-      "response": {
-        "result": "0x8"
-      }
-    },
-    {
-      "path": "/ext/bc/C/rpc",
-      "method": "eth_call",
-      "params": [
-        {
-          "chainId": "0xa2",
-          "nonce": "0x8",
-          "maxPriorityFeePerGas": "0x2e90edd000",
-          "maxFeePerGas": "0x746a5288000",
-          "to": "0x8db97c7cece249c2b98bdc0226cc4c2a57bf52fc",
-          "value": "0xde0b6b3a7640000",
-          "data": "0x",
-          "accessList": [],
-          "from": "0x8db97c7cece249c2b98bdc0226cc4c2a57bf52fc",
-          "gas": "0xf4240"
-        },
-        "latest"
-      ],
-      "response": {
-        "result": "0x"
-      }
-    },
-    {
-      "path": "/ext/bc/C/rpc",
       "method": "eth_blockNumber",
       "params": [],
       "response": {
@@ -242,17 +209,6 @@
     },
     {
       "path": "/ext/bc/C/rpc",
-      "method": "eth_getTransactionCount",
-      "params": [
-        "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
-        "latest"
-      ],
-      "response": {
-        "result": "0x9"
-      }
-    },
-    {
-      "path": "/ext/bc/C/rpc",
       "method": "eth_blockNumber",
       "params": [],
       "response": {
@@ -305,17 +261,6 @@
       "params": [],
       "response": {
         "result": "0xac"
-      }
-    },
-    {
-      "path": "/ext/bc/C/rpc",
-      "method": "eth_getTransactionCount",
-      "params": [
-        "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
-        "latest"
-      ],
-      "response": {
-        "result": "0x9"
       }
     }
   ]

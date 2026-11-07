@@ -213,6 +213,11 @@ sent, so an update that changes the submitted bytes must also change the
 fixture's submission, its id and the receipts or status queries for it: the
 goldens check that each reported id is the id of the bytes sent, and
 `fixtures.test.ts` that each recorded id is the id of its recorded bytes.
+A golden also fails when its recording has a call the command no longer makes
+(`RpcReplayServer.unused()`), so removing a check that asks the node fails
+even when the output stays the same; `eth_blockNumber` polls and calls a stub
+answers are exempt. A unit test that needs a call its scenario's command does
+not make passes a stub to `withReplay` instead of adding it to the recording.
 Re-record only when the scenario inputs change, never to make a failing
 golden pass. The printed output includes the warning for an end time that is
 not in the future, which depends on the clock: keep the recorded end times in

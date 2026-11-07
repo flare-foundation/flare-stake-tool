@@ -18,23 +18,6 @@
       }
     },
     {
-      "path": "/ext/info",
-      "method": "info.getTxFee",
-      "response": {
-        "result": {
-          "txFee": "1000000",
-          "createAssetTxFee": "1000000",
-          "createSubnetTxFee": "100000000",
-          "transformSubnetTxFee": "100000000",
-          "createBlockchainTxFee": "100000000",
-          "addPrimaryNetworkValidatorFee": "0",
-          "addPrimaryNetworkDelegatorFee": "0",
-          "addSubnetValidatorFee": "1000000",
-          "addSubnetDelegatorFee": "1000000"
-        }
-      }
-    },
-    {
       "path": "/ext/bc/X",
       "method": "avm.getTxFee",
       "response": {
@@ -120,28 +103,6 @@
       }
     },
     {
-      "path": "/ext/bc/P",
-      "method": "platform.getUTXOs",
-      "params": {
-        "addresses": [
-          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
-        ],
-        "sourceChain": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU",
-        "encoding": "hex"
-      },
-      "response": {
-        "result": {
-          "numFetched": "0",
-          "utxos": [],
-          "endIndex": {
-            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
-            "utxo": "11111111111111111111111111111111LpoYY"
-          },
-          "encoding": "hex"
-        }
-      }
-    },
-    {
       "path": "/ext/bc/C/avax",
       "method": "avax.issueTx",
       "params": {
@@ -175,30 +136,6 @@
         "result": {
           "status": "Accepted",
           "blockHeight": "157"
-        }
-      }
-    },
-    {
-      "path": "/ext/bc/P",
-      "method": "platform.getUTXOs",
-      "params": {
-        "addresses": [
-          "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
-        ],
-        "sourceChain": "2DMeTG89jJGhDBdf1oPmPGqRtdZF8qq4zxmSH7CzoyXXt2bRtU",
-        "encoding": "hex"
-      },
-      "response": {
-        "result": {
-          "numFetched": "1",
-          "utxos": [
-            "0x00002988a15c25c0f475e2ab83aaebc378808675d8f54c9276362e4097b7dee752950000000034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002541b2640000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29c4abdfb46"
-          ],
-          "endIndex": {
-            "address": "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v",
-            "utxo": "RcyJAiLpB8xSqRSso8voaXuM56kw7KVaXYRjQ8dYj5VeJGUem"
-          },
-          "encoding": "hex"
         }
       }
     }

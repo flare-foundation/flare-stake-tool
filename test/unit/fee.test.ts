@@ -20,12 +20,19 @@ import {
   type UnsignedTxBundle,
 } from "../../src/core/types";
 import { describeFee } from "../../src/output";
+import type { Stub } from "../characterization/rpc-replay";
 import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 import { withReplay } from "../helpers/replay";
 
 const ONE_FLR = 1_000_000_000n;
 const account = accountFromPrivateKey(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), "localflare");
+
+/**
+ * The C-chain base fee localflare reported when the scenarios were recorded (1 wei). exportCP-pk and importPC-pk
+ * pass -f, so their recordings have no base fee lookup; these tests estimate the fee and need one.
+ */
+const baseFeeStub: Stub = { match: (_path, method) => method === "eth_baseFee", respond: () => "0x1" };
 
 const atomicBytes = (bundle: UnsignedTxBundle): string =>
   bundle.kind === "atomic" ? Buffer.from(bundle.unsignedTx.toBytes()).toString("hex") : "";
@@ -49,14 +56,18 @@ describe("atomic transaction fees", function () {
       ["importPC-pk", { type: "importPC" }],
     ];
     for (const [scenario, req] of requests) {
-      await withReplay(scenario, async (env) => {
-        const estimate = await estimateAtomicFee(req, env, account);
-        // a real base-fee estimate: above zero and far below the 1 FLR the menu used to default to
-        expect(estimate > 0n && estimate < ONE_FLR / 10n, `${scenario}: ${estimate} nFLR`).to.equal(true);
-        const estimated = await buildTransaction(req, env, account, IMMEDIATE_SIGNER_POLICY);
-        const explicit = await buildTransaction({ ...req, fee: estimate }, env, account, IMMEDIATE_SIGNER_POLICY);
-        expect(atomicBytes(explicit), scenario).to.equal(atomicBytes(estimated));
-      });
+      await withReplay(
+        scenario,
+        async (env) => {
+          const estimate = await estimateAtomicFee(req, env, account);
+          // a real base-fee estimate: above zero and far below the 1 FLR the menu used to default to
+          expect(estimate > 0n && estimate < ONE_FLR / 10n, `${scenario}: ${estimate} nFLR`).to.equal(true);
+          const estimated = await buildTransaction(req, env, account, IMMEDIATE_SIGNER_POLICY);
+          const explicit = await buildTransaction({ ...req, fee: estimate }, env, account, IMMEDIATE_SIGNER_POLICY);
+          expect(atomicBytes(explicit), scenario).to.equal(atomicBytes(estimated));
+        },
+        [baseFeeStub]
+      );
     }
   });
 
@@ -64,37 +75,41 @@ describe("atomic transaction fees", function () {
     expect(ESTIMATED_FEE_BASE_FEE_MULTIPLIER).to.equal(2n);
     const amount = 10n * ONE_FLR;
     for (const scenario of ["exportCP-pk", "importPC-pk"]) {
-      await withReplay(scenario, async (env) => {
-        const context = await env.clients.context();
-        const baseFeeGwei = ((await env.clients.evm.getBaseFee()) + ONE_FLR - 1n) / ONE_FLR; // wei → gwei, rounded up
-        let atBaseFee: UnsignedTx;
-        let estimate: bigint;
-        if (scenario === "exportCP-pk") {
-          const nonce = BigInt(await env.clients.provider.getTransactionCount(account.cAddress));
-          atBaseFee = evm.newExportTxFromBaseFee(
-            context,
-            baseFeeGwei,
-            amount,
-            context.pBlockchainID,
-            account.cAddressBytes,
-            [account.addressBytes],
-            nonce
-          );
-          estimate = await estimateAtomicFee({ type: "exportCP", amount }, env, account);
-        } else {
-          const { utxos } = await env.clients.evm.getUTXOs({ sourceChain: "P", addresses: [account.cAddressBech] });
-          atBaseFee = evm.newImportTxFromBaseFee(
-            context,
-            account.cAddressBytes,
-            [account.addressBytes],
-            utxos,
-            context.pBlockchainID,
-            baseFeeGwei
-          );
-          estimate = await estimateAtomicFee({ type: "importPC" }, env, account);
-        }
-        expect(estimate, scenario).to.equal(2n * atomicTxFee(atBaseFee, context));
-      });
+      await withReplay(
+        scenario,
+        async (env) => {
+          const context = await env.clients.context();
+          const baseFeeGwei = ((await env.clients.evm.getBaseFee()) + ONE_FLR - 1n) / ONE_FLR; // wei → gwei, rounded up
+          let atBaseFee: UnsignedTx;
+          let estimate: bigint;
+          if (scenario === "exportCP-pk") {
+            const nonce = BigInt(await env.clients.provider.getTransactionCount(account.cAddress));
+            atBaseFee = evm.newExportTxFromBaseFee(
+              context,
+              baseFeeGwei,
+              amount,
+              context.pBlockchainID,
+              account.cAddressBytes,
+              [account.addressBytes],
+              nonce
+            );
+            estimate = await estimateAtomicFee({ type: "exportCP", amount }, env, account);
+          } else {
+            const { utxos } = await env.clients.evm.getUTXOs({ sourceChain: "P", addresses: [account.cAddressBech] });
+            atBaseFee = evm.newImportTxFromBaseFee(
+              context,
+              account.cAddressBytes,
+              [account.addressBytes],
+              utxos,
+              context.pBlockchainID,
+              baseFeeGwei
+            );
+            estimate = await estimateAtomicFee({ type: "importPC" }, env, account);
+          }
+          expect(estimate, scenario).to.equal(2n * atomicTxFee(atBaseFee, context));
+        },
+        [baseFeeStub]
+      );
     }
   });
 
