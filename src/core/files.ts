@@ -62,6 +62,16 @@ export function signedTxPath(id: string, cwd = process.cwd()): string {
   return path.join(cwd, TX_FILES_DIR, SIGNED_TX_DIR, `${checkedTxId(id)}.signedTx.json`);
 }
 
+/** The permission bits of `file`, or undefined when there is no such file. */
+function modeOf(file: string): number | undefined {
+  try {
+    return fs.statSync(file).mode & 0o7777;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
 /**
  * Replaces `file` with `content` through a temporary file in the same directory and a rename, so that an interrupted
  * write leaves the old file or the new one, never half of one. Not a lock: two writers can still replace each other.
@@ -69,8 +79,12 @@ export function signedTxPath(id: string, cwd = process.cwd()): string {
 export function replaceFile(file: string, content: string): void {
   // a short name of its own: the target's name plus a suffix can pass the 255-byte limit of a file name
   const temp = path.join(path.dirname(file), `.${crypto.randomBytes(6).toString("hex")}.tmp`);
-  fs.writeFileSync(temp, content, { flag: "wx" });
+  const mode = modeOf(file);
+  // a file someone restricted stays restricted: the temporary file starts readable by its owner only and takes the
+  // replaced file's mode before the rename; a new file gets the usual default
+  fs.writeFileSync(temp, content, { flag: "wx", mode: mode === undefined ? 0o666 : 0o600 });
   try {
+    if (mode !== undefined) fs.chmodSync(temp, mode);
     fs.renameSync(temp, file);
   } catch (error) {
     fs.rmSync(temp, { force: true });

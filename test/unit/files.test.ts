@@ -233,6 +233,24 @@ describe("core/files", () => {
       expect(readUnsignedTxJson(id, cwd).forDefiTxId).to.equal("fordefi-1");
     });
 
+    it("rewrites keep the permissions of the file they replace, and a new file gets the usual ones", () => {
+      saveUnsignedTxJson(recordedAtomic, "t1", cwd);
+      const unsignedFile = unsignedTxPath("t1", cwd);
+      writeSignedTxJson(signed("aa".repeat(65)), "t1", cwd);
+      const signedFile = signedTxPath("t1", cwd);
+      const reference = path.join(cwd, "reference");
+      fs.writeFileSync(reference, ""); // what a plain write creates under this umask
+      const mode = (file: string) => fs.statSync(file).mode & 0o777;
+      expect(mode(signedFile)).to.equal(mode(reference));
+      fs.chmodSync(unsignedFile, 0o600);
+      fs.chmodSync(signedFile, 0o640); // not the temporary file's 0600: the mode must be copied
+      writeUnsignedTxJson({ ...readUnsignedTxJson("t1", cwd), forDefiTxId: "fordefi-1" }, "t1", cwd);
+      saveSignedTxJson(signed("bb".repeat(65)), "t1", cwd); // forDefi fetch with a new signature
+      markSentToChain("t1", cwd);
+      expect(mode(unsignedFile)).to.equal(0o600);
+      expect(mode(signedFile)).to.equal(0o640);
+    });
+
     it("rewrites leave no temporary file, and a failed rename removes it and keeps what was there", () => {
       saveUnsignedTxJson(recordedAtomic, "t1", cwd);
       writeSignedTxJson(signed("aa".repeat(65)), "t1", cwd);
