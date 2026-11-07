@@ -114,14 +114,20 @@ const describeUtxos = (utxos: readonly PChainUtxo[], symbol: string) =>
   `${utxos.length} UTXO(s) (${formatFlr(totalOf(utxos))} ${symbol})`;
 
 /**
- * The gas an input spending `utxo` with one signature adds to a P-chain transaction (flarejs `getInputComplexity`):
- * a plain input, or for a stakeable-locked UTXO the stakeable-locked input that spends it, which costs a little more.
+ * The gas an input spending `utxo` with one signature adds to a P-chain transaction (flarejs `getInputComplexity`),
+ * in the form flarejs spends it at `time` (the build's `minIssuanceTime`): a stakeable-locked UTXO whose lock still
+ * runs needs a stakeable-locked input, which costs a little more; once the lock has ended, a plain one.
  */
-function pChainInputGas(utxo: PChainUtxo, weights: Context.Context["platformFeeConfig"]["weights"]): bigint {
+function pChainInputGas(
+  utxo: PChainUtxo,
+  weights: Context.Context["platformFeeConfig"]["weights"],
+  time: bigint
+): bigint {
   const plain = TransferInput.fromNative(amountOf(utxo), [0]);
+  const { output } = utxo;
   const spend =
-    utxo.output instanceof pvmSerial.StakeableLockOut
-      ? new pvmSerial.StakeableLockIn(utxo.output.lockTime, plain)
+    output instanceof pvmSerial.StakeableLockOut && output.getStakeableLocktime() >= time
+      ? new pvmSerial.StakeableLockIn(output.lockTime, plain)
       : plain;
   const complexity = pvm.getInputComplexity([new TransferableInput(utxo.utxoId, utxo.assetId, spend)]);
   return ([0, 1, 2, 3] as const).reduce((gas, d) => gas + BigInt(complexity[d]) * BigInt(weights[d]), 0n);
@@ -158,7 +164,7 @@ async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sou
   const { weights, minPrice } = context.platformFeeConfig;
   const isDust = (utxo: PChainUtxo) =>
     (utxo.output instanceof TransferOutput || utxo.output instanceof pvmSerial.StakeableLockOut) &&
-    amountOf(utxo) < pChainInputGas(utxo, weights) * minPrice;
+    amountOf(utxo) < pChainInputGas(utxo, weights, minIssuanceTime) * minPrice;
   const dust = utxos.filter(isDust);
   if (dust.length === 0) {
     return inputs;
@@ -372,7 +378,7 @@ export async function buildImportCP(
       info.locktime <= inputs.minIssuanceTime
     );
   });
-  const inputGas = (utxo: PChainUtxo) => pChainInputGas(utxo, weights);
+  const inputGas = (utxo: PChainUtxo) => pChainInputGas(utxo, weights, inputs.minIssuanceTime);
   const probeFeeState = { ...inputs.feeState, price: 0n, capacity: PROBE_GAS_CAPACITY };
   const chosen = chooseImported(importable, inputGas, minPrice, maxCapacity - maxPerSecond, (utxos) =>
     pvm.calculateFee(build(utxos, probeFeeState).getTx(), weights, 1n)

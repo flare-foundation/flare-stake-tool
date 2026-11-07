@@ -60,8 +60,10 @@ P-chain transactions leave out UTXOs worth less than the fee of spending them
 (the gas of one input at the lowest P-chain price, about 0.00074 FLR on Flare),
 which anyone can send to any address and which flarejs would otherwise spend
 first when the node lists them first; a warning says how many were left out.
-This includes stakeable-locked UTXOs, which anyone can send as well; a
-stakeable-locked UTXO is measured by the slightly larger input that spends it.
+This includes stakeable-locked UTXOs, which anyone can send as well; one whose
+lock still runs is measured by the slightly larger stakeable-locked input that
+spends it, one whose lock has ended by a plain input (an unsigned file counts
+every lock as running).
 Every error exits with code 1.
 
 ---

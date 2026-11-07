@@ -261,6 +261,32 @@ describe("core/builders/pchain", function () {
       }
     });
 
+    it("measures a stakeable-locked UTXO by the input flarejs spends it with: locked while its lock runs, plain after", async () => {
+      // one input's fee at the lowest price (250): plain 2,961 gas, stakeable-locked 2,973 gas
+      const plainLine = 2_961n * 250n; // 740,250 nFLR
+      const lockedLine = 2_973n * 250n; // 743,250 nFLR
+      const funds = await owned(100_000_000_000n, 10);
+      const transfer = { type: "transfer", amount: asNFlr(1_000_000_000n), to: account.pAddress } as const;
+      const leftOut = async (amount: bigint, policy: (typeof POLICIES)[number]) => {
+        const bundle = await buildTransaction(
+          transfer,
+          pChainEnv([await stakeable(amount, 0, 2n), funds]),
+          account,
+          policy
+        );
+        if (bundle.kind !== "atomic") throw new Error("transfer must be a P-chain transaction");
+        return (bundle.notices ?? []).length > 0;
+      };
+      // the lock ended long ago: a signer sending now spends the UTXO with a plain input
+      expect(await leftOut(plainLine, IMMEDIATE_SIGNER_POLICY), "sent now, worth the plain input's fee").to.equal(
+        false
+      );
+      expect(await leftOut(plainLine - 1n, IMMEDIATE_SIGNER_POLICY), "sent now, worth less").to.equal(true);
+      // a file checks locks at time 1, so the lock still runs: a stakeable-locked input
+      expect(await leftOut(plainLine, FILE_SIGNER_POLICY), "file, worth the plain input's fee").to.equal(true);
+      expect(await leftOut(lockedLine, FILE_SIGNER_POLICY), "file, worth the locked input's fee").to.equal(false);
+    });
+
     it("refuses an export that itself exceeds the gas capacity", async () => {
       const utxos = await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1_000_000_000n, i))); // 400 × 1 FLR
       for (const policy of POLICIES) {
