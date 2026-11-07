@@ -158,8 +158,8 @@ const FEE_SHORTFALL_RE = /need (\d+) more unlocked nAVAX .*to cover fee/;
  * total first makes flarejs consume every UTXO and report the fee it is short by
  * (the P-chain fee depends on the inputs, so it cannot be a fixed value). flarejs
  * stops taking inputs once the amount and fee are covered, so a UTXO smaller than
- * the fee it adds can be left out; it stays on the P-chain, and the fee saved
- * comes back as change.
+ * the fee it adds can be left out. It stays on the P-chain, and so does the
+ * change: the fee saved minus that UTXO.
  */
 function exportAllPC(inputs: PChainInputs): { amount: bigint; unsignedTx: UnsignedTx } {
   const total = spendableAmount(inputs.utxos, inputs.context.avaxAssetID, nowSeconds());
