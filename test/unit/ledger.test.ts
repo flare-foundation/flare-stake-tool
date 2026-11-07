@@ -236,6 +236,27 @@ describe("ledger", () => {
       expect(printed).to.include("does not recognise delegate transactions; signing the transaction hash instead");
     });
 
+    it("prints the digest on stderr before the fallback has the device sign it", async () => {
+      const { device } = flareApp(invalidData("Unrecognized error code"));
+      const events: string[] = [];
+      const signHash = device.signHash.bind(device);
+      device.signHash = (path, hashHex) => {
+        events.push(`signHash ${hashHex}`);
+        return signHash(path, hashHex);
+      };
+      const original = console.error;
+      console.error = (message: unknown) => events.push(`stderr ${String(message)}`);
+      try {
+        await logged(() => new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare").sign(bundle));
+      } finally {
+        console.error = original;
+      }
+      const digest = Buffer.from(bundle.digest).toString("hex");
+      expect(events).to.have.length(2);
+      expect(events[0]).to.include(`Blind signing: the Ledger signs the transaction hash ${digest};`);
+      expect(events[1]).to.equal(`signHash ${digest}`);
+    });
+
     it("does not fall back on other invalid-data answers, which fail instead", async () => {
       const { device, signedHashes } = flareApp(invalidData("Value out of range"));
       await new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare").sign(bundle).then(
@@ -271,8 +292,16 @@ describe("ledger", () => {
       };
     }
 
-    const signOn = (app: LedgerApp, json: UnsignedTxJson, calls: string[][]) =>
-      new LedgerSigner(deviceWith(app, calls), PATH, "localflare").sign(bundleFromUnsignedTxJson(json));
+    /** Signs `json` with `app` open; device calls and stderr lines go to `calls` in the order they happen. */
+    async function signOn(app: LedgerApp, json: UnsignedTxJson, calls: string[][]): Promise<unknown> {
+      const original = console.error;
+      console.error = (message: unknown) => calls.push(["stderr", String(message)]);
+      try {
+        return await new LedgerSigner(deviceWith(app, calls), PATH, "localflare").sign(bundleFromUnsignedTxJson(json));
+      } finally {
+        console.error = original;
+      }
+    }
 
     it("the Flare app parses and signs the atomic transaction's full unsigned bytes", async () => {
       const calls: string[][] = [];
@@ -283,13 +312,13 @@ describe("ledger", () => {
       ]);
     });
 
-    it("the Avalanche app signs the atomic transaction's digest, the message of its unsigned file", async () => {
+    it("the Avalanche app signs the atomic transaction's digest, the message of its unsigned file, printed first", async () => {
+      const message = atomicJson.signatureRequests[0]!.message;
       const calls: string[][] = [];
       expect(await signOn("Avalanche", atomicJson, calls)).to.deep.equal(SIGNED);
-      expect(calls).to.deep.equal([
-        ["getPublicKey", PATH],
-        ["signHash", PATH, atomicJson.signatureRequests[0]!.message],
-      ]);
+      expect(calls.map(([operation]) => operation)).to.deep.equal(["getPublicKey", "stderr", "signHash"]);
+      expect(calls[1]![1]).to.include(`Blind signing: the Ledger signs the transaction hash ${message};`);
+      expect(calls[2]).to.deep.equal(["signHash", PATH, message]);
     });
 
     it("the Ethereum app is refused for an atomic transaction, and nothing is signed", async () => {

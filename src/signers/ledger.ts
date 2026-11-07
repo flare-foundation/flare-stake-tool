@@ -11,7 +11,7 @@ import {
 } from "../core/types";
 import type { NetworkName } from "../chain/network";
 import * as ledger from "../ledger";
-import { logInfo, logWarning } from "../output";
+import { logInfo, logProgress, logWarning } from "../output";
 
 export type LedgerApp = ledger.LedgerAppName;
 
@@ -44,6 +44,13 @@ const isUnsupportedTransaction = (error: unknown): boolean =>
   "errorMessage" in error &&
   typeof error.errorMessage === "string" &&
   error.errorMessage.includes("Data is invalid : Unrecognized error code");
+
+/**
+ * Before the device signs a hash: it shows only the hash, not the transaction, so the user compares it with the
+ * digest of the transaction this tool built.
+ */
+const announceBlindSigning = (digestHex: string): void =>
+  logProgress(`Blind signing: the Ledger signs the transaction hash ${digestHex}; approve only if it shows this hash`);
 
 export class LedgerSigner implements Signer {
   readonly kind = "ledger" as const;
@@ -101,6 +108,7 @@ export class LedgerSigner implements Signer {
       throw new Error(ledger.ETHEREUM_APP_P_CHAIN);
     }
     if (app === "Avalanche") {
+      announceBlindSigning(digestHex);
       return {
         status: "signed",
         signature: getBytes(`0x${await this.device.signHash(this.derivationPath, digestHex)}`),
@@ -118,6 +126,7 @@ export class LedgerSigner implements Signer {
       logInfo(
         `The Flare app does not recognise ${bundle.txType} transactions; signing the transaction hash instead (blind signing).`
       );
+      announceBlindSigning(digestHex);
       return {
         status: "signed",
         signature: getBytes(`0x${await this.device.signHash(this.derivationPath, digestHex)}`),

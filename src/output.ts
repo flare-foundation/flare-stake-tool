@@ -21,13 +21,14 @@ export function logSuccess(msg: string) {
   console.log(styleText("green", msg));
 }
 
-/**
- * Printed as soon as the node takes a transaction, so that its id is known even
- * if the wait for it fails. Progress goes to stderr, like warnings, so that
- * stdout holds only results.
- */
+/** Progress goes to stderr, like warnings, so that stdout holds only results. */
+export function logProgress(msg: string) {
+  console.error(styleText("blue", msg));
+}
+
+/** Printed as soon as the node takes a transaction, so that its id is known even if the wait for it fails. */
 export function logIssued(txId: string) {
-  console.error(styleText("blue", `Transaction ${txId} submitted, waiting for the chain to accept it`));
+  logProgress(`Transaction ${txId} submitted, waiting for the chain to accept it`);
 }
 
 /**

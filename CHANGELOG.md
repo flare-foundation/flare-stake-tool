@@ -52,6 +52,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `send -i` accepts `v` as `1b`/`1c` as documented, and fills the validator-authority credential of `setAutoRenewedValidatorConfig`.
   * The Ledger Ethereum app is refused for P-chain and atomic transactions, which the node never accepts from it; the tool asks for the Flare app.
   * Ledger: the Avalanche app works with multi-digit path indices (`m/44'/60'/0'/0/10`), a signature with an impossible `v` is refused, and the USB connection is always closed.
+  * Ledger blind signing (the Avalanche app, or the Flare app for a type it can't parse) prints the transaction hash on stderr first, to compare with the one the device shows.
   * `forDefi sign` labels the ForDefi id correctly, and ForDefi errors show the HTTP status and response instead of misleading messages.
   * `init-ctx` honours `--derivation-path` and stores the P-chain address in `flareAddress`.
 * Interactive mode:
