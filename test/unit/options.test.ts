@@ -56,6 +56,13 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         ["importPC", { fee: "" }, "--fee"],
         ["exportCP", { amount: "1", nonce: "" }, "--nonce"], // would read the nonce from the chain
         ["stake", { ...stake, delegationFee: "" }, "--delegation-fee"],
+        // would build with 0 shares, resetting the validator's auto-compounding
+        [
+          "setAutoRenewedValidatorConfig",
+          { nodeId: NODE_ID, period: "14d", autoCompoundShares: "" },
+          "--auto-compound-shares",
+        ],
+        ["addAutoRenewedValidator", { ...stake, period: "14d", autoCompoundShares: "" }, "--auto-compound-shares"],
       ];
       for (const [type, options, flag] of atomic) {
         expect(() => parseAtomicTxRequest(type, options), `${type} ${flag}`).to.throw(empty(flag));

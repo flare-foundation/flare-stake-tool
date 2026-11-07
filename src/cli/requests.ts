@@ -74,7 +74,7 @@ function storedList(value: string[] | undefined, flag: string, type: string): st
 }
 
 function parseShares(value: unknown): number | undefined {
-  const text = optionalString(value);
+  const text = optionValue(value, "--auto-compound-shares");
   if (text === undefined) return undefined;
   if (!/^\d+$/.test(text) || Number(text) > 1_000_000) {
     throw new Error("--auto-compound-shares must be an integer between 0 and 1000000 (millionths)");
