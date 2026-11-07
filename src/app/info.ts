@@ -1,10 +1,11 @@
 import type { Account } from "../chain/keys";
+import { asNFlr, asWei, type NFlr, type Wei } from "../chain/units";
 import { currentValidators, isAutoRenewed, type CurrentValidator } from "../chain/validators";
 import type { Env } from "../core/types";
 
 export interface Balances {
-  cChainWei: bigint;
-  pChainNFlr: bigint;
+  cChainWei: Wei;
+  pChainNFlr: NFlr;
 }
 
 export async function getBalances(env: Env, account: Account): Promise<Balances> {
@@ -13,7 +14,7 @@ export async function getBalances(env: Env, account: Account): Promise<Balances>
     env.clients.provider.getBalance(account.cAddress),
     env.clients.pvm.getBalance({ addresses: [account.pAddress] }),
   ]);
-  return { cChainWei, pChainNFlr: BigInt(pBalance.balance) };
+  return { cChainWei: asWei(cChainWei), pChainNFlr: asNFlr(BigInt(pBalance.balance)) };
 }
 
 export async function getValidators(env: Env): Promise<CurrentValidator[]> {

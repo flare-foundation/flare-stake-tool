@@ -12,6 +12,7 @@ import { ZeroAddress } from "ethers";
 import { contractInterface } from "../../src/chain/contracts";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
+import { asWei } from "../../src/chain/units";
 import {
   CLAIM_WRAP_GAS_LIMIT,
   CONTRACT_RECIPIENT_GAS_LIMIT,
@@ -95,7 +96,7 @@ describe("core/builders/evm: default gas limit by recipient", () => {
     const { env } = chainEnv();
     const withdrawal = (to: string) =>
       buildWithdrawal(
-        { type: "withdrawal", to, amount: 1n, fees: resolveEvmFees("withdrawal") },
+        { type: "withdrawal", to, amount: asWei(1n), fees: resolveEvmFees("withdrawal") },
         env,
         ACCOUNT,
         IMMEDIATE_SIGNER_POLICY
@@ -131,7 +132,12 @@ describe("core/builders/evm: default gas limit by recipient", () => {
     );
     expect(gasLimitOf(bundle)).to.equal(450_000n);
     const withdrawal = await buildWithdrawal(
-      { type: "withdrawal", to: ORDINARY, amount: 1n, fees: resolveEvmFees("withdrawal", { gasLimit: "70000" }) },
+      {
+        type: "withdrawal",
+        to: ORDINARY,
+        amount: asWei(1n),
+        fees: resolveEvmFees("withdrawal", { gasLimit: "70000" }),
+      },
       env,
       ACCOUNT,
       IMMEDIATE_SIGNER_POLICY
@@ -144,7 +150,13 @@ describe("core/builders/evm: default gas limit by recipient", () => {
 describe("core/builders/evm: refusals before anything is signed", () => {
   const claim = (env: EvmEnv, amount?: bigint) =>
     buildClaim(
-      { type: "claim", recipient: ORDINARY, wrap: false, fees: resolveEvmFees("claim"), amount },
+      {
+        type: "claim",
+        recipient: ORDINARY,
+        wrap: false,
+        fees: resolveEvmFees("claim"),
+        amount: amount === undefined ? undefined : asWei(amount),
+      },
       env,
       ACCOUNT,
       IMMEDIATE_SIGNER_POLICY
@@ -181,7 +193,7 @@ describe("core/builders/evm: refusals before anything is signed", () => {
     const builds = {
       withdrawal: () =>
         buildWithdrawal(
-          { type: "withdrawal", to: CONTRACT, amount: 1n, fees: resolveEvmFees("withdrawal") },
+          { type: "withdrawal", to: CONTRACT, amount: asWei(1n), fees: resolveEvmFees("withdrawal") },
           env,
           ACCOUNT,
           IMMEDIATE_SIGNER_POLICY
@@ -222,7 +234,7 @@ describe("core/builders/evm: the nonce", () => {
     const { env, nonceTags } = chainEnv();
     const withdrawal = (policy: BuildPolicy, nonce?: number) =>
       buildWithdrawal(
-        { type: "withdrawal", to: ORDINARY, amount: 1n, nonce, fees: resolveEvmFees("withdrawal") },
+        { type: "withdrawal", to: ORDINARY, amount: asWei(1n), nonce, fees: resolveEvmFees("withdrawal") },
         env,
         ACCOUNT,
         policy

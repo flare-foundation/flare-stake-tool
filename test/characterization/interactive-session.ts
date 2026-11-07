@@ -23,6 +23,7 @@ import type * as InfoModule from "../../src/app/info";
 import type * as TransactionsModule from "../../src/app/transactions";
 import type * as ContractsModule from "../../src/chain/contracts";
 import type * as NetworkModule from "../../src/chain/network";
+import type { NFlr, Wei } from "../../src/chain/units";
 import type * as ValidatorsModule from "../../src/chain/validators";
 import type * as PchainModule from "../../src/core/builders/pchain";
 import type * as InteractiveModule from "../../src/interactive/cli";
@@ -209,16 +210,18 @@ stub(transactions, "runTransaction", async (request, _env, signer) => {
     status: "sent" as const,
     txId: `tx${txCount}`,
     chainStatus: "Committed",
-    ...(atomic ? { fee: 1_234_000n } : {}),
+    ...(atomic ? { fee: 1_234_000n as NFlr } : {}),
   };
 });
 stub(transactions, "estimateAtomicFee", (request) => {
   record(`ESTIMATE ${show(request)}`);
-  return flags.noEstimate ? Promise.reject(new Error("nothing to estimate")) : Promise.resolve(22_460n);
+  return flags.noEstimate ? Promise.reject(new Error("nothing to estimate")) : Promise.resolve(22_460n as NFlr);
 });
 
 const info = fromDist<typeof InfoModule>("app/info.js");
-stub(info, "getBalances", () => Promise.resolve({ cChainWei: 5n * 10n ** 18n, pChainNFlr: 3n * 10n ** 9n }));
+stub(info, "getBalances", () =>
+  Promise.resolve({ cChainWei: (5n * 10n ** 18n) as Wei, pChainNFlr: (3n * 10n ** 9n) as NFlr })
+);
 stub(info, "getValidators", () =>
   Promise.resolve([{ nodeID: "NodeID-A", endTime: "1800086400" }, { nodeID: "NodeID-B" }] as unknown as Awaited<
     ReturnType<typeof InfoModule.getValidators>
@@ -227,7 +230,7 @@ stub(info, "getValidators", () =>
 stub(info, "describeAutoRenewal", (v) => (v.nodeID === "NodeID-A" ? "auto-renews every 14d" : undefined));
 
 stub(fromDist<typeof PchainModule>("core/builders/pchain.js"), "maxExportPCAmount", () =>
-  flags.noMax ? Promise.reject(new Error("nothing to export")) : Promise.resolve(2_999_000_000n)
+  flags.noMax ? Promise.reject(new Error("nothing to export")) : Promise.resolve(2_999_000_000n as NFlr)
 );
 
 const contracts = fromDist<typeof ContractsModule>("chain/contracts.js");
@@ -238,8 +241,12 @@ stub(contracts, "contractAddress", (_env, name) => {
 stub(contracts, "stateOfRewards", () =>
   Promise.resolve(
     flags.zeroRewards
-      ? { totalWei: 10n ** 18n, claimedWei: 10n ** 18n, unclaimedWei: 0n }
-      : { totalWei: 7n * 10n ** 18n, claimedWei: 2n * 10n ** 18n, unclaimedWei: 5n * 10n ** 18n }
+      ? { totalWei: (10n ** 18n) as Wei, claimedWei: (10n ** 18n) as Wei, unclaimedWei: 0n as Wei }
+      : {
+          totalWei: (7n * 10n ** 18n) as Wei,
+          claimedWei: (2n * 10n ** 18n) as Wei,
+          unclaimedWei: (5n * 10n ** 18n) as Wei,
+        }
   )
 );
 

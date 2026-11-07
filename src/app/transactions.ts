@@ -4,7 +4,7 @@
  */
 import type { Account } from "../chain/keys";
 import { currentValidators, stakesOf, type CurrentValidator } from "../chain/validators";
-import { formatFlr } from "../chain/units";
+import { asNFlr, formatFlr, type NFlr } from "../chain/units";
 import { buildTransaction } from "../core/builders";
 import { ESTIMATED_FEE_BASE_FEE_MULTIPLIER } from "../core/builders/pchain";
 import { atomicTxFee } from "../core/fee";
@@ -31,7 +31,7 @@ export async function runTransaction(
  * The fee (nFLR) an atomic transaction would pay if built now from the chain's
  * fee state, as an immediate signer builds it. Nothing is signed or sent.
  */
-export async function estimateAtomicFee(req: TxRequest, env: Env, account: Account): Promise<bigint> {
+export async function estimateAtomicFee(req: TxRequest, env: Env, account: Account): Promise<NFlr> {
   await env.clients.verifyNetwork();
   const bundle = await buildTransaction(req, env, account, IMMEDIATE_SIGNER_POLICY);
   if (bundle.kind !== "atomic") {
@@ -46,8 +46,8 @@ export async function estimateAtomicFee(req: TxRequest, env: Env, account: Accou
  * times the base fee, so the cost at the base fee itself is estimate / multiplier.
  * The node rejects such a transaction unless the base fee drops before it lands.
  */
-export function underpricedFeeWarning(fee: bigint, estimate: bigint, symbol: string): string | undefined {
-  const atBaseFee = estimate / ESTIMATED_FEE_BASE_FEE_MULTIPLIER;
+export function underpricedFeeWarning(fee: NFlr, estimate: NFlr, symbol: string): string | undefined {
+  const atBaseFee = asNFlr(estimate / ESTIMATED_FEE_BASE_FEE_MULTIPLIER);
   if (fee >= atBaseFee) return undefined;
   return (
     `A fee of ${formatFlr(fee)} ${symbol} is below the ${formatFlr(atBaseFee)} ${symbol} this transaction costs ` +

@@ -5,7 +5,7 @@
  * so the parsers check every value they use. Everything leaves as bigint or
  * integers.
  */
-import { parseDuration, parseFlr, parseFlrToWei, parsePercentToShares } from "../chain/units";
+import { asWei, parseDuration, parseFlr, parseFlrToWei, parsePercentToShares, type NFlr } from "../chain/units";
 import { normalizeAddressList, resolveEvmFees, type EvmFeeOverrides, type EvmOperation } from "../constants/fees";
 import type { TxRequest } from "../core/types";
 import {
@@ -87,12 +87,12 @@ export function parseAtomicTxRequest(
   type: string,
   options: AtomicTxOptions
 ): { request: TxRequest; resolvedTimes: { name: string; time: ParsedTime }[] } {
-  const amount = (): bigint => parseFlr(required(options.amount, "amount", "--amount <amount>", type));
-  const optionalAmount = (): bigint | undefined => {
+  const amount = (): NFlr => parseFlr(required(options.amount, "amount", "--amount <amount>", type));
+  const optionalAmount = (): NFlr | undefined => {
     const text = optionValue(options.amount, "--amount");
     return text === undefined ? undefined : parseFlr(text);
   };
-  const fee = (): bigint | undefined => {
+  const fee = (): NFlr | undefined => {
     const text = optionValue(options.fee, "--fee");
     return text === undefined ? undefined : parseFlr(text);
   };
@@ -244,7 +244,7 @@ export function parseEvmTxRequest(operation: EvmOperation, options: EvmTxOptions
       return {
         type: "customCChainTx",
         to: required(options.to, "to", "--to <address>", "customCChainTx"),
-        value: BigInt(value),
+        value: asWei(BigInt(value)),
         data: optionalString(options.data) ?? "0x",
         nonce,
         fees: resolveEvmFees("custom", options),

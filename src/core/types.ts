@@ -8,6 +8,7 @@ import type { JsonRpcProvider, Transaction, TransactionLike } from "ethers";
 import type { Clients } from "../chain/clients";
 import type { Account } from "../chain/keys";
 import type { NetworkConfig } from "../chain/network";
+import type { NFlr, Wei } from "../chain/units";
 import type { EvmFees } from "../constants/fees";
 
 export interface Env {
@@ -53,28 +54,28 @@ export const isAtomicTxType = (value: string): value is AtomicTxType =>
   (ATOMIC_TX_TYPES as readonly string[]).includes(value);
 export const isEvmTxType = (value: string): value is EvmTxType => (EVM_TX_TYPES as readonly string[]).includes(value);
 
-/** Amounts are bigint: nFLR on the P-chain side, wei on the C-chain side. Times are unix seconds. */
+/** Amounts are nFLR on the P-chain and atomic side, wei on the C-chain side. Times are unix seconds. */
 export type TxRequest =
-  | { type: "exportCP"; amount: bigint; fee?: bigint | undefined; nonce?: bigint | undefined }
+  | { type: "exportCP"; amount: NFlr; fee?: NFlr | undefined; nonce?: bigint | undefined }
   | { type: "importCP" }
-  | { type: "exportPC"; amount?: bigint | undefined }
-  | { type: "importPC"; fee?: bigint | undefined }
+  | { type: "exportPC"; amount?: NFlr | undefined }
+  | { type: "importPC"; fee?: NFlr | undefined }
   | {
       type: "stake";
       nodeId: string;
-      amount: bigint;
+      amount: NFlr;
       startTime?: bigint | undefined;
       endTime: bigint;
       delegationFeeShares: number;
       blsPublicKey: Uint8Array;
       blsSignature: Uint8Array;
     }
-  | { type: "delegate"; nodeId: string; amount: bigint; startTime?: bigint | undefined; endTime: bigint }
-  | { type: "transfer"; amount: bigint; to: string }
+  | { type: "delegate"; nodeId: string; amount: NFlr; startTime?: bigint | undefined; endTime: bigint }
+  | { type: "transfer"; amount: NFlr; to: string }
   | {
       type: "addAutoRenewedValidator";
       nodeId: string;
-      amount: bigint;
+      amount: NFlr;
       period: bigint;
       delegationFeeShares: number;
       blsPublicKey: Uint8Array;
@@ -92,15 +93,15 @@ export type TxRequest =
   | {
       type: "claim";
       recipient: string;
-      amount?: bigint | undefined;
+      amount?: Wei | undefined;
       wrap: boolean;
       nonce?: number | undefined;
       fees: EvmFees;
     }
-  | { type: "withdrawal"; to: string; amount: bigint; nonce?: number | undefined; fees: EvmFees }
+  | { type: "withdrawal"; to: string; amount: Wei; nonce?: number | undefined; fees: EvmFees }
   | { type: "setClaimExecutors"; executors: string[]; nonce?: number | undefined; fees: EvmFees }
   | { type: "setAllowedClaimRecipients"; recipients: string[]; nonce?: number | undefined; fees: EvmFees }
-  | { type: "customCChainTx"; to: string; value: bigint; data: string; nonce?: number | undefined; fees: EvmFees };
+  | { type: "customCChainTx"; to: string; value: Wei; data: string; nonce?: number | undefined; fees: EvmFees };
 
 export type TxRequestOf<T extends TxType> = Extract<TxRequest, { type: T }>;
 
@@ -170,5 +171,5 @@ export interface Signer {
 
 /** `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. */
 export type Outcome =
-  | { status: "sent"; txId: string; chainStatus: string; fee?: bigint | undefined }
-  | { status: "pending"; id: string; forDefiHash: string; file: string; fee?: bigint | undefined };
+  | { status: "sent"; txId: string; chainStatus: string; fee?: NFlr | undefined }
+  | { status: "pending"; id: string; forDefiHash: string; file: string; fee?: NFlr | undefined };

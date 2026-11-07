@@ -13,7 +13,7 @@ import {
   type UnsignedTx,
 } from "@flarenetwork/flarejs";
 import { pChainAddressBytes, type Account } from "../../chain/keys";
-import { formatFlr } from "../../chain/units";
+import { asNFlr, formatFlr, type NFlr } from "../../chain/units";
 import { currentValidators } from "../../chain/validators";
 import { atomicTxFee } from "../fee";
 import {
@@ -61,7 +61,7 @@ const estimatedGasPriceGwei = (baseFeeWei: bigint): bigint =>
  * transaction must not each estimate a fee from the base fee of their moment.
  * Checked before any node call.
  */
-function requireFeeForPolicy(type: "exportCP" | "importPC", fee: bigint | undefined, policy: BuildPolicy): void {
+function requireFeeForPolicy(type: "exportCP" | "importPC", fee: NFlr | undefined, policy: BuildPolicy): void {
   if (fee === undefined && policy.requireExplicitFee) {
     throw new Error(`fee is required for ${type} transaction. Use --fee <fee> to specify the fee`);
   }
@@ -128,7 +128,7 @@ function spendableAlone(info: UtxoInfo, now: bigint): boolean {
 const nowSeconds = (): bigint => BigInt(Math.floor(Date.now() / 1000));
 
 /** AVAX the account can spend alone now. */
-export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: string, now: bigint): bigint {
+export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: string, now: bigint): NFlr {
   let total = 0n;
   for (const utxo of utxos) {
     const info = futils.getUtxoInfo(utxo);
@@ -136,10 +136,10 @@ export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: strin
       total += info.amount;
     }
   }
-  return total;
+  return asNFlr(total);
 }
 
-const exportPCTx = (inputs: PChainInputs, amount: bigint): UnsignedTx =>
+const exportPCTx = (inputs: PChainInputs, amount: NFlr): UnsignedTx =>
   pvm.newExportTx(
     {
       feeState: inputs.feeState,
@@ -161,11 +161,11 @@ const FEE_SHORTFALL_RE = /need (\d+) more unlocked nAVAX .*to cover fee/;
  * the fee it adds can be left out. It stays on the P-chain, and so does the
  * change: the fee saved minus that UTXO.
  */
-function exportAllPC(inputs: PChainInputs): { amount: bigint; unsignedTx: UnsignedTx } {
+function exportAllPC(inputs: PChainInputs): { amount: NFlr; unsignedTx: UnsignedTx } {
   const total = spendableAmount(inputs.utxos, inputs.context.avaxAssetID, nowSeconds());
   let fee = 0n;
   for (let attempt = 0; attempt < 4; attempt++) {
-    const amount = total - fee;
+    const amount = asNFlr(total - fee);
     if (amount <= 0n) {
       throw new Error("Export amount is smaller than or equal to zero");
     }
@@ -252,7 +252,7 @@ export async function buildExportPC(
 }
 
 /** The amount `exportPC` without `-a` would export now (the interactive default); nothing is signed. */
-export async function maxExportPCAmount(env: Env, account: Account, policy: BuildPolicy): Promise<bigint> {
+export async function maxExportPCAmount(env: Env, account: Account, policy: BuildPolicy): Promise<NFlr> {
   return exportAllPC(await pChainInputs(env, account, policy)).amount;
 }
 

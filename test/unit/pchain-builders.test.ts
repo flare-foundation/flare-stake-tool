@@ -22,6 +22,7 @@ import { expect } from "chai";
 import { getBytes } from "ethers";
 import { accountFromPrivateKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
+import { asNFlr } from "../../src/chain/units";
 import { buildTransaction } from "../../src/core/builders";
 import { UTXO_PAGE_SIZE, allUtxos, maxExportPCAmount, spendableAmount } from "../../src/core/builders/pchain";
 import { atomicTxFee } from "../../src/core/fee";
@@ -77,7 +78,7 @@ describe("core/builders/pchain", function () {
       expect(context.baseTxFee).to.equal(1_000_000n);
       expect(fee > context.baseTxFee, `fee ${fee} nFLR`).to.equal(true);
       await buildTransaction(
-        { type: "exportPC", amount: total - context.baseTxFee },
+        { type: "exportPC", amount: asNFlr(total - context.baseTxFee) },
         env,
         account,
         IMMEDIATE_SIGNER_POLICY
@@ -112,7 +113,7 @@ describe("core/builders/pchain", function () {
     afterEach(() => replay.close());
 
     const other = accountFromPrivateKey(getBytes(`0x${"11".repeat(32)}`), "localflare");
-    const FEE = 10_000_000n; // 0.01 FLR
+    const FEE = asNFlr(10_000_000n); // 0.01 FLR
 
     /** A P→C export output of `amount` nFLR held by `owners`, `threshold` of them needed, locked until `locktime`. */
     async function exported(owners: Uint8Array[], threshold: number, amount: bigint, index: number, locktime = 0n) {
@@ -197,7 +198,7 @@ describe("core/builders/pchain", function () {
     it("pays the amount given to the recipient given, and only the change back to the account", () =>
       withReplay("transfer-pk", async (env) => {
         const recipient = accountFromPrivateKey(getBytes(`0x${"22".repeat(32)}`), "localflare").pAddress;
-        const amount = 1_234_567_891n;
+        const amount = asNFlr(1_234_567_891n);
         const built = await buildTransaction(
           { type: "transfer", amount, to: recipient },
           env,
@@ -242,7 +243,7 @@ describe("core/builders/pchain", function () {
           {
             type: "addAutoRenewedValidator",
             nodeId: "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
-            amount: 10n ** 13n,
+            amount: asNFlr(10n ** 13n),
             period: 900n,
             delegationFeeShares: 100_000,
             blsPublicKey: getBytes(argOf("--pop-bls-public-key")),
@@ -348,13 +349,13 @@ describe("core/builders/pchain", function () {
       );
 
     it("transfer refuses a recipient of another network before asking the node", () =>
-      refused({ type: "transfer", amount: 1n, to: costwo }));
+      refused({ type: "transfer", amount: asNFlr(1n), to: costwo }));
 
     it("addAutoRenewedValidator refuses an owner of another network before asking the node", () =>
       refused({
         type: "addAutoRenewedValidator",
         nodeId: "NodeID-X",
-        amount: 1n,
+        amount: asNFlr(1n),
         period: 1n,
         delegationFeeShares: 0,
         blsPublicKey: new Uint8Array(48),

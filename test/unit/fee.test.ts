@@ -9,6 +9,7 @@ import { getBytes } from "ethers";
 import { createEnv } from "../../src/app/env";
 import { estimateAtomicFee, underpricedFeeWarning } from "../../src/app/transactions";
 import { accountFromPrivateKey } from "../../src/chain/keys";
+import { asNFlr } from "../../src/chain/units";
 import { buildTransaction } from "../../src/core/builders";
 import { ESTIMATED_FEE_BASE_FEE_MULTIPLIER } from "../../src/core/builders/pchain";
 import { atomicTxFee } from "../../src/core/fee";
@@ -25,7 +26,7 @@ import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 import { withReplay } from "../helpers/replay";
 
-const ONE_FLR = 1_000_000_000n;
+const ONE_FLR = asNFlr(1_000_000_000n);
 const account = accountFromPrivateKey(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), "localflare");
 
 /**
@@ -52,7 +53,7 @@ describe("atomic transaction fees", function () {
 
   it("estimates the fee a transaction pays without -f, and passing that estimate builds the same bytes", async () => {
     const requests: [string, TxRequestOf<"exportCP"> | TxRequestOf<"importPC">][] = [
-      ["exportCP-pk", { type: "exportCP", amount: 10n * ONE_FLR }],
+      ["exportCP-pk", { type: "exportCP", amount: asNFlr(10n * ONE_FLR) }],
       ["importPC-pk", { type: "importPC" }],
     ];
     for (const [scenario, req] of requests) {
@@ -73,7 +74,7 @@ describe("atomic transaction fees", function () {
 
   it("covers twice the current base fee: exactly double what flarejs charges at the base fee itself", async () => {
     expect(ESTIMATED_FEE_BASE_FEE_MULTIPLIER).to.equal(2n);
-    const amount = 10n * ONE_FLR;
+    const amount = asNFlr(10n * ONE_FLR);
     for (const scenario of ["exportCP-pk", "importPC-pk"]) {
       await withReplay(
         scenario,
@@ -132,20 +133,20 @@ describe("atomic transaction fees", function () {
   });
 
   it("warns about a typed fee below the cost at the current base fee (half the 2x estimate)", () => {
-    const estimate = 22_460n; // 11,230 gas at 2 x 1 gwei
-    expect(underpricedFeeWarning(11_229n, estimate, "LFLR")).to.equal(
+    const estimate = asNFlr(22_460n); // 11,230 gas at 2 x 1 gwei
+    expect(underpricedFeeWarning(asNFlr(11_229n), estimate, "LFLR")).to.equal(
       "A fee of 0.000011229 LFLR is below the 0.00001123 LFLR this transaction costs at the current base fee; " +
         "the node will reject it unless the base fee drops first"
     );
-    expect(underpricedFeeWarning(11_230n, estimate, "LFLR")).to.equal(undefined); // exactly the base fee cost
+    expect(underpricedFeeWarning(asNFlr(11_230n), estimate, "LFLR")).to.equal(undefined); // exactly the base fee cost
     expect(underpricedFeeWarning(estimate, estimate, "LFLR")).to.equal(undefined);
     expect(underpricedFeeWarning(ONE_FLR, estimate, "LFLR")).to.equal(undefined);
   });
 
   it("describes the fee as paid once sent and as to be burned for an unsigned file", () => {
-    expect(describeFee({ status: "sent", txId: "x", chainStatus: "Accepted", fee: 5_678_000n }, "FLR")).to.equal(
-      "Fee paid: 0.005678 FLR"
-    );
+    expect(
+      describeFee({ status: "sent", txId: "x", chainStatus: "Accepted", fee: asNFlr(5_678_000n) }, "FLR")
+    ).to.equal("Fee paid: 0.005678 FLR");
     expect(describeFee({ status: "pending", id: "x", forDefiHash: "h", file: "f", fee: ONE_FLR }, "C2FLR")).to.equal(
       "Fee: 1 C2FLR (burned when the signed transaction is sent)"
     );

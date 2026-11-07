@@ -9,6 +9,7 @@ import { runTransaction } from "../../src/app/transactions";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import { resolveAutoRenewedValidator } from "../../src/core/builders/pchain";
+import { asNFlr } from "../../src/chain/units";
 import type { Env, TxRequest } from "../../src/core/types";
 import { ExternalFileSigner } from "../../src/signers/file";
 import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
@@ -55,7 +56,12 @@ const refusalOf = (req: TxRequest, env: Env): Promise<string> =>
 
 describe("checks before a P-chain request is built", () => {
   it("refuses a delegation to a node that is not a current validator", async () => {
-    const req: TxRequest = { type: "delegate", nodeId: "NodeID-Unknown", amount: 10n ** 12n, endTime: 1_799_000_000n };
+    const req: TxRequest = {
+      type: "delegate",
+      nodeId: "NodeID-Unknown",
+      amount: asNFlr(10n ** 12n),
+      endTime: 1_799_000_000n,
+    };
     expect(await refusalOf(req, node())).to.include("Unknown node id");
   });
 
@@ -63,7 +69,7 @@ describe("checks before a P-chain request is built", () => {
     const req: TxRequest = {
       type: "delegate",
       nodeId: "NodeID-Plain",
-      amount: 10n ** 12n,
+      amount: asNFlr(10n ** 12n),
       endTime: BigInt(PERIOD_END + 1),
     };
     expect(await refusalOf(req, node())).to.include(
@@ -76,7 +82,7 @@ describe("checks before a P-chain request is built", () => {
       {
         type: "addAutoRenewedValidator",
         nodeId: "NodeID-New",
-        amount: 10n ** 13n,
+        amount: asNFlr(10n ** 13n),
         period: 1_209_600n,
         delegationFeeShares: 200_000,
         blsPublicKey: new Uint8Array(48),
@@ -151,13 +157,20 @@ describe("checks before a P-chain request is built", () => {
 
     it("refuses a stake, a delegation or an auto-renewed validator on a fourth node, on every path", async () => {
       const requests: TxRequest[] = [
-        { type: "stake", nodeId: "NodeID-New", amount: 10n ** 13n, endTime, delegationFeeShares: 200_000, ...bls },
-        { type: "delegate", nodeId: "NodeID-Fourth", amount: 10n ** 12n, endTime },
+        {
+          type: "stake",
+          nodeId: "NodeID-New",
+          amount: asNFlr(10n ** 13n),
+          endTime,
+          delegationFeeShares: 200_000,
+          ...bls,
+        },
+        { type: "delegate", nodeId: "NodeID-Fourth", amount: asNFlr(10n ** 12n), endTime },
         // no end: it overlaps every stake that has not ended
         {
           type: "addAutoRenewedValidator",
           nodeId: "NodeID-New",
-          amount: 10n ** 13n,
+          amount: asNFlr(10n ** 13n),
           period: 1_209_600n,
           delegationFeeShares: 200_000,
           ...bls,
@@ -170,8 +183,15 @@ describe("checks before a P-chain request is built", () => {
 
     it("lets a request on one of the three nodes past it", async () => {
       const requests: TxRequest[] = [
-        { type: "delegate", nodeId: "NodeID-Two", amount: 10n ** 12n, endTime },
-        { type: "stake", nodeId: "NodeID-Three", amount: 10n ** 13n, endTime, delegationFeeShares: 200_000, ...bls },
+        { type: "delegate", nodeId: "NodeID-Two", amount: asNFlr(10n ** 12n), endTime },
+        {
+          type: "stake",
+          nodeId: "NodeID-Three",
+          amount: asNFlr(10n ** 13n),
+          endTime,
+          delegationFeeShares: 200_000,
+          ...bls,
+        },
       ];
       for (const req of requests) {
         // the fake node has no chain context, so a request past every check fails when the builder asks for it

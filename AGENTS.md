@@ -38,7 +38,7 @@ src/
   chain/network.ts          The single network table (ids, hrp, URLs, symbol) + node URL / API key overrides
   chain/clients.ts          flarejs APIs, ethers provider, cached Context, Helicon gate
   chain/keys.ts             Key/address derivation (flarejs secp256k1 + ethers), CB58 decoding with its checksum checked
-  chain/units.ts            parseFlr/formatFlr, percentages → shares, durations
+  chain/units.ts            NFlr/Wei amounts, parseFlr/formatFlr, percentages → shares, durations
   chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
   chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
   ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum)
@@ -99,6 +99,11 @@ recipient has contract code.
   P-chain/atomic requests and with `parseFlrToWei` to **wei** (18 decimals)
   for C-chain commands. Extra non-zero decimals and commas are errors, never
   silently dropped. Nothing downstream sees FLR.
+- Amounts are typed `NFlr` or `Wei` (`chain/units.ts`): plain bigints at
+  runtime, branded so the compiler refuses one where the other is expected.
+  Parsing returns the right type; a value read from the chain is marked with
+  `asNFlr` / `asWei` where it comes in. Arithmetic gives a plain bigint, so
+  mark the result again.
 - `-e`, `-s` and `--period` accept unix seconds or durations (`2d12h`);
   `parseEndTime` resolves a duration against now.
 - The `--env-path` file uses `PRIVATE_KEY_HEX` (hex) and/or `PRIVATE_KEY_CB58`
