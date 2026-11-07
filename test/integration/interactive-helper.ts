@@ -40,7 +40,7 @@ export interface InteractiveSession {
   send: (data: string) => void;
   /** Wait until the output contains `pattern`, throw on timeout. */
   waitFor: (pattern: string | RegExp, timeoutMs?: number) => Promise<void>;
-  /** Wait for the process to exit. Returns exit code. */
+  /** Wait for the process to exit. Returns its exit code, 128 + the signal when a signal ended it (as a shell does). */
   wait: (timeoutMs?: number) => Promise<number>;
   /** Kill the process. */
   kill: () => void;
@@ -83,9 +83,10 @@ export function spawnInteractive(args: string[] = ["interactive"], cwd: string =
     wait: (timeoutMs = 60_000) =>
       new Promise<number>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error("Process did not exit in time")), timeoutMs);
-        term.onExit(({ exitCode }) => {
+        term.onExit(({ exitCode, signal }) => {
           clearTimeout(timer);
-          resolve(exitCode);
+          // a process ended by SIGINT reports exit code 0 and signal 2: a shell shows 130
+          resolve(signal ? 128 + signal : exitCode);
         });
       }),
     kill: () => term.kill(),

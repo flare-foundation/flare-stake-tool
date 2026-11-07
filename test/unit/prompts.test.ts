@@ -4,7 +4,7 @@
  */
 import { expect } from "chai";
 import inquirer from "inquirer";
-import { prompts, validateDelegationFee, validateEndTime } from "../../src/interactive/prompts";
+import { CANCELLED_EXIT_CODE, prompts, validateDelegationFee, validateEndTime } from "../../src/interactive/prompts";
 
 describe("interactive prompt checks", () => {
   it("delegation fee: a percentage from 0 to 100, an empty answer for the default 20%", () => {
@@ -47,5 +47,39 @@ describe("interactive prompt checks", () => {
     }
     expect(asked.map((question) => question.validate)).to.deep.equal([validateEndTime, validateDelegationFee]);
     expect(asked.map((question) => question.default)).to.deep.equal([undefined, undefined]); // empty stays empty
+  });
+
+  it("Ctrl-C at an open question exits with 130, and the key handler is gone once the question is answered", async () => {
+    const before = process.stdin.listenerCount("keypress");
+    const exits: unknown[] = [];
+    let whileAsking = 0;
+    const original = {
+      prompt: inquirer.prompt,
+      exit: process.exit.bind(process),
+      write: process.stdout.write.bind(process.stdout),
+    };
+    Object.assign(inquirer, {
+      prompt: () => {
+        whileAsking = process.stdin.listenerCount("keypress");
+        process.stdin.emit("keypress", "c", { name: "c" }); // a plain c: nothing
+        process.stdin.emit("keypress", "\x03", { ctrl: true, name: "c" });
+        return Promise.resolve({ answer: "" });
+      },
+    });
+    process.exit = ((code?: number) => {
+      exits.push(code);
+    }) as typeof process.exit;
+    process.stdout.write = () => true;
+    try {
+      await prompts.delegationFee();
+    } finally {
+      Object.assign(inquirer, { prompt: original.prompt });
+      process.exit = original.exit;
+      process.stdout.write = original.write;
+    }
+    expect(CANCELLED_EXIT_CODE).to.equal(130);
+    expect(exits).to.deep.equal([130]);
+    expect(whileAsking).to.equal(before + 1);
+    expect(process.stdin.listenerCount("keypress")).to.equal(before);
   });
 });

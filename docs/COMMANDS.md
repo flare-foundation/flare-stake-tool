@@ -440,7 +440,7 @@ or piped it refuses to start, with an error and exit code 1.
 | Inputs | stdin (a terminal) |
 | Side effects | Interactive prompts; ultimately calls the same action handlers. Connecting a Ledger writes `ctx.json`; an existing non-Ledger `ctx.json` (e.g. a ForDefi one) is replaced only after confirmation, and every replaced file is kept as `ctx.json.<time>.bak`. A Ledger `ctx.json` is reused only when the connected device has its key at its derivation path; otherwise the tool names both addresses and offers to replace it. The session starts only when the device has the key of the chosen address (the one saved in `ctx.json`), and another Ledger plugged in during the session is refused at the next transaction, which is neither built nor signed |
 | Output | Same as the underlying commands |
-| Failures | Same as the underlying commands; exit code 1 without a terminal |
+| Failures | Same as the underlying commands; exit code 1 without a terminal. Ctrl-C at a question ends the session with exit code 130 (Quit: 0); Ctrl-C while a transaction is being sent stops waiting, but the node may already have taken it |
 
 Tested via `node-pty` in `test/integration/cli-interactive.test.ts` (balance check
 and stake flows).

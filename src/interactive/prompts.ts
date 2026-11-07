@@ -59,21 +59,45 @@ interface InputOptions {
   validate?: (value: string) => true | string;
 }
 
+/** The exit code of a session cancelled with Ctrl-C at a question: 128 + SIGINT, what a shell reports for Ctrl-C. */
+export const CANCELLED_EXIT_CODE = 130;
+
+type Questions = Parameters<typeof inquirer.prompt>[0];
+
+/**
+ * inquirer's prompt, with Ctrl-C ending the session with exit code 130. inquirer 8 answers Ctrl-C by closing the
+ * prompt and sending its own process SIGINT, and the process can end before that signal arrives, with code 0. A key
+ * handler installed before inquirer's readline runs first and exits. Only while a question is open: Ctrl-C while a
+ * transaction is being sent keeps Node's default, since the node may already have taken it.
+ */
+async function askInquirer<T>(questions: Questions): Promise<T> {
+  const onKey = (_text: unknown, key: { ctrl?: boolean; name?: string } | undefined): void => {
+    if (key?.ctrl === true && key.name === "c") {
+      process.stdout.write("\x1b[?25h\n"); // the cursor back, which a list question hides
+      process.exit(CANCELLED_EXIT_CODE);
+    }
+  };
+  process.stdin.on("keypress", onKey);
+  try {
+    return (await inquirer.prompt(questions)) as T;
+  } finally {
+    process.stdin.off("keypress", onKey);
+  }
+}
+
 async function input(message: string, options: InputOptions = {}): Promise<string> {
-  const { answer } = await inquirer.prompt<{ answer: string }>([
-    { type: "input", name: "answer", message, ...options },
-  ]);
+  const { answer } = await askInquirer<{ answer: string }>([{ type: "input", name: "answer", message, ...options }]);
   return answer;
 }
 
 async function select<T>(message: string, choices: Choice<T>[]): Promise<T> {
-  const { answer } = await inquirer.prompt<{ answer: T }>([{ type: "list", name: "answer", message, choices }]);
+  const { answer } = await askInquirer<{ answer: T }>([{ type: "list", name: "answer", message, choices }]);
   return answer;
 }
 
 /** A yes/no question; the default is no. */
 async function confirm(message: string): Promise<boolean> {
-  const { answer } = await inquirer.prompt<{ answer: boolean }>([
+  const { answer } = await askInquirer<{ answer: boolean }>([
     { type: "confirm", name: "answer", default: false, message },
   ]);
   return answer;

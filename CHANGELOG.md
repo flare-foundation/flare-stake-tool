@@ -68,6 +68,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Moves between the chains import only after their own export has arrived.
   * Connecting a Ledger no longer deletes `ctx.json`; another context is replaced only after confirmation and kept as a `.bak` file.
   * A failed action or wallet connection no longer ends the session, and the wallet menu has a Quit entry.
+  * Ctrl-C at a question ends the session with exit code 130 instead of 0, so a script sees it was cancelled; Quit still exits with 0.
   * Invalid amounts, fees, periods, end times, delegation fees, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again; a delegation fee of `10%` used to fail only after both BLS values were entered. The delegation fee prompt says that Enter accepts 20%.
   * `interactive --help` prints help instead of starting a session, and a bad node URL is reported before the banner.
 * Command line:
