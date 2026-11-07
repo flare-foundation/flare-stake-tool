@@ -99,12 +99,12 @@ describe("core/builders/pchain", function () {
       );
     }
 
-    /** The recorded context and fee state, with `utxos` on the P-chain. */
-    function pChainEnv(utxos: Utxo[]): Env {
+    /** The recorded context and fee state, with `utxos` on the P-chain and the gas capacity set to `capacity`. */
+    function pChainEnv(utxos: Utxo[], capacity?: bigint): Env {
       const clients = {
         context: () => env.clients.context(),
         pvm: {
-          getFeeState: () => env.clients.pvm.getFeeState(),
+          getFeeState: async () => ({ ...(await env.clients.pvm.getFeeState()), ...(capacity && { capacity }) }),
           getUTXOs: () => Promise.resolve({ numFetched: utxos.length, utxos, endIndex: { address: "", utxo: "" } }),
         },
       };
@@ -114,9 +114,9 @@ describe("core/builders/pchain", function () {
     const POLICIES = [IMMEDIATE_SIGNER_POLICY, FILE_SIGNER_POLICY] as const;
 
     /** Builds exportPC without -a; returns its parts and the fee flarejs requires of it at the policy's price. */
-    async function exportAll(utxos: Utxo[], policy: (typeof POLICIES)[number]) {
+    async function exportAll(utxos: Utxo[], policy: (typeof POLICIES)[number], capacity?: bigint) {
       const context = await env.clients.context();
-      const bundle = await buildTransaction({ type: "exportPC" }, pChainEnv(utxos), account, policy);
+      const bundle = await buildTransaction({ type: "exportPC" }, pChainEnv(utxos, capacity), account, policy);
       if (bundle.kind !== "atomic") throw new Error("exportPC must be atomic");
       const tx = bundle.unsignedTx.getTx() as pvmSerial.ExportTx;
       const price = policy.feePrice === "chain" ? (await env.clients.pvm.getFeeState()).price : policy.feePrice;
@@ -160,6 +160,28 @@ describe("core/builders/pchain", function () {
         expect(built.fee, label).to.equal(built.required);
         expect(built.change, `${label}: one change output`).to.have.length(1);
         expect(built.exported[0]! + built.fee + built.change[0]!, label).to.equal(100_000_000_000n);
+      }
+    });
+
+    it("builds when spending every UTXO would exceed the gas capacity but the export does not", async () => {
+      const big = await owned(100_000_000_000n, 0); // 100 FLR
+      const dust = await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1n, i + 1))); // 400 × 1 nFLR
+      for (const policy of POLICIES) {
+        const built = await exportAll([big, ...dust], policy, 1_000_000n);
+        const label = `@${policy.feePrice}`;
+        expect(built.spent, `${label}: only the 100 FLR UTXO`).to.deep.equal([big.utxoId.txID.toString()]);
+        expect(built.fee, label).to.equal(built.required);
+        expect(built.exported[0]! + built.fee + built.change[0]!, label).to.equal(100_000_000_000n);
+      }
+    });
+
+    it("refuses an export that itself exceeds the gas capacity", async () => {
+      const utxos = await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1_000_000_000n, i))); // 400 × 1 FLR
+      for (const policy of POLICIES) {
+        await buildTransaction({ type: "exportPC" }, pChainEnv(utxos, 1_000_000n), account, policy).then(
+          () => expect.fail(`@${policy.feePrice}: built an export over the gas capacity`),
+          (error: unknown) => expect(String(error)).to.match(/exceeds capacity \(1000000\)/)
+        );
       }
     });
 
