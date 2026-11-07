@@ -25,7 +25,7 @@ import {
   type UnsignedTxBundle,
 } from "../types";
 
-const NFLR_PER_GWEI_DIVISOR = 1_000_000_000n;
+const WEI_PER_GWEI = 1_000_000_000n;
 const PRIMARY_NETWORK = networkIDs.PrimaryNetworkID.toString();
 
 function bundle(txType: AtomicTxType, unsignedTx: UnsignedTx): UnsignedTxBundle {
@@ -39,7 +39,7 @@ function bundle(txType: AtomicTxType, unsignedTx: UnsignedTx): UnsignedTxBundle 
 }
 
 /** Base fee in gwei (nFLR), rounded up, as the flarejs `*FromBaseFee` builders expect. */
-const baseFeeGwei = (baseFeeWei: bigint): bigint => (baseFeeWei + NFLR_PER_GWEI_DIVISOR - 1n) / NFLR_PER_GWEI_DIVISOR;
+const baseFeeGwei = (baseFeeWei: bigint): bigint => (baseFeeWei + WEI_PER_GWEI - 1n) / WEI_PER_GWEI;
 
 /**
  * When the fee of exportCP/importPC is estimated (no `-f`), it covers this
