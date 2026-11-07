@@ -217,6 +217,32 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(relay.stderr).to.equal("Error: fetch failed\n");
   });
 
+  it("refuses a given --ctx-file that does not exist whatever else selects the account, but init-ctx writes it", () => {
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    for (const selectors of [
+      ["--ledger", "--derivation-path", "m/44'/60'/0'/0/0"],
+      ["--get-hacked", "--env-path", envPath],
+      ["--env-path", envPath],
+    ]) {
+      const result = runCli(["info", "addresses", ...selectors, "--ctx-file", "missing.json", "--network", "costwo"], {
+        cwd,
+        env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+      });
+      expect(result.exitCode, selectors.join(" ")).to.equal(1);
+      expect(result.stderr, selectors.join(" ")).to.include(
+        "Context file missing.json does not exist (given with --ctx-file)"
+      );
+    }
+    const created = runCli(
+      ["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo", "--ctx-file", "new.json"],
+      {
+        cwd,
+      }
+    );
+    expect(created.exitCode, created.stderr).to.equal(0);
+    expect(fs.existsSync(path.join(cwd, "new.json"))).to.equal(true);
+  });
+
   it("send refuses a file signed by another key than ctx.json's, before it contacts the node", () => {
     // without the check, an EVM transaction signed by any key is valid on its own and would be sent from that key
     const context = { wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "localflare" };

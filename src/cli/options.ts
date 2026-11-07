@@ -47,7 +47,14 @@ export function globalOptions(programOptions: OptionValues, commandOptions: obje
   return merged;
 }
 
+/**
+ * The environment of every command but init-ctx (which writes the context file). A context file given with
+ * --ctx-file must exist, whatever else selects the account or the network: a mistyped one is reported, not ignored.
+ */
 export function resolveEnv(options: GlobalOptions): Env {
+  if (options.ctxFile !== undefined && !contextFileExists(options.ctxFile)) {
+    throw new Error(`Context file ${options.ctxFile} does not exist (given with --ctx-file)`);
+  }
   return createEnv(resolveNetworkName(options.network, options.ctxFile), nodeOverrides(options));
 }
 

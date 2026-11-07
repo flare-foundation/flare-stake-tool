@@ -11,7 +11,7 @@ import { overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
-import { readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
+import { createEnv, readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
 import { describeAutoRenewal, getBalances, getValidators } from "./app/info";
 import { sendSignedTransaction } from "./app/send";
@@ -334,7 +334,7 @@ async function interactive(options: GlobalOptions, ignored: readonly string[]): 
 
 async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
   const network = resolveNetworkName(options.network, options.ctxFile);
-  const env = resolveEnv({ ...options, network });
+  const env = createEnv(network, nodeOverrides(options)); // not resolveEnv: --ctx-file is the file to write
   const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;
   let context: ContextFile;
   if (options.ledger) {
