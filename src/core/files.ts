@@ -67,7 +67,8 @@ export function signedTxPath(id: string, cwd = process.cwd()): string {
  * write leaves the old file or the new one, never half of one. Not a lock: two writers can still replace each other.
  */
 export function replaceFile(file: string, content: string): void {
-  const temp = `${file}.${crypto.randomBytes(4).toString("hex")}.tmp`;
+  // a short name of its own: the target's name plus a suffix can pass the 255-byte limit of a file name
+  const temp = path.join(path.dirname(file), `.${crypto.randomBytes(6).toString("hex")}.tmp`);
   fs.writeFileSync(temp, content, { flag: "wx" });
   try {
     fs.renameSync(temp, file);

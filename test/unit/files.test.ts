@@ -223,6 +223,16 @@ describe("core/files", () => {
       expect(readSignedTxJson("t1", cwd)).to.deep.include({ signature: "bb".repeat(65), isSentToChain: true });
     });
 
+    it("writes, marks and rewrites the files of an id as long as the file system allows", () => {
+      const id = "a".repeat(239); // its unsigned file name is 255 bytes, the most a file name can have
+      saveUnsignedTxJson(recordedAtomic, id, cwd);
+      writeUnsignedTxJson({ ...readUnsignedTxJson(id, cwd), forDefiTxId: "fordefi-1" }, id, cwd);
+      writeSignedTxJson(signed("aa".repeat(65)), id, cwd);
+      markSentToChain(id, cwd);
+      expect(isAlreadySentToChain(id, cwd)).to.equal(true);
+      expect(readUnsignedTxJson(id, cwd).forDefiTxId).to.equal("fordefi-1");
+    });
+
     it("rewrites leave no temporary file, and a failed rename removes it and keeps what was there", () => {
       saveUnsignedTxJson(recordedAtomic, "t1", cwd);
       writeSignedTxJson(signed("aa".repeat(65)), "t1", cwd);
