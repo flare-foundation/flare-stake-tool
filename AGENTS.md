@@ -30,7 +30,8 @@ src/
   core/builders/pchain.ts   One builder per P-chain/atomic tx type (flarejs 5.2.0 object-style builders)
   core/builders/evm.ts      C-chain EVM builders (claim, withdrawal, setClaim*, custom) with the frozen rawTx shape
   core/signing/             Signature normalization (v 0/1/27/28/EIP-155) and credential attachment incl. the Helicon authority credential
-  core/files.ts             Frozen unsigned/signed JSON file formats under ForDefiTxnFiles/
+  core/files.ts             Frozen unsigned/signed JSON file formats under ForDefiTxnFiles/: checked ids, checked reads, replaceFile rewrites
+  core/json.ts              parseJson / isJsonObject for files and answers that come from outside
   core/submit.ts            Issue + wait per chain (P: getTxStatus, C atomic: getAtomicTxStatus, EVM: receipt)
   signers/privateKey.ts     --get-hacked --env-path: in-process signing
   signers/ledger.ts         --ledger: LedgerSigner over a LedgerDevice (real device in src/ledger, fake via FLARE_FAKE_LEDGER_KEY for tests)
@@ -270,7 +271,15 @@ it — both example-based and property-based where applicable.
   check time 1, explicit fee) without a CHANGELOG entry: ForDefi signers building the same
   transaction independently must keep getting the same hash.
 - **Don't change the unsigned/signed JSON formats** in `core/files.ts`; they
-  are a contract with external signers and old files must keep loading.
+  are a contract with external signers and old files must keep loading. The
+  readers check only the fields the tool reads and return the object as it
+  was: requiring another field would refuse older files. Anything that signs or
+  sends a file goes through `bundleFromConsistentTxJson`, which refuses a
+  `message` or `unsignedTransactionBuffer` that isn't the file's transaction.
+- **`--derivation-path` and `--ctx-file` have no Commander default**, so that a
+  given one can be told apart: `options.derivationPath` / `options.ctxFile` are
+  undefined when not given. A given `--ctx-file` must exist; without
+  `--derivation-path`, `--ledger` takes a Ledger context's path and key.
 
 ## Common gotchas
 
@@ -294,8 +303,9 @@ it — both example-based and property-based where applicable.
   `evmSignatureHex`), and `index.ts` routes each call to the open app, which
   is asked again with the dashboard APDU before every operation, so the user
   can switch apps in between. The tests cover the signature helpers, the
-  Avalanche path split, app detection with an injected answer and
-  `LedgerSigner` with a fake device; the transport and the app clients run only
+  Avalanche path split, app detection with an injected answer, the
+  return-code check, and `LedgerSigner` with a fake device (every app, atomic
+  and EVM, blind signing and `confirmLedgerAccount`); the transport and the app clients run only
   against a device, so check changes there on a real one (Flare, Avalanche and
   Ethereum apps).
 
