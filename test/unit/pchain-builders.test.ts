@@ -15,6 +15,7 @@ import {
   TransferableOutput,
   Utxo,
   avaxSerial,
+  pvm,
   pvmSerial,
   utils as futils,
 } from "@flarenetwork/flarejs";
@@ -85,6 +86,88 @@ describe("core/builders/pchain", function () {
       ).then(
         () => expect.fail("the previous default amount should not be exportable"),
         (error: unknown) => expect(String(error)).to.match(/Insufficient funds/)
+      );
+    });
+
+    /** A P-chain UTXO of `amount` nFLR that the account can spend alone. */
+    async function owned(amount: bigint, index: number): Promise<Utxo> {
+      const { avaxAssetID } = await env.clients.context();
+      return new Utxo(
+        new avaxSerial.UTXOID(Id.fromHex(`0x${(index + 1).toString(16).padStart(64, "0")}`), new Int(index % 7)),
+        Id.fromString(avaxAssetID),
+        new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative([account.addressBytes], 0n, 1))
+      );
+    }
+
+    /** The recorded context and fee state, with `utxos` on the P-chain. */
+    function pChainEnv(utxos: Utxo[]): Env {
+      const clients = {
+        context: () => env.clients.context(),
+        pvm: {
+          getFeeState: () => env.clients.pvm.getFeeState(),
+          getUTXOs: () => Promise.resolve({ numFetched: utxos.length, utxos, endIndex: { address: "", utxo: "" } }),
+        },
+      };
+      return { network: env.network, clients } as unknown as Env;
+    }
+
+    const POLICIES = [IMMEDIATE_SIGNER_POLICY, FILE_SIGNER_POLICY] as const;
+
+    /** Builds exportPC without -a; returns its parts and the fee flarejs requires of it at the policy's price. */
+    async function exportAll(utxos: Utxo[], policy: (typeof POLICIES)[number]) {
+      const context = await env.clients.context();
+      const bundle = await buildTransaction({ type: "exportPC" }, pChainEnv(utxos), account, policy);
+      if (bundle.kind !== "atomic") throw new Error("exportPC must be atomic");
+      const tx = bundle.unsignedTx.getTx() as pvmSerial.ExportTx;
+      const price = policy.feePrice === "chain" ? (await env.clients.pvm.getFeeState()).price : policy.feePrice;
+      const amountsOf = (outputs: readonly TransferableOutput[]) =>
+        outputs.map((o) => (o.output as TransferOutput).amount());
+      return {
+        spent: tx.baseTx.inputs.map((input) => input.utxoID.txID.toString()),
+        change: amountsOf(tx.baseTx.outputs),
+        exported: amountsOf(tx.outs),
+        fee: atomicTxFee(bundle.unsignedTx, context),
+        required: pvm.calculateFee(tx, context.platformFeeConfig.weights, price),
+      };
+    }
+
+    it("spends every UTXO and pays exactly the fee flarejs requires: 1, 6 and 200 inputs", async () => {
+      const sets = {
+        one: [await owned(5_000_000_000n, 0)],
+        six: await Promise.all([1n, 2n, 3n, 4n, 5n, 6n].map((n, i) => owned(n * 1_000_000_000n, i))),
+        "200": await Promise.all(Array.from({ length: 200 }, (_, i) => owned(BigInt(i + 1) * 10_000_000n, i))),
+      };
+      for (const [name, utxos] of Object.entries(sets)) {
+        const total = utxos.reduce((sum, u) => sum + (u.output as TransferOutput).amount(), 0n);
+        for (const policy of POLICIES) {
+          const built = await exportAll(utxos, policy);
+          const label = `${name} @${policy.feePrice}`;
+          expect(built.spent, label).to.have.length(utxos.length);
+          expect(built.change, `${label}: no change`).to.deep.equal([]);
+          expect(built.fee, `${label}: the fee required at this price, no more`).to.equal(built.required);
+          expect(built.exported, label).to.deep.equal([total - built.fee]);
+        }
+      }
+    });
+
+    it("leaves out a UTXO worth less than the fee of adding it; it stays on the P-chain with the change", async () => {
+      const big = await owned(100_000_000_000n, 0); // 100 FLR
+      const dust = await owned(200_000n, 1); // 0.0002 FLR
+      for (const policy of POLICIES) {
+        const built = await exportAll([big, dust], policy);
+        const label = `@${policy.feePrice}`;
+        expect(built.spent, `${label}: only the 100 FLR UTXO`).to.deep.equal([big.utxoId.txID.toString()]);
+        expect(built.fee, label).to.equal(built.required);
+        expect(built.change, `${label}: one change output`).to.have.length(1);
+        expect(built.exported[0]! + built.fee + built.change[0]!, label).to.equal(100_000_000_000n);
+      }
+    });
+
+    it("refuses to export when the balance cannot pay the fee", async () => {
+      const utxos = [await owned(1n, 0)];
+      await buildTransaction({ type: "exportPC" }, pChainEnv(utxos), account, IMMEDIATE_SIGNER_POLICY).then(
+        () => expect.fail("exported from 1 nFLR"),
+        (error: unknown) => expect(String(error)).to.include("Export amount is smaller than or equal to zero")
       );
     });
 

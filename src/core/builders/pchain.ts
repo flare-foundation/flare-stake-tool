@@ -151,33 +151,28 @@ const exportPCTx = (inputs: PChainInputs, amount: NFlr): UnsignedTx =>
     inputs.context
   );
 
-const FEE_SHORTFALL_RE = /need (\d+) more unlocked nAVAX .*to cover fee/;
-
 /**
- * Exports the spendable total minus the fee of spending every UTXO. Exporting the
- * total first makes flarejs consume every UTXO and report the fee it is short by
- * (the P-chain fee depends on the inputs, so it cannot be a fixed value). flarejs
- * stops taking inputs once the amount and fee are covered, so a UTXO smaller than
- * the fee it adds can be left out. It stays on the P-chain, and so does the
- * change: the fee saved minus that UTXO.
+ * Exports the spendable total minus the fee of spending every UTXO. The P-chain
+ * fee depends on the inputs, so it cannot be a fixed value: a probe exporting the
+ * total at fee price 0 spends every UTXO, `pvm.calculateFee` prices it at the real
+ * price, and the export is built for the total minus that fee. The probe is never
+ * signed or sent, and is built on a copy of the fee state. flarejs stops taking
+ * inputs once the amount and fee are covered, so a UTXO smaller than the fee it
+ * adds can be left out. It stays on the P-chain, and so does the change: the fee
+ * saved minus that UTXO.
  */
 function exportAllPC(inputs: PChainInputs): { amount: NFlr; unsignedTx: UnsignedTx } {
   const total = spendableAmount(inputs.utxos, inputs.context.avaxAssetID, nowSeconds());
-  let fee = 0n;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const amount = asNFlr(total - fee);
-    if (amount <= 0n) {
-      throw new Error("Export amount is smaller than or equal to zero");
-    }
-    try {
-      return { amount, unsignedTx: exportPCTx(inputs, amount) };
-    } catch (error) {
-      const shortfall = FEE_SHORTFALL_RE.exec(error instanceof Error ? error.message : String(error))?.[1];
-      if (shortfall === undefined) throw error;
-      fee += BigInt(shortfall);
-    }
+  if (total <= 0n) {
+    throw new Error("Export amount is smaller than or equal to zero");
   }
-  throw new Error("Could not determine the fee of exporting the whole P-chain balance");
+  const probe = exportPCTx({ ...inputs, feeState: { ...inputs.feeState, price: 0n } }, total);
+  const fee = pvm.calculateFee(probe.getTx(), inputs.context.platformFeeConfig.weights, inputs.feeState.price);
+  const amount = asNFlr(total - fee);
+  if (amount <= 0n) {
+    throw new Error("Export amount is smaller than or equal to zero");
+  }
+  return { amount, unsignedTx: exportPCTx(inputs, amount) };
 }
 
 function startTime(requested: bigint | undefined, policy: BuildPolicy): bigint {
