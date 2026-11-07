@@ -11,6 +11,7 @@ import {
   type UnsignedAtomicTxJson,
 } from "../../src/core/files";
 import { SigningKey } from "ethers";
+import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 
 /** The ForDefi client reads ./token and ./private.pem from the working directory and talks to api.fordefi.com. */
@@ -18,12 +19,9 @@ describe("app/fordefi", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "fordefi-test-"));
   const originalCwd = process.cwd();
   const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const unsigned: UnsignedAtomicTxJson = {
-    transactionType: "exportCP",
-    signatureRequests: [{ message: "e8b2557ea240f0265b2d1ec0cf9ca3b6689b5c392a7d9b98d43bb8f681635e44", signer: "" }],
-    unsignedTransactionBuffer: "0000",
-    serialization: "{}",
-  };
+  // a real unsigned file: forDefi sign refuses one whose message is not the hash of its transaction
+  const { forDefiHash: _hash, ...unsigned } = readGolden("exportCP-file").outcome
+    .unsignedTxJson as UnsignedAtomicTxJson;
   const vaultId = "1dafbe27-cdb1-4c8c-9ea6-fdf43f5d7242";
   const context = {
     wallet: "publicKey" as const,
@@ -103,6 +101,16 @@ describe("app/fordefi", () => {
       },
       "POST /api/v1/transactions": { id: "fordefi-tx-42" }, // the id the later tests fetch from tx1
     });
+
+  it("refuses a file whose message is not the hash of its transaction, before any request to ForDefi", async () => {
+    const other = readGolden("delegate-file").outcome.unsignedTxJson as UnsignedAtomicTxJson;
+    saveUnsignedTxJson({ ...unsigned, signatureRequests: other.signatureRequests }, "tampered");
+    const requests = calls.length;
+    expect(await rejectedWith(sendToForDefi("tampered", context, fakeFetch({})))).to.match(
+      /^The file's message [0-9a-f]{64} is not the hash of its transaction \([0-9a-f]{64}\); rebuild the file$/
+    );
+    expect(calls.length).to.equal(requests);
+  });
 
   it("refuses a vault whose key is another valid key than the context's", async () => {
     const otherKey = new SigningKey(`0x${"11".repeat(32)}`).compressedPublicKey.slice(2);

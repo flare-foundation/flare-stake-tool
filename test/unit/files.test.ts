@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import { Transaction } from "ethers";
 import {
+  bundleFromConsistentTxJson,
   bundleFromUnsignedTxJson,
   forDefiHashOf,
   isAlreadySentToChain,
@@ -16,6 +17,7 @@ import {
   writeSignedTxJson,
   type UnsignedAtomicTxJson,
   type UnsignedEvmTxJson,
+  type UnsignedTxJson,
 } from "../../src/core/files";
 import { toHex } from "../../src/core/signing/signature";
 
@@ -62,6 +64,69 @@ describe("core/files", () => {
     // and a JSON round trip, as the file flow imposes, changes nothing
     const reloaded = JSON.parse(JSON.stringify(PUBLISHED_V433_TX)) as UnsignedEvmTxJson;
     expect(toHex(bundleFromUnsignedTxJson(reloaded).digest)).to.equal(PUBLISHED_V433_TX.message);
+  });
+
+  describe("bundleFromConsistentTxJson: the message and buffer must be the file's transaction", () => {
+    const goldenDir = path.join(__dirname, "..", "golden");
+    const fileOf = (name: string) =>
+      JSON.parse(fs.readFileSync(path.join(goldenDir, `${name}.json`), "utf8")).outcome
+        .unsignedTxJson as UnsignedTxJson;
+    /** Every unsigned file the goldens recorded, atomic and EVM. */
+    const recorded = fs
+      .readdirSync(goldenDir)
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => name.slice(0, -".json".length))
+      .filter(
+        (name) =>
+          (
+            JSON.parse(fs.readFileSync(path.join(goldenDir, `${name}.json`), "utf8")) as {
+              outcome?: { unsignedTxJson?: unknown };
+            }
+          ).outcome?.unsignedTxJson !== undefined
+      );
+    const digestOf = (json: UnsignedTxJson) => toHex(bundleFromUnsignedTxJson(json).digest);
+    const delegate = fileOf("delegate-file") as UnsignedAtomicTxJson;
+    const transfer = fileOf("transfer-file") as UnsignedAtomicTxJson;
+
+    it("accepts every recorded unsigned file and the published v4.3.3 one, with the same bundle as the plain reader", () => {
+      expect(recorded.length).to.be.greaterThan(15);
+      for (const json of [...recorded.map(fileOf), PUBLISHED_V433_TX]) {
+        expect(toHex(bundleFromConsistentTxJson(json).digest)).to.equal(digestOf(json));
+      }
+    });
+
+    it("accepts a message or buffer with 0x or in uppercase, and an atomic file without a buffer", () => {
+      const message = messageOf(delegate);
+      for (const json of [
+        { ...delegate, signatureRequests: [{ message: `0x${message}`, signer: "" }] },
+        { ...delegate, signatureRequests: [{ message: message.toUpperCase(), signer: "" }] },
+        { ...delegate, unsignedTransactionBuffer: `0x${delegate.unsignedTransactionBuffer.toUpperCase()}` },
+        { ...delegate, unsignedTransactionBuffer: "" },
+      ]) {
+        expect(toHex(bundleFromConsistentTxJson(json).digest)).to.equal(message);
+      }
+    });
+
+    it("refuses a message that is another transaction's hash, atomic or EVM", () => {
+      const evm = fileOf("withdrawal-file") as UnsignedEvmTxJson;
+      const otherEvm = fileOf("claim-file") as UnsignedEvmTxJson;
+      for (const [json, digest] of [
+        [{ ...delegate, signatureRequests: [{ message: messageOf(transfer), signer: "" }] }, messageOf(delegate)],
+        [{ ...evm, message: otherEvm.message }, evm.message],
+      ] as [UnsignedTxJson, string][]) {
+        expect(() => bundleFromConsistentTxJson(json)).to.throw(
+          `The file's message ${messageOf(json)} is not the hash of its transaction (${digest}); rebuild the file`
+        );
+      }
+    });
+
+    it("refuses a buffer of another transaction, even when message and serialization agree with each other", () => {
+      // transfer's buffer, delegate's serialization and message: the buffer shows one transaction, the hash is another's
+      const json = { ...delegate, unsignedTransactionBuffer: transfer.unsignedTransactionBuffer };
+      expect(() => bundleFromConsistentTxJson(json)).to.throw(
+        "The file's unsignedTransactionBuffer is not the transaction in its serialization; rebuild the file"
+      );
+    });
   });
 
   it("writes, reads and marks files under ForDefiTxnFiles in the working directory", () => {

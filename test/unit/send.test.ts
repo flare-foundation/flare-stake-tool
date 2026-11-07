@@ -8,7 +8,13 @@ import fs from "fs";
 import { sendSignedTransaction, type SendEnv } from "../../src/app/send";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
-import { isAlreadySentToChain, signedTxPath, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
+import {
+  isAlreadySentToChain,
+  signedTxPath,
+  writeSignedTxJson,
+  type UnsignedAtomicTxJson,
+  type UnsignedTxJson,
+} from "../../src/core/files";
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
 import { describeError } from "../../src/output";
 import { readGolden } from "../characterization/scenarios";
@@ -269,6 +275,50 @@ describe("app/send: the isSentToChain mark", () => {
       (error: unknown) => expect(String(error)).to.include("insufficient funds")
     );
     expect(isAlreadySentToChain("t", cwd)).to.equal(false);
+  });
+});
+
+describe("app/send: the file's representations of the transaction must agree", () => {
+  const ewoq = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = makeTempDir("send-");
+  });
+
+  afterEach(() => {
+    cleanupTempDir(cwd);
+  });
+
+  it("refuses a signed file whose buffer or message is another transaction's: nothing reaches the node", async () => {
+    const delegate = readGolden("delegate-file").outcome.unsignedTxJson as UnsignedAtomicTxJson;
+    const transfer = readGolden("transfer-file").outcome.unsignedTxJson as UnsignedAtomicTxJson;
+    const delegateMessage = delegate.signatureRequests[0]!.message;
+    const transferMessage = transfer.signatureRequests[0]!.message;
+    for (const [id, json, signedMessage, refusal] of [
+      [
+        "buffer",
+        { ...delegate, unsignedTransactionBuffer: transfer.unsignedTransactionBuffer },
+        delegateMessage,
+        "The file's unsignedTransactionBuffer is not the transaction in its serialization; rebuild the file",
+      ],
+      [
+        "message",
+        { ...delegate, signatureRequests: [{ message: transferMessage, signer: "" }] },
+        transferMessage,
+        `The file's message ${transferMessage} is not the hash of its transaction (${delegateMessage}); rebuild the file`,
+      ],
+    ] as [string, UnsignedAtomicTxJson, string, string][]) {
+      writeSignedTxJson({ ...json, signature: signMessageHash(signedMessage) }, id, cwd);
+      let issued = false;
+      const env = scriptedEnv({ statuses: ["Committed"], onIssue: () => (issued = true) }, id, cwd);
+      await sendSignedTransaction(id, env, ewoq, cwd, FAST).then(
+        () => expect.fail(`${id}: an inconsistent file must be refused`),
+        (error: unknown) => expect(describeError(error), id).to.equal(refusal)
+      );
+      expect(issued, id).to.equal(false);
+      expect(isAlreadySentToChain(id, cwd), id).to.equal(false);
+    }
   });
 });
 

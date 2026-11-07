@@ -6,7 +6,7 @@
  */
 import crypto from "crypto";
 import fs from "fs";
-import { messageOf, readUnsignedTxJson, writeSignedTxJson, writeUnsignedTxJson } from "../core/files";
+import { bundleFromConsistentTxJson, readUnsignedTxJson, writeSignedTxJson, writeUnsignedTxJson } from "../core/files";
 import { normalizePublicKey } from "../chain/keys";
 import { equalBytes } from "../core/signing/signature";
 import type { ContextFile } from "./env";
@@ -78,14 +78,16 @@ export async function sendToForDefi(id: string, context: ContextFile, fetchImpl:
   if (!context.vaultId) {
     throw new Error("vaultId not found in context");
   }
+  const unsigned = readUnsignedTxJson(id);
+  // the hash ForDefi signs: the file's message, which must be the digest of the file's transaction
+  const { digest } = bundleFromConsistentTxJson(unsigned);
   const vaultPublicKey = await getVaultPublicKey(context.vaultId, fetchImpl);
   // compared as keys: a context may hold its key uncompressed or with 0x, the vault answers it compressed
   const contextKey = publicKeyOf(context.publicKey, "The context's publicKey");
   if (!equalBytes(contextKey, publicKeyOf(vaultPublicKey, `The public key of ForDefi vault ${context.vaultId}`))) {
     throw new Error("public key does not match the vault");
   }
-  const unsigned = readUnsignedTxJson(id);
-  const hashBase64 = Buffer.from(messageOf(unsigned), "hex").toString("base64");
+  const hashBase64 = Buffer.from(digest).toString("base64");
   const requestBody = JSON.stringify({
     vault_id: context.vaultId,
     signer_type: "api_signer",

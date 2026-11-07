@@ -55,6 +55,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Ledger blind signing (the Avalanche app, or the Flare app for a type it can't parse) prints the transaction hash on stderr first, to compare with the one the device shows.
   * `forDefi sign` labels the ForDefi id correctly, and ForDefi errors show the HTTP status and response instead of misleading messages.
   * `forDefi sign` compares the context's public key with the vault's as keys, so a context holding it uncompressed or with `0x` is accepted.
+  * `forDefi sign` and `send` refuse a file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is another transaction. ForDefi signed the file's `message` as it was, so a changed file could show one transaction and get another one's hash signed.
   * `init-ctx` honours `--derivation-path` and stores the P-chain address in `flareAddress`.
   * `init-ctx --ledger` prints the address the device is about to show, and writes no context file when the device shows another address than the one of its key.
 * Interactive mode:
