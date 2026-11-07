@@ -99,10 +99,34 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stderr + result.stdout).to.not.include("SECRET-KEY");
   });
 
-  it("info with an unknown type exits 1 before looking for a context file", () => {
-    const result = runCli(["info", "foo", "--network", "costwo"], { cwd });
+  it("refuses an unknown info, transaction or forDefi type with the allowed ones, before looking for a context file", () => {
+    for (const [args, choices] of [
+      [["info", "foo"], "addresses, balance, validators"],
+      [
+        ["transaction", "stakeAll"],
+        "exportCP, importCP, exportPC, importPC, stake, delegate, transfer, addAutoRenewedValidator, setAutoRenewedValidatorConfig",
+      ],
+      [["forDefi", "verify", "-i", "t1"], "sign, fetch"],
+    ] as const) {
+      const result = runCli([...args, "--network", "costwo"], { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.include(
+        `error: command-argument value '${args[1]}' is invalid for argument`
+      );
+      expect(result.stderr, args.join(" ")).to.include(`Allowed choices are ${choices}.`);
+    }
+    const help = runCli(["info", "--help"], { cwd });
+    expect(help.stdout).to.match(/\(choices: "addresses",\s+"balance",\s+"validators"\)/);
+  });
+
+  it("reports a missing transaction option before asking for a signer or a transaction id", () => {
+    // no -i, no --ledger and no key file: the signer would be refused, but the missing node id comes first
+    const result = runCli(["delegate", "-a", "1", "-e", "2d", "--network", "costwo"], { cwd });
     expect(result.exitCode).to.equal(1);
-    expect(result.stderr).to.include('Unknown information type "foo"; use addresses, balance, validators');
+    expect(result.stderr).to.not.include("A transaction id is required");
+    expect(result.stderr).to.equal(
+      "Error: nodeId is required for delegate transaction. Use --node-id <nodeId> to specify the nodeId\n"
+    );
   });
 
   it("an invalid --rpc-url is reported without the API key it carries", () => {
@@ -191,11 +215,7 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
-  it("forDefi refuses an unknown action, and fetching a signature once the transaction was sent", () => {
-    const unknown = runCli(["forDefi", "verify", "-i", "t1"], { cwd });
-    expect(unknown.exitCode).to.equal(1);
-    expect(unknown.stderr).to.include("Unknown forDefi action verify; use sign or fetch");
-
+  it("forDefi refuses fetching a signature once the transaction was sent", () => {
     const unsigned = readGolden("exportCP-file").outcome.unsignedTxJson as UnsignedTxJson;
     writeSignedTxJson({ ...unsigned, signature: "00".repeat(65) }, "t1", cwd);
     markSentToChain("t1", cwd);

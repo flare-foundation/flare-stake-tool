@@ -3,7 +3,7 @@
  * resolves the environment and the signer, and calls the application layer;
  * no transaction logic lives here.
  */
-import { Command } from "commander";
+import { Argument, Command } from "commander";
 import { styleText } from "node:util";
 import figlet from "figlet";
 import { accountFromPublicKey } from "./chain/keys";
@@ -43,6 +43,9 @@ import { confirmLedgerAccount, ledgerDevice } from "./signers/ledger";
 import { version } from "../package.json";
 
 const TRANSACTION_TYPES = ATOMIC_TX_TYPES.join("|");
+/** Commander refuses other values (Argument.choices); the commands keep their own checks for other callers. */
+const INFO_TYPES = ["addresses", "balance", "validators"];
+const FORDEFI_ACTIONS = ["sign", "fetch"];
 
 /** Options of `init-ctx`. */
 interface InitCtxOptions {
@@ -105,7 +108,7 @@ export function cli(program: Command): void {
   program
     .command("info")
     .description("Relevant information")
-    .argument("<addresses|balance|validators>", "Type of information")
+    .addArgument(new Argument("<addresses|balance|validators>", "Type of information").choices(INFO_TYPES))
     .action(async (type: string) => {
       await info(type, globalOptions(program.opts()));
     });
@@ -113,7 +116,7 @@ export function cli(program: Command): void {
   program
     .command("transaction")
     .description("Move funds between chains or P-chain addresses, stake, delegate, manage auto-renewed validators")
-    .argument(`<${TRANSACTION_TYPES}>`, "Type of transaction")
+    .addArgument(new Argument(`<${TRANSACTION_TYPES}>`, "Type of transaction").choices(ATOMIC_TX_TYPES))
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize (unsigned-file flow)")
     .option("-a, --amount <amount>", "Amount (in FLR)")
     .option("-f, --fee <fee>", "Transaction fee (in FLR; exportCP/importPC)")
@@ -155,7 +158,7 @@ export function cli(program: Command): void {
   program
     .command("forDefi")
     .description("Sign with ForDefi")
-    .argument("<sign|fetch>", "Type of a forDefi transaction")
+    .addArgument(new Argument("<sign|fetch>", "Type of a forDefi transaction").choices(FORDEFI_ACTIONS))
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("--evm-tx", "Accepted for compatibility; the transaction file tells the kind")
     .action(async (type: string, options: TransactionIdOptions) => {
@@ -245,8 +248,9 @@ function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFl
 
 async function transaction(type: string, options: GlobalOptions & AtomicTxOptions): Promise<void> {
   const env = resolveEnv(options);
-  const signer = await resolveSigner(options, env);
+  // the request first: a missing or invalid option is reported as such, not as a missing signer or transaction id
   const { request, resolvedTimes } = parseAtomicTxRequest(type, options);
+  const signer = await resolveSigner(options, env);
   reportResolvedTimes(resolvedTimes, signer.kind === "file");
   reportOutcome(await runTransaction(request, env, signer), env.network.symbol);
 }
@@ -256,8 +260,9 @@ async function evmTransaction(
   options: GlobalOptions & EvmTxOptions
 ): Promise<void> {
   const env = resolveEnv(options);
+  const request = parseEvmTxRequest(operation, options); // before the signer, as for transactions
   const signer = await resolveSigner(options, env);
-  reportOutcome(await runTransaction(parseEvmTxRequest(operation, options), env, signer), env.network.symbol);
+  reportOutcome(await runTransaction(request, env, signer), env.network.symbol);
 }
 
 async function send(options: GlobalOptions): Promise<void> {
@@ -368,8 +373,6 @@ async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
   writeContextFile(context, options.ctxFile);
   logSuccess("Context file created");
 }
-
-const INFO_TYPES = ["addresses", "balance", "validators"];
 
 async function info(type: string, options: GlobalOptions): Promise<void> {
   if (!INFO_TYPES.includes(type)) {
