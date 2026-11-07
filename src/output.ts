@@ -1,5 +1,6 @@
 import { styleText } from "node:util";
-import { API_KEY_ENV } from "./chain/network";
+import { nodeOfError } from "./chain/clients";
+import { API_KEY_ENV, redactSecrets } from "./chain/network";
 import { formatFlr } from "./chain/units";
 import { SubmittedTxError } from "./core/submit";
 import type { Outcome } from "./core/types";
@@ -63,21 +64,45 @@ export function logWarning(msg: string) {
 const NODE_HINT = `; check ${RPC_URL_FLAG} and the API key (${API_KEY_FLAG} or ${API_KEY_ENV})`;
 
 /**
- * The message for the top-level error handlers. A gateway that refuses a
- * request answers with an HTML error page: ethers reports the status, flarejs
- * fails to parse the page as JSON. Both get a hint instead of the raw dump.
+ * The message for the top-level error handlers, cleaned of credentials (`redactSecrets`). A gateway that refuses a
+ * request answers with an HTML error page: ethers reports the status, flarejs fails to parse the page as JSON. Both
+ * get a hint instead of the raw dump. An error from a node request also gets its causes ("fetch failed" alone says
+ * nothing) and the node's URL.
  */
 export function describeError(error: unknown): string {
+  return redactSecrets(describeUncleaned(error));
+}
+
+function describeUncleaned(error: unknown): string {
   if (error instanceof SubmittedTxError) {
-    return `${error.context}: ${describeError(error.cause)}`;
+    return `${error.context}: ${describeUncleaned(error.cause)}`;
   }
   const message = error instanceof Error ? error.message : String(error);
   const refused = /server response (40[13]) ([^(]*?)\s*(?:\(|$)/.exec(message);
-  if (refused) {
-    return `The node answered HTTP ${refused[1]} ${refused[2]}${NODE_HINT}`;
+  const text = refused
+    ? `The node answered HTTP ${refused[1]} ${refused[2]}${NODE_HINT}`
+    : /Unexpected token '<'.*is not valid JSON/.test(message)
+      ? `The node answered with an error page instead of JSON-RPC (${message})${NODE_HINT}`
+      : message;
+  const node = nodeOfError(error);
+  if (node === undefined) return text; // other wrappers (keys, Ledger) already carry their cause's message
+  const details = [...causeMessages(error).filter((cause) => !text.includes(cause)), `node ${node}`];
+  return `${text} (${details.join("; ")})`;
+}
+
+/** The distinct messages below an error: its cause chain and an AggregateError's errors, each once, cycles cut. */
+function causeMessages(error: unknown, depth = 0, seen = new Set<unknown>([error]), found: string[] = []): string[] {
+  if (depth > 5 || typeof error !== "object" || error === null) return found;
+  const below = [
+    ...(error instanceof AggregateError ? (error.errors as unknown[]) : []),
+    (error as { cause?: unknown }).cause,
+  ];
+  for (const inner of below) {
+    if (inner === undefined || inner === null || seen.has(inner)) continue;
+    seen.add(inner);
+    const message = (inner instanceof Error ? inner.message : typeof inner === "string" ? inner : "").trim();
+    if (message && !found.includes(message)) found.push(message);
+    causeMessages(inner, depth + 1, seen, found);
   }
-  if (/Unexpected token '<'.*is not valid JSON/.test(message)) {
-    return `The node answered with an error page instead of JSON-RPC (${message})${NODE_HINT}`;
-  }
-  return message;
+  return found;
 }

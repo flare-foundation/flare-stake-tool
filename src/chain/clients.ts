@@ -4,7 +4,7 @@
  */
 import { Context, avm, evm, info, networkIDs, pvm } from "@flarenetwork/flarejs";
 import { FetchRequest, JsonRpcProvider } from "ethers";
-import { API_KEY_HEADER, assertNodeNetwork, type NetworkConfig } from "./network";
+import { API_KEY_HEADER, assertNodeNetwork, rememberSecret, type NetworkConfig } from "./network";
 
 export type UpgradesInfo = Awaited<ReturnType<info.InfoApi["getUpgradesInfo"]>>;
 
@@ -87,18 +87,80 @@ function cachedUntilFailure<T>(lookup: () => Promise<T>): () => Promise<T> {
     }));
 }
 
+/** Where an error a client threw came from: a field on the error itself, so its type, fields and cause stay. */
+const NODE_OF_ERROR = Symbol("node");
+
+/** How far down the cause chain (and an AggregateError's errors) an error is looked into. */
+const MAX_CAUSE_DEPTH = 6;
+
+/** The node URL a client noted on `error` or on an error below it, if any. */
+export function nodeOfError(error: unknown, depth = 0, seen = new Set<unknown>()): string | undefined {
+  if (typeof error !== "object" || error === null || depth > MAX_CAUSE_DEPTH || seen.has(error)) return undefined;
+  seen.add(error);
+  const own = (error as { [NODE_OF_ERROR]?: string })[NODE_OF_ERROR];
+  if (own !== undefined) return own;
+  const below = [
+    ...(error instanceof AggregateError ? (error.errors as unknown[]) : []),
+    (error as { cause?: unknown }).cause,
+  ];
+  for (const inner of below) {
+    const node = nodeOfError(inner, depth + 1, seen);
+    if (node !== undefined) return node;
+  }
+  return undefined;
+}
+
+function noteNode(error: unknown, node: string): unknown {
+  if (typeof error === "object" && error !== null && Object.isExtensible(error) && !(NODE_OF_ERROR in error)) {
+    Object.defineProperty(error, NODE_OF_ERROR, { value: node });
+  }
+  return error;
+}
+
+/**
+ * `api` with every failure of its methods, thrown or rejected, noted with the node it asked. The methods run on the
+ * object itself, so flarejs and ethers see no difference; values that are not methods are returned as they are.
+ */
+export function notingNode<T extends object>(api: T, node: string): T {
+  return new Proxy(api, {
+    get(target, property) {
+      const value: unknown = Reflect.get(target, property, target);
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]): unknown => {
+        try {
+          const result: unknown = Reflect.apply(value, target, args);
+          return result instanceof Promise
+            ? result.catch((error: unknown) => {
+                throw noteNode(error, node);
+              })
+            : result;
+        } catch (error) {
+          throw noteNode(error, node);
+        }
+      };
+    },
+  });
+}
+
 export function createClients(network: NetworkConfig): Clients {
+  rememberSecret(network.apiKey);
+  const { username, password } = new URL(network.apiUrl);
+  rememberSecret(decodeURIComponent(username));
+  rememberSecret(decodeURIComponent(password));
   // The API key travels as a header, never in the URL, so it stays out of logs and error messages.
   const headers = network.apiKey === undefined ? undefined : { [API_KEY_HEADER]: network.apiKey };
   const keyed = <T extends { setFetchOptions(options: RequestInit | undefined): void }>(api: T): T => {
     if (headers) api.setFetchOptions({ headers });
     return api;
   };
-  const pvmApi = keyed(new pvm.PVMApi(network.apiUrl));
-  const evmApi = keyed(new evm.EVMApi(network.apiUrl));
-  keyed(evmApi.ethAPI); // getBaseFee goes through this inner C-chain RPC client
-  const infoApi = keyed(new info.InfoApi(network.apiUrl));
-  const avmApi = keyed(new avm.AVMApi(network.apiUrl));
+  // every request's failure names the node it went to (describeError prints it, credentials masked)
+  const node = network.apiUrl;
+  const rawEvmApi = keyed(new evm.EVMApi(network.apiUrl));
+  keyed(rawEvmApi.ethAPI); // getBaseFee goes through this inner C-chain RPC client, inside the EVM API's methods
+  const pvmApi = notingNode(keyed(new pvm.PVMApi(network.apiUrl)), node);
+  const evmApi = notingNode(rawEvmApi, node);
+  const infoApi = notingNode(keyed(new info.InfoApi(network.apiUrl)), node);
+  const avmApi = notingNode(keyed(new avm.AVMApi(network.apiUrl)), node);
   const connection = new FetchRequest(network.rpcUrl);
   if (network.apiKey !== undefined) connection.setHeader(API_KEY_HEADER, network.apiKey);
 
@@ -120,7 +182,7 @@ export function createClients(network: NetworkConfig): Clients {
     pvm: pvmApi,
     evm: evmApi,
     info: infoApi,
-    provider: new JsonRpcProvider(connection, network.chainId, { staticNetwork: true }),
+    provider: notingNode(new JsonRpcProvider(connection, network.chainId, { staticNetwork: true }), node),
     context,
     verifyNetwork,
     upgrades,

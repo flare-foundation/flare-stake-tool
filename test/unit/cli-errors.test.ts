@@ -67,6 +67,18 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("never prints the password of a node URL, which the fetch error repeats", () => {
+    const result = runCli(
+      ["info", "validators", "--network", "localflare", "--rpc-url", "https://user:SECRET@127.0.0.1:1"],
+      {
+        cwd,
+      }
+    );
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr + result.stdout).to.not.include("SECRET");
+    expect(result.stderr).to.include("https://***@127.0.0.1:1");
+  });
+
   it("info with an unknown type exits 1 before looking for a context file", () => {
     const result = runCli(["info", "foo", "--network", "costwo"], { cwd });
     expect(result.exitCode).to.equal(1);
@@ -214,7 +226,7 @@ describe("CLI errors (built CLI, no node)", function () {
     // no context file at all: the account is the one that signed, and the send gets as far as the node
     const relay = runCli(["send", "-i", "w1", "--network", "localflare"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
     expect(relay.exitCode).to.equal(1);
-    expect(relay.stderr).to.equal("Error: fetch failed\n");
+    expect(relay.stderr).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
   });
 
   it("refuses a given --ctx-file that does not exist whatever else selects the account, but init-ctx writes it", () => {

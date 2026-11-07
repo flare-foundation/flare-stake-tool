@@ -20,7 +20,7 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--ctx-file <file>` | Context file written by `init-ctx` (default `ctx.json`, used when it exists). A file given with `--ctx-file` must exist, whatever else selects the account or network, also for `forDefi fetch`, which doesn't read it: a missing one is refused, not ignored (`init-ctx` writes it instead) |
 | `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58`. A `PRIVATE_KEY_CB58` whose checksum doesn't match (a typo) is refused |
 | `--get-hacked` | Use the env file's private key for direct in-process signing |
-| `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command |
+| `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command. A failed request is reported with its cause and the node's URL, such as `fetch failed (connect ECONNREFUSED 127.0.0.1:9650; node http://localhost:9650)`; URL credentials and the API key are masked as `***` in every error |
 | `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes (or env `FLARE_API_KEY`) |
 
 Global options can come before or after the command. The transaction types

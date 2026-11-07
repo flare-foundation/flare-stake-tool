@@ -74,6 +74,24 @@ export function redactApiKey(text: string): string {
   return text.replace(new RegExp(`([?&]${API_KEY_HEADER}=)[^&#\\s"]*`, "gi"), "$1***");
 }
 
+/** Secrets in use (the API key, URL credentials), masked wherever they turn up in a message. */
+const secrets = new Set<string>();
+
+/** Masks `value` in every message `redactSecrets` cleans from now on. */
+export function rememberSecret(value: string | undefined): void {
+  if (value !== undefined && value.length >= 4) secrets.add(value);
+}
+
+/**
+ * A message cleaned of credentials before it is printed: the `x-apikey` query parameter, the user and password of a
+ * URL (`https://user:SECRET@host`), and every remembered secret, wherever a library repeats them.
+ */
+export function redactSecrets(text: string): string {
+  let cleaned = redactApiKey(text).replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#@]*@/gi, "$1***@");
+  for (const secret of secrets) cleaned = cleaned.split(secret).join("***");
+  return cleaned;
+}
+
 /**
  * Turns a node URL into the base URL the clients are built on. A full endpoint
  * URL as copied from a node's documentation (`https://host/ext/info?x-apikey=KEY`)

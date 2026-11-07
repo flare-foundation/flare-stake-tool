@@ -73,6 +73,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * Command line:
   * The shortcuts (`balance`, `exportCP`, …) and `interactive` work after global options, as in `--network costwo balance`.
   * An end time that is not in the future gets a warning (`-e 1209600` is a unix time, not 14 days).
+  * A failed node request names its cause and the node, as in `fetch failed (connect ECONNREFUSED …; node http://…)`, instead of only `fetch failed`. URL credentials and the API key are masked in every error.
 
 ### Changed
 
