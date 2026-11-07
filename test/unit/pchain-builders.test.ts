@@ -12,6 +12,7 @@ import {
   Int,
   OutputOwners,
   TransferOutput,
+  TransferableInput,
   TransferableOutput,
   Utxo,
   avaxSerial,
@@ -89,13 +90,13 @@ describe("core/builders/pchain", function () {
       );
     });
 
-    /** A P-chain UTXO of `amount` nFLR that the account can spend alone. */
-    async function owned(amount: bigint, index: number): Promise<Utxo> {
+    /** A P-chain UTXO of `amount` nFLR that the account can spend alone, time-locked until `locktime` if given. */
+    async function owned(amount: bigint, index: number, locktime = 0n): Promise<Utxo> {
       const { avaxAssetID } = await env.clients.context();
       return new Utxo(
         new avaxSerial.UTXOID(Id.fromHex(`0x${(index + 1).toString(16).padStart(64, "0")}`), new Int(index % 7)),
         Id.fromString(avaxAssetID),
-        new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative([account.addressBytes], 0n, 1))
+        new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative([account.addressBytes], locktime, 1))
       );
     }
 
@@ -207,6 +208,75 @@ describe("core/builders/pchain", function () {
         () => expect.fail("exported from an empty account"),
         (error: unknown) => expect(String(error)).to.include("Export amount is smaller than or equal to zero")
       );
+    });
+
+    describe("time locks", () => {
+      const UNLOCK = 1_900_000_000n; // the second a time lock ends
+      const realNow = Date.now;
+      afterEach(() => {
+        Date.now = realNow;
+      });
+
+      /** Builds a transfer of 5 FLR and exportPC without -a at clock time `seconds`; returns their bytes and inputs. */
+      async function buildAt(seconds: bigint, utxos: Utxo[], policy: (typeof POLICIES)[number]) {
+        Date.now = () => Number(seconds) * 1000;
+        const requests = [
+          { type: "transfer", amount: asNFlr(5_000_000_000n), to: account.pAddress },
+          { type: "exportPC" },
+        ] as const;
+        const built = [];
+        for (const request of requests) {
+          const bundle = await buildTransaction(request, pChainEnv(utxos), account, policy);
+          if (bundle.kind !== "atomic") throw new Error(`${request.type} must be a P-chain transaction`);
+          const { inputs } = (bundle.unsignedTx.getTx() as unknown as { baseTx: { inputs: TransferableInput[] } })
+            .baseTx;
+          built.push({
+            bytes: Buffer.from(bundle.unsignedTx.toBytes()).toString("hex"),
+            spent: inputs.map((input) => input.utxoID.txID.toString()),
+          });
+        }
+        return built;
+      }
+
+      it("unsigned files pick the same inputs on either side of a lock's end; an immediate signer waits for it", async () => {
+        const locked = await owned(50_000_000_000n, 0, UNLOCK); // 50 FLR, first in line
+        const free = await owned(10_000_000_000n, 1); // 10 FLR
+        const lockedId = locked.utxoId.txID.toString();
+        const utxos = [locked, free];
+
+        const fileBefore = await buildAt(UNLOCK - 1n, utxos, FILE_SIGNER_POLICY);
+        const fileAfter = await buildAt(UNLOCK + 3600n, utxos, FILE_SIGNER_POLICY);
+        expect(
+          fileAfter.map((b) => b.bytes),
+          "same transactions an hour apart"
+        ).to.deep.equal(fileBefore.map((b) => b.bytes));
+        for (const built of fileAfter) expect(built.spent, "file: never the time-locked UTXO").not.to.include(lockedId);
+
+        const [transferAtEnd, exportAtEnd] = await buildAt(UNLOCK, utxos, IMMEDIATE_SIGNER_POLICY);
+        expect(transferAtEnd!.spent, "immediate, at the lock's second: still locked").to.deep.equal([
+          free.utxoId.txID.toString(),
+        ]);
+        expect(exportAtEnd!.spent, "immediate, at the lock's second: still locked").not.to.include(lockedId);
+        const [transferAfter, exportAfter] = await buildAt(UNLOCK + 1n, utxos, IMMEDIATE_SIGNER_POLICY);
+        expect(transferAfter!.spent, "immediate, a second later").to.deep.equal([lockedId]);
+        expect(exportAfter!.spent, "immediate, a second later").to.include(lockedId);
+      });
+
+      it("counts a UTXO as spendable from the second flarejs spends it, for owner and stakeable locks", async () => {
+        const { avaxAssetID } = await env.clients.context();
+        const ownerLocked = await owned(1_000n, 0, UNLOCK);
+        const stakeableLocked = new Utxo(
+          new avaxSerial.UTXOID(Id.fromHex(`0x${"ab".repeat(32)}`), new Int(0)),
+          Id.fromString(avaxAssetID),
+          new pvmSerial.StakeableLockOut(
+            new BigIntPr(UNLOCK),
+            new TransferOutput(new BigIntPr(2_000n), OutputOwners.fromNative([account.addressBytes], 0n, 1))
+          )
+        );
+        const utxos = [ownerLocked, stakeableLocked];
+        expect(spendableAmount(utxos, avaxAssetID, UNLOCK)).to.equal(0n);
+        expect(spendableAmount(utxos, avaxAssetID, UNLOCK + 1n)).to.equal(3_000n);
+      });
     });
   });
 

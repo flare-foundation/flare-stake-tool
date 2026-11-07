@@ -124,6 +124,13 @@ export interface BuildPolicy {
    * "latest" is the same on every node at a height, so ForDefi co-signers build the same transaction.
    */
   readonly evmNonce: "pending" | "latest";
+  /**
+   * The time P-chain UTXO time locks are checked against (flarejs `minIssuanceTime`). "now" for a signer that sends
+   * right away. Unsigned files use 1, the earliest time at which a UTXO without a time lock can be spent, so
+   * co-signers building a few seconds apart pick the same inputs even when a lock ends in between: no time-locked
+   * UTXO is used, even one whose lock has passed.
+   */
+  readonly lockCheckTime: bigint | "now";
 }
 
 export const IMMEDIATE_SIGNER_POLICY: BuildPolicy = {
@@ -131,12 +138,14 @@ export const IMMEDIATE_SIGNER_POLICY: BuildPolicy = {
   defaultStartTime: "now",
   requireExplicitFee: false,
   evmNonce: "pending",
+  lockCheckTime: "now",
 };
 export const FILE_SIGNER_POLICY: BuildPolicy = {
   feePrice: 1000n,
   defaultStartTime: 1n,
   requireExplicitFee: true,
   evmNonce: "latest",
+  lockCheckTime: 1n,
 };
 
 export type UnsignedTxBundle =
