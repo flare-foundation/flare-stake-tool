@@ -88,7 +88,9 @@ hash. Do not let other chain state or the clock leak into a file-path build.
 The account's UTXOs are the one inherent exception: builds agree only while the
 UTXO set is unchanged. Every flarejs P-chain builder gets the build's
 `minIssuanceTime` through `spending(inputs)`; without it flarejs checks time
-locks against the local clock. Values a command leaves out are read
+locks against the local clock. `pChainInputs` leaves dust out of the UTXOs (worth
+less than one input's fee at the fee config's `minPrice`), and each builder
+passes `inputs.notices` to `bundle()` so the user is told. Values a command leaves out are read
 from the chain and pinned by passing them: `--nonce`, `claim -a`, `exportPC -a`,
 and `--gas-limit` of `claim`/`withdrawal`, whose default depends on whether the
 recipient has contract code.

@@ -159,6 +159,7 @@ describe("core/builders/pchain", function () {
         exported: amountsOf(tx.outs),
         fee: atomicTxFee(bundle.unsignedTx, context),
         required: pvm.calculateFee(tx, context.platformFeeConfig.weights, price),
+        notices: bundle.notices ?? [],
       };
     }
 
@@ -181,28 +182,62 @@ describe("core/builders/pchain", function () {
       }
     });
 
-    it("leaves out a UTXO worth less than the fee of adding it; it stays on the P-chain with the change", async () => {
+    it("leaves out dust, worth less than its input's fee at the lowest price, and exports the rest with no change", async () => {
       const big = await owned(100_000_000_000n, 0); // 100 FLR
-      const dust = await owned(200_000n, 1); // 0.0002 FLR
+      const dust = await owned(200_000n, 1); // 0.0002 FLR; the line is 2,961 gas × 250 = 0.00074 FLR
       for (const policy of POLICIES) {
-        const built = await exportAll([big, dust], policy);
+        const built = await exportAll([dust, big], policy);
         const label = `@${policy.feePrice}`;
         expect(built.spent, `${label}: only the 100 FLR UTXO`).to.deep.equal([big.utxoId.txID.toString()]);
         expect(built.fee, label).to.equal(built.required);
-        expect(built.change, `${label}: one change output`).to.have.length(1);
-        expect(built.exported[0]! + built.fee + built.change[0]!, label).to.equal(100_000_000_000n);
+        expect(built.change, `${label}: no change`).to.deep.equal([]);
+        expect(built.exported, label).to.deep.equal([100_000_000_000n - built.fee]);
+        expect(built.notices, label).to.deep.equal([
+          `1 UTXO(s) (0.0002 ${env.network.symbol}) left out: each is worth less than the fee of spending it`,
+        ]);
       }
     });
 
     it("builds when spending every UTXO would exceed the gas capacity but the export does not", async () => {
       const big = await owned(100_000_000_000n, 0); // 100 FLR
-      const dust = await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1n, i + 1))); // 400 × 1 nFLR
+      // 0.001 FLR each: above the dust line, but at the file price each costs 0.003 FLR to spend, so flarejs leaves
+      // them out of the export, while the fee probe spends them all
+      const small = await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1_000_000n, i + 1)));
+      const built = await exportAll([big, ...small], FILE_SIGNER_POLICY, 1_000_000n);
+      expect(built.spent, "only the 100 FLR UTXO").to.deep.equal([big.utxoId.txID.toString()]);
+      expect(built.fee).to.equal(built.required);
+      expect(built.exported[0]! + built.fee + built.change[0]!).to.equal(100_000_000_000n);
+      expect(built.notices, "not dust").to.deep.equal([]);
+    });
+
+    it("transfers and delegates past dust in front of the funds, which used to push them over the gas capacity", async () => {
+      const dust = await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1n, i))); // 400 × 1 nFLR, listed first
+      const funds = await owned(100_000_000_000n, 400); // 100 FLR
+      const requests = [
+        { type: "transfer", amount: asNFlr(5_000_000_000n), to: account.pAddress },
+        {
+          type: "delegate",
+          nodeId: "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ",
+          amount: asNFlr(50_000_000_000n),
+          startTime: 1_900_000_000n,
+          endTime: 1_900_086_400n,
+        },
+      ] as const;
       for (const policy of POLICIES) {
-        const built = await exportAll([big, ...dust], policy, 1_000_000n);
-        const label = `@${policy.feePrice}`;
-        expect(built.spent, `${label}: only the 100 FLR UTXO`).to.deep.equal([big.utxoId.txID.toString()]);
-        expect(built.fee, label).to.equal(built.required);
-        expect(built.exported[0]! + built.fee + built.change[0]!, label).to.equal(100_000_000_000n);
+        for (const request of requests) {
+          const label = `${request.type} @${policy.feePrice}`;
+          const bundle = await buildTransaction(request, pChainEnv([...dust, funds], 1_000_000n), account, policy);
+          if (bundle.kind !== "atomic") throw new Error(`${label}: not a P-chain transaction`);
+          const { inputs } = (bundle.unsignedTx.getTx() as unknown as { baseTx: { inputs: TransferableInput[] } })
+            .baseTx;
+          expect(
+            inputs.map((input) => input.utxoID.txID.toString()),
+            label
+          ).to.deep.equal([funds.utxoId.txID.toString()]);
+          expect(bundle.notices, label).to.deep.equal([
+            `400 UTXO(s) (${formatFlr(asNFlr(400n))} ${env.network.symbol}) left out: each is worth less than the fee of spending it`,
+          ]);
+        }
       }
     });
 

@@ -5,6 +5,7 @@
  */
 import {
   TransferableInput,
+  TransferOutput,
   TransferableOutput,
   evm,
   messageHashFromUnsignedTx,
@@ -12,6 +13,7 @@ import {
   pvm,
   pvmSerial,
   utils as futils,
+  type Context,
   type UnsignedTx,
 } from "@flarenetwork/flarejs";
 import { pChainAddressBytes, type Account } from "../../chain/keys";
@@ -103,6 +105,29 @@ export async function allUtxos(getPage: (query: UtxoQuery) => Promise<UtxoPage>,
 
 const nowSeconds = (): bigint => BigInt(Math.floor(Date.now() / 1000));
 
+type PChainUtxo = Awaited<ReturnType<typeof allUtxos>>[number];
+
+const amountOf = (utxo: PChainUtxo): bigint => futils.getUtxoInfo(utxo).amount;
+const totalOf = (utxos: readonly PChainUtxo[]): NFlr => asNFlr(utxos.reduce((sum, utxo) => sum + amountOf(utxo), 0n));
+const describeUtxos = (utxos: readonly PChainUtxo[], symbol: string) =>
+  `${utxos.length} UTXO(s) (${formatFlr(totalOf(utxos))} ${symbol})`;
+
+/** The gas an input spending `utxo` with one signature adds to a P-chain transaction (flarejs `getInputComplexity`). */
+function pChainInputGas(utxo: PChainUtxo, weights: Context.Context["platformFeeConfig"]["weights"]): bigint {
+  const complexity = pvm.getInputComplexity([TransferableInput.fromUtxoAndSigindicies(utxo, [0])]);
+  return ([0, 1, 2, 3] as const).reduce((gas, d) => gas + BigInt(complexity[d]) * BigInt(weights[d]), 0n);
+}
+
+/**
+ * The context, fee state and UTXOs a P-chain builder works from (with `sourceChain` "C": the UTXOs exported from the
+ * C-chain, for importCP). When spending P-chain UTXOs, a plain one (not stakeable-locked) worth less than the fee its
+ * own input adds at the lowest price (the fee config's `minPrice`) costs more to spend than it brings at any price,
+ * and anyone can send such dust to any address. flarejs spends UTXOs in the order given until the amount and fee are
+ * covered, so dust in front made a transaction pay more, and enough of it pushed the transaction over the gas
+ * capacity. It is left out, of the inputs and of the balance exportPC without -a exports, and `notices` says so.
+ * Stakeable-locked UTXOs are kept as they are, and the rest keep the node's order: an account without dust builds
+ * exactly as before.
+ */
 async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sourceChain?: "C") {
   const [context, feeState, utxos] = await Promise.all([
     env.clients.context(),
@@ -117,7 +142,19 @@ async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sou
   }
   // read once, so the inputs flarejs picks and the balance spendableAmount counts follow the same time
   const minIssuanceTime = policy.lockCheckTime === "now" ? nowSeconds() : policy.lockCheckTime;
-  return { context, feeState, utxos, from: [account.addressBytes], minIssuanceTime };
+  const inputs = { context, feeState, utxos, from: [account.addressBytes], minIssuanceTime, notices: [] as string[] };
+  if (sourceChain) {
+    return inputs; // importCP chooses its own (chooseImported)
+  }
+  const { weights, minPrice } = context.platformFeeConfig;
+  const isDust = (utxo: PChainUtxo) =>
+    utxo.output instanceof TransferOutput && amountOf(utxo) < pChainInputGas(utxo, weights) * minPrice;
+  const dust = utxos.filter(isDust);
+  if (dust.length === 0) {
+    return inputs;
+  }
+  const notice = `${describeUtxos(dust, env.network.symbol)} left out: each is worth less than the fee of spending it`;
+  return { ...inputs, utxos: utxos.filter((utxo) => !isDust(utxo)), notices: [notice] };
 }
 
 type PChainInputs = Awaited<ReturnType<typeof pChainInputs>>;
@@ -129,8 +166,6 @@ const spending = (inputs: PChainInputs) => ({
   fromAddressesBytes: inputs.from,
   minIssuanceTime: inputs.minIssuanceTime,
 });
-
-type PChainUtxo = PChainInputs["utxos"][number];
 
 /** The earliest `minIssuanceTime` at which a UTXO without a time lock can be spent: flarejs compares locks strictly. */
 const NO_TIME_LOCK = 1n;
@@ -242,9 +277,6 @@ export async function buildExportCP(
   );
 }
 
-const amountOf = (utxo: PChainUtxo): bigint => futils.getUtxoInfo(utxo).amount;
-const totalOf = (utxos: readonly PChainUtxo[]): NFlr => asNFlr(utxos.reduce((sum, utxo) => sum + amountOf(utxo), 0n));
-
 /** Largest first, equal amounts by UTXO id in plain string order, which unlike localeCompare is the same everywhere. */
 function largestFirst(utxos: readonly PChainUtxo[]): PChainUtxo[] {
   return [...utxos].sort((a, b) => {
@@ -284,13 +316,16 @@ function chooseImported(
 /** The warnings for what an import left out; `capacity` names the limit that kept the later ones out. */
 function importNotices(chosen: ReturnType<typeof chooseImported>, symbol: string, capacity: string): string[] {
   const { taken, skipped, later } = chosen;
-  const describe = (utxos: PChainUtxo[]) => `${utxos.length} UTXO(s) (${formatFlr(totalOf(utxos))} ${symbol})`;
   return [
     ...(later.length > 0
-      ? [`${describe(later)} stay pending for a later import: ${capacity} fits only ${taken.length} in one`]
+      ? [
+          `${describeUtxos(later, symbol)} stay pending for a later import: ${capacity} fits only ${taken.length} in one`,
+        ]
       : []),
     ...(skipped.length > 0
-      ? [`${describe(skipped)} skipped: each is worth less than the fee of importing it, and stays pending`]
+      ? [
+          `${describeUtxos(skipped, symbol)} skipped: each is worth less than the fee of importing it, and stays pending`,
+        ]
       : []),
   ];
 }
@@ -317,15 +352,17 @@ export async function buildImportCP(
       { ...spending(inputs), feeState, utxos, sourceChainId: context.cBlockchainID, toAddressesBytes: inputs.from },
       context
     );
-  // what flarejs imports: an output of the account, alone, with no lock after the build's time
+  // what flarejs imports: a plain output of the account, alone, with no lock after the build's time
   const importable = inputs.utxos.filter((utxo) => {
     const info = futils.getUtxoInfo(utxo);
-    return info.assetId === context.avaxAssetID && info.threshold <= 1 && info.locktime <= inputs.minIssuanceTime;
+    return (
+      utxo.output instanceof TransferOutput &&
+      info.assetId === context.avaxAssetID &&
+      info.threshold <= 1 &&
+      info.locktime <= inputs.minIssuanceTime
+    );
   });
-  const inputGas = (utxo: PChainUtxo) => {
-    const complexity = pvm.getInputComplexity([TransferableInput.fromUtxoAndSigindicies(utxo, [0])]);
-    return ([0, 1, 2, 3] as const).reduce((gas, d) => gas + BigInt(complexity[d]) * BigInt(weights[d]), 0n);
-  };
+  const inputGas = (utxo: PChainUtxo) => pChainInputGas(utxo, weights);
   const probeFeeState = { ...inputs.feeState, price: 0n, capacity: PROBE_GAS_CAPACITY };
   const chosen = chooseImported(importable, inputGas, minPrice, maxCapacity - maxPerSecond, (utxos) =>
     pvm.calculateFee(build(utxos, probeFeeState).getTx(), weights, 1n)
@@ -333,7 +370,7 @@ export async function buildImportCP(
   const symbol = env.network.symbol;
   if (chosen.taken.length === 0 && chosen.skipped.length > 0) {
     throw new Error(
-      `Nothing worth importing from the C-chain: ${chosen.skipped.length} UTXO(s) (${formatFlr(totalOf(chosen.skipped))} ${symbol}), each worth less than the fee of importing it`
+      `Nothing worth importing from the C-chain: ${describeUtxos(chosen.skipped, symbol)}, each worth less than the fee of importing it`
     );
   }
   // with nothing importable at all, flarejs says so ("no UTXOs available to import")
@@ -347,7 +384,8 @@ export async function buildExportPC(
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
   const inputs = await pChainInputs(env, account, policy);
-  return bundle("exportPC", req.amount === undefined ? exportAllPC(inputs).unsignedTx : exportPCTx(inputs, req.amount));
+  const unsignedTx = req.amount === undefined ? exportAllPC(inputs).unsignedTx : exportPCTx(inputs, req.amount);
+  return bundle("exportPC", unsignedTx, inputs.notices);
 }
 
 /** The amount `exportPC` without `-a` would export now (the interactive default); nothing is signed. */
@@ -405,7 +443,7 @@ export async function buildImportPC(
   const symbol = env.network.symbol;
   if (chosen.taken.length === 0) {
     throw new Error(
-      `Nothing worth importing from the P-chain: ${chosen.skipped.length} UTXO(s) (${formatFlr(totalOf(chosen.skipped))} ${symbol}), each worth less than the fee of importing it`
+      `Nothing worth importing from the P-chain: ${describeUtxos(chosen.skipped, symbol)}, each worth less than the fee of importing it`
     );
   }
   const utxos = chosen.taken;
@@ -460,7 +498,8 @@ export async function buildStake(
         delegatorRewardsOwner: from,
       },
       context
-    )
+    ),
+    inputs.notices
   );
 }
 
@@ -485,7 +524,8 @@ export async function buildDelegate(
         rewardAddresses: from,
       },
       context
-    )
+    ),
+    inputs.notices
   );
 }
 
@@ -506,7 +546,8 @@ export async function buildTransfer(
         outputs: [TransferableOutput.fromNative(context.avaxAssetID, req.amount, [to])],
       },
       context
-    )
+    ),
+    inputs.notices
   );
 }
 
@@ -537,7 +578,8 @@ export async function buildAddAutoRenewedValidator(
         ownerAddresses: owners,
       },
       context
-    )
+    ),
+    inputs.notices
   );
 }
 
@@ -588,6 +630,7 @@ export async function buildSetAutoRenewedValidatorConfig(
         period: req.period,
       },
       context
-    )
+    ),
+    inputs.notices
   );
 }

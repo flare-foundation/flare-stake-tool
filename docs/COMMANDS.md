@@ -55,7 +55,12 @@ future (such as `-e 1209600` meant as 14 days) gets a warning on stderr; the
 network then rejects the transaction. Every path prints the transaction id and
 waits until the transaction is accepted; P-chain and atomic transactions also
 print the fee they burn (`Fee paid: …`, or `Fee: …` for an unsigned file). The
-unsigned-file (ForDefi) path requires `-f` for `exportCP` and `importPC`. Every
+unsigned-file (ForDefi) path requires `-f` for `exportCP` and `importPC`.
+P-chain transactions leave out UTXOs worth less than the fee of spending them
+(the gas of one input at the lowest P-chain price, about 0.00074 FLR on Flare),
+which anyone can send to any address and which flarejs would otherwise spend
+first when the node lists them first; a warning says how many were left out.
+Stakeable-locked UTXOs are not checked. Every
 error exits with code 1.
 
 ---
@@ -148,7 +153,7 @@ Move FLR from the P-chain to the C-chain (reverse of exportCP).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-a <amount>` (FLR, optional on every path — defaults to the spendable P-chain balance minus the fee of the export; small UTXOs may stay behind on the P-chain) |
+| Inputs | `-a <amount>` (FLR, optional on every path — defaults to the spendable P-chain balance minus the fee of the export, without dust, see above; at the unsigned-file price a UTXO worth a little more can still stay behind, as flarejs leaves out an input that costs more than it adds) |
 | Side effects | Submits an atomic export tx on the P-chain |
 | Output | Tx hash, "sent to the network" |
 | Failures | "Export amount is smaller than or equal to zero" if the spendable P-chain balance does not cover the export fee |
