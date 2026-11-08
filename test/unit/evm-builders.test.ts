@@ -26,12 +26,15 @@ import {
   buildSetClaimExecutors,
   buildWithdrawal,
 } from "../../src/core/builders/evm";
-import { builtDetails } from "../../src/core/details";
+import { builtDetails, type BuiltDetails } from "../../src/core/details";
+import { executeTransaction } from "../../src/core/pipeline";
 import {
   FILE_SIGNER_POLICY,
   IMMEDIATE_SIGNER_POLICY,
   type BuildPolicy,
+  type Env,
   type EvmEnv,
+  type Signer,
   type UnsignedTxBundle,
 } from "../../src/core/types";
 import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
@@ -416,6 +419,37 @@ describe("core/builders/evm: what goes into the transaction", () => {
         expect(Transaction.from(bundle.tx.unsignedSerialized).chainId, `${network} ${bundle.txType}`).to.equal(chainId);
       }
     }
+  });
+});
+
+describe("core/pipeline: the transaction approved is the one signed", () => {
+  it("signs the transaction whose details were shown, built once, though the chain changed during the approval", async () => {
+    const chain: Chain = { unclaimedWei: 4n * 10n ** 18n };
+    const { env, rewardsOf } = chainEnv(chain);
+    let signed: UnsignedTxBundle | undefined;
+    const signer: Signer = {
+      kind: "file",
+      policy: FILE_SIGNER_POLICY,
+      account: () => Promise.resolve(ACCOUNT),
+      sign: (bundle) => {
+        signed = bundle;
+        return Promise.resolve({ status: "pending", id: "x", forDefiHash: "h", file: "f" });
+      },
+    };
+    let shown: BuiltDetails | undefined;
+    const claimAll = { type: "claim", recipient: CONTRACT, wrap: true, fees: resolveEvmFees("claim") } as const;
+    const outcome = await executeTransaction(claimAll, env as unknown as Env, signer, {}, (details) => {
+      shown = details;
+      chain.unclaimedWei = 7n * 10n ** 18n; // rewards arrive while the user reads the summary
+      return Promise.resolve();
+    });
+    if (signed?.kind !== "evm") throw new Error("nothing signed, or not an EVM transaction");
+    const [, , amount] = contractInterface.decodeFunctionData("claim", signed.tx.data);
+    expect(shown?.claimed).to.equal(4n * 10n ** 18n);
+    expect(amount, "the amount approved, not the rewards now").to.equal(shown?.claimed);
+    expect(signed.tx.nonce).to.equal(shown?.nonce);
+    expect(outcome.evm).to.deep.equal({ nonce: shown?.nonce, claimed: shown?.claimed });
+    expect(rewardsOf, "built once").to.have.length(1);
   });
 });
 
