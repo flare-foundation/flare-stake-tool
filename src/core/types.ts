@@ -46,9 +46,22 @@ export const EVM_TX_TYPES = [
 export type EvmTxType = (typeof EVM_TX_TYPES)[number];
 export type TxType = AtomicTxType | EvmTxType;
 
+/** Which chain each atomic transaction is issued to: a new type has to be given one. */
+const CHAIN_OF_ATOMIC_TX: Readonly<Record<AtomicTxType, "P" | "C">> = {
+  exportCP: "C",
+  importCP: "P",
+  exportPC: "P",
+  importPC: "C",
+  stake: "P",
+  delegate: "P",
+  transfer: "P",
+  addAutoRenewedValidator: "P",
+  setAutoRenewedValidatorConfig: "P",
+};
+
 /** Which chain an atomic transaction is issued to. exportCP/importPC are C-chain atomic transactions. */
 export function chainOfAtomicTx(type: AtomicTxType): "P" | "C" {
-  return type === "exportCP" || type === "importPC" ? "C" : "P";
+  return CHAIN_OF_ATOMIC_TX[type];
 }
 
 export const isAtomicTxType = (value: string): value is AtomicTxType =>

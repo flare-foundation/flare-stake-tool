@@ -93,8 +93,22 @@ async function preflight(req: TxRequest, env: Env, account: Account): Promise<vo
     case "setAutoRenewedValidatorConfig":
       await requireHelicon(env);
       return;
-    default:
+    // no checks that need the chain before building; listed, so that a new type has to be placed here or above
+    case "exportCP":
+    case "importCP":
+    case "exportPC":
+    case "importPC":
+    case "transfer":
+    case "claim":
+    case "withdrawal":
+    case "setClaimExecutors":
+    case "setAllowedClaimRecipients":
+    case "customCChainTx":
       return;
+    default: {
+      const unchecked: never = req;
+      throw new Error(`No pre-flight checks for ${String((unchecked as TxRequest).type)}`);
+    }
   }
 }
 
