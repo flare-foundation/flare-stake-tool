@@ -80,6 +80,9 @@ export const parseFlrToWei = (input: string): Wei => asWei(parseDecimal(input, W
 export const formatFlr = (amount: NFlr): string => formatDecimal(amount, NFLR_DECIMALS);
 export const formatWei = (amount: Wei): string => formatDecimal(amount, WEI_DECIMALS);
 
+/** The current unix time in whole seconds, as the chain counts it. */
+export const nowSeconds = (): bigint => BigInt(Math.floor(Date.now() / 1000));
+
 /** One million shares = 100 %; the P-chain expresses delegation fees in millionths. */
 export const SHARES_PER_PERCENT = 10_000;
 

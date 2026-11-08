@@ -4,7 +4,7 @@
  */
 import type { Account } from "../chain/keys";
 import { currentValidators, stakesOf, type CurrentValidator } from "../chain/validators";
-import { asNFlr, formatFlr, type NFlr } from "../chain/units";
+import { asNFlr, formatFlr, nowSeconds, type NFlr } from "../chain/units";
 import { buildTransaction } from "../core/builders";
 import { ESTIMATED_FEE_BASE_FEE_MULTIPLIER } from "../core/builders/pchain";
 import { atomicTxFee } from "../core/fee";
@@ -131,7 +131,7 @@ export function checkNodeLimit(
   account: Account,
   nodeId: string,
   endTime: bigint | undefined,
-  nowSeconds: bigint = BigInt(Math.floor(Date.now() / 1000))
+  now: bigint = nowSeconds()
 ): void {
   const unlisted = validators.find((v) => BigInt(v.delegatorCount ?? "0") > BigInt(v.delegators?.length ?? 0));
   if (unlisted) {
@@ -142,7 +142,7 @@ export function checkNodeLimit(
     );
   }
   const overlapping = stakesOf(validators, account.pAddress).filter(
-    (stake) => stake.endTime >= nowSeconds && (endTime === undefined || stake.startTime <= endTime)
+    (stake) => stake.endTime >= now && (endTime === undefined || stake.startTime <= endTime)
   );
   const nodeIds = new Set(overlapping.map((stake) => stake.nodeId.toLowerCase()));
   if (nodeIds.size >= MAX_NODES_PER_ACCOUNT && !nodeIds.has(nodeId.toLowerCase())) {

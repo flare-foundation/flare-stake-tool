@@ -18,7 +18,7 @@ import {
   type UnsignedTx,
 } from "@flarenetwork/flarejs";
 import { pChainAddressBytes, type Account } from "../../chain/keys";
-import { UINT64_MAX, asNFlr, formatFlr, type NFlr } from "../../chain/units";
+import { UINT64_MAX, asNFlr, formatFlr, nowSeconds, type NFlr } from "../../chain/units";
 import { currentValidators } from "../../chain/validators";
 import { atomicTxFee } from "../fee";
 import {
@@ -103,8 +103,6 @@ export async function allUtxos(getPage: (query: UtxoQuery) => Promise<UtxoPage>,
     page = await getPage({ ...query, startIndex: page.endIndex });
   }
 }
-
-const nowSeconds = (): bigint => BigInt(Math.floor(Date.now() / 1000));
 
 type PChainUtxo = Awaited<ReturnType<typeof allUtxos>>[number];
 
@@ -232,7 +230,7 @@ const exportPCTx = (inputs: PChainInputs, amount: NFlr): UnsignedTx =>
   );
 
 /** The fee probe's gas capacity: no limit (uint64 max), since the probe is never sent. */
-const PROBE_GAS_CAPACITY = 2n ** 64n - 1n;
+const PROBE_GAS_CAPACITY = UINT64_MAX;
 
 /**
  * Exports the spendable total minus the fee of spending every UTXO. The P-chain
@@ -263,7 +261,7 @@ function exportAllPC(inputs: PChainInputs, symbol: string): { amount: NFlr; unsi
 
 function startTime(requested: bigint | undefined, policy: BuildPolicy): bigint {
   if (requested !== undefined) return requested;
-  return policy.defaultStartTime === "now" ? BigInt(Math.floor(Date.now() / 1000)) : policy.defaultStartTime;
+  return policy.defaultStartTime === "now" ? nowSeconds() : policy.defaultStartTime;
 }
 
 export async function buildExportCP(

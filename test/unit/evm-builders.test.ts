@@ -181,9 +181,9 @@ describe("core/builders/evm: refusals before anything is signed", () => {
     const fourUnclaimed = chainEnv();
     const noneUnclaimed = chainEnv({ unclaimedWei: 0n });
     for (const [chain, amount, message] of [
-      [fourUnclaimed, 5n * 10n ** 18n, refusal("5.0", "4.0")],
-      [fourUnclaimed, 0n, refusal("0.0", "4.0")],
-      [noneUnclaimed, undefined, refusal("0.0", "0.0")],
+      [fourUnclaimed, 5n * 10n ** 18n, refusal("5", "4")],
+      [fourUnclaimed, 0n, refusal("0", "4")],
+      [noneUnclaimed, undefined, refusal("0", "0")],
     ] as const) {
       await claim(chain.env, amount).then(
         () => expect.fail(`claimed ${String(amount)}`),

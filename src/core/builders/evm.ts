@@ -1,5 +1,6 @@
 /** C-chain EVM transactions: the reward contracts and plain transfers. The rawTx shape is the frozen file format. */
-import { Transaction, ZeroAddress, formatUnits, getAddress, getBytes, type TransactionLike } from "ethers";
+import { Transaction, ZeroAddress, getAddress, getBytes, type TransactionLike } from "ethers";
+import { formatWei } from "../../chain/units";
 import {
   contractAddress,
   contractInterface,
@@ -91,7 +92,7 @@ export async function buildClaim(
   if (amountWei > rewards.unclaimedWei || rewards.unclaimedWei === 0n || amountWei === 0n) {
     const symbol = env.network.symbol;
     throw new Error(
-      `Trying to claim: ${formatUnits(amountWei, 18)} ${symbol}. Unclaimed rewards: ${formatUnits(rewards.unclaimedWei, 18)} ${symbol}. ` +
+      `Trying to claim: ${formatWei(amountWei)} ${symbol}. Unclaimed rewards: ${formatWei(rewards.unclaimedWei)} ${symbol}. ` +
         "Amount should be greater than 0 and less than or equal to unclaimed rewards."
     );
   }

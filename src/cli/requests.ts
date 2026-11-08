@@ -5,7 +5,15 @@
  * so the parsers check every value they use. Everything leaves as bigint or
  * integers.
  */
-import { asWei, parseDuration, parseFlr, parseFlrToWei, parsePercentToShares, type NFlr } from "../chain/units";
+import {
+  SHARES_PER_PERCENT,
+  asWei,
+  parseDuration,
+  parseFlr,
+  parseFlrToWei,
+  parsePercentToShares,
+  type NFlr,
+} from "../chain/units";
 import { normalizeAddressList, resolveEvmFees, type EvmFeeOverrides, type EvmOperation } from "../constants/fees";
 import type { TxRequest } from "../core/types";
 import {
@@ -77,7 +85,7 @@ function storedList(value: string[] | undefined, flag: string, type: string): st
 function parseShares(value: unknown): number | undefined {
   const text = optionValue(value, "--auto-compound-shares");
   if (text === undefined) return undefined;
-  if (!/^\d+$/.test(text) || Number(text) > 1_000_000) {
+  if (!/^\d+$/.test(text) || Number(text) > 100 * SHARES_PER_PERCENT) {
     throw new Error("--auto-compound-shares must be an integer between 0 and 1000000 (millionths)");
   }
   return Number(text);
