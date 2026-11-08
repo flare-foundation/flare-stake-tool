@@ -166,7 +166,7 @@ describe("chain/network", () => {
     });
   });
 
-  it("takes the node URL from the options, then the environment; the key from the options, the URL, the environment", () => {
+  it("takes the node URL from the options, then the environment; the key from the options, the URL, the environment's own node", () => {
     const env = { FLARE_RPC_URL: "https://env.example/ext/info?x-apikey=from-url", FLARE_API_KEY: "from-env" };
     expect(networkConfig("costwo", env)).to.include({
       apiUrl: "https://env.example",
@@ -187,8 +187,21 @@ describe("chain/network", () => {
       apiUrl: "https://flag.example",
       apiKey: "from-flag",
     });
+    // FLARE_API_KEY goes to the node of FLARE_RPC_URL or the network's own, never to one --rpc-url names, even with
+    // an unused FLARE_RPC_URL set
     expect(networkConfig("costwo", env, { apiUrl: "https://flag.example" })).to.include({
       apiUrl: "https://flag.example",
+      apiKey: undefined,
+    });
+    expect(networkConfig("costwo", { FLARE_API_KEY: "from-env" }, { apiUrl: "https://flag.example" }).apiKey).to.equal(
+      undefined
+    );
+    expect(networkConfig("costwo", { FLARE_RPC_URL: "https://env.example", FLARE_API_KEY: "from-env" })).to.include({
+      apiUrl: "https://env.example",
+      apiKey: "from-env",
+    });
+    expect(networkConfig("costwo", { FLARE_API_KEY: "from-env" })).to.include({
+      apiUrl: "https://coston2-api.flare.network",
       apiKey: "from-env",
     });
     expect(networkConfig("costwo", {}, { apiKey: "only-key" })).to.include({

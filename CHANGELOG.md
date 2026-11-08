@@ -18,6 +18,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * A mixed-case C-chain address must have a valid EIP-55 checksum (it used to be corrected). P-chain addresses (`--transfer-address`, `--owner-address`) must belong to the selected network.
 * `setClaimExecutors` needs `--executors` and `setAllowedClaimRecipients` needs `--recipients`; without them the stored list was cleared. Pass `""` to clear it.
 * `info` and `send` refuse `--get-hacked` without `--env-path`, and choose the account in the same order as transactions.
+* `FLARE_API_KEY` goes only to the node of `FLARE_RPC_URL` or the network's default node, no longer to a node given with `--rpc-url`, so a key set for one gateway doesn't reach any host a command line names. For such a node pass `--api-key`, or write the key into the URL (`?x-apikey=`).
 * `--ledger` with `--get-hacked`, and `init-ctx --ledger` with `-p`, are refused before the key file or the device is opened. One silently won: the key file signed, and `init-ctx` saved the Ledger's key.
 * Transaction ids (`-i`) may contain only letters, digits, `.`, `_` and `-`, and can't start with `.`; an id such as `../x` named a file outside `ForDefiTxnFiles`. Rename an older file with another id to send it.
 * `info network` and `info mirror` are removed.
