@@ -315,6 +315,17 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       expect(request({ ownerAddress: [owner], threshold: "1" })).to.include({ ownerAddress: owner });
       expect(request({})).to.include({ ownerAddress: undefined });
       // two made a 1-of-2 authority, which either key controlled alone
+      expect(request({ ownerAddress: [owner], autoCompoundShares: "500000" })).to.include({
+        ownerAddress: owner,
+        autoCompoundShares: 500_000,
+      });
+      expect(
+        parseAtomicTxRequest("setAutoRenewedValidatorConfig", {
+          nodeId: NODE_ID,
+          period: "14d",
+          autoCompoundShares: "500000",
+        }).request
+      ).to.include({ autoCompoundShares: 500_000, period: 1_209_600n });
       expect(() => request({ ownerAddress: [owner, owner] })).to.throw(
         "--owner-address takes one address (the validator authority is a single address with threshold 1), got 2"
       );
@@ -436,6 +447,17 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         const signer = await resolveSigner(options, env);
         expect((await signer.account()).pAddress, `${flags}: signer`).to.equal(expected);
         expect((await resolveAccount(options, env)).pAddress, `${flags}: account`).to.equal(expected);
+      }
+      // the signer itself, not only its account: --env-path alone selects the account and writes a file, and only
+      // --get-hacked signs with the key file
+      const kinds: [Partial<GlobalOptions>, string][] = [
+        [{ envPath }, "file"],
+        [{ ledger: true, envPath }, "ledger"],
+        [{ getHacked: true, envPath }, "privateKey"],
+        [{}, "file"],
+      ];
+      for (const [selectors, kind] of kinds) {
+        expect((await resolveSigner({ ...base, ...selectors }, env)).kind, JSON.stringify(selectors)).to.equal(kind);
       }
       // two signers: the key file used to win silently
       const both = { ...base, getHacked: true, envPath, ledger: true };

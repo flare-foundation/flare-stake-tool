@@ -9,7 +9,8 @@ import { runTransaction } from "../../src/app/transactions";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import { resolveAutoRenewedValidator } from "../../src/core/builders/pchain";
-import { asNFlr } from "../../src/chain/units";
+import { asNFlr, asWei } from "../../src/chain/units";
+import { resolveEvmFees } from "../../src/constants/fees";
 import type { Env, TxRequest } from "../../src/core/types";
 import { ExternalFileSigner } from "../../src/signers/file";
 import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
@@ -53,6 +54,31 @@ const refusalOf = (req: TxRequest, env: Env): Promise<string> =>
     () => expect.fail(`${req.type} passed the checks`),
     (error: unknown) => String(error)
   );
+
+describe("the node's network, checked before any request is built", () => {
+  // the C-chain builders never fetch the Context, so this check is their only refusal of a node on another network
+  it("refuses a node on another network for every C-chain command and atomic type, before the node is asked more", async () => {
+    const mismatch = "The node at http://node is on network ID 14 (flare), not localflare (162)";
+    const env = {
+      network: networkConfig("localflare", {}),
+      clients: { verifyNetwork: () => Promise.reject(new Error(mismatch)) },
+    } as unknown as Env;
+    const TO = "0x3333333333333333333333333333333333333333";
+    const fees = resolveEvmFees("withdrawal");
+    const requests: TxRequest[] = [
+      { type: "withdrawal", to: TO, amount: asWei(1n), fees },
+      { type: "claim", recipient: TO, wrap: false, fees },
+      { type: "setClaimExecutors", executors: [TO], fees },
+      { type: "setAllowedClaimRecipients", recipients: [TO], fees },
+      { type: "customCChainTx", to: TO, value: asWei(0n), data: "0x", fees },
+      { type: "exportCP", amount: asNFlr(1n), fee: asNFlr(1n) },
+      { type: "importCP" },
+    ];
+    for (const req of requests) {
+      expect(await refusalOf(req, env), req.type).to.equal(`Error: ${mismatch}`);
+    }
+  });
+});
 
 describe("checks before a P-chain request is built", () => {
   it("refuses a delegation to a node that is not a current validator", async () => {

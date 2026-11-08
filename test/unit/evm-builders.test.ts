@@ -8,7 +8,7 @@
  * registry does not know, an unregistered claim executor.
  */
 import { expect } from "chai";
-import { ZeroAddress } from "ethers";
+import { Transaction, ZeroAddress } from "ethers";
 import { contractInterface } from "../../src/chain/contracts";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
@@ -56,9 +56,13 @@ interface Chain {
  * A C-chain with one contract (CONTRACT) and the given rewards and executors; records the getCode lookups and the
  * block tag of every nonce lookup.
  */
-function chainEnv(chain: Chain = {}): { env: EvmEnv; codeLookups: string[]; nonceTags: string[] } {
+function chainEnv(
+  chain: Chain = {},
+  network = "localflare"
+): { env: EvmEnv; codeLookups: string[]; nonceTags: string[]; rewardsOf: string[] } {
   const codeLookups: string[] = [];
   const nonceTags: string[] = [];
+  const rewardsOf: string[] = [];
   const selectorOf = (fn: string) => contractInterface.getFunction(fn)!.selector;
   const provider: EvmEnv["clients"]["provider"] = {
     getTransactionCount: (_address, blockTag) => {
@@ -76,6 +80,7 @@ function chainEnv(chain: Chain = {}): { env: EvmEnv; codeLookups: string[]; nonc
         return Promise.resolve(contractInterface.encodeFunctionResult("getContractAddressByName", [address]));
       }
       if (data.startsWith(selectorOf("getStateOfRewards"))) {
+        rewardsOf.push(String(contractInterface.decodeFunctionData("getStateOfRewards", data)[0]));
         const claimed = 10n ** 18n;
         const total = claimed + (chain.unclaimedWei ?? 4n * 10n ** 18n);
         return Promise.resolve(contractInterface.encodeFunctionResult("getStateOfRewards", [total, claimed]));
@@ -90,7 +95,7 @@ function chainEnv(chain: Chain = {}): { env: EvmEnv; codeLookups: string[]; nonc
       return Promise.reject(new Error(`unexpected call ${data.slice(0, 10)}`));
     },
   };
-  return { env: { network: networkConfig("localflare", {}), clients: { provider } }, codeLookups, nonceTags };
+  return { env: { network: networkConfig(network, {}), clients: { provider } }, codeLookups, nonceTags, rewardsOf };
 }
 
 const gasLimitOf = (bundle: UnsignedTxBundle): bigint => {
@@ -311,6 +316,106 @@ describe("core/builders/evm: the zero address", () => {
       IMMEDIATE_SIGNER_POLICY
     );
     expect(cleared.kind).to.equal("evm");
+  });
+});
+
+describe("core/builders/evm: what goes into the transaction", () => {
+  // the account is ewoq; every recipient here is another address, so owner and recipient can't be mixed up unseen
+  it("claim: the account's rewards (owner), to the recipient given, the amount and the wrap flag", async () => {
+    for (const wrap of [false, true]) {
+      const { env, rewardsOf } = chainEnv();
+      const bundle = await buildClaim(
+        { type: "claim", recipient: CONTRACT, wrap, amount: asWei(3n * 10n ** 18n), fees: resolveEvmFees("claim") },
+        env,
+        ACCOUNT,
+        IMMEDIATE_SIGNER_POLICY
+      );
+      if (bundle.kind !== "evm") throw new Error("not an EVM transaction");
+      const [owner, recipient, amount, wrapped] = contractInterface.decodeFunctionData("claim", bundle.tx.data);
+      expect([owner, recipient, amount, wrapped], `wrap ${wrap}`).to.deep.equal([
+        ACCOUNT.cAddress,
+        "0x3333333333333333333333333333333333333333",
+        3n * 10n ** 18n,
+        wrap,
+      ]);
+      expect(rewardsOf, "the rewards looked up are the account's, not the recipient's").to.deep.equal([
+        ACCOUNT.cAddress,
+      ]);
+      expect(bundle.tx.to).to.equal(REWARD_MANAGER);
+    }
+  });
+
+  it("withdrawal and customCChainTx: the recipient given, not the account", async () => {
+    const { env } = chainEnv();
+    const other = "0x5555555555555555555555555555555555555555"; // ORDINARY is the account's own address
+    const withdrawal = await buildWithdrawal(
+      { type: "withdrawal", to: other, amount: asWei(5n), fees: resolveEvmFees("withdrawal") },
+      env,
+      ACCOUNT,
+      IMMEDIATE_SIGNER_POLICY
+    );
+    const custom = await buildCustomCChainTx(
+      { type: "customCChainTx", to: CONTRACT, value: asWei(7n), data: "0xdeadbeef", fees: resolveEvmFees("custom") },
+      env,
+      ACCOUNT,
+      IMMEDIATE_SIGNER_POLICY
+    );
+    if (withdrawal.kind !== "evm" || custom.kind !== "evm") throw new Error("not an EVM transaction");
+    expect([withdrawal.tx.to, withdrawal.tx.value]).to.deep.equal([other, 5n]);
+    expect([custom.tx.to, custom.tx.value, custom.tx.data]).to.deep.equal([
+      "0x3333333333333333333333333333333333333333",
+      7n,
+      "0xdeadbeef",
+    ]);
+  });
+
+  it("signs for the C-chain's chain id, which on Songbird and Coston is not the network id", async () => {
+    const executor = "0x4444444444444444444444444444444444444444";
+    for (const [network, chainId, networkId] of [
+      ["songbird", 19n, 5],
+      ["coston", 16n, 7],
+    ] as const) {
+      const { env } = chainEnv({ executors: { [executor]: 0n } }, network);
+      expect(networkConfig(network, {}).networkId).to.equal(networkId);
+      const fees = resolveEvmFees("withdrawal");
+      const bundles = [
+        await buildWithdrawal(
+          { type: "withdrawal", to: ORDINARY, amount: asWei(1n), fees },
+          env,
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
+        ),
+        await buildClaim(
+          { type: "claim", recipient: ORDINARY, wrap: false, fees },
+          env,
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
+        ),
+        await buildSetClaimExecutors(
+          { type: "setClaimExecutors", executors: [executor], fees },
+          env,
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
+        ),
+        await buildSetAllowedClaimRecipients(
+          { type: "setAllowedClaimRecipients", recipients: [ORDINARY], fees },
+          env,
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
+        ),
+        await buildCustomCChainTx(
+          { type: "customCChainTx", to: ORDINARY, value: asWei(0n), data: "0x", fees },
+          env,
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
+        ),
+      ];
+      for (const bundle of bundles) {
+        if (bundle.kind !== "evm") throw new Error("not an EVM transaction");
+        // decoded from the serialized transaction, as it is signed and sent
+        expect(Transaction.from(bundle.tx.unsignedSerialized).chainId, `${network} ${bundle.txType}`).to.equal(chainId);
+      }
+    }
   });
 });
 

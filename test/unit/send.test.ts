@@ -298,6 +298,25 @@ describe("app/send: the isSentToChain mark", () => {
     expect(isAlreadySentToChain("e", cwd)).to.equal(false);
   });
 
+  it("is never set when the node is on another network: nothing is issued, P-chain, C-chain atomic or EVM", async () => {
+    for (const scenario of ["delegate-file", "exportCP-file", "withdrawal-file"]) {
+      writeSigned(scenario, scenario, cwd);
+      let issued = false;
+      const env = scriptedEnv({ statuses: ["Committed"], onIssue: () => (issued = true) }, scenario, cwd);
+      const mismatch = "The node at http://node is on network ID 14 (flare), not localflare (162)";
+      const elsewhere: SendEnv = {
+        ...env,
+        clients: { ...env.clients, verifyNetwork: () => Promise.reject(new Error(mismatch)) },
+      };
+      await sendSignedTransaction(scenario, elsewhere, undefined, cwd, FAST).then(
+        () => expect.fail(`${scenario}: sent to a node on another network`),
+        (error: unknown) => expect(describeError(error), scenario).to.equal(mismatch)
+      );
+      expect(issued, scenario).to.equal(false);
+      expect(isAlreadySentToChain(scenario, cwd), scenario).to.equal(false);
+    }
+  });
+
   it("is never set when the node refuses to take the transaction", async () => {
     writeSigned("delegate-file", "t", cwd);
     const env = scriptedEnv({ statuses: ["Committed"], issueError: "insufficient funds" }, "t", cwd);
