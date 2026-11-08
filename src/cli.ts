@@ -7,7 +7,7 @@ import { Argument, Command } from "commander";
 import { styleText } from "node:util";
 import figlet from "figlet";
 import { accountFromPublicKey } from "./chain/keys";
-import { overriddenNode } from "./chain/network";
+import { NETWORK_NAMES, overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
@@ -78,7 +78,7 @@ type TransactionIdOptions = Pick<GlobalOptions, "transactionId">;
 
 export function cli(program: Command): void {
   program
-    .option("--network <network>", "Network name (flare|songbird|costwo|coston|localflare)")
+    .option("--network <network>", `Network name (${NETWORK_NAMES.join("|")})`)
     .option(RPC_URL_OPTION, RPC_URL_DESCRIPTION)
     .option(API_KEY_OPTION, API_KEY_DESCRIPTION)
     .option("--ledger", "Use ledger to sign transactions")

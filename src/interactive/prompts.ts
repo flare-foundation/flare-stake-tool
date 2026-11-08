@@ -1,6 +1,7 @@
 import { styleText } from "node:util";
 import inquirer from "inquirer";
 import { pChainAddressBytes } from "../chain/keys";
+import type { NetworkName } from "../chain/network";
 import { parseDuration, parseEndTime, parseFlr, parseFlrToWei, parsePercentToShares } from "../chain/units";
 import { DEFAULT_DELEGATION_FEE_PERCENT, parseBlsHex, parseNodeId } from "../cli/inputs";
 import {
@@ -9,7 +10,6 @@ import {
   taskConstants,
   walletConstants,
   type DerivationMode,
-  type NetworkId,
   type TaskId,
   type WalletId,
 } from "../constants/screen";
@@ -183,7 +183,7 @@ export const prompts = {
   // a typed C-chain fee below the cost at the current base fee; No asks for the fee again
   confirmLowFee: (): Promise<boolean> => confirm(ask("Send with this fee anyway?")),
 
-  selectNetwork: (): Promise<NetworkId> =>
+  selectNetwork: (): Promise<NetworkName> =>
     select(ask("Which network do you want to connect to?"), choicesOf(networkConstants)),
 
   selectTask: (): Promise<TaskId> => select(ask("What do you want to do?"), choicesOf(taskConstants)),

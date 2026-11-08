@@ -1,4 +1,5 @@
 import { styleText } from "node:util";
+import type { NetworkName } from "../chain/network";
 
 /** The interactive menu: each task's id and its label, in menu order. */
 export const taskConstants = {
@@ -19,16 +20,14 @@ export const taskConstants = {
 
 export type TaskId = keyof typeof taskConstants;
 
-/** The supported networks and their menu labels. */
-export const networkConstants = {
+/** The menu label of every network of the network table (chain/network.ts): a network added there needs one. */
+export const networkConstants: Readonly<Record<NetworkName, string>> = {
   flare: "Flare " + styleText("green", "(mainnet)"),
   songbird: "Songbird " + styleText("green", "(canary)"),
   costwo: "Coston2 " + styleText("yellow", "(testnet)"),
   coston: "Coston " + styleText("yellow", "(testnet)"),
   localflare: "LocalHost " + styleText("red", "(devnet)"),
-} as const;
-
-export type NetworkId = keyof typeof networkConstants;
+};
 
 /** The supported wallets and their menu labels. */
 export const walletConstants = {
