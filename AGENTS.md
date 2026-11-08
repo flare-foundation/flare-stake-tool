@@ -189,7 +189,11 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   itself, because `Context.getContextFromURI` would build keyless clients), and
   a copied endpoint URL with `?x-apikey=` works as the URL (its key comes before
   `FLARE_API_KEY`; `createEnv` warns about a key over plain http to another
-  machine). Every client notes its node on the errors it throws (`notingNode`),
+  machine). `FLARE_API_KEY` goes only to the node of `FLARE_RPC_URL` or the
+  network's own, never to one `--rpc-url` names. A request carrying the key
+  refuses a redirect (flarejs fetch options `redirect: "error"`, the ethers
+  connection's `getUrlFunc`), since both libraries send the header on to the
+  redirect's target. Every client notes its node on the errors it throws (`notingNode`),
   and `describeError` adds the causes and the node and masks credentials
   (`redactSecrets`): print errors through it. `interactive` is a
   Commander command like the others and takes the two flags the same way; it

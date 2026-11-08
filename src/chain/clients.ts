@@ -160,14 +160,35 @@ function rememberCredential(serialized: string): void {
   }
 }
 
+/** The start of the error a request carrying the API key fails with on a redirect, as fetch words it. */
+export const REDIRECT_REFUSED = "unexpected redirect";
+
+/**
+ * Makes `request`, and the copies ethers makes of it for each call, refuse a redirect instead of following it: ethers
+ * copies every header to the redirect's target, so the API key would go to whatever host it names. The response is
+ * checked before ethers handles the redirect (its `processFunc` runs only after that).
+ */
+function refuseRedirects(request: FetchRequest): void {
+  const getUrl = request.getUrlFunc;
+  request.getUrlFunc = async (req, signal) => {
+    const response = await getUrl(req, signal);
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      const location = response.headers["location"];
+      throw new Error(`${REDIRECT_REFUSED}${location ? ` to ${location}` : ""}`);
+    }
+    return response;
+  };
+}
+
 export function createClients(network: NetworkConfig): Clients {
   rememberSecret(network.apiKey);
   const { username, password } = new URL(network.apiUrl);
   for (const credential of [username, password]) rememberCredential(credential);
-  // The API key travels as a header, never in the URL, so it stays out of logs and error messages.
+  // The API key travels as a header, never in the URL, so it stays out of logs and error messages. A request carrying
+  // it refuses a redirect: fetch would send the header on to whatever host the redirect names, plain http included.
   const headers = network.apiKey === undefined ? undefined : { [API_KEY_HEADER]: network.apiKey };
   const keyed = <T extends { setFetchOptions(options: RequestInit | undefined): void }>(api: T): T => {
-    if (headers) api.setFetchOptions({ headers });
+    if (headers) api.setFetchOptions({ headers, redirect: "error" });
     return api;
   };
   // every request's failure names the node it went to (describeError prints it, credentials masked)
@@ -179,7 +200,10 @@ export function createClients(network: NetworkConfig): Clients {
   const infoApi = notingNode(keyed(new info.InfoApi(network.apiUrl)), node);
   const avmApi = notingNode(keyed(new avm.AVMApi(network.apiUrl)), node);
   const connection = new FetchRequest(network.rpcUrl);
-  if (network.apiKey !== undefined) connection.setHeader(API_KEY_HEADER, network.apiKey);
+  if (network.apiKey !== undefined) {
+    connection.setHeader(API_KEY_HEADER, network.apiKey);
+    refuseRedirects(connection);
+  }
 
   // One getNetworkID lookup serves both the network check and the Context.
   const nodeNetworkId = cachedUntilFailure(() => infoApi.getNetworkId());

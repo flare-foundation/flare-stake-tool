@@ -103,7 +103,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 
 * Auto-renewed validators (Helicon, ACP-236): `transaction addAutoRenewedValidator`, and `transaction setAutoRenewedValidatorConfig` to change the period or stop renewal (`--period 0`). They work on every signing path and in the interactive menu, and are refused where Helicon is not active. `info validators` shows their cycle.
 * Durations for `--end-time`, `--start-time` and `--period`, such as `2d12h` or `90m`. An end or start time given as a duration is added to now and printed as a unix time, which ForDefi co-signers must pass instead; a `--period` duration is just converted to seconds.
-* `--rpc-url` (`FLARE_RPC_URL`) and `--api-key` (`FLARE_API_KEY`) for another node or an API gateway. The tool checks that the node belongs to the selected network.
+* `--rpc-url` (`FLARE_RPC_URL`) and `--api-key` (`FLARE_API_KEY`) for another node or an API gateway. The tool checks that the node belongs to the selected network. A request carrying the key refuses a redirect instead of taking the key to the host it names.
 * `claim`, `withdrawal`, `setClaimExecutors`, `setAllowedClaimRecipients` and `customCChainTx` can be signed with `--get-hacked` or `--ledger`.
 * `init-ctx --vault-id` for ForDefi contexts, `--version`, and `--gas-limit`, `--max-fee-per-gas` and `--priority-fee-per-gas` for `interactive`.
 * Tests: `pnpm test` replays recorded scenarios of every transaction type and signing path offline; the integration tests run against a running localflare (`LOCALFLARE_RPC_URL`).

@@ -3,6 +3,7 @@ import http from "http";
 import type { AddressInfo } from "net";
 import { createClients, heliconActive } from "../../src/chain/clients";
 import { networkConfig } from "../../src/chain/network";
+import { describeError } from "../../src/output";
 
 interface SeenRequest {
   path: string;
@@ -95,6 +96,29 @@ function startFakeNode(): Promise<FakeNode> {
         url: `http://127.0.0.1:${port}`,
         seen,
         failNext: (method) => failing.add(method),
+        close: () => new Promise((done) => server.close(() => done())),
+      });
+    });
+  });
+}
+
+/** A host that answers every request with a 307 to the same path on `target`, and counts the requests. */
+function startRedirector(
+  target: () => string
+): Promise<{ url: string; requests: () => number; close(): Promise<void> }> {
+  let requests = 0;
+  const server = http.createServer((req, res) => {
+    requests++;
+    req.resume();
+    res.writeHead(307, { location: `${target()}${req.url ?? ""}` });
+    res.end();
+  });
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address() as AddressInfo;
+      resolve({
+        url: `http://127.0.0.1:${port}`,
+        requests: () => requests,
         close: () => new Promise((done) => server.close(() => done())),
       });
     });
@@ -258,6 +282,54 @@ describe("chain/clients", () => {
         expect(node.seen.map((r) => r.method)).to.not.include("avm.getAssetDescription");
       } finally {
         clients.provider.destroy();
+      }
+    });
+
+    it("refuses a redirect on every request carrying the key: no further host is asked, over one hop or two", async () => {
+      // two hops on other ports (another origin), the node last
+      const second = await startRedirector(() => node.url);
+      const first = await startRedirector(() => second.url);
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: first.url, apiKey: "secret-key" }));
+      try {
+        const refusal = (error: unknown) => {
+          const text = describeError(error);
+          expect(text).to.match(
+            /^The node answered with a redirect, which a request carrying the API key does not follow \(the key would go to whatever host it names\); give the URL it redirects to with --rpc-url \(/
+          );
+          expect(text).to.include(`node ${first.url}`);
+          expect(text).not.to.include("secret-key");
+          return text;
+        };
+        const flarejs = await clients.info.getNetworkId().then(
+          () => expect.fail("flarejs followed the redirect"),
+          (error: unknown) => refusal(error)
+        );
+        expect(flarejs).to.include("unexpected redirect");
+        const ethers = await clients.provider.send("eth_chainId", []).then(
+          () => expect.fail("ethers followed the redirect"),
+          (error: unknown) => refusal(error)
+        );
+        expect(ethers).to.include(`unexpected redirect to ${second.url}/ext/bc/C/rpc`);
+        expect(first.requests()).to.equal(2);
+        expect(second.requests(), "the redirect's target").to.equal(0);
+        expect(node.seen, "the host behind it").to.deep.equal([]);
+      } finally {
+        clients.provider.destroy();
+        await first.close();
+        await second.close();
+      }
+    });
+
+    it("follows a redirect when no key is configured, as before", async () => {
+      const redirector = await startRedirector(() => node.url);
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: redirector.url }));
+      try {
+        expect(String((await clients.info.getNetworkId()).networkID)).to.equal("114");
+        expect(await clients.provider.send("eth_chainId", [])).to.equal("0x72");
+        expect(node.seen.map((r) => r.apiKey)).to.deep.equal([undefined, undefined]);
+      } finally {
+        clients.provider.destroy();
+        await redirector.close();
       }
     });
 
