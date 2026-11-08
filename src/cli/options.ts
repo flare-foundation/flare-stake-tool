@@ -15,6 +15,7 @@ import {
   resolveNetworkName,
 } from "../app/env";
 import { ExternalFileSigner } from "../signers/file";
+import { checkDerivationPath } from "../ledger/path";
 import { LedgerSigner, ledgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
 import { BASE_DERIVATION_PATH } from "./inputs";
@@ -101,7 +102,8 @@ export function contextFileApplies(options: GlobalOptions): boolean {
  */
 function ledgerSigner(options: GlobalOptions, env: Env): LedgerSigner {
   if (options.derivationPath !== undefined) {
-    return new LedgerSigner(ledgerDevice(), options.derivationPath, env.network.hrp);
+    const derivationPath = checkDerivationPath(options.derivationPath, "--derivation-path");
+    return new LedgerSigner(ledgerDevice(), derivationPath, env.network.hrp);
   }
   const context = contextFileApplies(options) ? readContextFile(options.ctxFile) : undefined;
   if (context?.wallet === "ledger") {

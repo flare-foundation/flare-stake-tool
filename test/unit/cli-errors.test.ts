@@ -330,6 +330,23 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(relay.stderr).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
   });
 
+  it("refuses a derivation path an app would read as another index, before the Ledger is asked", () => {
+    const bad = "m/44'/60'/0'/0/1O";
+    for (const args of [
+      ["init-ctx", "--ledger", "--derivation-path", bad],
+      ["info", "addresses", "--ledger", "--derivation-path", bad],
+    ]) {
+      const result = runCli([...args, "--network", "costwo"], {
+        cwd,
+        env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+      });
+      expect(result.exitCode, args[0]).to.equal(1);
+      expect(result.stderr, args[0]).to.include(`Invalid derivation path "${bad}" (--derivation-path)`);
+      expect(result.stderr, `${args[0]}: the fake device was not opened`).not.to.include("FLARE_FAKE_LEDGER_KEY");
+    }
+    expect(fs.existsSync(path.join(cwd, "ctx.json")), "no context written").to.equal(false);
+  });
+
   it("refuses a given --ctx-file that does not exist whatever else selects the account, but init-ctx writes it", () => {
     const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
     for (const selectors of [

@@ -79,6 +79,10 @@ describe("app/env context file", () => {
         `Context file ${file} has a derivationPath that is not a string`,
       ],
       [
+        `{"publicKey":"02aa","network":"costwo","derivationPath":"m/44'/60'/0'/0/1O"}`,
+        `Invalid derivation path "m/44'/60'/0'/0/1O" (in context file ${file})`,
+      ],
+      [
         '{"publicKey":"02aa","network":"costwo","vaultId":7}',
         `Context file ${file} has a vaultId that is not a string`,
       ],

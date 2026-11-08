@@ -42,7 +42,7 @@ src/
   chain/units.ts            NFlr/Wei amounts, parseFlr/formatFlr, percentages → shares, durations
   chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
   chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
-  ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum)
+  ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum); path.ts checks derivation paths
   interactive/              inquirer menu calling app/ directly; every question goes through askInquirer (Ctrl-C exits 130)
   constants/fees.ts         Fixed EIP-1559 fees per C-chain operation
   constants/screen.ts       Menu labels

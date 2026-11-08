@@ -10,6 +10,7 @@ import {
   networkConfig,
   type NodeOverrides,
 } from "../chain/network";
+import { checkDerivationPath } from "../ledger/path";
 import { logWarning } from "../output";
 import type { Env } from "../core/types";
 import { isJsonObject, parseJson } from "../core/json";
@@ -63,6 +64,9 @@ export function readContextFile(file: string = DEFAULT_CTX_FILE): ContextFile {
     if (parsed[field] !== undefined && typeof parsed[field] !== "string") {
       throw new Error(`Context file ${file} has a ${field} that is not a string`);
     }
+  }
+  if (typeof parsed["derivationPath"] === "string") {
+    checkDerivationPath(parsed["derivationPath"], `in context file ${file}`);
   }
   return parsed as unknown as ContextFile;
 }

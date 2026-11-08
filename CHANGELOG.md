@@ -64,6 +64,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Transaction files and `ctx.json` are never overwritten by a write that started before they appeared, and rewrites go through a temporary file, so an interrupted write can't leave half a file. A repeated `forDefi fetch` with the same signature leaves the signed file as it is, and a sent file is never replaced.
   * A `ctx.json` or transaction file that is not JSON or lacks a field the tool reads, and a ForDefi answer of the wrong shape, are refused with the file (or answer) and the field named, instead of failing later with an unrelated error. Files written by earlier versions load as before, unknown fields included.
   * `init-ctx` honours `--derivation-path` and stores the P-chain address in `flareAddress`.
+  * A derivation path, given with `--derivation-path` or saved in `ctx.json`, must be `m/` and decimal indices below 2^31, each optionally hardened with `'`. The Ethereum app read `m/44'/60'/0'/0/1O` (letter O) as index 1 and signed for that account, where the Flare and Avalanche apps refused it.
   * Without `--derivation-path`, `--ledger` uses a Ledger `ctx.json`'s derivation path and refuses a Ledger without the context's key, as interactive mode does. It used the default path, so a context made at another path signed and showed another account.
   * `init-ctx --ledger` prints the address the device is about to show, and writes no context file when the device shows another address than the one of its key.
 * Interactive mode:

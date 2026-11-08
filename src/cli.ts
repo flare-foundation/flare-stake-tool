@@ -39,6 +39,7 @@ import {
 import { parseAtomicTxRequest, parseEvmTxRequest, type AtomicTxOptions, type EvmTxOptions } from "./cli/requests";
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
+import { checkDerivationPath } from "./ledger/path";
 import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
 import { confirmLedgerAccount, ledgerDevice } from "./signers/ledger";
 import { version } from "../package.json";
@@ -346,7 +347,7 @@ async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
   const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;
   let context: ContextFile;
   if (options.ledger) {
-    const derivationPath = options.derivationPath ?? BASE_DERIVATION_PATH;
+    const derivationPath = checkDerivationPath(options.derivationPath ?? BASE_DERIVATION_PATH, "--derivation-path");
     const { publicKey, account } = await confirmLedgerAccount(ledgerDevice(), derivationPath, env.network.hrp);
     context = {
       wallet: "ledger",

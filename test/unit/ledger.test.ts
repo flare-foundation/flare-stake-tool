@@ -9,6 +9,7 @@ import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
 import { checkFlareResponse } from "../../src/ledger/flare";
+import { checkDerivationPath } from "../../src/ledger/path";
 import { ETHEREUM_APP_P_CHAIN, detectApp } from "../../src/ledger/index";
 import { SigningKey, Transaction, computeAddress, getBytes, keccak256 } from "ethers";
 import {
@@ -105,6 +106,43 @@ describe("ledger", () => {
     expect(() => checkFlareResponse({ returnCode: 0x6984, errorMessage: "Data is invalid" }, "Failed")).to.throw(
       "Failed: Data is invalid, code 27012"
     );
+  });
+
+  describe("checkDerivationPath", () => {
+    it("accepts m/ and decimal indices below 2^31, hardened or not, whatever their number", () => {
+      for (const good of [
+        "m/44'/60'/0'/0/0",
+        "m/44'/60'/0'/0/10",
+        "m/44'/60'/7'/0/0",
+        "m/44'/60'/0'/0/0/1", // six: the Flare app takes it
+        "m/44'/60'/2147483647'/0/2147483647",
+        "m/0",
+      ]) {
+        expect(checkDerivationPath(good, "--derivation-path"), good).to.equal(good);
+      }
+    });
+
+    it("refuses what an app would read as another index, or not at all", () => {
+      for (const bad of [
+        "m/44'/60'/0'/0/1O", // hw-app-eth: index 1
+        "m/44'/60'/0'/0/1e1", // hw-app-eth: 1, the others: 10
+        "m/44'/60'/0'/0/2147483648",
+        "m/44'/60'/0'/0/0x10",
+        "m/44'/60'/0'/0/+1",
+        "m/44'/60'/0'/0/ 1",
+        "m/44'//0'/0/0",
+        "m/44h/60'/0'/0/0",
+        "M/44'/60'/0'/0/0",
+        "44'/60'/0'/0/0",
+        "m/",
+        "m",
+        "",
+      ]) {
+        expect(() => checkDerivationPath(bad, "--derivation-path"), bad).to.throw(
+          `Invalid derivation path "${bad}" (--derivation-path): expected m/ and decimal indices below 2^31`
+        );
+      }
+    });
   });
 
   describe("splitAvalanchePath", () => {
