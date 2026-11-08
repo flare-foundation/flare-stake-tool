@@ -26,6 +26,7 @@ import {
   buildSetClaimExecutors,
   buildWithdrawal,
 } from "../../src/core/builders/evm";
+import { builtDetails } from "../../src/core/details";
 import {
   FILE_SIGNER_POLICY,
   IMMEDIATE_SIGNER_POLICY,
@@ -310,6 +311,33 @@ describe("core/builders/evm: the zero address", () => {
       IMMEDIATE_SIGNER_POLICY
     );
     expect(cleared.kind).to.equal("evm");
+  });
+});
+
+describe("core/details: what a built C-chain transaction holds", () => {
+  it("reads the nonce, value, most the gas can cost, and the amount claimed when no amount was given", async () => {
+    const executor = "0x4444444444444444444444444444444444444444";
+    const { env } = chainEnv({ executors: { [executor]: 3n * 10n ** 18n } });
+    const claim = await buildClaim(
+      { type: "claim", recipient: ORDINARY, wrap: false, nonce: 5, fees: resolveEvmFees("claim") },
+      env,
+      ACCOUNT,
+      IMMEDIATE_SIGNER_POLICY
+    );
+    if (claim.kind !== "evm") throw new Error("not an EVM transaction");
+    expect(builtDetails(claim, undefined)).to.deep.equal({
+      nonce: 5,
+      value: 0n,
+      maxGasCost: claim.tx.gasLimit * claim.tx.maxFeePerGas!,
+      claimed: 4n * 10n ** 18n, // all unclaimed rewards, read from the chain
+    });
+    const executors = await buildSetClaimExecutors(
+      { type: "setClaimExecutors", executors: [executor], fees: resolveEvmFees("setClaimExecutors", {}, 1) },
+      env,
+      ACCOUNT,
+      IMMEDIATE_SIGNER_POLICY
+    );
+    expect(builtDetails(executors, undefined)).to.include({ nonce: 0, value: 3n * 10n ** 18n });
   });
 });
 

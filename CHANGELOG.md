@@ -72,6 +72,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Without `--derivation-path`, `--ledger` uses a Ledger `ctx.json`'s derivation path and refuses a Ledger without the context's key, as interactive mode does. It used the default path, so a context made at another path signed and showed another account.
   * `init-ctx --ledger` prints the address the device is about to show, and writes no context file when the device shows another address than the one of its key.
 * Interactive mode:
+  * Before a transaction is signed, the menu shows what it does, read from the built transaction: the account, the network, the amount, the recipient or node, the end time with its date, the period, the fee, and for C-chain transactions the nonce and the most the gas can cost. It is signed only after a confirmation, which defaults to No; declining the export of a move skips its import. A typed fee far above the estimate used to be paid without a word.
   * The C-chain export and import fee defaults to the current estimate instead of 1 FLR (about 170 times the real cost). A typed fee below the current cost asks for confirmation.
   * Moves between the chains import only after their own export has arrived.
   * Claiming and stopping auto-renewal check the node's network before showing the rewards or the cycle end read from it; they were shown under the chosen network's name from a node on another one.

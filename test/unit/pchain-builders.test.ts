@@ -37,6 +37,7 @@ import {
   maxExportPCAmount,
   spendableAmount,
 } from "../../src/core/builders/pchain";
+import type { BuiltDetails } from "../../src/core/details";
 import { atomicTxFee } from "../../src/core/fee";
 import { unsignedTxJsonFromBundle } from "../../src/core/files";
 import { executeTransaction } from "../../src/core/pipeline";
@@ -615,6 +616,39 @@ describe("core/builders/pchain", function () {
         (error: unknown) =>
           expect((error as Error).message).to.match(overUint64("The import", replay.env.network.symbol))
       );
+    });
+
+    it("shows what it read from the built import before it is signed, and signs nothing when that is refused", async () => {
+      const value = 1_000_000_000n;
+      const keySigner = new PrivateKeySigner(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), replay.env.network.hrp);
+      let signed = 0;
+      const counting: Signer = {
+        kind: keySigner.kind,
+        policy: keySigner.policy,
+        account: () => keySigner.account(),
+        sign: (bundle) => {
+          signed++;
+          return keySigner.sign(bundle);
+        },
+      };
+      let shown: BuiltDetails | undefined;
+      const env = pendingEnv([await exported([account.addressBytes], 1, value, 0)]);
+      await executeTransaction({ type: "importPC", fee: FEE }, env, counting, { pollMs: 1 }, (details) => {
+        shown = details;
+        return Promise.reject(new Error("declined"));
+      }).then(
+        () => expect.fail("signed after the details were refused"),
+        (error: unknown) => expect((error as Error).message).to.equal("declined")
+      );
+      expect(shown).to.deep.equal({ fee: FEE, imported: value - FEE });
+      expect(signed).to.equal(0);
+      // approved: the same details, and the outcome's fee is the one shown
+      const outcome = await executeTransaction({ type: "importPC", fee: FEE }, env, counting, { pollMs: 1 }, (d) => {
+        expect(d).to.deep.equal(shown);
+        return Promise.resolve();
+      });
+      expect(outcome.fee).to.equal(FEE);
+      expect(signed).to.equal(1);
     });
 
     it("leaves a time-locked UTXO pending even once its lock has passed, which flarejs cannot import", async () => {

@@ -70,7 +70,11 @@ Node 24+ required (enforced via `engines`).
 Every transaction goes through `core/pipeline.ts`: the request is built once
 (`core/builders`), signed by the selected signer, the signature is attached to
 every credential the account owns, and the transaction is submitted and
-confirmed. The signer is chosen by flag:
+confirmed. Between building and signing, `executeTransaction` calls an optional
+`beforeSign` with the details read from the built transaction
+(`core/details.ts`: fee, imported amount, nonce, value, gas cost, claimed
+amount); interactive mode shows them and stops when the user declines, so the
+transaction approved is the one signed. The signer is chosen by flag:
 
 1. **`--get-hacked --env-path <file>`** — `PrivateKeySigner`, signs in process.
 2. **`--ledger`** — `LedgerSigner`; Flare app signs the full transaction and

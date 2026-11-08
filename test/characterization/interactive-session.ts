@@ -26,6 +26,8 @@ import type * as NetworkModule from "../../src/chain/network";
 import type { NFlr, Wei } from "../../src/chain/units";
 import type * as ValidatorsModule from "../../src/chain/validators";
 import type * as PchainModule from "../../src/core/builders/pchain";
+import type { BuiltDetails } from "../../src/core/details";
+import type { TxRequest } from "../../src/core/types";
 import type * as InteractiveModule from "../../src/interactive/cli";
 import type * as LedgerSignerModule from "../../src/signers/ledger";
 import type { LedgerDevice } from "../../src/signers/ledger";
@@ -202,9 +204,37 @@ stub(envModule, "createEnv", (network, node = {}) => {
   >;
 });
 
+/** What the pipeline would read from the built transaction, for the summary shown before signing. */
+function builtDetailsOf(request: TxRequest): BuiltDetails {
+  switch (request.type) {
+    case "exportCP":
+      return { fee: request.fee ?? (1_234_000n as NFlr) };
+    case "importPC":
+      return { fee: request.fee ?? (1_234_000n as NFlr), imported: 2_998_766_000n as NFlr };
+    case "importCP":
+      return { fee: 1_234_000n as NFlr, imported: 2_998_766_000n as NFlr };
+    case "claim":
+      return {
+        nonce: 7,
+        value: 0n as Wei,
+        maxGasCost: 75_000_000_000_000_000n as Wei,
+        claimed: request.amount ?? ((5n * 10n ** 18n) as Wei),
+      };
+    case "withdrawal":
+    case "setClaimExecutors":
+    case "setAllowedClaimRecipients":
+    case "customCChainTx":
+      return { nonce: 7, value: 0n as Wei, maxGasCost: 75_000_000_000_000_000n as Wei };
+    default:
+      return { fee: 1_234_000n as NFlr };
+  }
+}
+
 const transactions = fromDist<typeof TransactionsModule>("app/transactions.js");
-stub(transactions, "runTransaction", async (request, _env, signer) => {
+stub(transactions, "runTransaction", async (request, _env, signer, _confirm, beforeSign) => {
   await signer.account(); // as runTransaction does before building
+  const details = builtDetailsOf(request);
+  await beforeSign?.(details); // between building and signing; No throws
   record(`TX ${show(request)} signer=${signer.kind}`);
   if (flags.failTx?.includes(request.type)) {
     flags.failTx = flags.failTx.filter((type) => type !== request.type);
@@ -212,13 +242,8 @@ stub(transactions, "runTransaction", async (request, _env, signer) => {
   }
   txCount++;
   utxoReads = 0;
-  const atomic = /^(export|import)/.test(request.type);
-  return {
-    status: "sent" as const,
-    txId: `tx${txCount}`,
-    chainStatus: "Committed",
-    ...(atomic ? { fee: 1_234_000n as NFlr } : {}),
-  };
+  // the fee the summary showed, as the pipeline reports the one it read from the transaction
+  return { status: "sent" as const, txId: `tx${txCount}`, chainStatus: "Committed", fee: details.fee };
 });
 stub(transactions, "estimateAtomicFee", (request) => {
   record(`ESTIMATE ${show(request)}`);
@@ -307,6 +332,8 @@ const TASK = {
   quit: "Quit",
 };
 const PRIVATE_KEY = ["Private Key", "pk", "LocalHost"];
+/** The answer to "Sign and send this transaction?", asked after the summary of each built transaction. */
+const SIGN = true;
 const P_ADDRESS = EWOQ_P_ADDRESS;
 const BLS_PUBLIC_KEY = "0x" + "a1".repeat(48);
 const BLS_SIGNATURE = "0x" + "b2".repeat(96);
@@ -338,20 +365,20 @@ const SCENARIOS: Scenario[] = [
       TASK.addresses,
       TASK.balance,
       TASK.validators,
-      TASK.CP, "10", "",
-      TASK.PC, "", "0.00000001", false, "0.00000001", true,
-      TASK.PC, "1.5", "1",
-      TASK.import, "P",
-      TASK.import, "C", "0.5",
-      TASK.transfer, "1.5", P_ADDRESS,
-      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE,
-      TASK.delegate, "50", NODE_X, "1700000000",
-      TASK.addARV, "10000", NODE_Y, "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE,
+      TASK.CP, "10", "", SIGN, SIGN,
+      TASK.PC, "", SIGN, "0.00000001", false, "0.00000001", true, SIGN,
+      TASK.PC, "1.5", SIGN, "1", SIGN,
+      TASK.import, "P", SIGN,
+      TASK.import, "C", "0.5", SIGN,
+      TASK.transfer, "1.5", P_ADDRESS, SIGN,
+      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE, SIGN,
+      TASK.delegate, "50", NODE_X, "1700000000", SIGN,
+      TASK.addARV, "10000", NODE_Y, "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE, SIGN,
       TASK.setARV, NODE_Y, "0", false,
-      TASK.setARV, NODE_Y, "0", true,
-      TASK.setARV, NODE_Y, "7d",
-      TASK.claim, "Yes", "No", "",
-      TASK.claim, "No", "1,25", "0.0000000000000000001", "1.25", "Yes", "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+      TASK.setARV, NODE_Y, "0", true, SIGN,
+      TASK.setARV, NODE_Y, "7d", SIGN,
+      TASK.claim, "Yes", "No", "", SIGN,
+      TASK.claim, "No", "1,25", "0.0000000000000000001", "1.25", "Yes", "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC", SIGN,
       TASK.quit,
     ],
   },
@@ -361,9 +388,9 @@ const SCENARIOS: Scenario[] = [
     script: [
       "Private Key", "nofile",
       ...PRIVATE_KEY,
-      TASK.transfer, "1", P_ADDRESS,
-      TASK.transfer, "abc", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS,
-      TASK.setARV, NODE_Z, "0", true,
+      TASK.transfer, "1", P_ADDRESS, SIGN,
+      TASK.transfer, "abc", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS, SIGN,
+      TASK.setARV, NODE_Z, "0", true, SIGN,
       TASK.quit,
     ],
   },
@@ -381,18 +408,30 @@ const SCENARIOS: Scenario[] = [
   {
     name: "private key: a failed export is not imported",
     flags: { failTx: ["exportCP", "exportPC"] },
-    script: [...PRIVATE_KEY, TASK.CP, "10", "", TASK.PC, "1", TASK.quit],
+    script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, TASK.PC, "1", SIGN, TASK.quit],
+  },
+  {
+    // No (also the default) signs nothing; a move whose export is not signed waits for nothing and imports nothing
+    name: "private key: No to signing",
+    script: [...PRIVATE_KEY, TASK.delegate, "50", NODE_X, "14d", false, TASK.CP, "10", "", "", TASK.quit],
   },
   {
     name: "private key: a move waits for its own export, not an earlier one",
     flags: { earlierExport: true },
-    script: [...PRIVATE_KEY, TASK.CP, "10", "", TASK.PC, "1", "", TASK.quit],
+    script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, SIGN, TASK.PC, "1", SIGN, "", SIGN, TASK.quit],
   },
   {
     name: "private key: no estimates, nothing to claim",
     flags: { noEstimate: true, noMax: true, zeroRewards: true },
     options: { node: { apiUrl: "http://127.0.0.1:1" }, evmFees: { gasLimit: "250000" } },
-    script: [...PRIVATE_KEY, TASK.CP, "1", "", TASK.PC, "2", "", TASK.import, "C", "", TASK.claim, TASK.quit],
+    script: [
+      ...PRIVATE_KEY,
+      TASK.CP, "1", "", SIGN, SIGN,
+      TASK.PC, "2", SIGN, "", SIGN,
+      TASK.import, "C", "", SIGN,
+      TASK.claim,
+      TASK.quit,
+    ],
   },
   {
     name: "ledger: new context",

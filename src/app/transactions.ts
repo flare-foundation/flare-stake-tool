@@ -10,7 +10,14 @@ import { ESTIMATED_FEE_BASE_FEE_MULTIPLIER } from "../core/builders/pchain";
 import { atomicTxFee } from "../core/fee";
 import { executeTransaction } from "../core/pipeline";
 import type { ConfirmOptions } from "../core/submit";
-import { IMMEDIATE_SIGNER_POLICY, type Env, type Outcome, type Signer, type TxRequest } from "../core/types";
+import {
+  IMMEDIATE_SIGNER_POLICY,
+  type BeforeSign,
+  type Env,
+  type Outcome,
+  type Signer,
+  type TxRequest,
+} from "../core/types";
 import { logIssued } from "../output";
 
 /** A P-chain account may stake to at most this many distinct nodes in overlapping periods. */
@@ -20,11 +27,12 @@ export async function runTransaction(
   req: TxRequest,
   env: Env,
   signer: Signer,
-  confirm: ConfirmOptions = { onIssued: logIssued }
+  confirm: ConfirmOptions = { onIssued: logIssued },
+  beforeSign?: BeforeSign
 ): Promise<Outcome> {
   await env.clients.verifyNetwork();
   await preflight(req, env, await signer.account());
-  return executeTransaction(req, env, signer, confirm);
+  return executeTransaction(req, env, signer, confirm, beforeSign);
 }
 
 /**

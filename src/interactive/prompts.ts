@@ -170,6 +170,9 @@ export const prompts = {
   replaceCtxFile: (file: string): Promise<boolean> =>
     confirm(ask(`Replace ${file} with a Ledger context? The current file is kept as a ${file}.<time>.bak backup.`)),
 
+  // after the summary of a built transaction; No, the default, signs and sends nothing
+  confirmSigning: (): Promise<boolean> => confirm(ask("Sign and send this transaction?")),
+
   // a typed C-chain fee below the cost at the current base fee; No asks for the fee again
   confirmLowFee: (): Promise<boolean> => confirm(ask("Send with this fee anyway?")),
 

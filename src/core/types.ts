@@ -10,6 +10,7 @@ import type { Account } from "../chain/keys";
 import type { NetworkConfig } from "../chain/network";
 import type { NFlr, Wei } from "../chain/units";
 import type { EvmFees } from "../constants/fees";
+import type { BuiltDetails } from "./details";
 
 export interface Env {
   readonly network: NetworkConfig;
@@ -173,6 +174,9 @@ export type UnsignedTxBundle =
 
 export type SignResult =
   { status: "signed"; signature: Uint8Array } | { status: "pending"; id: string; forDefiHash: string; file: string };
+
+/** Shown the details of a built transaction before it is signed; throwing stops it (interactive confirmation). */
+export type BeforeSign = (details: BuiltDetails) => Promise<void>;
 
 export interface Signer {
   readonly kind: "privateKey" | "ledger" | "file";

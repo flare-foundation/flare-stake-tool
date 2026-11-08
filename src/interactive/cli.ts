@@ -30,8 +30,10 @@ import {
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
 import { allUtxos, maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
+import type { BuiltDetails } from "../core/details";
 import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
-import { describeError, log, logError, logInfo, logWarning, reportOutcome } from "../output";
+import { describeError, log, logError, logInfo, logIssued, logWarning, reportOutcome } from "../output";
+import { signingSummary } from "./summary";
 import { LedgerSigner, confirmLedgerAccount, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
 import {
@@ -86,7 +88,8 @@ export async function interactiveCli(options: InteractiveOptions): Promise<void>
     try {
       await TASKS[task](session);
     } catch (error) {
-      logError(`Error: ${describeError(error)}`);
+      if (error instanceof SigningDeclined) logInfo(error.message);
+      else logError(`Error: ${describeError(error)}`);
     }
   }
 }
@@ -176,9 +179,23 @@ async function setAutoRenewal(session: Session): Promise<void> {
   await execute(session, { type: "setAutoRenewedValidatorConfig", nodeId: id, period });
 }
 
-/** Builds, signs and sends (or writes) a transaction, and reports it as the command line does. */
+/** The answer No to signing a transaction: nothing is signed or sent, and a move stops before its import. */
+class SigningDeclined extends Error {
+  constructor() {
+    super("Not signed; nothing was sent.");
+  }
+}
+
+/**
+ * Builds, signs and sends a transaction, and reports it as the command line does. What is about to be signed is shown
+ * first, read from the built transaction, and signed only when the user confirms; No is the default.
+ */
 async function execute(session: Session, request: TxRequest): Promise<Outcome> {
-  const outcome = await runTransaction(request, session.env, session.signer);
+  const confirmSigning = async (details: BuiltDetails): Promise<void> => {
+    for (const line of signingSummary(request, details, session.account, session.env.network)) log(line);
+    if (!(await prompts.confirmSigning())) throw new SigningDeclined();
+  };
+  const outcome = await runTransaction(request, session.env, session.signer, { onIssued: logIssued }, confirmSigning);
   reportOutcome(outcome, session.env.network.symbol);
   return outcome;
 }
