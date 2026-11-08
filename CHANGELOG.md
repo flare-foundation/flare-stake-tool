@@ -24,6 +24,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * `info network` and `info mirror` are removed.
 * Output: the banner is shown only in interactive mode, progress messages (such as "Transaction … submitted, waiting") go to stderr while results, including the transaction id, stay on stdout, and every error exits with code 1.
 * `interactive` refuses unknown options, options it doesn't use (`--network`, `--ledger`, `--blind`, `--derivation-path`, `--ctx-file`, `--env-path`, `--get-hacked`), and running without a terminal.
+* `transaction <type>` refuses an option given on the command line that the type doesn't use, such as `importCP -a 5`, `exportPC -f 1`, `--nonce` on another type than `exportCP`, or the C-chain gas options (`--gas-limit`, `--max-fee-per-gas`, `--priority-fee-per-gas`) on a P-chain or atomic type. They were ignored, so a value the user meant to pin wasn't. `-i` and `--threshold 1` are taken by every type.
 * `addAutoRenewedValidator` takes one `--owner-address`, as documented. Several made a validator authority that any one of them controlled alone (1-of-N), whatever `--threshold` said; `--threshold` other than 1 is refused.
 * `customCChainTx` has a 300,000 gas limit by default (was 1,000,000); heavier calls need `--gas-limit`. See Changed for the other gas limits.
 

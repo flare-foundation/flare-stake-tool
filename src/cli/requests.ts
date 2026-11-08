@@ -84,6 +84,59 @@ function parseShares(value: unknown): number | undefined {
 }
 
 /**
+ * The options of `transaction` each type reads (see parseAtomicTxRequest); `-i` and the compatibility `--threshold`
+ * are taken by every type. Any other option given on the command line is refused: it was ignored, so `importCP -a 5`
+ * imported everything pending and `exportPC -f 1` paid the usual fee, while the user believed the value was pinned.
+ */
+export const ATOMIC_TX_OPTIONS: Readonly<Record<string, readonly string[]>> = {
+  exportCP: ["--amount", "--fee", "--nonce"],
+  importCP: [],
+  exportPC: ["--amount"],
+  importPC: ["--fee"],
+  stake: [
+    "--node-id",
+    "--amount",
+    "--start-time",
+    "--end-time",
+    "--delegation-fee",
+    "--pop-bls-public-key",
+    "--pop-bls-signature",
+  ],
+  delegate: ["--node-id", "--amount", "--start-time", "--end-time"],
+  transfer: ["--amount", "--transfer-address"],
+  addAutoRenewedValidator: [
+    "--node-id",
+    "--amount",
+    "--period",
+    "--delegation-fee",
+    "--pop-bls-public-key",
+    "--pop-bls-signature",
+    "--owner-address",
+    "--auto-compound-shares",
+  ],
+  setAutoRenewedValidatorConfig: ["--node-id", "--validator-tx-id", "--period", "--auto-compound-shares"],
+};
+const EVERY_ATOMIC_TX_TYPE = ["--transaction-id", "--threshold"];
+const EVM_FEE_FLAGS = ["--max-fee-per-gas", "--priority-fee-per-gas", "--gas-limit"];
+
+/**
+ * Refuses the options given on the command line (`given`, long flags; defaults don't count) that `transaction <type>`
+ * doesn't read, the C-chain gas options included. An unknown type is left to parseAtomicTxRequest.
+ */
+export function refuseUnusedOptions(type: string, given: readonly string[]): void {
+  const reads = ATOMIC_TX_OPTIONS[type];
+  if (reads === undefined) return;
+  const unused = given.filter((flag) => !EVERY_ATOMIC_TX_TYPE.includes(flag) && !reads.includes(flag));
+  if (unused.length === 0) return;
+  const gas = unused.some((flag) => EVM_FEE_FLAGS.includes(flag))
+    ? " (the C-chain gas options are for the C-chain commands; exportCP and importPC take --fee)"
+    : "";
+  throw new Error(
+    `transaction ${type} doesn't use ${unused.join(", ")}; leave ${unused.length === 1 ? "it" : "them"} out${gas}`
+  );
+}
+
+/**
  * The validator authority of an auto-renewed validator: one address, threshold 1, as the tool supports. Several made a
  * 1-of-N authority that any one of them controlled alone, whatever `--threshold` said.
  */

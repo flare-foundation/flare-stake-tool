@@ -331,6 +331,25 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(relay.stderr).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
   });
 
+  it("refuses an option the transaction type doesn't read, given on the command line, whatever its position", () => {
+    for (const [args, refusal] of [
+      [["transaction", "importCP", "-a", "5"], "transaction importCP doesn't use --amount; leave it out"],
+      [["exportPC", "-a", "1", "-f", "1"], "transaction exportPC doesn't use --fee; leave it out"],
+      [
+        ["--gas-limit", "21000", "exportCP", "-a", "1", "-f", "1"],
+        "transaction exportCP doesn't use --gas-limit; leave it out (the C-chain gas options are for the C-chain " +
+          "commands; exportCP and importPC take --fee)",
+      ],
+    ] as const) {
+      const result = runCli([...args, "--network", "costwo"], { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(`Error: ${refusal}\n`);
+    }
+    // the defaults of --delegation-fee, --auto-compound-shares and --threshold are not given options
+    const defaults = runCli(["transaction", "importCP", "--threshold", "1", "--network", "costwo"], { cwd });
+    expect(defaults.stderr).to.include("A transaction id is required for the unsigned-file flow");
+  });
+
   it("prints no part of a malformed FLARE_FAKE_LEDGER_KEY", () => {
     const malformed = `${"5a".repeat(31)}zz`;
     const result = runCli(["info", "addresses", "--ledger", "--network", "costwo"], {

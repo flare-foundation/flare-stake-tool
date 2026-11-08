@@ -36,7 +36,13 @@ import {
   selectsAccount,
   type GlobalOptions,
 } from "./cli/options";
-import { parseAtomicTxRequest, parseEvmTxRequest, type AtomicTxOptions, type EvmTxOptions } from "./cli/requests";
+import {
+  parseAtomicTxRequest,
+  parseEvmTxRequest,
+  refuseUnusedOptions,
+  type AtomicTxOptions,
+  type EvmTxOptions,
+} from "./cli/requests";
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
 import { checkDerivationPath } from "./ledger/path";
@@ -53,6 +59,17 @@ const FORDEFI_ACTIONS = ["sign", "fetch"];
 interface InitCtxOptions {
   publicKey?: string;
   vaultId?: string;
+}
+
+/** The program's C-chain fee options, which only the C-chain commands read. */
+const EVM_FEE_OPTIONS = ["maxFeePerGas", "priorityFeePerGas", "gasLimit"];
+
+/** The long flags of the options of `command` given on the command line, of those named in `only` when given. */
+function givenFlags(command: Command, only?: readonly string[]): string[] {
+  return command.options
+    .filter((option) => only === undefined || only.includes(option.attributeName()))
+    .filter((option) => command.getOptionValueSource(option.attributeName()) === "cli")
+    .flatMap((option) => (option.long === undefined ? [] : [option.long]));
 }
 
 /** Options of `send` and `forDefi`. */
@@ -145,7 +162,8 @@ export function cli(program: Command): void {
       "Transaction id of the auto-renewed validator to reconfigure (alternative to --node-id)"
     )
     .option("--threshold <threshold>", "Accepted for compatibility; only 1", "1")
-    .action(async (type: string, options: AtomicTxOptions) => {
+    .action(async (type: string, options: AtomicTxOptions, command: Command) => {
+      refuseUnusedOptions(type, [...givenFlags(command), ...givenFlags(program, EVM_FEE_OPTIONS)]);
       await transaction(type, globalOptions(program.opts(), options));
     });
 

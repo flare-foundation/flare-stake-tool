@@ -15,7 +15,12 @@ import {
   pastEndTimeWarning,
 } from "../../src/cli/inputs";
 import { globalOptions, resolveAccount, resolveSigner, type GlobalOptions } from "../../src/cli/options";
-import { parseAtomicTxRequest, parseEvmTxRequest } from "../../src/cli/requests";
+import {
+  ATOMIC_TX_OPTIONS,
+  parseAtomicTxRequest,
+  parseEvmTxRequest,
+  refuseUnusedOptions,
+} from "../../src/cli/requests";
 import { FAKE_LEDGER_KEY_ENV } from "../../src/signers/ledger";
 import { cleanupTempDir, makeTempDir, writeEnvFile } from "../helpers/cli";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
@@ -43,6 +48,70 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       expect(() => parseAtomicTxRequest("exportCP", { amount: "1", nonce: "abc" })).to.throw(/--nonce must be/);
       expect(parseEvmTxRequest("withdrawal", { to: TO, amount: "1", nonce: "3" })).to.include({ nonce: 3 });
       expect(() => parseEvmTxRequest("withdrawal", { to: TO, amount: "1", nonce: "-1" })).to.throw(/--nonce must be/);
+    });
+  });
+
+  describe("the options each transaction type reads", () => {
+    // every option of `transaction`, with a base value and another one, both valid
+    const VALUES: Record<string, [string, unknown, unknown]> = {
+      amount: ["--amount", "10000", "20000"],
+      fee: ["--fee", "0.001", "0.002"],
+      nodeId: ["--node-id", NODE_ID, "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu"],
+      startTime: ["--start-time", "1900000000", "1900000001"],
+      endTime: ["--end-time", "1900086400", "1900086401"],
+      nonce: ["--nonce", "1", "2"],
+      delegationFee: ["--delegation-fee", "10", "12"],
+      popBlsPublicKey: ["--pop-bls-public-key", "a1".repeat(48), "a2".repeat(48)],
+      popBlsSignature: ["--pop-bls-signature", "b1".repeat(96), "b2".repeat(96)],
+      transferAddress: ["--transfer-address", "P-costwo1a", "P-costwo1b"],
+      period: ["--period", "14d", "7d"],
+      autoCompoundShares: ["--auto-compound-shares", "0", "5"],
+      ownerAddress: ["--owner-address", ["P-costwo1a"], ["P-costwo1b"]],
+      validatorTxId: ["--validator-tx-id", "tx1", "tx2"],
+    };
+    const REQUIRED: Record<string, string[]> = {
+      exportCP: ["amount"],
+      importCP: [],
+      exportPC: [],
+      importPC: [],
+      stake: ["nodeId", "amount", "endTime", "popBlsPublicKey", "popBlsSignature"],
+      delegate: ["nodeId", "amount", "endTime"],
+      transfer: ["amount", "transferAddress"],
+      addAutoRenewedValidator: ["nodeId", "amount", "period", "popBlsPublicKey", "popBlsSignature"],
+      setAutoRenewedValidatorConfig: ["nodeId", "period"],
+    };
+
+    it("are exactly the ones the parser reads, so that none it reads is refused and none it ignores is taken", () => {
+      for (const [type, required] of Object.entries(REQUIRED)) {
+        const base = Object.fromEntries(required.map((key) => [key, VALUES[key]![1]]));
+        const request = (options: object) =>
+          JSON.stringify(parseAtomicTxRequest(type, options).request, (_k, v: unknown) =>
+            typeof v === "bigint" ? v.toString() : v instanceof Uint8Array ? Buffer.from(v).toString("hex") : v
+          );
+        const read = Object.entries(VALUES)
+          .filter(([key, [, first, other]]) => {
+            const value = key in base ? other : first;
+            return request({ ...base, [key]: value }) !== request(base);
+          })
+          .map(([, [flag]]) => flag);
+        expect([...read].sort(), type).to.deep.equal([...ATOMIC_TX_OPTIONS[type]!].sort());
+      }
+      expect(Object.keys(ATOMIC_TX_OPTIONS).sort()).to.deep.equal(Object.keys(REQUIRED).sort());
+    });
+
+    it("refuses one given that the type doesn't read, the C-chain gas options included; -i and --threshold pass", () => {
+      expect(() => refuseUnusedOptions("importCP", ["--amount"])).to.throw(
+        "transaction importCP doesn't use --amount; leave it out"
+      );
+      expect(() => refuseUnusedOptions("exportPC", ["--amount", "--fee", "--nonce"])).to.throw(
+        "transaction exportPC doesn't use --fee, --nonce; leave them out"
+      );
+      expect(() => refuseUnusedOptions("exportCP", ["--amount", "--gas-limit"])).to.throw(
+        "transaction exportCP doesn't use --gas-limit; leave it out (the C-chain gas options are for the C-chain " +
+          "commands; exportCP and importPC take --fee)"
+      );
+      expect(() => refuseUnusedOptions("delegate", ["--transaction-id", "--threshold", "--amount"])).not.to.throw();
+      expect(() => refuseUnusedOptions("unknownType", ["--amount"]), "left to the parser").not.to.throw();
     });
   });
 
