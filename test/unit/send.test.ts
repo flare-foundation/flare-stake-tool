@@ -109,7 +109,13 @@ async function stderrOf(action: () => Promise<unknown>): Promise<string> {
   return printed.join("\n");
 }
 
-const FAST = { timeoutMs: 50, pollMs: 1 };
+/**
+ * The scripted statuses are final, so a wait ends at its first poll: the deadline only has to be out of reach of a
+ * loaded machine. A 50 ms one was reached under load, and tests expecting the final status got a timeout instead.
+ */
+const FAST = { timeoutMs: 10_000, pollMs: 1 };
+/** For the tests of the deadline itself, whose scripted status never ends the wait. */
+const SHORT_DEADLINE = { timeoutMs: 50, pollMs: 1 };
 
 describe("app/send: the isSentToChain mark", () => {
   let cwd: string;
@@ -134,12 +140,12 @@ describe("app/send: the isSentToChain mark", () => {
   it("stays set when the wait times out, so that a rerun cannot submit the transaction twice", async () => {
     writeSigned("delegate-file", "t", cwd);
     const env = scriptedEnv({ statuses: ["Processing"] }, "t", cwd);
-    await sendSignedTransaction("t", env, undefined, cwd, FAST).then(
+    await sendSignedTransaction("t", env, undefined, cwd, SHORT_DEADLINE).then(
       () => expect.fail("the wait should have timed out"),
       (error: unknown) => expect(String(error)).to.match(/submitted but not committed within 50ms/)
     );
     expect(isAlreadySentToChain("t", cwd)).to.equal(true);
-    await sendSignedTransaction("t", env, undefined, cwd, FAST).then(
+    await sendSignedTransaction("t", env, undefined, cwd, SHORT_DEADLINE).then(
       () => expect.fail("a rerun must not submit again"),
       (error: unknown) => expect(String(error)).to.include("Tx already sent to chain")
     );
@@ -266,7 +272,7 @@ describe("app/send: the isSentToChain mark", () => {
     ] as const) {
       writeSigned(scenario, id, cwd);
       const env = scriptedEnv({ statuses: ["Processing"] }, id, cwd);
-      await sendSignedTransaction(id, env, undefined, cwd, FAST).then(
+      await sendSignedTransaction(id, env, undefined, cwd, SHORT_DEADLINE).then(
         () => expect.fail(`${scenario}: the wait should have timed out`),
         (error: unknown) => expect(String(error)).to.include(expected)
       );
