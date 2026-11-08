@@ -242,6 +242,13 @@ describe("CLI interactive mode (with network)", function () {
     session.send(nodeInfo.blsProofOfPossession);
     session.send(KEYS.ENTER);
 
+    // The summary of the built transaction, then the confirmation, which defaults to No.
+    await session.waitFor("Sign and send this transaction?", 60_000);
+    expect(session.output).to.include("About to sign stake on localflare:");
+    expect(session.output).to.include(`Node: ${nodeInfo.nodeID}`);
+    session.send("y");
+    session.send(KEYS.ENTER);
+
     // Verify the stake tx was built and submitted.
     await session.waitFor("sent to the network", 60_000);
     expect(session.output.toLowerCase()).to.include("transaction with hash");
