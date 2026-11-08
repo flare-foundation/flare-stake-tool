@@ -118,6 +118,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 
 * `info network` and `info mirror`, with their interactive menu entries.
 * Code no command reached (the React UI, the Trezor module, browser utilities, the `local` network alias) and unused dependencies, including `web3`, `bn.js`, `@mui/*` and `@trezor/connect-web`.
+* `scripts/get-tx.sh`, which was not shipped and called a wrong endpoint (`/ext/P` instead of `/ext/bc/P`, and `costwo-api` for Coston2).
 
 ### Deprecated
 
