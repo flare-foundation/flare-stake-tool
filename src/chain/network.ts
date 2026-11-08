@@ -93,11 +93,16 @@ export function redactSecrets(text: string): string {
 }
 
 /**
- * A node URL as given, for an error about it: without its query and fragment, which may hold a key under any
- * spelling (`x%2Dapikey=`), and with its credentials masked. It is refused before any key is remembered.
+ * A node URL as given, for an error about it: with everything up to its last `@` masked, then without its query and
+ * fragment, which may hold a key under any spelling (`x%2Dapikey=`). It is refused before any key is remembered. A
+ * password typed without escaping can hold `/`, `?` or `#`, so the credentials are masked on the raw input up to the
+ * last `@` (more than needed when an `@` is in the query, never less); cutting the query first would have left
+ * `SECRET` in `https://alice:SECRET?tail@host`.
  */
 function shownNodeUrlInput(input: string): string {
-  const text = input.trim();
+  const text = input
+    .trim()
+    .replace(/^([a-z][a-z0-9+.-]*:\/\/)?[^]*@/i, (_match, scheme?: string) => `${scheme ?? ""}***@`);
   const cut = text.search(/[?#]/);
   return redactSecrets(cut < 0 ? text : `${text.slice(0, cut)}?…`);
 }

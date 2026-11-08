@@ -133,6 +133,12 @@ describe("chain/network", () => {
         "https://host.example:bad/ext/info?x%2Dapikey=SECRET",
         "https://host.example:bad/ext/info?X-APIKEY=SECRET",
         "ftp://user:SECRET@host.example/ext/info#x-apikey=SECRET",
+        // a password typed without escaping, with characters that end the userinfo before its "@"
+        "https://alice:synthetic/SECRET@node.invalid",
+        "https://alice:SECRET?tail@node.invalid",
+        "https://alice:SECRET#tail@node.invalid",
+        "https://alice:SE@CRET@node.invalid:bad",
+        "alice:SECRET@node.invalid",
       ]) {
         let message = "";
         try {
@@ -145,6 +151,12 @@ describe("chain/network", () => {
       }
       expect(() => parseNodeUrl("https://host.example:bad/ext/info?x%2Dapikey=SECRET")).to.throw(
         'Invalid node URL "https://host.example:bad/ext/info?…"; expected a base URL'
+      );
+      expect(() => parseNodeUrl("https://alice:synthetic/SECRET@node.invalid")).to.throw(
+        'Invalid node URL "https://***@node.invalid"; expected a base URL'
+      );
+      expect(() => parseNodeUrl("https://alice:SECRET?tail@node.invalid")).to.throw(
+        'Invalid node URL "https://***@node.invalid"; expected a base URL'
       );
     });
 
