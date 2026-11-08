@@ -47,7 +47,27 @@ function expandAliases(argv: string[], index: number): string[] {
   return group === undefined ? argv : [...argv.slice(0, index), group, ...argv.slice(index)];
 }
 
-program.parseAsync(expandAliases(process.argv, commandIndex(process.argv))).catch((error: unknown) => {
+/**
+ * `-i <id>` given before a command, as in `-i myid exportCP -a 1`: `-i` there is `interactive`, which takes no
+ * arguments, and Commander would report `-a` as unknown. The id goes after the command.
+ */
+function misplacedTransactionId(argv: readonly string[], index: number): string | undefined {
+  const next = index < 0 || argv[index] !== "-i" ? undefined : argv[index + 1];
+  if (next === undefined || next.startsWith("-")) return undefined;
+  return (
+    `-i before a command starts interactive mode, which takes no arguments ("${next}" given); ` +
+    "to name a transaction, give -i <id> after the command, as in: exportCP -a 1 -f 0.001 -i myid"
+  );
+}
+
+const index = commandIndex(process.argv);
+const misplaced = misplacedTransactionId(process.argv, index);
+if (misplaced !== undefined) {
+  console.error(styleText("red", `Error: ${misplaced}`));
+  process.exit(1);
+}
+
+program.parseAsync(expandAliases(process.argv, index)).catch((error: unknown) => {
   console.error(styleText("red", `Error: ${describeError(error)}`));
   process.exit(1);
 });

@@ -584,6 +584,20 @@ describe("CLI commands that need no node (built CLI)", function () {
     }
   });
 
+  it("says where the id goes when -i <id> comes before a command, where -i starts interactive mode", () => {
+    for (const args of [
+      ["-i", "myid", "exportCP", "-a", "1"],
+      ["--network", "costwo", "-i", "myid", "exportCP"],
+    ]) {
+      const result = runCli(args, { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(
+        'Error: -i before a command starts interactive mode, which takes no arguments ("myid" given); to name a ' +
+          "transaction, give -i <id> after the command, as in: exportCP -a 1 -f 0.001 -i myid\n"
+      );
+    }
+  });
+
   it("interactive --help shows the help of interactive mode and starts nothing, -i included", () => {
     for (const args of [
       ["interactive", "--help"],
