@@ -62,11 +62,21 @@ function answer(method: string, params: unknown): unknown {
   }
 }
 
-/** A JSON-RPC node (single and batched requests) that records the x-apikey header of every request. */
-function startFakeNode(): Promise<FakeNode> {
+/**
+ * A JSON-RPC node (single and batched requests) that records the x-apikey header of every request. A path in
+ * `redirects` is answered with a 307 to the same path on the host it names.
+ */
+function startFakeNode(redirects: Record<string, () => string> = {}): Promise<FakeNode> {
   const seen: SeenRequest[] = [];
   const failing = new Set<string>();
   const server = http.createServer((req, res) => {
+    const redirect = redirects[req.url ?? ""];
+    if (redirect) {
+      req.resume();
+      res.writeHead(307, { location: `${redirect()}${req.url ?? ""}` });
+      res.end();
+      return;
+    }
     let body = "";
     req.setEncoding("utf8");
     req.on("data", (chunk: string) => (body += chunk));
@@ -315,13 +325,41 @@ describe("chain/clients", () => {
           (error: unknown) => refusal(error)
         );
         expect(ethers).to.include(`unexpected redirect to ${second.url}/ext/bc/C/rpc`);
-        expect(first.requests()).to.equal(2);
+        // the P-chain client, and the EVM API's inner C-chain client, which has fetch options of its own
+        for (const [name, request] of [
+          ["pvm", () => clients.pvm.getFeeConfig()],
+          ["evm (inner C-chain client)", () => clients.evm.getBaseFee()],
+        ] as const) {
+          await request().then(
+            () => expect.fail(`${name} followed the redirect`),
+            (error: unknown) => refusal(error)
+          );
+        }
+        expect(first.requests()).to.equal(4);
         expect(second.requests(), "the redirect's target").to.equal(0);
         expect(node.seen, "the host behind it").to.deep.equal([]);
       } finally {
         clients.provider.destroy();
         await first.close();
         await second.close();
+      }
+    });
+
+    it("refuses a redirect of the X-chain lookup the Context is assembled from", async () => {
+      const elsewhere = await startRedirector(() => "http://127.0.0.1:1");
+      const redirecting = await startFakeNode({ "/ext/bc/X": () => elsewhere.url });
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: redirecting.url, apiKey: "secret-key" }));
+      try {
+        await clients.context().then(
+          () => expect.fail("the Context was fetched through a redirect"),
+          (error: unknown) => expect(describeError(error)).to.match(/^The node answered with a redirect/)
+        );
+        expect(redirecting.seen.map((r) => r.method)).to.include("info.getNetworkID"); // asked before the X-chain
+        expect(elsewhere.requests(), "the redirect's target").to.equal(0);
+      } finally {
+        clients.provider.destroy();
+        await redirecting.close();
+        await elsewhere.close();
       }
     });
 
