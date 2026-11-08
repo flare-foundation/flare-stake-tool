@@ -73,6 +73,10 @@ export function resolveEnv(options: GlobalOptions): Env {
 type AccountSource = "keyFile" | "ledger" | "contextFile";
 
 function accountSource(options: GlobalOptions): AccountSource {
+  // refused before either is opened; the key file used to win silently
+  if (options.getHacked && options.ledger) {
+    throw new Error("--ledger and --get-hacked select different signers; pass one of them");
+  }
   if (options.getHacked) return "keyFile";
   if (options.ledger) return "ledger";
   return options.envPath ? "keyFile" : "contextFile";

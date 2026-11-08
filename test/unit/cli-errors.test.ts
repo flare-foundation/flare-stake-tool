@@ -331,6 +331,38 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(relay.stderr).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
   });
 
+  it("refuses two signers instead of letting one win, before the key file or the Ledger is opened", () => {
+    for (const [args, refusal] of [
+      [
+        ["info", "addresses", "--ledger", "--get-hacked", "--env-path", "missing.env"],
+        "--ledger and --get-hacked select different signers; pass one of them",
+      ],
+      [
+        ["transaction", "importCP", "--ledger", "--get-hacked", "--env-path", "missing.env"],
+        "--ledger and --get-hacked select different signers; pass one of them",
+      ],
+      [["init-ctx", "--ledger", "-p", EWOQ_PUBLIC_KEY_COMPRESSED], "init-ctx takes --ledger or --public-key, not both"],
+    ] as const) {
+      const result = runCli([...args, "--network", "costwo"], {
+        cwd,
+        env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX, FLARE_RPC_URL: CLOSED_NODE },
+      });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(`Error: ${refusal}\n`);
+    }
+    expect(fs.existsSync(path.join(cwd, "ctx.json")), "no context written").to.equal(false);
+    // a key file with --ledger is not a second signer: --ledger signs, as before
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const ledger = runCli(["info", "addresses", "--ledger", "--env-path", envPath, "--network", "costwo"], {
+      cwd,
+      env: { FLARE_FAKE_LEDGER_KEY: "22".repeat(32) },
+    });
+    expect(ledger.exitCode, ledger.stderr).to.equal(0);
+    expect(ledger.stdout).to.include(
+      accountFromPublicKey(new SigningKey(`0x${"22".repeat(32)}`).compressedPublicKey, "costwo").pAddress
+    );
+  });
+
   it("refuses a derivation path an app would read as another index, before the Ledger is asked", () => {
     const bad = "m/44'/60'/0'/0/1O";
     for (const args of [

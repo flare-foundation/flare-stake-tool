@@ -19,7 +19,7 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--derivation-path <path>` | Ledger derivation path. Without it, `--ledger` with a Ledger context file (`--ctx-file`, default `ctx.json`) uses the context's path and refuses a Ledger that doesn't have the context's key; otherwise `m/44'/60'/0'/0/0`. A path given or saved must be `m/` and decimal indices below 2^31, each optionally hardened with `'` |
 | `--ctx-file <file>` | Context file written by `init-ctx` (default `ctx.json`, used when it exists). A file given with `--ctx-file` must exist, whatever else selects the account or network, also for `forDefi fetch`, which doesn't read it: a missing one is refused, not ignored (`init-ctx` writes it instead) |
 | `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58`. A `PRIVATE_KEY_CB58` whose checksum doesn't match (a typo) is refused |
-| `--get-hacked` | Use the env file's private key for direct in-process signing |
+| `--get-hacked` | Use the env file's private key for direct in-process signing; refused together with `--ledger` |
 | `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command. A failed request is reported with its cause and the node's URL, such as `fetch failed (connect ECONNREFUSED 127.0.0.1:9650; node http://localhost:9650)`; URL credentials and the API key are masked as `***` in every error |
 | `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes. Without it, the node URL's own `x-apikey` is used, then env `FLARE_API_KEY`. A key that would go over plain `http` to a host other than `localhost`, 127.x.x.x or `[::1]` gets a warning on stderr (the key itself is not printed) |
 
@@ -82,7 +82,7 @@ commands.
 | Inputs | One of: `-p <publicKey>`, `--ledger` (the address at `--derivation-path`). `--network <name>`. Optional `--vault-id <id>`, stored for ForDefi. |
 | Side effects | Writes `ctx.json` (or the `--ctx-file` path) in the current working directory |
 | Output | Success message. With `--ledger`, first the C-chain address (on stderr), which the device then shows: approve it only if they match |
-| Failures | Throws if neither `-p` nor `--ledger` is given, if the file already exists, if `-p` is not a valid secp256k1 public key, or if the Ledger shows another address than the one of the key it returned, or the user rejects it (exit code 1, no file written) |
+| Failures | Throws if neither `-p` nor `--ledger` is given, or both, if the file already exists, if `-p` is not a valid secp256k1 public key, or if the Ledger shows another address than the one of the key it returned, or the user rejects it (exit code 1, no file written) |
 
 The resulting file contains the public key, derived addresses, and the
 network. It does **not** contain the private key.

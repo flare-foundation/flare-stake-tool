@@ -342,6 +342,10 @@ async function interactive(options: GlobalOptions, ignored: readonly string[]): 
 }
 
 async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
+  if (options.ledger && typeof options.publicKey === "string") {
+    // the Ledger's key used to be saved silently
+    throw new Error("init-ctx takes --ledger or --public-key, not both");
+  }
   const network = resolveNetworkName(options.network, options.ctxFile);
   const env = createEnv(network, nodeOverrides(options)); // not resolveEnv: --ctx-file is the file to write
   const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;

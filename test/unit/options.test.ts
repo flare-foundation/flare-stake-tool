@@ -360,7 +360,6 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         // info and send took the key file here, while transactions signed with the Ledger
         ["--ledger --env-path", { ledger: true, envPath }, ledger.pAddress],
         ["--get-hacked --env-path", { getHacked: true, envPath }, keyFile.pAddress],
-        ["--get-hacked --env-path --ledger", { getHacked: true, envPath, ledger: true }, keyFile.pAddress],
         ["no selector", {}, context.pAddress],
       ];
       for (const [flags, selectors, expected] of cases) {
@@ -368,6 +367,17 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         const signer = await resolveSigner(options, env);
         expect((await signer.account()).pAddress, `${flags}: signer`).to.equal(expected);
         expect((await resolveAccount(options, env)).pAddress, `${flags}: account`).to.equal(expected);
+      }
+      // two signers: the key file used to win silently
+      const both = { ...base, getHacked: true, envPath, ledger: true };
+      for (const resolve of [resolveSigner, resolveAccount]) {
+        await resolve(both, env).then(
+          () => expect.fail("--get-hacked --ledger resolved an account"),
+          (error: unknown) =>
+            expect((error as Error).message).to.equal(
+              "--ledger and --get-hacked select different signers; pass one of them"
+            )
+        );
       }
     });
 
