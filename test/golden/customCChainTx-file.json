@@ -38,6 +38,7 @@
         "chainId": 162
       },
       "message": "ecf066c7d66acc195d12225cfeb5c158c45709502a195983b3a320b3d0706e14",
+      "signer": "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
       "forDefiHash": "7PBmx9ZqzBldEiJc/rXBWMRXCVAqGVmDs6Mgs9BwbhQ="
     }
   }

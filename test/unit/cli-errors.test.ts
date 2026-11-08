@@ -7,6 +7,7 @@
 import { expect } from "chai";
 import fs from "fs";
 import path from "path";
+import { SigningKey } from "ethers";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { markSentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { readGolden } from "../characterization/scenarios";
@@ -380,20 +381,34 @@ describe("CLI errors (built CLI, no node)", function () {
   });
 
   it("send refuses a file signed by another key than ctx.json's, before it contacts the node", () => {
+    const ewoqCAddress = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare").cAddress;
     // without the check, an EVM transaction signed by any key is valid on its own and would be sent from that key
     const context = { wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "localflare" };
     fs.writeFileSync(path.join(cwd, "ctx.json"), JSON.stringify(context));
     const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson & { message: string };
-    writeSignedTxJson({ ...unsigned, signature: signMessageHash(unsigned.message, "22".repeat(32)) }, "w1", cwd);
-    const result = runCli(["send", "-i", "w1"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
-    expect(result.exitCode).to.equal(1);
-    expect(result.stderr).to.equal(
-      "Error: The signature does not belong to the configured account (recovered address differs)\n"
-    );
-    const signed = JSON.parse(
-      fs.readFileSync(path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "w1.signedTx.json"), "utf8")
-    ) as { isSentToChain?: boolean };
-    expect(signed.isSentToChain).to.equal(undefined);
+    const signature = signMessageHash(unsigned.message, "22".repeat(32));
+    const foreign = accountFromPublicKey(new SigningKey(`0x${"22".repeat(32)}`).compressedPublicKey, "localflare");
+    for (const [file, refusal] of [
+      // a file of an earlier version records no account: the context's is the one to check
+      [
+        { ...unsigned, signer: undefined },
+        "The signature does not belong to the configured account (recovered address differs)",
+      ],
+      // this version's records the account it was built for, ewoq
+      [
+        unsigned,
+        `Transaction w1 was built for ${ewoqCAddress}, but it is signed by ${foreign.cAddress}; it is not sent`,
+      ],
+    ] as const) {
+      writeSignedTxJson({ ...file, signature }, "w1", cwd);
+      const result = runCli(["send", "-i", "w1"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      expect(result.exitCode).to.equal(1);
+      expect(result.stderr).to.equal(`Error: ${refusal}\n`);
+      const signed = JSON.parse(
+        fs.readFileSync(path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "w1.signedTx.json"), "utf8")
+      ) as { isSentToChain?: boolean };
+      expect(signed.isSentToChain).to.equal(undefined);
+    }
   });
 
   it("setClaimExecutors and setAllowedClaimRecipients need their list before anything is signed", () => {

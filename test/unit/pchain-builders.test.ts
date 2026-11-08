@@ -792,7 +792,9 @@ describe("core/builders/pchain", function () {
         context.pBlockchainID,
         FEE
       );
-      expect(unsignedTxJsonFromBundle(built)).to.deep.equal(unsignedTxJsonFromBundle(atomicBundle("importPC", direct)));
+      expect(unsignedTxJsonFromBundle(built, account)).to.deep.equal(
+        unsignedTxJsonFromBundle(atomicBundle("importPC", direct), account)
+      );
     });
   });
 
@@ -906,7 +908,9 @@ describe("core/builders/pchain", function () {
         },
         context
       );
-      expect(unsignedTxJsonFromBundle(built)).to.deep.equal(unsignedTxJsonFromBundle(atomicBundle("importCP", direct)));
+      expect(unsignedTxJsonFromBundle(built, account)).to.deep.equal(
+        unsignedTxJsonFromBundle(atomicBundle("importCP", direct), account)
+      );
     });
 
     it("refuses an import whose fee takes all it imports, which the P-chain would take with no output", async () => {

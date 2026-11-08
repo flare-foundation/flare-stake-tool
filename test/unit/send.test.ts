@@ -6,7 +6,8 @@
 import { expect } from "chai";
 import fs from "fs";
 import { sendSignedTransaction, type SendEnv } from "../../src/app/send";
-import { accountFromPublicKey } from "../../src/chain/keys";
+import { getBytes } from "ethers";
+import { accountFromPrivateKey, accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import {
   isAlreadySentToChain,
@@ -74,6 +75,22 @@ function writeSigned(scenario: string, id: string, cwd: string, key?: string): v
   };
   const message = unsigned.signatureRequests?.[0]?.message ?? unsigned.message!; // atomic or EVM file
   writeSignedTxJson({ ...unsigned, signature: signMessageHash(message, key) }, id, cwd);
+}
+
+/**
+ * Writes the recorded unsigned file of `scenario` as an earlier version wrote it, without the account it was built for,
+ * signed by the ewoq key unless `key` is given.
+ */
+function writeOlderSigned(scenario: string, id: string, cwd: string, key?: string): void {
+  const unsigned = readGolden(scenario).outcome.unsignedTxJson as UnsignedTxJson & {
+    signatureRequests?: { message: string; signer: string }[];
+    message?: string;
+  };
+  const older = unsigned.signatureRequests
+    ? { ...unsigned, signatureRequests: [{ ...unsigned.signatureRequests[0]!, signer: "" }] }
+    : { ...unsigned, signer: undefined };
+  const message = unsigned.signatureRequests?.[0]?.message ?? unsigned.message!;
+  writeSignedTxJson({ ...older, signature: signMessageHash(message, key) }, id, cwd);
 }
 
 /** A valid private key that is not ewoq's. */
@@ -355,21 +372,63 @@ describe("app/send: the signature must belong to the expected account", () => {
     cleanupTempDir(cwd);
   });
 
-  it("refuses a signature by another key: nothing reaches the node and the file is not marked", async () => {
+  it("refuses a signature by another key than the context's: nothing reaches the node and the file is not marked", async () => {
+    const foreign = accountFromPrivateKey(getBytes(`0x${FOREIGN_KEY}`), "localflare");
     for (const [scenario, final, differs] of CASES) {
-      writeSigned(scenario, scenario, cwd, FOREIGN_KEY);
-      let issued = false;
-      const env = scriptedEnv({ statuses: [final], onIssue: () => (issued = true) }, scenario, cwd);
-      await sendSignedTransaction(scenario, env, ewoq, cwd, FAST).then(
-        () => expect.fail(`${scenario}: a signature by another key must be refused`),
-        (error: unknown) =>
-          expect(describeError(error), scenario).to.equal(
-            `The signature does not belong to the configured account (${differs})`
-          )
-      );
-      expect(issued, scenario).to.equal(false);
-      expect(isAlreadySentToChain(scenario, cwd), scenario).to.equal(false);
+      // a file of this version, signed by the account it was built for, sent with another account's context; and a
+      // file of an earlier version, which records no account, signed by another key than the context's
+      for (const [write, context] of [
+        [() => writeSigned(scenario, scenario, cwd), foreign],
+        [() => writeOlderSigned(scenario, scenario, cwd, FOREIGN_KEY), ewoq],
+      ] as const) {
+        write();
+        let issued = false;
+        const env = scriptedEnv({ statuses: [final], onIssue: () => (issued = true) }, scenario, cwd);
+        await sendSignedTransaction(scenario, env, context, cwd, FAST).then(
+          () => expect.fail(`${scenario}: a signature by another key must be refused`),
+          (error: unknown) =>
+            expect(describeError(error), scenario).to.equal(
+              `The signature does not belong to the configured account (${differs})`
+            )
+        );
+        expect(issued, scenario).to.equal(false);
+        expect(isAlreadySentToChain(scenario, cwd), scenario).to.equal(false);
+      }
     }
+  });
+
+  it("refuses a file built for another account than the one that signed, with or without a context", async () => {
+    const foreign = accountFromPrivateKey(getBytes(`0x${FOREIGN_KEY}`), "localflare");
+    for (const [scenario, final] of CASES) {
+      const evm = scenario === "withdrawal-file";
+      writeSigned(scenario, scenario, cwd, FOREIGN_KEY);
+      for (const expected of [undefined, foreign]) {
+        let issued = false;
+        const env = scriptedEnv({ statuses: [final], onIssue: () => (issued = true) }, scenario, cwd);
+        await sendSignedTransaction(scenario, env, expected, cwd, FAST).then(
+          () => expect.fail(`${scenario}: a file built for ewoq was sent with another account's signature`),
+          (error: unknown) =>
+            expect(describeError(error), scenario).to.equal(
+              `Transaction ${scenario} was built for ${evm ? ewoq.cAddress : ewoq.pAddress}, but it is signed by ` +
+                `${evm ? foreign.cAddress : foreign.pAddress}; it is not sent`
+            )
+        );
+        expect(issued, scenario).to.equal(false);
+        expect(isAlreadySentToChain(scenario, cwd), scenario).to.equal(false);
+      }
+    }
+  });
+
+  it("sends a file from an earlier version, which records no account, as before", async () => {
+    for (const [scenario, final] of CASES) {
+      writeOlderSigned(scenario, scenario, cwd);
+      await sendSignedTransaction(scenario, scriptedEnv({ statuses: [final] }, scenario, cwd), undefined, cwd, FAST);
+      expect(isAlreadySentToChain(scenario, cwd), scenario).to.equal(true);
+    }
+    // without a context, any key's signature of an EVM file is sent: nothing says whose it should be
+    writeOlderSigned("withdrawal-file", "any", cwd, FOREIGN_KEY);
+    await sendSignedTransaction("any", scriptedEnv({ statuses: ["Committed"] }, "any", cwd), undefined, cwd, FAST);
+    expect(isAlreadySentToChain("any", cwd)).to.equal(true);
   });
 
   it("sends a signature by the expected account", async () => {

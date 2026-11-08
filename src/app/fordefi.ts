@@ -11,6 +11,7 @@ import {
   forDefiHashOf,
   readUnsignedTxJson,
   saveSignedTxJson,
+  signerMismatch,
   writeUnsignedTxJson,
 } from "../core/files";
 import { normalizePublicKey } from "../chain/keys";
@@ -99,6 +100,13 @@ export async function sendToForDefi(id: string, context: ContextFile, fetchImpl:
   const contextKey = publicKeyOf(context.publicKey, "The context's publicKey");
   if (!equalBytes(contextKey, publicKeyOf(vaultPublicKey, `The public key of ForDefi vault ${context.vaultId}`))) {
     throw new Error("public key does not match the vault");
+  }
+  const mismatch = signerMismatch(unsigned, contextKey);
+  if (mismatch) {
+    throw new Error(
+      `Transaction ${id} was built for ${mismatch.recorded}, but ForDefi vault ${context.vaultId} holds ` +
+        `${mismatch.actual}; sign it with the context and vault of the account it was built for`
+    );
   }
   const hashBase64 = forDefiHashOf(toHex(digest));
   const requestBody = JSON.stringify({

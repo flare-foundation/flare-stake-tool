@@ -6,6 +6,7 @@ import {
   isAlreadySentToChain,
   markSentToChain,
   readSignedTxJson,
+  signerMismatch,
 } from "../core/files";
 import { attachEvmSignature, attachSignature } from "../core/signing/attach";
 import { normalizeSignature, recoverPublicKey } from "../core/signing/signature";
@@ -50,8 +51,17 @@ export async function sendSignedTransaction(
   const signed = readSignedTxJson(id, cwd);
   const bundle = bundleFromConsistentTxJson(signed);
   const signature = normalizeSignature(signed.signature);
-  const account = expectedAccount ?? recoverAccount(bundle, signature, env.network.hrp);
-  attachSignature(bundle, signature, account);
+  // who signed, whatever the context says: it must be the account the file was built for, when the file records it
+  const signer = recoverAccount(bundle, signature, env.network.hrp);
+  const mismatch = signerMismatch(signed, signer.publicKey);
+  if (mismatch) {
+    throw new Error(
+      `Transaction ${id} was built for ${mismatch.recorded}, but it is signed by ${mismatch.actual}; ` +
+        "it is not sent"
+    );
+  }
+  // and the context's account, when there is one
+  attachSignature(bundle, signature, expectedAccount ?? signer);
   await env.clients.verifyNetwork();
   try {
     return await submitAndConfirm(bundle, env.clients, {

@@ -280,6 +280,10 @@ it — both example-based and property-based where applicable.
   was: requiring another field would refuse older files. Anything that signs or
   sends a file goes through `bundleFromConsistentTxJson`, which refuses a
   `message` or `unsignedTransactionBuffer` that isn't the file's transaction.
+  Since 5.0.0 a file records the account it was built for (`signer`: the
+  P-chain address in `signatureRequests[0]`, the C-chain address at the top of
+  an EVM file); `forDefi sign` and `send` refuse another account
+  (`signerMismatch`), and files without it (empty or missing) are not checked.
 - **`--derivation-path` and `--ctx-file` have no Commander default**, so that a
   given one can be told apart: `options.derivationPath` / `options.ctxFile` are
   undefined when not given. A given `--ctx-file` must exist; without

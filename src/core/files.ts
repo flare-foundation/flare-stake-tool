@@ -4,15 +4,18 @@
  *
  *   ForDefiTxnFiles/UnsignedTxns/<id>.unsignedTx.json
  *     atomic: { transactionType, signatureRequests: [{ message, signer }], unsignedTransactionBuffer, serialization, forDefiHash }
- *     EVM:    { transactionType: "EVM", rawTx, message, forDefiHash }
+ *     EVM:    { transactionType: "EVM", rawTx, message, signer, forDefiHash }
+ *   `signer` is the account the file was built for (the P-chain address, the C-chain address for EVM); files from
+ *   versions before 5.0.0 have it empty or missing.
  *   ForDefiTxnFiles/SignedTxns/<id>.signedTx.json
  *     the unsigned content plus `signature` (r|s|v hex) and, once submitted, `isSentToChain: true`
  */
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import { UnsignedTx, messageHashFromUnsignedTx } from "@flarenetwork/flarejs";
-import { Transaction, getBytes, type TransactionLike } from "ethers";
+import { UnsignedTx, messageHashFromUnsignedTx, secp256k1, utils as futils } from "@flarenetwork/flarejs";
+import { Transaction, computeAddress, getAddress, getBytes, hexlify, type TransactionLike } from "ethers";
+import type { Account } from "../chain/keys";
 import { chainOfAtomicTx, isAtomicTxType, type UnsignedTxBundle } from "./types";
 import { toHex } from "./signing/signature";
 import { isJsonObject, parseJson } from "./json";
@@ -34,6 +37,7 @@ export interface UnsignedEvmTxJson {
   transactionType: "EVM";
   rawTx: TransactionLike;
   message: string;
+  signer?: string | undefined;
   forDefiHash?: string | undefined;
   forDefiTxId?: string | undefined;
 }
@@ -103,20 +107,62 @@ export function messageOf(json: UnsignedTxJson): string {
   return message;
 }
 
-export function unsignedTxJsonFromBundle(bundle: UnsignedTxBundle): UnsignedTxJson {
+/** The file of a bundle built for `account`, which it records as `signer`; not part of the hash. */
+export function unsignedTxJsonFromBundle(bundle: UnsignedTxBundle, account: Account): UnsignedTxJson {
   if (bundle.kind === "evm") {
     return {
       transactionType: "EVM",
       rawTx: bundle.rawTx,
       message: toHex(bundle.digest),
+      signer: account.cAddress,
     };
   }
   return {
     transactionType: bundle.txType,
-    signatureRequests: [{ message: toHex(bundle.digest), signer: "" }],
+    signatureRequests: [{ message: toHex(bundle.digest), signer: account.pAddress }],
     unsignedTransactionBuffer: toHex(bundle.unsignedTx.toBytes()),
     serialization: JSON.stringify(bundle.unsignedTx.toJSON()),
   };
+}
+
+/** The account a file records as `signer`, or undefined for files from before 5.0.0, where it is empty or missing. */
+function recordedSigner(json: UnsignedTxJson): string | undefined {
+  const signer = isEvmTxJson(json) ? json.signer : json.signatureRequests[0]?.signer;
+  return signer === undefined || signer === "" ? undefined : signer;
+}
+
+/**
+ * The account the file was built for and the one holding `publicKey`, when they differ; undefined when they are the
+ * same or the file records none. Atomic files compare the address bytes: `--network` can change the prefix for the
+ * same key, and the file's network is checked where it is sent. The field guards against a mixed-up context or
+ * vault, not against an edited file: it is not covered by the signed hash.
+ */
+export function signerMismatch(
+  json: UnsignedTxJson,
+  publicKey: Uint8Array
+): { recorded: string; actual: string } | undefined {
+  const recorded = recordedSigner(json);
+  if (recorded === undefined) return undefined;
+  if (isEvmTxJson(json)) {
+    let address: string;
+    try {
+      address = getAddress(recorded);
+    } catch {
+      throw new Error(`The file's signer "${recorded}" is not a C-chain address`);
+    }
+    const actual = computeAddress(hexlify(publicKey));
+    return address === actual ? undefined : { recorded, actual };
+  }
+  let parsed: [string, string, Uint8Array];
+  try {
+    parsed = futils.parse(recorded);
+  } catch {
+    throw new Error(`The file's signer "${recorded}" is not a P-chain address`);
+  }
+  const [, hrp, bytes] = parsed;
+  const actualBytes = secp256k1.publicKeyBytesToAddress(publicKey);
+  if (bytes.length === actualBytes.length && bytes.every((byte, i) => byte === actualBytes[i])) return undefined;
+  return { recorded, actual: `P-${futils.formatBech32(hrp, actualBytes)}` };
 }
 
 /** Rebuilds the bundle from a file so that it can be signed/attached/submitted like a fresh one. */
@@ -200,11 +246,15 @@ function txJsonProblem(json: Record<string, unknown>): string | undefined {
   if (json["transactionType"] === "EVM") {
     if (!isJsonObject(json["rawTx"])) return "rawTx is missing";
     if (typeof json["message"] !== "string") return "message is missing";
+    if (json["signer"] !== undefined && typeof json["signer"] !== "string") return "signer is not a string";
     return undefined;
   }
   const requests = json["signatureRequests"];
   if (!Array.isArray(requests) || !isJsonObject(requests[0]) || typeof requests[0]["message"] !== "string") {
     return "signatureRequests[0].message is missing";
+  }
+  if (requests[0]["signer"] !== undefined && typeof requests[0]["signer"] !== "string") {
+    return "signatureRequests[0].signer is not a string";
   }
   if (typeof json["serialization"] !== "string") return "serialization is missing";
   const buffer = json["unsignedTransactionBuffer"];

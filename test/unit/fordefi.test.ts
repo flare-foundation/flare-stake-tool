@@ -9,7 +9,9 @@ import {
   readUnsignedTxJson,
   saveUnsignedTxJson,
   type UnsignedAtomicTxJson,
+  type UnsignedEvmTxJson,
 } from "../../src/core/files";
+import { accountFromPublicKey } from "../../src/chain/keys";
 import { SigningKey } from "ethers";
 import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
@@ -110,6 +112,37 @@ describe("app/fordefi", () => {
       /^The file's message [0-9a-f]{64} is not the hash of its transaction \([0-9a-f]{64}\); rebuild the file$/
     );
     expect(calls.length).to.equal(requests);
+  });
+
+  it("refuses a file built for another account than the vault's, before anything is posted, atomic or EVM", async () => {
+    const other = accountFromPublicKey(new SigningKey(`0x${"22".repeat(32)}`).compressedPublicKey, "localflare");
+    const ewoq = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
+    const { forDefiHash: _evmHash, ...evm } = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedEvmTxJson;
+    saveUnsignedTxJson(
+      { ...unsigned, signatureRequests: [{ ...unsigned.signatureRequests[0]!, signer: other.pAddress }] },
+      "for-other"
+    );
+    saveUnsignedTxJson({ ...evm, signer: other.cAddress }, "evm-for-other");
+    const posted = () => calls.filter(({ init }) => init.method === "POST").length;
+    const before = posted();
+    for (const [id, recorded, actual] of [
+      ["for-other", other.pAddress, ewoq.pAddress],
+      ["evm-for-other", other.cAddress, ewoq.cAddress],
+    ] as const) {
+      expect(await rejectedWith(sendToForDefi(id, context, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED))), id).to.equal(
+        `Transaction ${id} was built for ${recorded}, but ForDefi vault ${vaultId} holds ${actual}; ` +
+          "sign it with the context and vault of the account it was built for"
+      );
+    }
+    expect(posted()).to.equal(before);
+  });
+
+  it("posts a file from an earlier version, which records no account", async () => {
+    saveUnsignedTxJson(
+      { ...unsigned, signatureRequests: [{ ...unsigned.signatureRequests[0]!, signer: "" }] },
+      "older"
+    );
+    expect(await sendToForDefi("older", context, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED))).to.equal("fordefi-tx-42");
   });
 
   it("refuses a vault whose key is another valid key than the context's", async () => {
