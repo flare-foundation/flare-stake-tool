@@ -43,7 +43,7 @@ src/
   chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
   chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
   ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum); path.ts checks derivation paths
-  interactive/              inquirer menu calling app/ directly; every question goes through askInquirer (Ctrl-C exits 130)
+  interactive/              inquirer menu calling app/ directly; every question goes through askInquirer (Ctrl-C, and Ctrl-D on an empty answer, exit 130)
   constants/fees.ts         Fixed EIP-1559 fees per C-chain operation
   constants/screen.ts       Menu labels
 test/unit/                  Mocha unit tests (pure functions, signers, builders without a node)

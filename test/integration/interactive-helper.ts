@@ -31,6 +31,7 @@ export const KEYS = {
   DOWN: "\x1b[B",
   ENTER: "\r",
   CTRL_C: "\x03",
+  CTRL_D: "\x04",
 };
 
 export interface InteractiveSession {

@@ -67,19 +67,26 @@ type Questions = Parameters<typeof inquirer.prompt>[0];
 /**
  * inquirer's prompt, with Ctrl-C ending the session with exit code 130. inquirer 8 answers Ctrl-C by closing the
  * prompt and sending its own process SIGINT, and the process can end before that signal arrives, with code 0. A key
- * handler installed before inquirer's readline runs first and exits. Only while a question is open: Ctrl-C while a
- * transaction is being sent keeps Node's default, since the node may already have taken it.
+ * handler installed before inquirer's readline runs first and exits. Ctrl-D on an empty answer ends the input, which
+ * readline answers by closing, and inquirer then failed with a stack trace and exit code 0: it ends the session the
+ * same way. Ctrl-D with text in the answer only deletes a character, as readline does. Only while a question is open:
+ * Ctrl-C while a transaction is being sent keeps Node's default, since the node may already have taken it.
  */
 async function askInquirer<T>(questions: Questions): Promise<T> {
+  // the question's readline, for the answer typed so far; the handler sees a key before readline does
+  let readline: { line?: string } | undefined;
   const onKey = (_text: unknown, key: { ctrl?: boolean; name?: string } | undefined): void => {
-    if (key?.ctrl === true && key.name === "c") {
+    if (key?.ctrl !== true) return;
+    if (key.name === "c" || (key.name === "d" && readline?.line === "")) {
       process.stdout.write("\x1b[?25h\n"); // the cursor back, which a list question hides
       process.exit(CANCELLED_EXIT_CODE);
     }
   };
   process.stdin.on("keypress", onKey);
   try {
-    return (await inquirer.prompt(questions)) as T;
+    const answer = inquirer.prompt(questions);
+    readline = (answer as unknown as { ui?: { rl?: { line?: string } } }).ui?.rl; // rl is protected in the typings
+    return (await answer) as T;
   } finally {
     process.stdin.off("keypress", onKey);
   }

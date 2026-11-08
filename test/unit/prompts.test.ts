@@ -82,4 +82,44 @@ describe("interactive prompt checks", () => {
     expect(whileAsking).to.equal(before + 1);
     expect(process.stdin.listenerCount("keypress")).to.equal(before);
   });
+
+  it("Ctrl-D on an empty answer ends the session like Ctrl-C; with text typed it only deletes, as in readline", async () => {
+    const exits: unknown[] = [];
+    const original = {
+      prompt: inquirer.prompt,
+      exit: process.exit.bind(process),
+      write: process.stdout.write.bind(process.stdout),
+    };
+    process.exit = ((code?: number) => {
+      exits.push(code);
+    }) as typeof process.exit;
+    process.stdout.write = () => true;
+    try {
+      for (const [typed, expected] of [
+        ["", [130]], // readline would close: the end of input
+        ["half an answer", []],
+      ] as const) {
+        exits.length = 0;
+        Object.assign(inquirer, {
+          // the key comes while the question is open, as from the terminal
+          prompt: () =>
+            Object.assign(
+              new Promise((resolve) =>
+                setImmediate(() => {
+                  process.stdin.emit("keypress", "\x04", { ctrl: true, name: "d" });
+                  resolve({ answer: "" });
+                })
+              ),
+              { ui: { rl: { line: typed } } }
+            ),
+        });
+        await prompts.delegationFee();
+        expect(exits, JSON.stringify(typed)).to.deep.equal(expected);
+      }
+    } finally {
+      Object.assign(inquirer, { prompt: original.prompt });
+      process.exit = original.exit;
+      process.stdout.write = original.write;
+    }
+  });
 });

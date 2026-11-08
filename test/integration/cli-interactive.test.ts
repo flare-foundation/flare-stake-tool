@@ -48,6 +48,22 @@ describe("CLI interactive mode: exit codes (no network needed)", function () {
     expect(await session.wait(10_000)).to.equal(130);
   });
 
+  it("Ctrl-D on an empty answer ends the session with exit code 130, and only deletes in a typed one", async () => {
+    const session = spawnInteractive(["interactive"], cwd);
+    await session.waitFor("How do you want to connect your wallet?");
+    pressDown(session, menuIndex(walletConstants, "privateKey"));
+    session.send(KEYS.ENTER);
+    await session.waitFor("Enter Path to Private Key file");
+    session.send("ab");
+    session.send("\x1b[D"); // left: the cursor on "b", which Ctrl-D deletes
+    session.send(KEYS.CTRL_D);
+    session.send(KEYS.ENTER);
+    await session.waitFor("File a doesn't exist"); // the session went on, with "a"
+    await session.waitFor(/File a doesn't exist[^]*How do you want to connect your wallet\?/);
+    session.send(KEYS.CTRL_D);
+    expect(await session.wait(10_000)).to.equal(130);
+  });
+
   it("Quit ends the session with exit code 0", async () => {
     const session = spawnInteractive(["interactive"], cwd);
     await session.waitFor("How do you want to connect your wallet?");
