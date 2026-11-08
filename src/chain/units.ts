@@ -61,8 +61,20 @@ export const asNFlr = (value: bigint): NFlr => value as NFlr;
 /** Marks a bigint known to be wei, such as a value read from the C-chain. */
 export const asWei = (value: bigint): Wei => value as Wei;
 
-/** FLR → nFLR (P-chain and atomic amounts and fees). */
-export const parseFlr = (input: string): NFlr => asNFlr(parseDecimal(input, NFLR_DECIMALS));
+/**
+ * Amounts, times and durations are uint64 on the P-chain and in atomic transactions: flarejs writes a larger value
+ * in more bytes, which shifts every later field.
+ */
+export const UINT64_MAX = 2n ** 64n - 1n;
+
+/** FLR → nFLR (P-chain and atomic amounts and fees), at most 2^64−1 nFLR. */
+export function parseFlr(input: string): NFlr {
+  const amount = parseDecimal(input, NFLR_DECIMALS);
+  if (amount > UINT64_MAX) {
+    throw new Error(`Invalid amount "${input}": at most ${formatDecimal(UINT64_MAX, NFLR_DECIMALS)} (2^64−1 nFLR)`);
+  }
+  return asNFlr(amount);
+}
 /** FLR → wei (C-chain EVM amounts), with the C-chain's full 18 decimals. */
 export const parseFlrToWei = (input: string): Wei => asWei(parseDecimal(input, WEI_DECIMALS));
 export const formatFlr = (amount: NFlr): string => formatDecimal(amount, NFLR_DECIMALS);
@@ -89,9 +101,6 @@ const UNIT_SECONDS: ReadonlyArray<[string, bigint]> = [
   ["s", 1n],
 ];
 const DURATION_RE = /^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/;
-
-/** Times and durations are uint64 on chain: a larger value takes more bytes and shifts every later field. */
-const UINT64_MAX = 2n ** 64n - 1n;
 
 /** The latest time a JavaScript Date can show (year 275760); far below UINT64_MAX, so it bounds times for both. */
 export const MAX_TIME_SECONDS = 8_640_000_000_000n;

@@ -48,9 +48,11 @@ import {
   type Env,
   type Signer,
   type TxRequest,
+  type TxRequestOf,
   type UnsignedTxBundle,
 } from "../../src/core/types";
 import { PrivateKeySigner } from "../../src/signers/privateKey";
+import type { Stub } from "../characterization/rpc-replay";
 import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 import { startReplay, withReplay, type Replay, type ReplayEnv } from "../helpers/replay";
@@ -61,6 +63,13 @@ type OutputsTx = Parameters<typeof futils.getOutputAmounts>[0];
 const outputAmount = (unsignedTx: UnsignedTx, avaxAssetID: string) =>
   futils.getOutputAmounts(unsignedTx.getTx() as OutputsTx).get(avaxAssetID);
 const now = () => BigInt(Math.floor(Date.now() / 1000));
+/** 10 billion FLR: two of these fit in uint64 each, but not their sum. */
+const TEN_BILLION_FLR = 10n ** 19n;
+const overUint64 = (what: string, symbol: string, hint = "") =>
+  new RegExp(
+    `^${what} of 1\\d{10}\\.\\d+ ${symbol} is more than a transaction can hold \\(18446744073\\.709551615 ${symbol}\\); ` +
+      `it is not signed${hint}$`
+  );
 
 /** `unsignedTx` in a bundle as the builders make it, to compare unsigned files. */
 const atomicBundle = (txType: AtomicTxType, unsignedTx: UnsignedTx): UnsignedTxBundle => ({
@@ -218,6 +227,23 @@ describe("core/builders/pchain", function () {
           `1 UTXO(s) (0.0002 ${env.network.symbol}) left out: each is worth less than the fee of spending it`,
         ]);
       }
+    });
+
+    it("refuses an export of UTXOs that each fit in uint64 but whose sum does not; part of it with -a builds", async () => {
+      const utxos = [await owned(TEN_BILLION_FLR, 0), await owned(TEN_BILLION_FLR, 1)];
+      for (const policy of POLICIES) {
+        await buildTransaction({ type: "exportPC" }, pChainEnv(utxos), account, policy).then(
+          () => expect.fail("built an export above uint64"),
+          (error: unknown) =>
+            expect((error as Error).message).to.match(
+              overUint64("The export", env.network.symbol, "; export part of it with -a")
+            )
+        );
+      }
+      const part = { type: "exportPC", amount: asNFlr(TEN_BILLION_FLR) } as const;
+      expect((await buildTransaction(part, pChainEnv(utxos), account, IMMEDIATE_SIGNER_POLICY)).kind).to.equal(
+        "atomic"
+      );
     });
 
     it("builds when spending every UTXO would exceed the gas capacity but the export does not", async () => {
@@ -581,6 +607,16 @@ describe("core/builders/pchain", function () {
       expect(outputAmount(built.unsignedTx, context.avaxAssetID)).to.equal(1n);
     });
 
+    it("refuses an import of UTXOs that each fit in uint64 but whose sum does not", async () => {
+      const utxos = [0, 1].map((i) => exported([account.addressBytes], 1, TEN_BILLION_FLR, i));
+      const env = pendingEnv(await Promise.all(utxos));
+      await buildTransaction({ type: "importPC", fee: FEE }, env, account, IMMEDIATE_SIGNER_POLICY).then(
+        () => expect.fail("built an import above uint64"),
+        (error: unknown) =>
+          expect((error as Error).message).to.match(overUint64("The import", replay.env.network.symbol))
+      );
+    });
+
     it("leaves a time-locked UTXO pending even once its lock has passed, which flarejs cannot import", async () => {
       const expired = await exported([account.addressBytes], 1, 1_000_000_000n, 0, 1n); // locked until 1970
       const env = pendingEnv([expired, await exported([account.addressBytes], 1, 10_000_000_000n, 1)]);
@@ -903,6 +939,15 @@ describe("core/builders/pchain", function () {
       expect((await importCP(exportedEnv([await exported(4_500_000n, 0)]))).amounts).to.deep.equal([4_500_000n]);
     });
 
+    it("refuses an import of UTXOs that each fit in uint64 but whose sum does not", async () => {
+      const utxos = [await exported(TEN_BILLION_FLR, 0), await exported(TEN_BILLION_FLR, 1)];
+      await buildTransaction({ type: "importCP" }, exportedEnv(utxos), account, FILE_SIGNER_POLICY).then(
+        () => expect.fail("built an import above uint64"),
+        (error: unknown) =>
+          expect((error as Error).message).to.match(overUint64("The import", replay.env.network.symbol))
+      );
+    });
+
     it("refuses an import of nothing but dust, and leaves an empty one to flarejs as before", async () => {
       const symbol = replay.env.network.symbol;
       const refusal = (utxos: Utxo[], message: string) =>
@@ -916,6 +961,30 @@ describe("core/builders/pchain", function () {
       );
       await refusal([], "no UTXOs available to import");
     });
+  });
+
+  describe("exportCP", () => {
+    /** localflare's recorded base fee (1 wei); exportCP-pk passes -f, so its recording has no lookup. */
+    const baseFee: Stub = { match: (_path, method) => method === "eth_baseFee", respond: () => "0x1" };
+
+    it("refuses an amount plus fee above uint64, given or estimated, though each fits", () =>
+      withReplay(
+        "exportCP-pk",
+        async (env) => {
+          const max = asNFlr(2n ** 64n - 1n);
+          const refused = (req: TxRequestOf<"exportCP">) =>
+            buildTransaction(req, env, account, IMMEDIATE_SIGNER_POLICY).then(
+              () => expect.fail("built an export above uint64"),
+              (error: unknown) =>
+                expect((error as Error).message).to.match(overUint64("The amount plus the fee", env.network.symbol))
+            );
+          await refused({ type: "exportCP", amount: max, fee: asNFlr(1n), nonce: 0n });
+          await refused({ type: "exportCP", amount: asNFlr(max - 1n), nonce: 0n }); // the estimate is above 1 nFLR
+          const fits = { type: "exportCP", amount: asNFlr(max - 1n), fee: asNFlr(1n), nonce: 0n } as const;
+          expect((await buildTransaction(fits, env, account, IMMEDIATE_SIGNER_POLICY)).kind).to.equal("atomic");
+        },
+        [baseFee]
+      ));
   });
 
   describe("transfer", () => {

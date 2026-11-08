@@ -32,8 +32,10 @@ Global options can come before or after the command. The transaction types
 `-a`/`-f` (amount/fee) are in **FLR** on every signing path, written with `.`
 as the decimal separator; commas are refused (`1,5` and `10,000` are errors,
 write `1.5` and `10000`). P-chain and atomic amounts and fees take at most 9
-decimals (nFLR); the C-chain amounts of `withdrawal` and `claim` take up to 18
-(wei). More non-zero decimals are an error rather than being cut off.
+decimals (nFLR) and at most 18446744073.709551615 FLR (2^64−1 nFLR, also as
+an amount plus its fee); the C-chain amounts of `withdrawal` and `claim` take
+up to 18 decimals (wei). More non-zero decimals are an error rather than being
+cut off.
 An empty value (`-a ""`) is refused for `-a`, `-f`, `--nonce`, `--value`,
 `--data` (`--data 0x` sends no calldata), `--delegation-fee`, `--auto-compound-shares` and the gas and fee flags, whose
 absence means a default:

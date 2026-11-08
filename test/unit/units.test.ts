@@ -69,6 +69,15 @@ describe("chain/units", () => {
       expect(formatFlr(asNFlr(1n))).to.equal("0.000000001");
     });
 
+    it("refuses more than the chain's uint64 holds, which shifted the later fields of the transaction", () => {
+      expect(parseFlr("18446744073.709551615")).to.equal(2n ** 64n - 1n);
+      for (const bad of ["18446744073.709551616", "18446744074", "100000000000000000000"]) {
+        expect(() => parseFlr(bad), bad).to.throw(
+          `Invalid amount "${bad}": at most 18446744073.709551615 (2^64−1 nFLR)`
+        );
+      }
+    });
+
     it("refuses digits beyond the precision, which up to 4.x were dropped (0.0000000001 became 0)", () => {
       for (const bad of ["1.9999999999", "0.0000000001", "12.3456789012"]) {
         expect(() => parseFlr(bad), bad).to.throw(/Invalid amount .*at most 9 decimal places/);
