@@ -72,6 +72,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * Interactive mode:
   * The C-chain export and import fee defaults to the current estimate instead of 1 FLR (about 170 times the real cost). A typed fee below the current cost asks for confirmation.
   * Moves between the chains import only after their own export has arrived.
+  * Claiming and stopping auto-renewal check the node's network before showing the rewards or the cycle end read from it; they were shown under the chosen network's name from a node on another one.
   * Connecting a Ledger no longer deletes `ctx.json`; another context is replaced only after confirmation and kept as a `.bak` file.
   * A new Ledger context is saved only after the device has shown the chosen address and the user approved it, as with `init-ctx --ledger`. The listed addresses come from keys the host received, so a substituted key was saved and later trusted without the device ever showing it.
   * A failed action or wallet connection no longer ends the session, and the wallet menu has a Quit entry.

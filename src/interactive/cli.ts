@@ -166,9 +166,12 @@ async function transfer(session: Session): Promise<void> {
 async function setAutoRenewal(session: Session): Promise<void> {
   const id = await prompts.nodeId();
   const period = parseDuration(await prompts.period("change"));
-  if (period === 0n && !(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id)))) {
-    logInfo("Auto-renewal left unchanged.");
-    return;
+  if (period === 0n) {
+    await session.env.clients.verifyNetwork(); // before a cycle end read from the node is shown
+    if (!(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id)))) {
+      logInfo("Auto-renewal left unchanged.");
+      return;
+    }
   }
   await execute(session, { type: "setAutoRenewedValidatorConfig", nodeId: id, period });
 }
@@ -332,6 +335,7 @@ async function waitForExport(session: Session, destination: "P" | "C", exported:
 }
 
 async function claim(session: Session): Promise<void> {
+  await session.env.clients.verifyNetwork(); // before rewards read from the node are shown
   const rewardManager = await contractAddress(session.env, "ValidatorRewardManager");
   const rewards = await stateOfRewards(session.env, rewardManager, session.account.cAddress);
   const symbol = session.env.network.symbol;

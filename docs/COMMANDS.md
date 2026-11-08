@@ -434,7 +434,9 @@ node URL (`--rpc-url` or `FLARE_RPC_URL`) included: `interactive --help` (or
 with exit code 1. The menu asks for the wallet and the network, so
 `--network`, `--ledger`, `--blind`, `--derivation-path`, `--ctx-file`,
 `--env-path` and `--get-hacked` are refused rather than ignored; a Ledger
-context is kept in `./ctx.json`. The wallet menu has a Quit entry, so a wallet
+context is kept in `./ctx.json`. Every value read from the node (balances,
+validators, rewards, a cycle end) is shown only after the node's network was
+checked against the one chosen. The wallet menu has a Quit entry, so a wallet
 that fails to connect can be left. It needs a terminal: with stdin redirected
 or piped it refuses to start, with an error and exit code 1.
 

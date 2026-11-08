@@ -69,6 +69,8 @@ interface Flags {
   zeroRewards?: boolean;
   /** The validator's cycle end cannot be looked up. */
   noCycle?: boolean;
+  /** The node is on another network than the one chosen. */
+  wrongNetwork?: boolean;
   /** The Ledger answers one key whatever the path, like the FLARE_FAKE_LEDGER_KEY stand-in. */
   sameKey?: boolean;
   /** Another Ledger is plugged in when a question with this text is asked: from then on every path answers another key. */
@@ -181,7 +183,12 @@ const fakeClients = () => {
     return Promise.resolve({ numFetched: txIds.length, utxos: txIds.map(utxo), endIndex: { address: "", utxo: "" } });
   };
   return {
-    verifyNetwork: () => (flags.noMax ? Promise.reject(new Error("unreachable")) : Promise.resolve()),
+    verifyNetwork: () => {
+      record("NODE verifyNetwork");
+      return flags.wrongNetwork
+        ? Promise.reject(new Error("The node is on network 14 (flare), not on localflare (162)"))
+        : Promise.resolve();
+    },
     pvm: { getUTXOs: getUTXOs("P") },
     evm: { getUTXOs: getUTXOs("C") },
   };
@@ -359,6 +366,12 @@ const SCENARIOS: Scenario[] = [
       TASK.setARV, NODE_Z, "0", true,
       TASK.quit,
     ],
+  },
+  {
+    // the rewards and the cycle end were read from the node, and shown, before any transaction checked its network
+    name: "private key: a node on another network",
+    flags: { wrongNetwork: true },
+    script: [...PRIVATE_KEY, TASK.claim, TASK.setARV, NODE_Y, "0", TASK.quit],
   },
   {
     // connecting used to ask again after every error, with no way out but Ctrl-C
