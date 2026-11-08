@@ -329,6 +329,23 @@ function chooseImported(
   return { taken: utxos.filter((utxo) => taken.has(utxo)), skipped, later: ranked.slice(count) };
 }
 
+type OutputsTx = Parameters<typeof futils.getOutputAmounts>[0];
+
+/**
+ * Refuses an import whose fee takes everything it imports. Nothing would arrive: importPC gets a 0-value C-chain
+ * output, which the chain refuses, and importCP no output at all, which the P-chain accepts, burning the UTXOs. Left
+ * pending, they can go into a later, larger import. Read from the built transaction only, so co-signers agree.
+ */
+function refuseEmptyImport(unsignedTx: UnsignedTx, context: Context.Context, destination: string, symbol: string) {
+  const tx = unsignedTx.getTx() as OutputsTx;
+  if ((futils.getOutputAmounts(tx).get(context.avaxAssetID) ?? 0n) > 0n) return;
+  const imported = asNFlr(futils.getInputAmounts(tx).get(context.avaxAssetID) ?? 0n);
+  throw new Error(
+    `The fee takes all of the ${formatFlr(imported)} ${symbol} being imported, so nothing would arrive on the ` +
+      `${destination}; it is not signed, and the UTXOs stay pending for a later import`
+  );
+}
+
 /** The warnings for what an import left out; `capacity` names the limit that kept the later ones out. */
 function importNotices(chosen: ReturnType<typeof chooseImported>, symbol: string, capacity: string): string[] {
   const { taken, skipped, later } = chosen;
@@ -390,7 +407,9 @@ export async function buildImportCP(
     );
   }
   // with nothing importable at all, flarejs says so ("no UTXOs available to import")
-  return bundle("importCP", build(chosen.taken), importNotices(chosen, symbol, "the P-chain's gas capacity"));
+  const unsignedTx = build(chosen.taken);
+  refuseEmptyImport(unsignedTx, context, "P-chain", symbol);
+  return bundle("importCP", unsignedTx, importNotices(chosen, symbol, "the P-chain's gas capacity"));
 }
 
 export async function buildExportPC(
@@ -486,6 +505,8 @@ export async function buildImportPC(
         "; it is not signed"
     );
   }
+  // an estimate above the imported value is cut to it by flarejs, leaving a 0-value output; so is -f equal to it
+  refuseEmptyImport(unsignedTx, context, "C-chain", symbol);
   return bundle("importPC", unsignedTx, importNotices(chosen, symbol, "the C-chain's atomic gas limit"));
 }
 

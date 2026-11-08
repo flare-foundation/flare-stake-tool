@@ -47,6 +47,7 @@ import {
   type AtomicTxType,
   type Env,
   type Signer,
+  type TxRequest,
   type UnsignedTxBundle,
 } from "../../src/core/types";
 import { PrivateKeySigner } from "../../src/signers/privateKey";
@@ -55,6 +56,10 @@ import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 import { startReplay, withReplay, type Replay, type ReplayEnv } from "../helpers/replay";
 
 const account = accountFromPrivateKey(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), "localflare");
+type OutputsTx = Parameters<typeof futils.getOutputAmounts>[0];
+/** The native amount a built transaction's outputs hold. */
+const outputAmount = (unsignedTx: UnsignedTx, avaxAssetID: string) =>
+  futils.getOutputAmounts(unsignedTx.getTx() as OutputsTx).get(avaxAssetID);
 const now = () => BigInt(Math.floor(Date.now() / 1000));
 
 /** `unsignedTx` in a bundle as the builders make it, to compare unsigned files. */
@@ -536,6 +541,46 @@ describe("core/builders/pchain", function () {
       );
     });
 
+    it("refuses an import whose fee takes all it imports, estimated or given; the UTXOs stay pending", async () => {
+      const context = await replay.env.clients.context();
+      const value = asNFlr(10_000_000n); // 0.01 FLR
+      const utxos = [await exported([account.addressBytes], 1, value, 0)];
+      const refused = (req: TxRequest, env: Env) =>
+        buildTransaction(req, env, account, IMMEDIATE_SIGNER_POLICY).then(
+          () => expect.fail("built an import that delivers nothing"),
+          (error: unknown) =>
+            expect((error as Error).message).to.equal(
+              `The fee takes all of the ${formatFlr(value)} ${replay.env.network.symbol} being imported, so nothing ` +
+                "would arrive on the C-chain; it is not signed, and the UTXOs stay pending for a later import"
+            )
+        );
+      // at the 500 gwei floor the estimate (1000 gwei a gas) is above 0.01 FLR, and flarejs cuts it to the value
+      const atFloor = pendingEnv(utxos);
+      (atFloor.clients.evm as unknown as { getBaseFee: () => Promise<bigint> }).getBaseFee = () =>
+        Promise.resolve(500_000_000_000n);
+      const cut = evm.newImportTxFromBaseFee(
+        context,
+        account.cAddressBytes,
+        [account.addressBytes],
+        utxos,
+        context.pBlockchainID,
+        1_000n
+      );
+      expect(atomicTxFee(cut, context), "flarejs alone: all of it is the fee").to.equal(value);
+      expect(outputAmount(cut, context.avaxAssetID), "and the output is 0, which the chain refuses").to.equal(0n);
+      await refused({ type: "importPC" }, atFloor);
+      await refused({ type: "importPC", fee: value }, pendingEnv(utxos));
+      // one nFLR less leaves a one-nFLR output, which is built
+      const built = await buildTransaction(
+        { type: "importPC", fee: asNFlr(value - 1n) },
+        pendingEnv(utxos),
+        account,
+        IMMEDIATE_SIGNER_POLICY
+      );
+      if (built.kind !== "atomic") throw new Error("not an atomic transaction");
+      expect(outputAmount(built.unsignedTx, context.avaxAssetID)).to.equal(1n);
+    });
+
     it("leaves a time-locked UTXO pending even once its lock has passed, which flarejs cannot import", async () => {
       const expired = await exported([account.addressBytes], 1, 1_000_000_000n, 0, 1n); // locked until 1970
       const env = pendingEnv([expired, await exported([account.addressBytes], 1, 10_000_000_000n, 1)]);
@@ -826,6 +871,36 @@ describe("core/builders/pchain", function () {
         context
       );
       expect(unsignedTxJsonFromBundle(built)).to.deep.equal(unsignedTxJsonFromBundle(atomicBundle("importCP", direct)));
+    });
+
+    it("refuses an import whose fee takes all it imports, which the P-chain would take with no output", async () => {
+      const context = await replay.env.clients.context();
+      // above the dust line, and enough for the fee of an import with no output but not of one with an output
+      const value = 4_000_000n;
+      const utxos = [await exported(value, 0)];
+      const direct = pvm.newImportTx(
+        {
+          feeState: { ...(await replay.env.clients.pvm.getFeeState()), price: FILE_SIGNER_POLICY.feePrice as bigint },
+          utxos,
+          fromAddressesBytes: [account.addressBytes],
+          minIssuanceTime: FILE_SIGNER_POLICY.lockCheckTime as bigint,
+          sourceChainId: context.cBlockchainID,
+          toAddressesBytes: [account.addressBytes],
+        },
+        context
+      );
+      expect(atomicTxFee(direct, context), "flarejs alone burns all of it").to.equal(value);
+      expect(outputAmount(direct, context.avaxAssetID), "with no output").to.equal(undefined);
+      await buildTransaction({ type: "importCP" }, exportedEnv(utxos), account, FILE_SIGNER_POLICY).then(
+        () => expect.fail("built an import that delivers nothing"),
+        (error: unknown) =>
+          expect((error as Error).message).to.equal(
+            `The fee takes all of the ${formatFlr(asNFlr(value))} ${replay.env.network.symbol} being imported, so ` +
+              "nothing would arrive on the P-chain; it is not signed, and the UTXOs stay pending for a later import"
+          )
+      );
+      // a little more pays for the output too
+      expect((await importCP(exportedEnv([await exported(4_500_000n, 0)]))).amounts).to.deep.equal([4_500_000n]);
     });
 
     it("refuses an import of nothing but dust, and leaves an empty one to flarejs as before", async () => {
