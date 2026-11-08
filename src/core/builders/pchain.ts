@@ -609,10 +609,11 @@ export async function buildAddAutoRenewedValidator(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
-  const ownerBytes = (req.ownerAddresses ?? []).map((a) => pChainAddressBytes(a, env.network.hrp));
+  const ownerBytes =
+    req.ownerAddress === undefined ? undefined : [pChainAddressBytes(req.ownerAddress, env.network.hrp)];
   const inputs = await pChainInputs(env, account, policy);
   const { context, from } = inputs;
-  const owners = ownerBytes.length > 0 ? ownerBytes : from;
+  const owners = ownerBytes ?? from;
   return bundle(
     "addAutoRenewedValidator",
     pvm.newAddAutoRenewedValidatorTx(

@@ -37,6 +37,7 @@ export interface AtomicTxOptions {
   autoCompoundShares?: string;
   ownerAddress?: string[];
   validatorTxId?: string;
+  threshold?: string;
 }
 
 /**
@@ -82,11 +83,28 @@ function parseShares(value: unknown): number | undefined {
   return Number(text);
 }
 
+/**
+ * The validator authority of an auto-renewed validator: one address, threshold 1, as the tool supports. Several made a
+ * 1-of-N authority that any one of them controlled alone, whatever `--threshold` said.
+ */
+function ownerAddress(value: string[] | undefined): string | undefined {
+  if (!Array.isArray(value)) return undefined;
+  if (value.length !== 1) {
+    throw new Error(
+      `--owner-address takes one address (the validator authority is a single address with threshold 1), got ${value.length}`
+    );
+  }
+  return optionValue(value[0], "--owner-address");
+}
+
 /** Builds the typed request for `transaction <type>`; also reports end times that were resolved from durations. */
 export function parseAtomicTxRequest(
   type: string,
   options: AtomicTxOptions
 ): { request: TxRequest; resolvedTimes: { name: string; time: ParsedTime }[] } {
+  if (options.threshold !== undefined && options.threshold !== "1") {
+    throw new Error("--threshold accepts only 1: the validator authority is a single address (--owner-address)");
+  }
   const amount = (): NFlr => parseFlr(required(options.amount, "amount", "--amount <amount>", type));
   const optionalAmount = (): NFlr | undefined => {
     const text = optionValue(options.amount, "--amount");
@@ -169,7 +187,7 @@ export function parseAtomicTxRequest(
         period: period(),
         delegationFeeShares: shares(),
         ...bls(),
-        ownerAddresses: Array.isArray(options.ownerAddress) ? options.ownerAddress : undefined,
+        ownerAddress: ownerAddress(options.ownerAddress),
         autoCompoundShares: parseShares(options.autoCompoundShares),
       };
       break;

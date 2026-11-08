@@ -1027,7 +1027,7 @@ describe("core/builders/pchain", function () {
       owners.addrs.map((a) => `P-${futils.formatBech32("localflare", a.toBytes())}`);
     const other = accountFromPrivateKey(getBytes(`0x${"22".repeat(32)}`), "localflare").pAddress;
 
-    it("addAutoRenewedValidator puts the owners and auto-compound shares given into the transaction", () =>
+    it("addAutoRenewedValidator puts the owner and auto-compound shares given into the transaction", () =>
       withReplay("addAutoRenewedValidator-pk", async (env) => {
         const signer = recordedAccount("addAutoRenewedValidator-pk");
         // the recorded BLS key and proof of possession: flarejs checks they are points on the curve
@@ -1042,7 +1042,7 @@ describe("core/builders/pchain", function () {
             delegationFeeShares: 100_000,
             blsPublicKey: getBytes(argOf("--pop-bls-public-key")),
             blsSignature: getBytes(argOf("--pop-bls-signature")),
-            ownerAddresses: [other, signer.pAddress],
+            ownerAddress: other,
             autoCompoundShares: 500_000,
           },
           env,
@@ -1051,8 +1051,9 @@ describe("core/builders/pchain", function () {
         );
         if (built.kind !== "atomic") throw new Error("addAutoRenewedValidator must be a P-chain transaction");
         const tx = built.unsignedTx.getTx() as pvmSerial.AddAutoRenewedValidatorTx;
-        // the owners are the validator's authority: they, not the signing key, change its configuration later
-        expect(bech32(tx.getValidatorAuthority()).sort()).to.deep.equal([other, signer.pAddress].sort());
+        // the owner is the validator's authority: it, not the signing key, changes the configuration later
+        expect(bech32(tx.getValidatorAuthority())).to.deep.equal([other]);
+        expect(tx.getValidatorAuthority().threshold.value()).to.equal(1);
         expect(tx.autoCompoundRewardShares.value()).to.equal(500_000);
         expect(tx.delegationShares.value()).to.equal(100_000);
         expect(tx.period.value()).to.equal(900n);
@@ -1154,7 +1155,7 @@ describe("core/builders/pchain", function () {
         delegationFeeShares: 0,
         blsPublicKey: new Uint8Array(48),
         blsSignature: new Uint8Array(96),
-        ownerAddresses: [account.pAddress, costwo],
+        ownerAddress: costwo,
       }));
   });
 });

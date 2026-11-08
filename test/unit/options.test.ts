@@ -238,6 +238,25 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       expect(parseAtomicTxRequest("addAutoRenewedValidator", options).request).to.include({ autoCompoundShares: 1e6 });
     });
 
+    it("takes one --owner-address and no --threshold but 1: the authority is a single address", () => {
+      const options = { amount: "10000", nodeId: NODE_ID, period: "14d", ...BLS };
+      const owner = "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u6wmu4t";
+      const request = (extra: Record<string, unknown>) =>
+        parseAtomicTxRequest("addAutoRenewedValidator", { ...options, ...extra }).request;
+      expect(request({ ownerAddress: [owner], threshold: "1" })).to.include({ ownerAddress: owner });
+      expect(request({})).to.include({ ownerAddress: undefined });
+      // two made a 1-of-2 authority, which either key controlled alone
+      expect(() => request({ ownerAddress: [owner, owner] })).to.throw(
+        "--owner-address takes one address (the validator authority is a single address with threshold 1), got 2"
+      );
+      expect(() => request({ ownerAddress: [""] })).to.throw("Option --owner-address is empty");
+      for (const type of ["addAutoRenewedValidator", "delegate"]) {
+        expect(() => parseAtomicTxRequest(type, { ...options, endTime: "14d", threshold: "2" }), type).to.throw(
+          "--threshold accepts only 1: the validator authority is a single address (--owner-address)"
+        );
+      }
+    });
+
     it("needs the validator of an auto-renew config change, by node id or validation tx id", () => {
       expect(() => parseAtomicTxRequest("setAutoRenewedValidatorConfig", { period: "0" })).to.throw(
         "setAutoRenewedValidatorConfig needs the validator: use --node-id <nodeId> or --validator-tx-id <txID>"

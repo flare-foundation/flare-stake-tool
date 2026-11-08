@@ -137,13 +137,13 @@ export function cli(program: Command): void {
     )
     .option(
       "--owner-address <address...>",
-      "P-chain address(es) allowed to change the auto-renew config (default: own address)"
+      "P-chain address allowed to change the auto-renew config (one address; default: own address)"
     )
     .option(
       "--validator-tx-id <txID>",
       "Transaction id of the auto-renewed validator to reconfigure (alternative to --node-id)"
     )
-    .option("--threshold <threshold>", "Accepted for compatibility; has no effect", "1")
+    .option("--threshold <threshold>", "Accepted for compatibility; only 1", "1")
     .action(async (type: string, options: AtomicTxOptions) => {
       await transaction(type, globalOptions(program.opts(), options));
     });

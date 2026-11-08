@@ -22,6 +22,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * `info network` and `info mirror` are removed.
 * Output: the banner is shown only in interactive mode, progress messages (such as "Transaction … submitted, waiting") go to stderr while results, including the transaction id, stay on stdout, and every error exits with code 1.
 * `interactive` refuses unknown options, options it doesn't use (`--network`, `--ledger`, `--blind`, `--derivation-path`, `--ctx-file`, `--env-path`, `--get-hacked`), and running without a terminal.
+* `addAutoRenewedValidator` takes one `--owner-address`, as documented. Several made a validator authority that any one of them controlled alone (1-of-N), whatever `--threshold` said; `--threshold` other than 1 is refused.
 * `customCChainTx` has a 300,000 gas limit by default (was 1,000,000); heavier calls need `--gas-limit`. See Changed for the other gas limits.
 
 ### Fixed
@@ -106,7 +107,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 
 ### Deprecated
 
-* `--blind` and `--threshold` have no effect (they never had any) and are kept for compatibility.
+* `--blind` and `--threshold` have no effect (they never had any) and are kept for compatibility; `--threshold` accepts only 1.
 
 ## [[v4.4.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.4.0)] - 2026-09-01
 

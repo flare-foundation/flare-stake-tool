@@ -79,7 +79,7 @@ export type TxRequest =
       delegationFeeShares: number;
       blsPublicKey: Uint8Array;
       blsSignature: Uint8Array;
-      ownerAddresses?: string[] | undefined;
+      ownerAddress?: string | undefined;
       autoCompoundShares?: number | undefined;
     }
   | {
