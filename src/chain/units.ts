@@ -79,7 +79,6 @@ export function parseFlr(input: string): NFlr {
 export const parseFlrToWei = (input: string): Wei => asWei(parseDecimal(input, WEI_DECIMALS));
 export const formatFlr = (amount: NFlr): string => formatDecimal(amount, NFLR_DECIMALS);
 export const formatWei = (amount: Wei): string => formatDecimal(amount, WEI_DECIMALS);
-export const nFlrToWei = (amount: NFlr): Wei => asWei(amount * 10n ** BigInt(WEI_DECIMALS - NFLR_DECIMALS));
 
 /** One million shares = 100 %; the P-chain expresses delegation fees in millionths. */
 export const SHARES_PER_PERCENT = 10_000;

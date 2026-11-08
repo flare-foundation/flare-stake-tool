@@ -9,7 +9,6 @@ import {
   isDurationInput,
   asNFlr,
   asWei,
-  nFlrToWei,
   parseDecimal,
   parseDuration,
   parseEndTime,
@@ -46,7 +45,6 @@ describe("chain/units", () => {
       1_000_000_000n,
       1_000_000_000_000_000_000n,
     ]);
-    expect(nFlrToWei(nFlr)).to.equal(wei);
   });
 
   it("formats a negative amount with a leading minus", () => {
@@ -85,7 +83,6 @@ describe("chain/units", () => {
       expect(parseFlr("1.5000000000")).to.equal(1_500_000_000n); // trailing zeros change nothing
       expect(() => parsePercentToShares("33.33333")).to.throw(/at most 4 decimal places/);
       expect(formatWei(asWei(1_000_000_000_000_000_000n))).to.equal("1");
-      expect(nFlrToWei(asNFlr(1_500_000_000n))).to.equal(1_500_000_000_000_000_000n);
     });
 
     it("parses C-chain amounts with the full 18 decimals of wei", () => {
@@ -96,7 +93,7 @@ describe("chain/units", () => {
       // an amount with up to 9 decimals gives the same wei as the nFLR route used up to 4.x
       fc.assert(
         fc.property(fc.bigInt({ min: 0n, max: 10n ** 20n }), (nFlr) => {
-          expect(parseFlrToWei(formatFlr(asNFlr(nFlr)))).to.equal(nFlrToWei(asNFlr(nFlr)));
+          expect(parseFlrToWei(formatFlr(asNFlr(nFlr)))).to.equal(nFlr * 10n ** 9n);
         })
       );
     });
