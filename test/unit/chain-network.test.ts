@@ -139,6 +139,8 @@ describe("chain/network", () => {
         "https://alice:SECRET#tail@node.invalid",
         "https://alice:SE@CRET@node.invalid:bad",
         "alice:SECRET@node.invalid",
+        // an "@" in the query, which masking up to the last "@" uncovered the rest of
+        "https://host.invalid:bad/ext/info?x-apikey=SECRET@SECRET",
       ]) {
         let message = "";
         try {
@@ -152,11 +154,16 @@ describe("chain/network", () => {
       expect(() => parseNodeUrl("https://host.example:bad/ext/info?x%2Dapikey=SECRET")).to.throw(
         'Invalid node URL "https://host.example:bad/ext/info?…"; expected a base URL'
       );
-      expect(() => parseNodeUrl("https://alice:synthetic/SECRET@node.invalid")).to.throw(
-        'Invalid node URL "https://***@node.invalid"; expected a base URL'
-      );
-      expect(() => parseNodeUrl("https://alice:SECRET?tail@node.invalid")).to.throw(
-        'Invalid node URL "https://***@node.invalid"; expected a base URL'
+      // with an "@" anywhere, where credentials end can't be told: only the scheme is shown
+      for (const input of [
+        "https://alice:synthetic/SECRET@node.invalid",
+        "https://alice:SECRET?tail@node.invalid",
+        "https://host.invalid:bad/ext/info?x-apikey=public@SECRET",
+      ]) {
+        expect(() => parseNodeUrl(input), input).to.throw('Invalid node URL "https://***"; expected a base URL');
+      }
+      expect(() => parseNodeUrl("ftp://user:SECRET@host.example")).to.throw(
+        'Invalid node URL "ftp://***"; only http and https are supported'
       );
     });
 
