@@ -73,6 +73,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * The C-chain export and import fee defaults to the current estimate instead of 1 FLR (about 170 times the real cost). A typed fee below the current cost asks for confirmation.
   * Moves between the chains import only after their own export has arrived.
   * Connecting a Ledger no longer deletes `ctx.json`; another context is replaced only after confirmation and kept as a `.bak` file.
+  * A new Ledger context is saved only after the device has shown the chosen address and the user approved it, as with `init-ctx --ledger`. The listed addresses come from keys the host received, so a substituted key was saved and later trusted without the device ever showing it.
   * A failed action or wallet connection no longer ends the session, and the wallet menu has a Quit entry.
   * Ctrl-C at a question ends the session with exit code 130 instead of 0, so a script sees it was cancelled; Quit still exits with 0.
   * Invalid amounts, fees, periods, end times, delegation fees, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again; a delegation fee of `10%` used to fail only after both BLS values were entered. The delegation fee prompt says that Enter accepts 20%.

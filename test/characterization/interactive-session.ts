@@ -29,7 +29,7 @@ import type * as PchainModule from "../../src/core/builders/pchain";
 import type * as InteractiveModule from "../../src/interactive/cli";
 import type * as LedgerSignerModule from "../../src/signers/ledger";
 import type { LedgerDevice } from "../../src/signers/ledger";
-import { SigningKey, keccak256, toUtf8Bytes } from "ethers";
+import { SigningKey, computeAddress, keccak256, toUtf8Bytes } from "ethers";
 import { EWOQ_P_ADDRESS, EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 
 const DIST = path.resolve(__dirname, "..", "..", "dist");
@@ -258,17 +258,25 @@ stub(fromDist<typeof ValidatorsModule>("chain/validators.js"), "currentValidator
   )
 );
 
+/** The key the device has at a path: another one once another Ledger is plugged in, the same everywhere with sameKey. */
+const deviceKey = (derivationPath: string) =>
+  new SigningKey(
+    keccak256(toUtf8Bytes((ledgerSwapped ? "another Ledger " : "") + (flags.sameKey ? "same" : derivationPath)))
+  );
+
 const fakeDevice: LedgerDevice = {
   detectApp: () => Promise.resolve("Flare"),
   getPublicKey: (derivationPath) => {
     record(`LEDGER getPublicKey ${derivationPath}`);
-    const seed = (ledgerSwapped ? "another Ledger " : "") + (flags.sameKey ? "same" : derivationPath);
-    return Promise.resolve(new SigningKey(keccak256(toUtf8Bytes(seed))).compressedPublicKey.slice(2));
+    return Promise.resolve(deviceKey(derivationPath).compressedPublicKey.slice(2));
   },
   signHash: () => Promise.reject(new Error("not used")),
   signTransaction: () => Promise.reject(new Error("not used")),
   signEvmTransaction: () => Promise.reject(new Error("not used")),
-  showCAddress: () => Promise.reject(new Error("not used")),
+  showCAddress: (derivationPath) => {
+    record(`LEDGER showCAddress ${derivationPath}`);
+    return Promise.resolve(computeAddress(deviceKey(derivationPath)));
+  },
 };
 stub(fromDist<typeof LedgerSignerModule>("signers/ledger.js"), "ledgerDevice", () => fakeDevice);
 
@@ -387,13 +395,13 @@ const SCENARIOS: Scenario[] = [
     script: ["Ledger", "Yes", TASK.claim, "Yes", "No", "", TASK.quit],
   },
   {
-    // the addresses listed are the first Ledger's: the session does not start on the other one, whose key does not
-    // match the saved context either, until it is chosen by replacing the context
+    // the addresses listed are the first Ledger's: the device then shows the other one's, and nothing is saved
+    // until an address of the Ledger now plugged in is chosen
     name: "ledger: another Ledger plugged in while choosing the address",
     flags: { swapLedgerAt: "Which address do you want to use?" },
     script: [
       "Ledger", "Coston2", "BIP44", { index: 0 },
-      "Ledger", "Yes", true, "Coston2", "BIP44", { index: 0 }, TASK.addresses, TASK.quit,
+      "Ledger", "Coston2", "BIP44", { index: 0 }, TASK.addresses, TASK.quit,
     ],
   },
   {

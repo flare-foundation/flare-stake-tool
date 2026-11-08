@@ -32,7 +32,7 @@ import { allUtxos, maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
 import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
 import { describeError, log, logError, logInfo, logWarning, reportOutcome } from "../output";
-import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
+import { LedgerSigner, confirmLedgerAccount, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
 import {
   DEFAULT_DELEGATION_FEE_PERCENT,
@@ -445,12 +445,21 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
   const chosen = await prompts.selectAddress(
     addresses.map((a, i) => ({ name: `${i + 1}. ${a.ethAddress}`, value: a }))
   );
+  // The device shows the chosen address, as for init-ctx --ledger: the listed keys came through the host, and one
+  // substituted there would be saved and funded without the device ever showing it.
+  const confirmed = await confirmLedgerAccount(device, chosen.derivationPath, network);
+  if (confirmed.account.publicKeyHex !== accountFromPublicKey(chosen.publicKey, network).publicKeyHex) {
+    throw new Error(
+      `The Ledger now has ${confirmed.account.cAddress} at ${chosen.derivationPath}, not the ${chosen.ethAddress} ` +
+        "listed; no context file was written"
+    );
+  }
   const context: ContextFile = {
     wallet: "ledger",
-    publicKey: chosen.publicKey,
+    publicKey: confirmed.publicKey,
     network,
-    ethAddress: chosen.ethAddress,
-    flareAddress: accountFromPublicKey(chosen.publicKey, network).pAddress,
+    ethAddress: confirmed.account.cAddress,
+    flareAddress: confirmed.account.pAddress,
     derivationPath: chosen.derivationPath,
   };
   // Only now, with the new context complete, does the previous file make way.
