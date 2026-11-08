@@ -203,6 +203,33 @@ describe("ledger", () => {
       );
     });
 
+    it("refuses a malformed key with a fixed message that holds neither the value nor a cause quoting it", () => {
+      const original = console.error;
+      console.error = () => undefined;
+      try {
+        const order = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141";
+        for (const bad of [`${EWOQ_PRIVATE_KEY_HEX}zz`, EWOQ_PRIVATE_KEY_HEX.slice(2), "00".repeat(32), order, "x"]) {
+          let error: unknown;
+          try {
+            ledgerDevice({ [FAKE_LEDGER_KEY_ENV]: bad });
+          } catch (caught) {
+            error = caught;
+          }
+          expect(error, bad).to.be.instanceOf(Error);
+          expect((error as Error).message).to.equal(
+            `${FAKE_LEDGER_KEY_ENV} is not a private key (32 bytes of hex); its value is not shown`
+          );
+          expect((error as Error).cause, bad).to.equal(undefined);
+        }
+        // a trailing newline, as a shell may leave, or 0x, still names the key
+        for (const good of [`${EWOQ_PRIVATE_KEY_HEX}\n`, `0x${EWOQ_PRIVATE_KEY_HEX}`]) {
+          expect(() => ledgerDevice({ [FAKE_LEDGER_KEY_ENV]: good }), JSON.stringify(good)).not.to.throw();
+        }
+      } finally {
+        console.error = original;
+      }
+    });
+
     it("is announced on stderr whenever it replaces the device", () => {
       const original = console.error;
       const printed: string[] = [];

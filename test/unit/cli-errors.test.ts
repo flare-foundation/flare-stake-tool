@@ -331,6 +331,19 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(relay.stderr).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
   });
 
+  it("prints no part of a malformed FLARE_FAKE_LEDGER_KEY", () => {
+    const malformed = `${"5a".repeat(31)}zz`;
+    const result = runCli(["info", "addresses", "--ledger", "--network", "costwo"], {
+      cwd,
+      env: { FLARE_FAKE_LEDGER_KEY: malformed },
+    });
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.include(
+      "FLARE_FAKE_LEDGER_KEY is not a private key (32 bytes of hex); its value is not shown"
+    );
+    expect(result.stderr).not.to.include("5a5a5a");
+  });
+
   it("refuses two signers instead of letting one win, before the key file or the Ledger is opened", () => {
     for (const [args, refusal] of [
       [
