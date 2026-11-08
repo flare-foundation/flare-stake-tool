@@ -19,7 +19,13 @@ import {
   DEFAULT_GAS_LIMIT,
   resolveEvmFees,
 } from "../../src/constants/fees";
-import { buildClaim, buildSetClaimExecutors, buildWithdrawal } from "../../src/core/builders/evm";
+import {
+  buildClaim,
+  buildCustomCChainTx,
+  buildSetAllowedClaimRecipients,
+  buildSetClaimExecutors,
+  buildWithdrawal,
+} from "../../src/core/builders/evm";
 import {
   FILE_SIGNER_POLICY,
   IMMEDIATE_SIGNER_POLICY,
@@ -226,6 +232,84 @@ describe("core/builders/evm: refusals before anything is signed", () => {
     const bundle = await setExecutors([registered]);
     if (bundle.kind !== "evm") throw new Error("not an EVM transaction");
     expect(bundle.tx.value).to.equal(3n * 10n ** 18n);
+  });
+});
+
+describe("core/builders/evm: the zero address", () => {
+  const refused = (build: () => Promise<unknown>, what: string) =>
+    build().then(
+      () => expect.fail(`built with the zero address as ${what}`),
+      (error: unknown) =>
+        expect((error as Error).message).to.equal(`${what} is the zero address, which no one can spend from`)
+    );
+
+  it("is refused where it would get funds or the right to them, before the node is asked", async () => {
+    const { env, nonceTags, codeLookups } = chainEnv();
+    await refused(
+      () =>
+        buildWithdrawal(
+          { type: "withdrawal", to: ZeroAddress, amount: asWei(1n), fees: resolveEvmFees("withdrawal") },
+          env,
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
+        ),
+      "The withdrawal recipient (--to)"
+    );
+    await refused(
+      () =>
+        buildClaim(
+          { type: "claim", recipient: ZeroAddress, wrap: false, fees: resolveEvmFees("claim") },
+          env,
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
+        ),
+      "The claim recipient (--recipient)"
+    );
+    await refused(
+      () =>
+        buildSetClaimExecutors(
+          { type: "setClaimExecutors", executors: [ZeroAddress], fees: resolveEvmFees("setClaimExecutors", {}, 1) },
+          env,
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
+        ),
+      "An executor (--executors)"
+    );
+    await refused(
+      () =>
+        buildSetAllowedClaimRecipients(
+          {
+            type: "setAllowedClaimRecipients",
+            recipients: [ORDINARY, ZeroAddress],
+            fees: resolveEvmFees("setAllowedClaimRecipients", {}, 2),
+          },
+          env,
+          ACCOUNT,
+          IMMEDIATE_SIGNER_POLICY
+        ),
+      "An allowed claim recipient (--recipients)"
+    );
+    const custom = (value: bigint) =>
+      buildCustomCChainTx(
+        { type: "customCChainTx", to: ZeroAddress, value: asWei(value), data: "0x", fees: resolveEvmFees("custom") },
+        env,
+        ACCOUNT,
+        IMMEDIATE_SIGNER_POLICY
+      );
+    await refused(() => custom(1n), "The recipient of a value (--to)");
+    expect(nonceTags, "no nonce lookup").to.deep.equal([]);
+    expect(codeLookups, "no recipient lookup").to.deep.equal([]);
+    // a call without value, and an empty list, which clears the stored one
+    const call = await custom(0n);
+    if (call.kind !== "evm") throw new Error("not an EVM transaction");
+    expect(call.tx.to).to.equal(ZeroAddress);
+    const cleared = await buildSetAllowedClaimRecipients(
+      { type: "setAllowedClaimRecipients", recipients: [], fees: resolveEvmFees("setAllowedClaimRecipients", {}, 0) },
+      env,
+      ACCOUNT,
+      IMMEDIATE_SIGNER_POLICY
+    );
+    expect(cleared.kind).to.equal("evm");
   });
 });
 
