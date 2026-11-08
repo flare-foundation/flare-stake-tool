@@ -173,11 +173,28 @@ function refuseRedirects(request: FetchRequest): void {
   request.getUrlFunc = async (req, signal) => {
     const response = await getUrl(req, signal);
     if (response.statusCode >= 300 && response.statusCode < 400) {
-      const location = response.headers["location"];
-      throw new Error(`${REDIRECT_REFUSED}${location ? ` to ${location}` : ""}`);
+      throw new Error(`${REDIRECT_REFUSED}${shownLocation(response.headers["location"], req.url)}`);
     }
     return response;
   };
+}
+
+/**
+ * A redirect's target for the error, resolved against the request's URL and without credentials, query or fragment:
+ * masking knows only `scheme://user:password@`, and a relative `//user:password@host` would be printed as it came.
+ */
+function shownLocation(location: string | undefined, requestUrl: string): string {
+  if (!location) return "";
+  try {
+    const url = new URL(location, requestUrl);
+    url.username = "";
+    url.password = "";
+    url.search = "";
+    url.hash = "";
+    return ` to ${url.href}`;
+  } catch {
+    return "";
+  }
 }
 
 export function createClients(network: NetworkConfig): Clients {

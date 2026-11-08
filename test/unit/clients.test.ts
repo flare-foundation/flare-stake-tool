@@ -325,6 +325,28 @@ describe("chain/clients", () => {
       }
     });
 
+    it("names a refused redirect's target without its credentials, query or fragment", async () => {
+      const server = http.createServer((req, res) => {
+        req.resume();
+        res.writeHead(302, { location: "//bob:DUMMY-PASSWORD@other.invalid/next?x-apikey=DUMMY-KEY#DUMMY-FRAGMENT" });
+        res.end();
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: url, apiKey: "secret-key" }));
+      try {
+        const text = await clients.provider.send("eth_chainId", []).then(
+          () => expect.fail("ethers followed the redirect"),
+          (error: unknown) => describeError(error)
+        );
+        expect(text).to.include("unexpected redirect to http://other.invalid/next;");
+        expect(text).not.to.match(/DUMMY|secret-key/);
+      } finally {
+        clients.provider.destroy();
+        await new Promise<void>((done) => server.close(() => done()));
+      }
+    });
+
     it("follows a redirect when no key is configured, as before", async () => {
       const redirector = await startRedirector(() => node.url);
       const clients = createClients(networkConfig("costwo", {}, { apiUrl: redirector.url }));
