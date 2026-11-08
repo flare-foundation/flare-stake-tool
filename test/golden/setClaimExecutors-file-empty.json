@@ -16,7 +16,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction setClaimExecutors-file-empty constructed\nForDefi hash: I/+wJhXqiwnNb2kEEyH6rb2Uy/Z1h5GSyFAXwBe1KMs=\n",
+    "stdout": "Unsigned transaction setClaimExecutors-file-empty constructed\nForDefi hash: I/+wJhXqiwnNb2kEEyH6rb2Uy/Z1h5GSyFAXwBe1KMs=\nNonce: 10\nExecutor fees: 0 LFLR\n",
     "stderr": "",
     "txIds": [],
     "submissions": [],

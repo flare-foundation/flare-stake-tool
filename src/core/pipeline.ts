@@ -25,12 +25,22 @@ export async function executeTransaction(
   const details = builtDetails(bundle, bundle.kind === "atomic" ? await env.clients.context() : undefined);
   const fee = details.fee;
   const notices = bundle.kind === "atomic" && bundle.notices?.length ? { notices: bundle.notices } : {};
+  const evm =
+    bundle.kind === "evm"
+      ? {
+          evm: {
+            nonce: bundle.tx.nonce,
+            ...(details.claimed !== undefined ? { claimed: details.claimed } : {}),
+            ...(bundle.txType === "setClaimExecutors" ? { executorFees: details.value } : {}),
+          },
+        }
+      : {};
   await beforeSign?.(details);
   const result = await signer.sign(bundle);
   if (result.status === "pending") {
-    return { ...result, fee, ...notices };
+    return { ...result, fee, ...evm, ...notices };
   }
   attachSignature(bundle, result.signature, account);
   const { txId, chainStatus } = await submitAndConfirm(bundle, env.clients, confirm);
-  return { status: "sent", txId, chainStatus, fee, ...notices };
+  return { status: "sent", txId, chainStatus, fee, ...evm, ...notices };
 }

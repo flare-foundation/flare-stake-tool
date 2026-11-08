@@ -2,7 +2,8 @@ import { expect } from "chai";
 import { createClients, nodeOfError, notingNode } from "../../src/chain/clients";
 import { networkConfig, rememberSecret } from "../../src/chain/network";
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
-import { describeError, reportOutcome } from "../../src/output";
+import { asNFlr, asWei } from "../../src/chain/units";
+import { describeError, describeEvmValues, reportOutcome } from "../../src/output";
 
 describe("output/describeError", () => {
   it("passes ordinary errors through", () => {
@@ -180,5 +181,17 @@ describe("output/reportOutcome", () => {
     expect(printed).to.have.length(2);
     expect(printed[0]).to.match(/^out: .*Transaction with hash abc built and sent/);
     expect(printed[1]).to.match(/^err: .*Warning: 2 UTXO\(s\) \(0\.000002 FLR\) skipped/);
+  });
+
+  it("prints a C-chain transaction's nonce, claim amount and executor fees, read from the chain, for co-signers", () => {
+    const pending = { status: "pending", id: "c1", forDefiHash: "h", file: "f" } as const;
+    expect(describeEvmValues({ ...pending, evm: { nonce: 9, claimed: asWei(4n * 10n ** 18n) } }, "FLR")).to.deep.equal([
+      "Nonce: 9",
+      "Claim amount: 4 FLR",
+    ]);
+    expect(
+      describeEvmValues({ ...pending, evm: { nonce: 3, executorFees: asWei(2n * 10n ** 17n) } }, "FLR")
+    ).to.deep.equal(["Nonce: 3", "Executor fees: 0.2 FLR"]);
+    expect(describeEvmValues({ ...pending, fee: asNFlr(1n) }, "FLR"), "an atomic transaction").to.deep.equal([]);
   });
 });

@@ -313,7 +313,9 @@ and delegate can still stake a stakeable-locked UTXO, and the stake keeps its
 lock. Values left out of the
 command are read from the chain as well (`--nonce`, `claim -a`, `exportPC -a`,
 and the default `--gas-limit` of `claim`/`withdrawal`, which depends on whether
-the recipient has contract code); passing them pins them.
+the recipient has contract code); passing them pins them. The C-chain commands
+print the nonce they used, and `claim` the amount it takes, so that co-signers
+can pass the same `--nonce` and `-a`.
 
 ---
 
@@ -358,7 +360,7 @@ Transfer FLR from the configured C-chain address to another address.
 |---|---|
 | Inputs | `-t <address>`, `-a <amount>` (FLR), optional `--nonce`, optional `--gas-limit` (default 100,000, or 500,000 to an address with contract code) |
 | Side effects | With `--get-hacked` or `--ledger`: sends the EVM tx and waits for the receipt. Otherwise writes the unsigned EVM tx file for `send -i`. |
-| Output | Tx hash, or the ForDefi hash of the unsigned file |
+| Output | Tx hash, or the ForDefi hash of the unsigned file; then the nonce (see `send` for pinning it) |
 | Failures | Insufficient C-balance. Invalid (badly checksummed) address. The zero address as recipient. |
 
 ---
@@ -371,7 +373,7 @@ Claim accrued staking rewards from the ValidatorRewardManager contract.
 |---|---|
 | Inputs | `-r <recipient>`, `-a <amount>` (default = full unclaimed), `--wrap` (default false), optional `--gas-limit` (default 200,000, or 600,000 with `--wrap` or to an address with contract code) |
 | Side effects | With `--get-hacked` or `--ledger`: sends the EVM tx and waits for the receipt. Otherwise writes the unsigned EVM tx file for `send -i`. |
-| Output | Tx hash, or the ForDefi hash of the unsigned file |
+| Output | Tx hash, or the ForDefi hash of the unsigned file; then the nonce and the claim amount (see `send` for pinning them) |
 | Failures | No unclaimed rewards. Amount > unclaimed rewards. Contract not deployed on the network. The zero address as recipient. |
 
 ---
@@ -385,7 +387,7 @@ configured C-chain address (ClaimSetupManager contract).
 |---|---|
 | Inputs | `--executors <address...>`, required: the whole new list. `--executors ""` removes every executor. |
 | Side effects | Builds the EVM tx (value = sum of the executors' fees); signed and sent with `--get-hacked`/`--ledger`, otherwise written as an unsigned file for `send -i` |
-| Output | Tx hash, or the ForDefi hash of the unsigned file |
+| Output | Tx hash, or the ForDefi hash of the unsigned file; then the nonce (see `send` for pinning it) and the executor fees paid, the executors' current ones, which co-signers can compare but not pin |
 | Failures | `--executors` missing. An executor in the list is not registered on-chain, or is the zero address. More than 50 addresses. Insufficient C-balance for the fee. |
 
 ---
@@ -399,7 +401,7 @@ contract).
 |---|---|
 | Inputs | `--recipients <address...>`, required: the whole new list. `--recipients ""` removes every recipient. |
 | Side effects | Builds the EVM tx; signed and sent with `--get-hacked`/`--ledger`, otherwise written as an unsigned file for `send -i` |
-| Output | Tx hash, or the ForDefi hash of the unsigned file |
+| Output | Tx hash, or the ForDefi hash of the unsigned file; then the nonce (see `send` for pinning it) |
 | Failures | `--recipients` missing. The zero address in the list. More than 50 addresses. Insufficient C-balance. Contract not deployed. |
 
 ---
@@ -412,7 +414,7 @@ Submit an arbitrary C-chain transaction (low-level escape hatch).
 |---|---|
 | Inputs | `--to <address>`, `--value <wei>`, `--data <hex>`, optional `--nonce`, optional `--gas-limit` (default 300,000; size it to the call) |
 | Side effects | Builds the EVM tx; signed and sent with `--get-hacked`/`--ledger`, otherwise written as an unsigned file for `send -i` |
-| Output | Tx hash, or the ForDefi hash of the unsigned file |
+| Output | Tx hash, or the ForDefi hash of the unsigned file; then the nonce (see `send` for pinning it) |
 | Failures | Standard EVM failure modes (insufficient balance, gas, revert). The zero address as `--to` with a `--value` above 0. |
 
 ---

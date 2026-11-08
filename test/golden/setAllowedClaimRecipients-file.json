@@ -16,7 +16,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction setAllowedClaimRecipients-file constructed\nForDefi hash: rW3kJBurUbHt6Wm3ZjLfh+VnXw+7hZgyiTTvIq2Cs94=\n",
+    "stdout": "Unsigned transaction setAllowedClaimRecipients-file constructed\nForDefi hash: rW3kJBurUbHt6Wm3ZjLfh+VnXw+7hZgyiTTvIq2Cs94=\nNonce: 10\n",
     "stderr": "",
     "txIds": [],
     "submissions": [],

@@ -55,6 +55,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `claim`, `setClaimExecutors` and `setAllowedClaimRecipients` use the C-chain chain id, which differs from the network id on Songbird and Coston.
   * `withdrawal` and `claim` amounts take 18 decimals (they were cut to 9).
   * `--nonce` must be a non-negative integer, and is stored as a number in unsigned files (the hash is unchanged).
+  * C-chain commands print the nonce they used, `claim` the amount it takes (all unclaimed rewards without `-a`) and `setClaimExecutors` the executor fees it pays: values read from the chain, which ForDefi co-signers had no way to see and pass in turn.
 * Signing:
   * `send -i` accepts `v` as `1b`/`1c` as documented, and fills the validator-authority credential of `setAutoRenewedValidatorConfig`.
   * A given `--ctx-file` that doesn't exist is refused by every command but `init-ctx`, whatever else selects the account; `send` skipped the signer check then, and `--ledger` ignored it.

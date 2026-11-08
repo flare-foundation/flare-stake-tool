@@ -186,8 +186,19 @@ export interface Signer {
 }
 
 /**
- * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs.
- * `notices` are the bundle's.
+ * Values of a C-chain transaction that may come from the chain, read from the transaction built: the nonce, the amount
+ * a claim takes (all unclaimed rewards without -a) and the executor fees setClaimExecutors pays. They are printed, so
+ * that ForDefi co-signers can pass the same nonce and amount, and compare the fees.
+ */
+export interface EvmOutcomeValues {
+  nonce: number;
+  claimed?: Wei | undefined;
+  executorFees?: Wei | undefined;
+}
+
+/**
+ * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. `evm` is
+ * set for C-chain transactions. `notices` are the bundle's.
  */
 export type Outcome =
   | {
@@ -195,6 +206,7 @@ export type Outcome =
       txId: string;
       chainStatus: string;
       fee?: NFlr | undefined;
+      evm?: EvmOutcomeValues | undefined;
       notices?: readonly string[] | undefined;
     }
   | {
@@ -203,5 +215,6 @@ export type Outcome =
       forDefiHash: string;
       file: string;
       fee?: NFlr | undefined;
+      evm?: EvmOutcomeValues | undefined;
       notices?: readonly string[] | undefined;
     };

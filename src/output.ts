@@ -1,7 +1,7 @@
 import { styleText } from "node:util";
 import { REDIRECT_REFUSED, nodeOfError } from "./chain/clients";
 import { API_KEY_ENV, redactSecrets } from "./chain/network";
-import { formatFlr } from "./chain/units";
+import { formatFlr, formatWei } from "./chain/units";
 import { SubmittedTxError } from "./core/submit";
 import type { Outcome } from "./core/types";
 import { API_KEY_FLAG, RPC_URL_FLAG } from "./cli/node";
@@ -43,6 +43,21 @@ export function describeFee(outcome: Outcome, symbol: string): string | undefine
     : `Fee: ${formatFlr(outcome.fee)} ${symbol} (burned when the signed transaction is sent)`;
 }
 
+/**
+ * The lines of a C-chain transaction's values that may come from the chain: its nonce, the amount a claim takes and
+ * the executor fees setClaimExecutors pays. ForDefi co-signers pass the same `--nonce` and `-a` to build the same
+ * transaction; the executor fees are the executors' current ones, to compare.
+ */
+export function describeEvmValues(outcome: Outcome, symbol: string): string[] {
+  if (outcome.evm === undefined) return [];
+  const { nonce, claimed, executorFees } = outcome.evm;
+  return [
+    `Nonce: ${nonce}`,
+    ...(claimed !== undefined ? [`Claim amount: ${formatWei(claimed)} ${symbol}`] : []),
+    ...(executorFees !== undefined ? [`Executor fees: ${formatWei(executorFees)} ${symbol}`] : []),
+  ];
+}
+
 /** What the command line and interactive mode print once a transaction is sent or its unsigned file written. */
 export function reportOutcome(outcome: Outcome, symbol: string): void {
   if (outcome.status === "sent") {
@@ -53,6 +68,7 @@ export function reportOutcome(outcome: Outcome, symbol: string): void {
   }
   const fee = describeFee(outcome, symbol);
   if (fee) logInfo(fee);
+  for (const line of describeEvmValues(outcome, symbol)) logInfo(line);
   for (const notice of outcome.notices ?? []) logWarning(notice);
 }
 
