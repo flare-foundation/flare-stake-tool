@@ -43,7 +43,7 @@ src/
   chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
   chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
   ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum); path.ts checks derivation paths
-  interactive/              inquirer menu calling app/ directly; every question goes through askInquirer (Ctrl-C, and Ctrl-D on an empty answer, exit 130)
+  interactive/              inquirer menu calling app/ (and chain/ and core/ for what it shows) directly; every question goes through askInquirer (Ctrl-C, and Ctrl-D on an empty answer, exit 130)
   constants/fees.ts         Fixed EIP-1559 fees per C-chain operation
   constants/screen.ts       Menu labels
 test/unit/                  Mocha unit tests (pure functions, signers, builders without a node)
@@ -122,8 +122,7 @@ recipient has contract code.
   100,000 / 10,000. Verify against the chain rather than this file:
   `platform.getMinStake` on `<api>/ext/bc/P`.
 - C-chain balances are in wei (1e18 per FLR), P-chain in nFLR (1e9 per FLR).
-  See `dateToDateTimeLocalString`/`integerToDecimal` for display formatting
-  (offset 18 for C-chain, 9 for P-chain).
+  `formatWei` and `formatFlr` (`chain/units.ts`) print them.
 
 ## Dependencies: real constraints
 

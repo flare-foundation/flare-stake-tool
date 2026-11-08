@@ -6,8 +6,10 @@ const GWEI = 1_000_000_000;
  * These are EIP-1559 (type 2) transactions, and the values are fixed constants
  * rather than estimated from the chain. A ForDefi transaction may be built
  * independently by several signers who all have to arrive at the same
- * transaction hash, so nothing in the signed payload may depend on chain state
- * at the moment it happens to be built.
+ * transaction hash, so the fees may not depend on chain state at the moment it
+ * happens to be built. The values that do come from the chain (the nonce, the
+ * claim amount, the executor fees, the default gas limit of claim and
+ * withdrawal) are printed or can be pinned with an option.
  *
  * Type 2 is what makes a fixed fee workable. `maxFeePerGas` is a cap, not a
  * price: the transaction pays `min(maxFeePerGas, baseFee + maxPriorityFeePerGas)`

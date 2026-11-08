@@ -1,7 +1,9 @@
 /**
  * One builder per P-chain / atomic transaction type, over flarejs'
- * object-style builders. Builders only build; validation that needs chain
- * state (stake limits, validator existence, fork gates) lives in app/.
+ * object-style builders. The checks that need chain state before a request is
+ * built (stake limits, validator existence, fork gates) live in app/; the
+ * builders check what the chain data they read must satisfy (UTXOs, the
+ * validator authority of a config change).
  */
 import {
   TransferableInput,
