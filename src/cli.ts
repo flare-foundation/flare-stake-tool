@@ -18,6 +18,7 @@ import { sendSignedTransaction } from "./app/send";
 import { runTransaction } from "./app/transactions";
 import {
   BASE_DERIVATION_PATH,
+  DEFAULT_DELEGATION_FEE_PERCENT,
   END_TIME,
   START_TIME,
   START_TIME_NOT_USED_WARNING,
@@ -143,7 +144,11 @@ export function cli(program: Command): void {
     .option("-s, --start-time <start-time>", "Start time (unix seconds or duration from now)")
     .option("-e, --end-time <end-time>", "End time (unix seconds or duration from now, e.g. 2d12h)")
     .option("--nonce <nonce>", "C-chain nonce of the constructed transaction (exportCP)")
-    .option("--delegation-fee <delegation-fee>", "Delegation fee in percent charged by the validator", "20")
+    .option(
+      "--delegation-fee <delegation-fee>",
+      "Delegation fee in percent charged by the validator",
+      DEFAULT_DELEGATION_FEE_PERCENT
+    )
     .option("--pop-bls-public-key <popBlsPublicKey>", "BLS Public Key")
     .option("--pop-bls-signature <popBlsSignature>", "BLS Signature")
     .option("--transfer-address <transfer-address>", "P-chain address to transfer funds to")
