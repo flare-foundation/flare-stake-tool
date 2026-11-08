@@ -77,6 +77,9 @@ function givenFlags(command: Command, only?: readonly string[]): string[] {
 type TransactionIdOptions = Pick<GlobalOptions, "transactionId">;
 
 export function cli(program: Command): void {
+  // each command's help lists the program's options too (--network, --ledger, the fee options, ...), which it takes;
+  // the commands defined below inherit this
+  program.configureHelp({ showGlobalOptions: true });
   program
     .option("--network <network>", `Network name (${NETWORK_NAMES.join("|")})`)
     .option(RPC_URL_OPTION, RPC_URL_DESCRIPTION)

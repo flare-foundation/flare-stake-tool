@@ -154,7 +154,18 @@ describe("CLI errors (built CLI, no node)", function () {
       expect(result.stderr, args.join(" ")).to.include(`Allowed choices are ${choices}.`);
     }
     const help = runCli(["info", "--help"], { cwd });
-    expect(help.stdout).to.match(/\(choices: "addresses",\s+"balance",\s+"validators"\)/);
+    expect(help.stdout).to.match(/\(choices:\s+"addresses",\s+"balance",\s+"validators"\)/); // wrapped anywhere
+  });
+
+  it("lists the global options a command takes in its own help", () => {
+    for (const command of ["withdrawal", "transaction", "send"]) {
+      const help = runCli([command, "--help"], { cwd });
+      expect(help.exitCode, command).to.equal(0);
+      expect(help.stdout, command).to.include("Global Options:");
+      for (const flag of ["--network", "--ledger", "--get-hacked", "--gas-limit", "--rpc-url"]) {
+        expect(help.stdout, `${command} ${flag}`).to.include(flag);
+      }
+    }
   });
 
   it("reports a missing transaction option before asking for a signer or a transaction id", () => {

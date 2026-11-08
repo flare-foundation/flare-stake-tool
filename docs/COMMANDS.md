@@ -4,7 +4,8 @@ Behavioral specification for every CLI command. This is the source of
 truth for what each command should do. The integration tests in
 `test/integration/` are the executable form of this spec.
 
-For exact flags, see `flare-stake-tool <command> --help`. This document
+For exact flags, see `flare-stake-tool <command> --help`, which lists the
+global options too. This document
 focuses on inputs / outputs / side effects / failure modes.
 
 ---

@@ -87,6 +87,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `interactive --help` prints help instead of starting a session, and a bad node URL is reported before the banner.
 * Command line:
   * The shortcuts (`balance`, `exportCP`, …) and `interactive` work after global options, as in `--network costwo balance`.
+  * `<command> --help` lists the global options the command takes (`--network`, `--ledger`, the C-chain fee options, …) after its own.
   * An end time that is not in the future gets a warning (`-e 1209600` is a unix time, not 14 days).
   * A start or end time that looks like milliseconds (`-e 1700000000000`, the year 55840 as seconds) gets a warning, on the command line and in interactive mode.
   * An unknown `info`, `transaction` or `forDefi` type is refused with the allowed ones listed (also in `--help`), and a missing or invalid transaction option is reported before the signer, so `delegate` without `--node-id` says so instead of asking for `-i`.
