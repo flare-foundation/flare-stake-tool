@@ -72,6 +72,7 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       const evm: [Parameters<typeof parseEvmTxRequest>[0], Record<string, string>, string][] = [
         ["claim", { recipient: TO, amount: "" }, "--amount"], // would claim every reward
         ["custom", { to: TO, value: "" }, "--value"],
+        ["custom", { to: TO, value: "1", data: "" }, "--data"], // would send the value with no call
         ["withdrawal", { to: TO, amount: "1", nonce: "" }, "--nonce"],
         ["withdrawal", { to: TO, amount: "1", gasLimit: "" }, "--gas-limit"],
         ["withdrawal", { to: TO, amount: "1", maxFeePerGas: "" }, "--max-fee-per-gas"],
@@ -80,6 +81,11 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       for (const [operation, options, flag] of evm) {
         expect(() => parseEvmTxRequest(operation, options), `${operation} ${flag}`).to.throw(empty(flag));
       }
+    });
+
+    it("leaves 0x as the way to send no calldata", () => {
+      expect(parseEvmTxRequest("custom", { to: TO, value: "1", data: "0x" })).to.include({ data: "0x" });
+      expect(parseEvmTxRequest("custom", { to: TO, value: "1" })).to.include({ data: "0x" });
     });
 
     it("still clears the stored list of setClaimExecutors and setAllowedClaimRecipients", () => {

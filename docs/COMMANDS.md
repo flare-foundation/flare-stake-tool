@@ -35,7 +35,7 @@ write `1.5` and `10000`). P-chain and atomic amounts and fees take at most 9
 decimals (nFLR); the C-chain amounts of `withdrawal` and `claim` take up to 18
 (wei). More non-zero decimals are an error rather than being cut off.
 An empty value (`-a ""`) is refused for `-a`, `-f`, `--nonce`, `--value`,
-`--delegation-fee`, `--auto-compound-shares` and the gas and fee flags, whose
+`--data` (`--data 0x` sends no calldata), `--delegation-fee`, `--auto-compound-shares` and the gas and fee flags, whose
 absence means a default:
 leave the option out to get the default. `--executors ""` and
 `--recipients ""` clear a list.

@@ -245,7 +245,7 @@ export function parseEvmTxRequest(operation: EvmOperation, options: EvmTxOptions
         type: "customCChainTx",
         to: required(options.to, "to", "--to <address>", "customCChainTx"),
         value: asWei(BigInt(value)),
-        data: optionalString(options.data) ?? "0x",
+        data: optionValue(options.data, "--data") ?? "0x",
         nonce,
         fees: resolveEvmFees("custom", options),
       };
