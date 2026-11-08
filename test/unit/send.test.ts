@@ -6,7 +6,7 @@
 import { expect } from "chai";
 import fs from "fs";
 import { sendSignedTransaction, type SendEnv } from "../../src/app/send";
-import { getBytes } from "ethers";
+import { Transaction, getBytes } from "ethers";
 import { accountFromPrivateKey, accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import {
@@ -387,6 +387,44 @@ describe("app/send: the file's network must be the selected one", () => {
 
   afterEach(() => {
     cleanupTempDir(cwd);
+  });
+
+  it("refuses a typed EVM file with chain id 0, and sends an unprotected legacy one, which has none", async () => {
+    const signedWith = (rawTx: object, id: string) => {
+      const tx = Transaction.from(rawTx);
+      const message = tx.unsignedHash.slice(2);
+      writeSignedTxJson(
+        { transactionType: "EVM", rawTx: rawTx, message, signature: signMessageHash(message) },
+        id,
+        cwd
+      );
+    };
+    const base = { nonce: 1, gasLimit: 21_000, to: "0x2222222222222222222222222222222222222222", value: "1" };
+    signedWith({ ...base, type: 2, maxFeePerGas: 1, maxPriorityFeePerGas: 1, chainId: 0 }, "typed");
+    let issued = false;
+    await sendSignedTransaction(
+      "typed",
+      scriptedEnv({ statuses: ["Committed"], onIssue: () => (issued = true) }, "typed", cwd),
+      undefined,
+      cwd,
+      FAST
+    ).then(
+      () => expect.fail("sent a typed transaction for chain id 0"),
+      (error: unknown) =>
+        expect(describeError(error)).to.equal(
+          "Transaction typed is for chain id 0, not localflare (162); select its network with --network"
+        )
+    );
+    expect(issued).to.equal(false);
+    signedWith({ ...base, type: 0, gasPrice: 1 }, "legacy");
+    await sendSignedTransaction(
+      "legacy",
+      scriptedEnv({ statuses: ["Committed"] }, "legacy", cwd),
+      undefined,
+      cwd,
+      FAST
+    );
+    expect(isAlreadySentToChain("legacy", cwd)).to.equal(true);
   });
 
   it("refuses a file of another network before anything is sent: network id for atomic, chain id for EVM", async () => {

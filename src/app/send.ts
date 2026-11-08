@@ -92,7 +92,8 @@ export async function sendSignedTransaction(
 /**
  * Refuses a file built for another network than the selected one, before anything is sent: the node would refuse it
  * with a less clear error. Atomic transactions carry the network id, EVM ones the chain id, which differ on Songbird
- * and Coston. An EVM file without a chain id (an old legacy transaction) has nothing to compare.
+ * and Coston. Only an unprotected legacy transaction (type 0 without a chain id) has nothing to compare; a typed one
+ * always carries its chain id, 0 included.
  */
 function checkFileNetwork(id: string, bundle: UnsignedTxBundle, network: SendEnv["network"]): void {
   if (bundle.kind === "atomic") {
@@ -106,8 +107,8 @@ function checkFileNetwork(id: string, bundle: UnsignedTxBundle, network: SendEnv
     }
     return;
   }
-  const chainId = bundle.tx.chainId;
-  if (chainId !== 0n && chainId !== BigInt(network.chainId)) {
+  const { chainId, type } = bundle.tx;
+  if (!(type === 0 && chainId === 0n) && chainId !== BigInt(network.chainId)) {
     throw new Error(
       `Transaction ${id} is for chain id ${chainId}, not ${network.name} (${network.chainId}); ` +
         "select its network with --network"
