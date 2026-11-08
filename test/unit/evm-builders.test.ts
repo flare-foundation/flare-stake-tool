@@ -459,8 +459,10 @@ describe("core/builders/evm: the nonce", () => {
     await withdrawal(IMMEDIATE_SIGNER_POLICY);
     await withdrawal(FILE_SIGNER_POLICY);
     const pinned = await withdrawal(IMMEDIATE_SIGNER_POLICY, 7);
+    const zero = await withdrawal(IMMEDIATE_SIGNER_POLICY, 0); // a pinned 0, not a missing nonce
     expect(nonceTags).to.deep.equal(["pending", "latest"]);
-    if (pinned.kind !== "evm") throw new Error("not an EVM transaction");
+    if (pinned.kind !== "evm" || zero.kind !== "evm") throw new Error("not an EVM transaction");
     expect(pinned.tx.nonce).to.equal(7);
+    expect(zero.tx.nonce).to.equal(0);
   });
 });

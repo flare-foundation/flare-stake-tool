@@ -236,6 +236,27 @@ describe("cli/inputs, cli/requests and cli/options", () => {
     });
   });
 
+  describe("--start-time 0", () => {
+    it("is no start time, as for a stake that starts when the chain accepts it", () => {
+      for (const type of ["delegate", "stake"]) {
+        const options = {
+          nodeId: NODE_ID,
+          amount: "10000",
+          endTime: "1900086400",
+          startTime: "0",
+          popBlsPublicKey: "ab".repeat(48),
+          popBlsSignature: "cd".repeat(96),
+        };
+        const { request, resolvedTimes } = parseAtomicTxRequest(type, options);
+        expect(request, type).to.include({ startTime: undefined });
+        expect(
+          resolvedTimes.map((time) => time.name),
+          type
+        ).to.not.include("Start time");
+      }
+    });
+  });
+
   describe("pastEndTimeWarning", () => {
     const now = Date.parse("2026-11-02T12:00:00Z");
 

@@ -131,6 +131,11 @@ describe("chain/clients", () => {
     expect(heliconActive({ heliconTime: undefined })).to.equal(false);
   });
 
+  it("treats an unparseable heliconTime as inactive, rather than letting the requests through", () => {
+    expect(heliconActive({ heliconTime: "not a date" })).to.equal(false);
+    expect(heliconActive({ heliconTime: "" })).to.equal(false);
+  });
+
   it("compares heliconTime with now", () => {
     const now = Date.parse("2026-11-03T12:00:00Z");
     expect(heliconActive({ heliconTime: "1970-01-01T00:00:00Z" }, now)).to.equal(true);

@@ -412,6 +412,22 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(fs.existsSync(path.join(cwd, "ctx.json")), "no context written").to.equal(false);
   });
 
+  it("prints the absolute end time a duration resolves to, and tells ForDefi co-signers to pass it", () => {
+    fs.writeFileSync(
+      path.join(cwd, "ctx.json"),
+      JSON.stringify({ wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "costwo" })
+    );
+    const args = ["delegate", "-n", "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ", "-a", "50000", "-e", "14d", "-i", "e1"];
+    // the node is closed: the times are reported before anything is asked of it
+    const result = runCli([...args, "--network", "costwo"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+    expect(result.exitCode).to.equal(1);
+    const printed = /End time: (\d+) \(([^)]+)\)/.exec(result.stdout);
+    expect(printed, result.stdout).to.not.equal(null);
+    expect(new Date(Number(printed![1]) * 1000).toISOString()).to.equal(printed![2]);
+    expect(Number(printed![1]) - Date.now() / 1000).to.be.within(14 * 86_400 - 60, 14 * 86_400 + 60);
+    expect(result.stdout).to.include("Every signer of this ForDefi transaction has to pass this absolute unix time");
+  });
+
   it("refuses a given --ctx-file that does not exist whatever else selects the account, but init-ctx writes it", () => {
     const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
     for (const selectors of [

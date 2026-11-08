@@ -49,6 +49,26 @@ describe("interactive prompt checks", () => {
     expect(asked.map((question) => question.default)).to.deep.equal([undefined, undefined]); // empty stays empty
   });
 
+  it("the transfer address prompt checks the address against the session's network", async () => {
+    let validate: ((value: string) => true | string) | undefined;
+    const original = inquirer.prompt;
+    Object.assign(inquirer, {
+      prompt: (questions: { validate?: (value: string) => true | string }[]) => {
+        validate = questions[0]!.validate;
+        return Promise.resolve({ answer: "" });
+      },
+    });
+    try {
+      await prompts.transferAddress("costwo");
+    } finally {
+      Object.assign(inquirer, { prompt: original });
+    }
+    expect(validate!("P-costwo18jma8ppw3nhx5r4ap8clazz0dps7rv5uee8qg8")).to.equal(true);
+    expect(validate!("P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v")).to.match(
+      /is an address of localflare, not of this network \(costwo\)/
+    );
+  });
+
   it("Ctrl-C at an open question exits with 130, and the key handler is gone once the question is answered", async () => {
     const before = process.stdin.listenerCount("keypress");
     const exits: unknown[] = [];

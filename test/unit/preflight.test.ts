@@ -5,7 +5,7 @@
  * and the validator an auto-renew config change targets.
  */
 import { expect } from "chai";
-import { runTransaction } from "../../src/app/transactions";
+import { checkNodeLimit, runTransaction } from "../../src/app/transactions";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import { resolveAutoRenewedValidator } from "../../src/core/builders/pchain";
@@ -205,6 +205,39 @@ describe("checks before a P-chain request is built", () => {
       for (const req of requests) {
         expect(await refusalOf(req, node(true, STAKED)), req.type).to.include(LIMIT);
       }
+    });
+
+    it("counts a stake ending now and one starting at the request's end, and lets a delegation end with the validator", async () => {
+      const now = 1_750_000_000n;
+      const stake = (nodeID: string, startTime: bigint, endTime: bigint) => ({
+        ...validator(nodeID, `tx-${nodeID}`),
+        startTime: String(startTime),
+        endTime: String(endTime),
+        delegators: [{ ...delegation(nodeID), startTime: String(startTime), endTime: String(endTime) }],
+      });
+      const end = now + 86_400n;
+      const validators = [
+        stake("NodeID-One", now - 86_400n, now), // ends this second: still active
+        stake("NodeID-Two", end, end + 86_400n), // starts at the request's end: overlaps it
+        stake("NodeID-Three", now - 86_400n, end + 86_400n),
+      ] as unknown as Parameters<typeof checkNodeLimit>[0];
+      expect(() => checkNodeLimit(validators, ACCOUNT, "NodeID-Fourth", end, now)).to.throw(LIMIT);
+      expect(
+        () => checkNodeLimit(validators, ACCOUNT, "NodeID-Fourth", end, now + 1n),
+        "a second later"
+      ).not.to.throw();
+      expect(
+        () => checkNodeLimit(validators, ACCOUNT, "NodeID-Fourth", end - 1n, now),
+        "ends a second earlier"
+      ).not.to.throw();
+      // a delegation may end exactly when the validator's period does
+      const atEnd: TxRequest = {
+        type: "delegate",
+        nodeId: "NodeID-Plain",
+        amount: asNFlr(10n ** 12n),
+        endTime: BigInt(PERIOD_END),
+      };
+      expect(await refusalOf(atEnd, node())).to.include("env.clients.context is not a function");
     });
 
     it("lets a request on one of the three nodes past it", async () => {

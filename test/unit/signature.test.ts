@@ -26,6 +26,7 @@ describe("core/signing/signature", () => {
 
   it("rejects wrong lengths and impossible recovery ids", () => {
     expect(() => normalizeSignature("deadbeef")).to.throw(/Invalid signature length/);
+    expect(() => normalizeSignature(canonical + "00")).to.throw(/Invalid signature length/); // 66 bytes
     expect(() => normalizeSignature(rs + "05")).to.throw(/recovery id/);
   });
 

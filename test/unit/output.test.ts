@@ -2,7 +2,11 @@ import { expect } from "chai";
 import { createClients, nodeOfError, notingNode } from "../../src/chain/clients";
 import { networkConfig, rememberSecret } from "../../src/chain/network";
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
+import { getBalances, getValidators } from "../../src/app/info";
+import { accountFromPublicKey } from "../../src/chain/keys";
 import { asNFlr, asWei } from "../../src/chain/units";
+import type { Env } from "../../src/core/types";
+import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 import { describeError, describeEvmValues, reportOutcome } from "../../src/output";
 
 describe("output/describeError", () => {
@@ -161,6 +165,34 @@ describe("output/describeError: node errors", () => {
       expect(described, secret).to.not.include(secret);
     }
     expect(described).to.include("https://***@node.example/ext/info");
+  });
+});
+
+describe("app/info: the node's network", () => {
+  it("is checked before balances or validators are read from the node", async () => {
+    const mismatch = "The node at http://node is on network ID 14 (flare), not localflare (162)";
+    const env = {
+      network: networkConfig("localflare", {}),
+      clients: { verifyNetwork: () => Promise.reject(new Error(mismatch)) },
+    } as unknown as Env;
+    const account = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
+    for (const read of [() => getBalances(env, account), () => getValidators(env)]) {
+      await read().then(
+        () => expect.fail("read from a node on another network"),
+        (error: unknown) => expect((error as Error).message).to.equal(mismatch)
+      );
+    }
+  });
+});
+
+describe("output/describeError: a URL credential", () => {
+  it("is masked as written and percent-decoded, in any message", () => {
+    const clients = createClients(networkConfig("localflare", {}, { apiUrl: "https://user:p%40ss@node.example" }));
+    try {
+      expect(describeError(new Error("refused p@ss and p%40ss"))).to.equal("refused *** and ***");
+    } finally {
+      clients.provider.destroy();
+    }
   });
 });
 

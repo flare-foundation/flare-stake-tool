@@ -247,6 +247,17 @@ describe("core/builders/pchain", function () {
       );
     });
 
+    it("refuses an export whose fee takes the whole spendable balance, nothing left to export", async () => {
+      for (const policy of POLICIES) {
+        const { fee } = await exportAll([await owned(5_000_000_000n, 0)], policy); // the fee of a one-input export
+        await buildTransaction({ type: "exportPC" }, pChainEnv([await owned(fee, 0)]), account, policy).then(
+          () => expect.fail(`@${policy.feePrice}: built an export of nothing`),
+          (error: unknown) =>
+            expect((error as Error).message).to.equal("Export amount is smaller than or equal to zero")
+        );
+      }
+    });
+
     it("builds when spending every UTXO would exceed the gas capacity but the export does not", async () => {
       const big = await owned(100_000_000_000n, 0); // 100 FLR
       // 0.001 FLR each: above the dust line, but at the file price each costs 0.003 FLR to spend, so flarejs leaves
@@ -477,6 +488,26 @@ describe("core/builders/pchain", function () {
           utxo(3, otherAsset, [account.addressBytes], 1, 4_000_000n),
         ];
         expect(spendableAmount(utxos, avaxAssetID, UNLOCK)).to.equal(1_300n);
+      });
+
+      it("counts a stakeable-locked UTXO whose stake lock ended as locked while its owner lock runs", async () => {
+        const { avaxAssetID } = await env.clients.context();
+        const ownerLocked = new Utxo(
+          new avaxSerial.UTXOID(Id.fromHex(`0x${"cd".repeat(32)}`), new Int(0)),
+          Id.fromString(avaxAssetID),
+          new pvmSerial.StakeableLockOut(
+            new BigIntPr(UNLOCK),
+            new TransferOutput(
+              new BigIntPr(3_000n),
+              OutputOwners.fromNative([account.addressBytes], UNLOCK + 3_600n, 1)
+            )
+          )
+        );
+        expect(
+          spendableAmount([ownerLocked], avaxAssetID, UNLOCK + 1n),
+          "stake lock over, owner lock running"
+        ).to.equal(0n);
+        expect(spendableAmount([ownerLocked], avaxAssetID, UNLOCK + 3_601n), "both over").to.equal(3_000n);
       });
 
       it("counts a UTXO as spendable from the second flarejs spends it, for owner and stakeable locks", async () => {
@@ -977,6 +1008,31 @@ describe("core/builders/pchain", function () {
       expect((await importCP(exportedEnv([await exported(4_500_000n, 0)]))).amounts).to.deep.equal([4_500_000n]);
     });
 
+    it("leaves a time-locked UTXO pending, which flarejs would not import", async () => {
+      const { avaxAssetID } = await replay.env.clients.context();
+      const locked = new Utxo(
+        new avaxSerial.UTXOID(Id.fromHex(`0x${"ef".repeat(32)}`), new Int(0)),
+        Id.fromString(avaxAssetID),
+        new TransferOutput(
+          new BigIntPr(5n * ONE_FLR),
+          OutputOwners.fromNative([account.addressBytes], 4_000_000_000n, 1)
+        )
+      );
+      const plain = await exported(ONE_FLR, 0);
+      expect((await importCP(exportedEnv([locked, plain]))).amounts).to.deep.equal([ONE_FLR]);
+      await buildTransaction({ type: "importCP" }, exportedEnv([locked]), account, FILE_SIGNER_POLICY).then(
+        () => expect.fail("built an import of a time-locked UTXO"),
+        (error: unknown) => expect(String(error)).to.include("no UTXOs available to import")
+      );
+      // flarejs leaves it out of the transaction too, but counted among the UTXOs taken it would take the place of
+      // one that fits: over the gas capacity, the import and what it says stays pending are as without it
+      const many400 = await many(400, (i) => BigInt(i + 1) * ONE_FLR);
+      const without = await importCP(exportedEnv(many400));
+      const withLocked = await importCP(exportedEnv([locked, ...many400]));
+      expect(withLocked.bytes).to.equal(without.bytes);
+      expect(withLocked.notices).to.deep.equal(without.notices);
+    });
+
     it("refuses an import of UTXOs that each fit in uint64 but whose sum does not", async () => {
       const utxos = [await exported(TEN_BILLION_FLR, 0), await exported(TEN_BILLION_FLR, 1)];
       await buildTransaction({ type: "importCP" }, exportedEnv(utxos), account, FILE_SIGNER_POLICY).then(
@@ -1004,6 +1060,29 @@ describe("core/builders/pchain", function () {
   describe("exportCP", () => {
     /** localflare's recorded base fee (1 wei); exportCP-pk passes -f, so its recording has no lookup. */
     const baseFee: Stub = { match: (_path, method) => method === "eth_baseFee", respond: () => "0x1" };
+
+    it("takes --nonce 0 as given, without asking the chain", () =>
+      withReplay("exportCP-pk", async (env) => {
+        let asked = 0;
+        const counting = {
+          ...env,
+          clients: {
+            ...env.clients,
+            provider: {
+              getTransactionCount: () => {
+                asked++;
+                return Promise.resolve(5);
+              },
+            },
+          },
+        } as unknown as Env;
+        const req = { type: "exportCP", amount: asNFlr(1n), fee: asNFlr(1n), nonce: 0n } as const;
+        const built = await buildTransaction(req, counting, account, IMMEDIATE_SIGNER_POLICY);
+        if (built.kind !== "atomic") throw new Error("exportCP must be atomic");
+        const tx = built.unsignedTx.getTx() as unknown as { ins: { nonce: { value(): bigint } }[] };
+        expect(tx.ins[0]!.nonce.value()).to.equal(0n);
+        expect(asked).to.equal(0);
+      }));
 
     it("refuses an amount plus fee above uint64, given or estimated, though each fits", () =>
       withReplay(
