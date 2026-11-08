@@ -27,7 +27,9 @@ Global options can come before or after the command. Each `transaction` type
 takes only the options listed for it below: another one given on the command
 line is refused (a default, such as `--delegation-fee`'s, doesn't count), and
 so are the C-chain gas options, which only the C-chain commands use. `-i` and
-`--threshold 1` are taken by every type. The transaction types
+`--threshold 1` are taken by every type. `-i` names the unsigned file of the
+file flow: with `--get-hacked` or `--ledger` the transaction is signed and sent
+at once, and `-i` is not used. The transaction types
 (`exportCP`, `stake`, …) can be given without `transaction`, and `addresses`,
 `balance` and `validators` without `info`, also after global options:
 `flare-stake-tool --network costwo balance` is
@@ -269,7 +271,7 @@ Change the period of an auto-renewed validator, or stop its renewal.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-n <nodeId>` or `--validator-tx-id <txID>` (the id of the transaction that added the validator; it stays the same across renewals), `--period <seconds\|duration>` (new period from the next cycle on; `0` stops auto-renewal and returns the stake at the end of the current cycle), optional `--auto-compound-shares` |
+| Inputs | `-n <nodeId>` or `--validator-tx-id <txID>` (the id of the transaction that added the validator; it stays the same across renewals), `--period <seconds\|duration>` (new period from the next cycle on; `0` stops auto-renewal and returns the stake at the end of the current cycle), optional `--auto-compound-shares` (left out, the share is set to 0, whatever it was; rewards are 0 on Flare networks, so it has no effect today) |
 | Side effects | Submits the configuration transaction, signed by the inputs' owner and by the validator authority (the same key in this tool). On the unsigned-file path the single signature in the signed file is used for both. |
 | Output | Tx hash, "sent to the network" |
 | Failures | Helicon not active. The node is not a current auto-renewed validator. The configured account is not in the validator authority. Period below the network minimum (other than 0). |
@@ -287,7 +289,7 @@ Submit a previously-built signed transaction to the network.
 | Inputs | `-i <id>`: letters, digits, `.`, `_` and `-`, not starting with `.` (every command taking `-i` refuses other ids, which could name a file outside `ForDefiTxnFiles`) |
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
 | Side effects | Submits the signed tx to the appropriate VM API and prints its id on stderr; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
-| Output | "Transaction with hash ... sent to the node" |
+| Output | "Signed transaction <id> with hash <txId> sent to the node" |
 | Failures | "Tx already sent to chain" (the flag was already set). A missing signed tx file, or one that is not JSON or lacks a field the tool reads (the error names the file and the field; files from earlier versions load, unknown fields included). A file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is not the transaction in its `serialization` ("… rebuild the file"), refused before anything is sent. A file built for another network than the selected one ("Transaction … is for network id …" for P-chain and atomic transactions, "… chain id …" for C-chain ones; select its network with `--network`). A file that records the account it was built for (`signer`, written since 5.0.0) signed by another account: "Transaction … was built for …, but it is signed by …". The signature does not belong to the account the options select, in the order transactions use (`--get-hacked` with its `--env-path`, `--ledger`, `--env-path`, else the context file); `--get-hacked` without `--env-path` is refused, and so is a given `--ctx-file` that does not exist. |
 
 Unsigned files record the account they were built for: `signatureRequests[0].signer` holds its P-chain address, and C-chain (EVM) files have a top-level `signer` with its C-chain address. It is not part of the hash, and guards against a mixed-up context or vault, not against an edited file. Files written by earlier versions have it empty or missing and are not checked. Without it, and without `--ctx-file`, `ctx.json`, `--ledger` or `--env-path`, there is no account to check the signature against: `send` takes the account from the signature itself, so any validly signed file is sent, from whichever account signed it. It can't make a transaction from your account that you didn't sign. Keep a `ctx.json` (or pass `--ctx-file`) to have the signer checked.

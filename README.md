@@ -57,7 +57,7 @@ There are three ways to use this app:
 
 The ledger device requires no setup, as the needed public key is always extracted from the connected ledger device.
 
-To initialize this app with your secp256k1 curve public key (a 32-byte hexadecimal prefixed `0x02`/`0x03` or a 64-byte hexadecimal optionally prefixed `0x04`), run the following command:
+To initialize this app with your secp256k1 curve public key (a 33-byte hexadecimal prefixed `0x02`/`0x03` or a 64-byte hexadecimal optionally prefixed `0x04`), run the following command:
 
 ```bash
 flare-stake-tool init-ctx -p <public key> --network <flare|costwo|songbird|coston|localflare>
@@ -143,7 +143,7 @@ Where:
 
 - `amount` is the amount to export, in FLR.
 - `fee` is optional. It specifies a gas fee for a transaction in FLR.
-- --network is optional. It specifies the network to use. The default is `flare`, but you can also use `costwo`, `songbird`, `coston`, or `localflare`.
+- --network is optional. It specifies the network to use. Without it, the network of the context file (`ctx.json`, or the one given with `--ctx-file`) is used, else `flare`; the others are `costwo`, `songbird`, `coston` and `localflare`.
 
 > **Note**
 > P-chain transactions (`importCP`, `exportPC`, staking) pay the P-chain's dynamic fee from the funds being moved; it cannot be set. C-chain atomic transactions (`exportCP` and `importPC`) take `-f <fee>` (total fee in FLR); when it is omitted the fee is estimated at twice the current base fee (headroom for a rise before the transaction lands; the whole fee is burned, about 0.011 FLR at the 500 gwei floor), except in the unsigned-file flow, where it is required so that every signer builds the same transaction.
@@ -152,7 +152,7 @@ Where:
 Sample response:
 
 ```bash
-Transaction with hash 2Ch7Tp3mBxW4QZ57Lr26bddXf7QqNGrukRVbBgwSbrPWisuxYV sent to the node
+Transaction with hash 2Ch7Tp3mBxW4QZ57Lr26bddXf7QqNGrukRVbBgwSbrPWisuxYV built and sent to the network
 ```
 
 #### Move assets from the P-chain back to the C-chain
@@ -301,8 +301,10 @@ where --ctx-file is optional and specifies the path to the context file. If not 
 To use the app with the private key, you can copy the commands used with ledger and replace `--ledger` flag with `--get-hacked` and add an additional argument `--env-path <path to your private key file>`. For example:
 
 ```bash
-flare-stake-tool exportCP -a <amount> -i <transaction-id> --env-path <path to your private key file> --get-hacked --network <flare|costwo|songbird|coston|localflare>
+flare-stake-tool exportCP -a <amount> --env-path <path to your private key file> --get-hacked --network <flare|costwo|songbird|coston|localflare>
 ```
+
+`-i <transaction-id>` doesn't select the unsigned-file flow: with `--get-hacked` or `--ledger` the transaction is signed and sent at once, and `-i` is not used. Leave both out to get an unsigned file.
 
 ## Interactive CLI
 
