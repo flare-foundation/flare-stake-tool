@@ -349,7 +349,7 @@ interface Scenario {
   options?: Partial<InteractiveModule.InteractiveOptions>;
   flags?: Flags;
   /** The ctx.json present at the start: the Ledger one an earlier scenario wrote, a ForDefi one, or an unusable one. */
-  ctx?: "ledger" | "fordefi" | "unusable";
+  ctx?: "ledger" | "fordefi" | "unusable" | "stale";
   /** Keep the ctx.json this scenario writes for later scenarios. */
   keepLedgerCtx?: boolean;
   script: Answer[];
@@ -440,6 +440,12 @@ const SCENARIOS: Scenario[] = [
   },
   { name: "ledger: keep the context", ctx: "ledger", script: ["Ledger", "Yes", TASK.addresses, TASK.quit] },
   {
+    // the address shown is the one of the saved key, which the session uses, not the cached ethAddress
+    name: "ledger: a context with a stale cached address",
+    ctx: "stale",
+    script: ["Ledger", "Yes", TASK.addresses, TASK.quit],
+  },
+  {
     // the claim shows the first Ledger's account; the transaction is refused rather than built for the other one
     name: "ledger: another Ledger plugged in during the session",
     ctx: "ledger",
@@ -492,6 +498,13 @@ async function main(): Promise<void> {
     process.chdir(dir);
     fs.writeFileSync("pk", `PRIVATE_KEY_HEX=${EWOQ_PRIVATE_KEY_HEX}\n`);
     if (scenario.ctx === "ledger" && ledgerCtx) fs.writeFileSync("ctx.json", ledgerCtx);
+    if (scenario.ctx === "stale" && ledgerCtx) {
+      const context = {
+        ...(JSON.parse(ledgerCtx) as object),
+        ethAddress: "0x000000000000000000000000000000000000dEaD",
+      };
+      fs.writeFileSync("ctx.json", JSON.stringify(context, null, 2));
+    }
     if (scenario.ctx === "fordefi") {
       const context = { wallet: "publicKey", publicKey: "02" + "11".repeat(32), network: "costwo", vaultId: "v-1" };
       fs.writeFileSync("ctx.json", JSON.stringify(context));

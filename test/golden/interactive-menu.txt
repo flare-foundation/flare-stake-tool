@@ -794,6 +794,37 @@ FILE ctx.json: {
   "derivationPath": "m/44'/60'/2'/0/0"
 }
 
+===== ledger: a context with a stale cached address
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
+> "Ledger"
+[log] [35mYou already have a ctx.json with the following parameters:[39m
+[log] [33mWallet:[39m ledger
+[log] [33mPublic Key:[39m 0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2
+[log] [33mNetwork:[39m costwo
+[log] [33mEth Address:[39m 0x8287A615E1a5842B4a5D882D8534Fb9d943764f5
+? list "\u001b[35mDo you wish to continue with this?\u001b[39m" choices=["Yes","No"]
+> "Yes"
+LEDGER getPublicKey m/44'/60'/2'/0/0
+ENV costwo {}
+LEDGER getPublicKey m/44'/60'/2'/0/0
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "View chain addresses"
+[log] P-chain address: P-costwo193mu3gp0lse95872z9nxzfqa00hjrcj0r7jmyp
+[log] C-chain address hex: 0x8287A615E1a5842B4a5D882D8534Fb9d943764f5
+[log] secp256k1 public key: 0x0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+FILE ctx.json: {
+  "wallet": "ledger",
+  "publicKey": "0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2",
+  "network": "costwo",
+  "ethAddress": "0x000000000000000000000000000000000000dEaD",
+  "flareAddress": "P-costwo193mu3gp0lse95872z9nxzfqa00hjrcj0r7jmyp",
+  "derivationPath": "m/44'/60'/2'/0/0"
+}
+
 ===== ledger: another Ledger plugged in during the session
 ? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"
@@ -1088,6 +1119,7 @@ FILE ctx.json: {
 [log] [33mWallet:[39m publicKey
 [log] [33mPublic Key:[39m 021111111111111111111111111111111111111111111111111111111111111111
 [log] [33mNetwork:[39m costwo
+[log] [33mEth Address:[39m none (the public key is not valid)
 [log] [33mVault Id:[39m v-1
 ? confirm "\u001b[35mReplace ctx.json with a Ledger context? The current file is kept as a ctx.json.<time>.bak backup.\u001b[39m" default=false
 > false
@@ -1098,6 +1130,7 @@ FILE ctx.json: {
 [log] [33mWallet:[39m publicKey
 [log] [33mPublic Key:[39m 021111111111111111111111111111111111111111111111111111111111111111
 [log] [33mNetwork:[39m costwo
+[log] [33mEth Address:[39m none (the public key is not valid)
 [log] [33mVault Id:[39m v-1
 ? confirm "\u001b[35mReplace ctx.json with a Ledger context? The current file is kept as a ctx.json.<time>.bak backup.\u001b[39m" default=false
 > true

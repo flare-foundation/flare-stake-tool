@@ -4,7 +4,8 @@
  */
 import fs from "fs";
 import { styleText } from "node:util";
-import { accountFromPublicKey, type Account } from "../chain/keys";
+import { computeAddress, hexlify } from "ethers";
+import { accountFromPublicKey, normalizePublicKey, type Account } from "../chain/keys";
 import type { NodeOverrides } from "../chain/network";
 import {
   formatFlr,
@@ -411,6 +412,18 @@ async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet | und
   throw new Error(`Unsupported wallet ${String(unsupported)}`);
 }
 
+/**
+ * The C-chain address of a saved context's public key, which the session would use: the cached `ethAddress` is not
+ * relied on, and a stale or edited one would show one account and sign for another.
+ */
+function addressOfKey(publicKey: string): string {
+  try {
+    return computeAddress(hexlify(normalizePublicKey(publicKey)));
+  } catch {
+    return "none (the public key is not valid)";
+  }
+}
+
 /** The account the connected Ledger has at a saved context's derivation path. */
 async function connectedAccount(device: LedgerDevice, context: ContextFile): Promise<Account> {
   const path = context.derivationPath ?? BASE_DERIVATION_PATH;
@@ -438,7 +451,7 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
       log(`${styleText("yellow", "Wallet:")} ${existing.wallet}`);
       log(`${styleText("yellow", "Public Key:")} ${existing.publicKey}`);
       log(`${styleText("yellow", "Network:")} ${existing.network}`);
-      if (existing.ethAddress) log(`${styleText("yellow", "Eth Address:")} ${existing.ethAddress}`);
+      log(`${styleText("yellow", "Eth Address:")} ${addressOfKey(existing.publicKey)}`);
       if (existing.vaultId) log(`${styleText("yellow", "Vault Id:")} ${existing.vaultId}`);
     }
     if (existing?.wallet === "ledger") {

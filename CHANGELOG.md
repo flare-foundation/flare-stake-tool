@@ -77,6 +77,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Moves between the chains import only after their own export has arrived.
   * Claiming and stopping auto-renewal check the node's network before showing the rewards or the cycle end read from it; they were shown under the chosen network's name from a node on another one.
   * Connecting a Ledger no longer deletes `ctx.json`; another context is replaced only after confirmation and kept as a `.bak` file.
+  * Asking whether to reuse `ctx.json`, the menu shows the address of its public key, which the session uses, instead of the cached `ethAddress`, which may be stale or edited.
   * A new Ledger context is saved only after the device has shown the chosen address and the user approved it, as with `init-ctx --ledger`. The listed addresses come from keys the host received, so a substituted key was saved and later trusted without the device ever showing it.
   * A failed action or wallet connection no longer ends the session, and the wallet menu has a Quit entry.
   * Ctrl-C at a question, or Ctrl-D on an empty answer (the end of input), ends the session with exit code 130 instead of 0, so a script sees it was cancelled; Ctrl-D also printed a stack trace. Quit still exits with 0.
