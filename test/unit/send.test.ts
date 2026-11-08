@@ -39,7 +39,7 @@ interface ScriptedNode {
   reason?: string;
 }
 
-function scriptedEnv(node: ScriptedNode, id: string, cwd: string): SendEnv {
+function scriptedEnv(node: ScriptedNode, id: string, cwd: string, network = "localflare"): SendEnv {
   const poll = (): Promise<string> => {
     node.markedAtFirstPoll ??= isAlreadySentToChain(id, cwd);
     if (node.pollError) return Promise.reject(new Error(node.pollError));
@@ -64,7 +64,7 @@ function scriptedEnv(node: ScriptedNode, id: string, cwd: string): SendEnv {
       },
     },
   };
-  return { network: networkConfig("localflare", {}), clients };
+  return { network: networkConfig(network, {}), clients };
 }
 
 /** Writes the recorded unsigned file of `scenario` as signed, by the ewoq key its ctx.json holds unless `key` is given. */
@@ -349,6 +349,40 @@ describe("app/send: the file's representations of the transaction must agree", (
       );
       expect(issued, id).to.equal(false);
       expect(isAlreadySentToChain(id, cwd), id).to.equal(false);
+    }
+  });
+});
+
+describe("app/send: the file's network must be the selected one", () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = makeTempDir("send-");
+  });
+
+  afterEach(() => {
+    cleanupTempDir(cwd);
+  });
+
+  it("refuses a file of another network before anything is sent: network id for atomic, chain id for EVM", async () => {
+    // localflare files (network and chain id 162) sent on songbird, whose network id (5) and chain id (19) differ
+    for (const [scenario, refusal] of [
+      ["delegate-file", "is for network id 162, not songbird (5)"],
+      ["exportCP-file", "is for network id 162, not songbird (5)"],
+      ["withdrawal-file", "is for chain id 162, not songbird (19)"],
+    ] as const) {
+      writeSigned(scenario, scenario, cwd);
+      let issued = false;
+      const env = scriptedEnv({ statuses: ["Committed"], onIssue: () => (issued = true) }, scenario, cwd, "songbird");
+      await sendSignedTransaction(scenario, env, undefined, cwd, FAST).then(
+        () => expect.fail(`${scenario}: sent on another network`),
+        (error: unknown) =>
+          expect(describeError(error), scenario).to.equal(
+            `Transaction ${scenario} ${refusal}; select its network with --network`
+          )
+      );
+      expect(issued, scenario).to.equal(false);
+      expect(isAlreadySentToChain(scenario, cwd), scenario).to.equal(false);
     }
   });
 });
