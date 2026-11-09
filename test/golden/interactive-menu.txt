@@ -880,6 +880,33 @@ FILE ctx.json: {
   "derivationPath": "m/44'/60'/2'/0/0"
 }
 
+===== ledger: another Ledger plugged in right after the context check
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
+> "Ledger"
+[log] [35mYou already have a ctx.json with the following parameters:[39m
+[log] [33mWallet:[39m ledger
+[log] [33mPublic Key:[39m 0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2
+[log] [33mNetwork:[39m costwo
+[log] [33mEth Address:[39m 0x8287A615E1a5842B4a5D882D8534Fb9d943764f5
+? list "\u001b[35mDo you wish to continue with this?\u001b[39m" choices=["Yes","No"]
+> "Yes"
+LEDGER getPublicKey m/44'/60'/2'/0/0
+ENV costwo {}
+LEDGER getPublicKey m/44'/60'/2'/0/0
+[log] [31mError: The connected Ledger has 0x56C4935DcCf114F8E3e38F4f7483F75Fa99e5715 at m/44'/60'/2'/0/0, not 0x8287A615E1a5842B4a5D882D8534Fb9d943764f5 as when it was connected; reconnect that Ledger[39m
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+FILE ctx.json: {
+  "wallet": "ledger",
+  "publicKey": "0274188b93aa0c2beecd9d6b0c66b6fe361ff40388884d6c3ac5b5e00964b430e2",
+  "network": "costwo",
+  "ethAddress": "0x8287A615E1a5842B4a5D882D8534Fb9d943764f5",
+  "flareAddress": "P-costwo193mu3gp0lse95872z9nxzfqa00hjrcj0r7jmyp",
+  "derivationPath": "m/44'/60'/2'/0/0"
+}
+
 ===== ledger: another Ledger plugged in during the session
 ? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Ledger"

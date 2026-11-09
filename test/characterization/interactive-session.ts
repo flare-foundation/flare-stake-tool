@@ -78,6 +78,8 @@ interface Flags {
   sameKey?: boolean;
   /** Another Ledger is plugged in when a question with this text is asked: from then on every path answers another key. */
   swapLedgerAt?: string;
+  /** Another Ledger is plugged in after this many reads of the device, between two reads no question separates. */
+  swapLedgerAfterReads?: number;
   /**
    * An earlier export is still pending on both chains, and a new export's UTXO shows up only on the second look,
    * so a move must wait for its own.
@@ -91,6 +93,7 @@ let flags: Flags = {};
 let exhausted = 0;
 let txCount = 0;
 let ledgerSwapped = false;
+let deviceReads = 0;
 /** How often the pending UTXOs were read since the last transaction. */
 let utxoReads = 0;
 
@@ -292,10 +295,12 @@ stub(fromDist<typeof ValidatorsModule>("chain/validators.js"), "currentValidator
 );
 
 /** The key the device has at a path: another one once another Ledger is plugged in, the same everywhere with sameKey. */
-const deviceKey = (derivationPath: string) =>
-  new SigningKey(
+function deviceKey(derivationPath: string): SigningKey {
+  if (flags.swapLedgerAfterReads !== undefined && deviceReads++ >= flags.swapLedgerAfterReads) ledgerSwapped = true;
+  return new SigningKey(
     keccak256(toUtf8Bytes((ledgerSwapped ? "another Ledger " : "") + (flags.sameKey ? "same" : derivationPath)))
   );
+}
 
 const fakeDevice: LedgerDevice = {
   detectApp: () => Promise.resolve("Flare"),
@@ -451,6 +456,14 @@ const SCENARIOS: Scenario[] = [
     script: ["Ledger", "Yes", TASK.addresses, TASK.quit],
   },
   {
+    // the device answers the context's key to the check, then another Ledger's to the session's signer: the session
+    // is refused rather than run for the other account (the signer is given the context's key to expect)
+    name: "ledger: another Ledger plugged in right after the context check",
+    ctx: "ledger",
+    flags: { swapLedgerAfterReads: 1 },
+    script: ["Ledger", "Yes", "Quit"],
+  },
+  {
     // the claim shows the first Ledger's account; the transaction is refused rather than built for the other one
     name: "ledger: another Ledger plugged in during the session",
     ctx: "ledger",
@@ -520,6 +533,7 @@ async function main(): Promise<void> {
     exhausted = 0;
     txCount = 0;
     ledgerSwapped = false;
+    deviceReads = 0;
     utxoReads = 0;
     record(`\n===== ${scenario.name}`);
     try {
