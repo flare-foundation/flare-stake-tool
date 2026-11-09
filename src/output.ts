@@ -74,6 +74,7 @@ export function reportOutcome(outcome: Outcome, symbol: string): void {
     logSuccess(`Unsigned transaction ${outcome.id} constructed`);
     logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
   }
+  if (outcome.moved) logInfo(`Amount: ${formatFlr(outcome.moved.amount)} ${symbol} to the ${outcome.moved.to}`);
   const fee = describeFee(outcome, symbol);
   if (fee) logInfo(fee);
   for (const line of describeEvmValues(outcome, symbol)) logInfo(line);

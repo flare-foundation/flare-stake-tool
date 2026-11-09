@@ -17,7 +17,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Transaction with hash 2rDJVs2murw5aFFnhPsyC4bBugXkQPwZkMtF1WdWBfC4BXhEJK built and sent to the network\nFee paid: 0.002044 LFLR\n",
+    "stdout": "Transaction with hash 2rDJVs2murw5aFFnhPsyC4bBugXkQPwZkMtF1WdWBfC4BXhEJK built and sent to the network\nAmount: 10 LFLR to the C-chain\nFee paid: 0.002044 LFLR\n",
     "stderr": "Using network: localflare\nTransaction 2rDJVs2murw5aFFnhPsyC4bBugXkQPwZkMtF1WdWBfC4BXhEJK submitted, waiting for the chain to accept it\n",
     "txIds": [
       "2rDJVs2murw5aFFnhPsyC4bBugXkQPwZkMtF1WdWBfC4BXhEJK"

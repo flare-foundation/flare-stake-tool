@@ -25,6 +25,18 @@ export async function executeTransaction(
   const details = builtDetails(bundle, bundle.kind === "atomic" ? await env.clients.context() : undefined);
   const fee = details.fee;
   const notices = bundle.kind === "atomic" && bundle.notices?.length ? { notices: bundle.notices } : {};
+  // exportPC exports all that can be spent without -a, and imports take what is pending: co-signers compare it
+  const moved =
+    details.exported !== undefined
+      ? { moved: { amount: details.exported, to: "C-chain" as const } }
+      : details.imported !== undefined
+        ? {
+            moved: {
+              amount: details.imported,
+              to: bundle.txType === "importPC" ? ("C-chain" as const) : ("P-chain" as const),
+            },
+          }
+        : {};
   const evm =
     bundle.kind === "evm"
       ? {
@@ -41,9 +53,9 @@ export async function executeTransaction(
   await beforeSign?.(details);
   const result = await signer.sign(bundle);
   if (result.status === "pending") {
-    return { ...result, fee, ...evm, ...notices };
+    return { ...result, fee, ...moved, ...evm, ...notices };
   }
   attachSignature(bundle, result.signature, account);
   const { txId, chainStatus } = await submitAndConfirm(bundle, env.clients, confirm);
-  return { status: "sent", txId, chainStatus, fee, ...evm, ...notices };
+  return { status: "sent", txId, chainStatus, fee, ...moved, ...evm, ...notices };
 }

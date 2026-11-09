@@ -211,9 +211,15 @@ export interface EvmOutcomeValues {
   executorFees?: Wei | undefined;
 }
 
+/** What exportPC, importCP and importPC move to the other chain, read from the transaction: no option gives it. */
+export interface MovedAmount {
+  amount: NFlr;
+  to: "P-chain" | "C-chain";
+}
+
 /**
- * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. `evm` is
- * set for C-chain transactions. `notices` are the bundle's.
+ * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. `moved`
+ * is set for exportPC, importCP and importPC. `evm` is set for C-chain transactions. `notices` are the bundle's.
  */
 export type Outcome =
   | {
@@ -221,6 +227,7 @@ export type Outcome =
       txId: string;
       chainStatus: string;
       fee?: NFlr | undefined;
+      moved?: MovedAmount | undefined;
       evm?: EvmOutcomeValues | undefined;
       notices?: readonly string[] | undefined;
     }
@@ -230,6 +237,7 @@ export type Outcome =
       forDefiHash: string;
       file: string;
       fee?: NFlr | undefined;
+      moved?: MovedAmount | undefined;
       evm?: EvmOutcomeValues | undefined;
       notices?: readonly string[] | undefined;
     };

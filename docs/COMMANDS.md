@@ -69,7 +69,9 @@ network then rejects the transaction. A start or end time past the year 5138
 (such as `-e 1700000000000`, milliseconds) gets a warning too, with the value in
 seconds; the time is used as given. Every path prints the transaction id and
 waits until the transaction is accepted; P-chain and atomic transactions also
-print the fee they burn (`Fee paid: …`, or `Fee: …` for an unsigned file). The
+print the fee they burn (`Fee paid: …`, or `Fee: …` for an unsigned file), and
+`exportPC`, `importCP` and `importPC` the amount they move (`Amount: … to the
+C-chain`). The
 unsigned-file (ForDefi) path requires `-f` for `exportCP` and `importPC`.
 P-chain transactions leave out UTXOs worth less than the fee of spending them
 (the gas of one input at the lowest P-chain price, about 0.00074 FLR on Flare),
@@ -160,7 +162,7 @@ they hold.
 |---|---|
 | Inputs | None (uses configured key/context) |
 | Side effects | Submits an atomic import tx on the P-chain |
-| Output | Tx hash, "sent to the network"; a warning when UTXOs were skipped or left for the next import |
+| Output | Tx hash, "sent to the network", and the amount arriving on the P-chain; a warning when UTXOs were skipped or left for the next import |
 | Failures | "no UTXOs available to import" if the export hasn't propagated yet (wait a few seconds), or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. "The fee takes all of the … being imported" when the import's fee would leave no output (the UTXOs stay pending). A large import right after a burst of P-chain transactions can be refused with "Gas usage of transaction (…) exceeds capacity (…)"; the chain refills its capacity within seconds, so run it again |
 
 ---
@@ -173,7 +175,7 @@ Move FLR from the P-chain to the C-chain (reverse of exportCP).
 |---|---|
 | Inputs | `-a <amount>` (FLR, optional on every path — defaults to the spendable P-chain balance minus the fee of the export, without dust, see above; at the unsigned-file price a UTXO worth a little more can still stay behind, as flarejs leaves out an input that costs more than it adds) |
 | Side effects | Submits an atomic export tx on the P-chain |
-| Output | Tx hash, "sent to the network" |
+| Output | Tx hash, "sent to the network", and the amount exported, which co-signers pass as `-a` |
 | Failures | "Export amount is smaller than or equal to zero" if the spendable P-chain balance does not cover the export fee |
 
 ---
@@ -198,7 +200,7 @@ says how many UTXOs were left out and what they hold.
 |---|---|
 | Inputs | `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path). |
 | Side effects | Submits an atomic import tx on the C-chain |
-| Output | Tx hash, "sent to the network"; a warning when UTXOs were skipped or left for the next import |
+| Output | Tx hash, "sent to the network", and the amount arriving on the C-chain; a warning when UTXOs were skipped or left for the next import |
 | Failures | "Nothing to import from the P-chain" if exportPC hasn't propagated to the C-chain yet (3s delay typically suffices on local), "… that this account can spend alone" when only UTXOs it cannot spend alone are pending, or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. Refused before signing if the built transaction would not pay exactly `-f` (or would pay nothing when estimated), or if the fee takes all of the value imported (an estimate is cut to it); the UTXOs stay pending. |
 
 ---
@@ -323,7 +325,7 @@ and the default `--gas-limit` of `claim`/`withdrawal`, which depends on whether
 the recipient has contract code); passing them pins them. The C-chain commands
 and `exportCP` print the nonce they used, the C-chain commands their gas limit,
 and `claim` the amount it takes, so that co-signers can pass the same
-`--nonce`, `--gas-limit` and `-a`.
+`--nonce`, `--gas-limit` and `-a`; `exportPC` prints the amount, which co-signers pass as `-a`.
 
 ---
 
