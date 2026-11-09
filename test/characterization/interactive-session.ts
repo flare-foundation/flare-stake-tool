@@ -413,7 +413,11 @@ const SCENARIOS: Scenario[] = [
   {
     // No (also the default) signs nothing; a move whose export is not signed waits for nothing and imports nothing
     name: "private key: No to signing",
-    script: [...PRIVATE_KEY, TASK.delegate, "50", NODE_X, "14d", false, TASK.CP, "10", "", "", TASK.quit],
+    // and a move whose import is declined says that its export was sent
+    script: [
+      ...PRIVATE_KEY, TASK.delegate, "50", NODE_X, "14d", false, TASK.CP, "10", "", "",
+      TASK.CP, "10", "", SIGN, false, TASK.PC, "1.5", SIGN, "1", false, TASK.quit,
+    ],
   },
   {
     name: "private key: a move waits for its own export, not an earlier one",

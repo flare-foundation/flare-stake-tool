@@ -302,7 +302,7 @@ async function moveCP(session: Session): Promise<void> {
   const exported = await execute(session, { ...exportCP, fee });
   await waitForExport(session, "P", exported);
   log("Please approve import transaction");
-  await execute(session, { type: "importCP" });
+  await importExported(session, exported, "P", { type: "importCP" });
 }
 
 /** Export from the P-chain, wait, import on the C-chain. The amount offered is what `exportPC` without -a exports. */
@@ -320,7 +320,28 @@ async function movePC(session: Session): Promise<void> {
   await waitForExport(session, "C", exported);
   const fee = await askCChainFee(session, { type: "importPC" });
   log("Please approve import transaction");
-  await execute(session, { type: "importPC", fee });
+  await importExported(session, exported, "C", { type: "importPC", fee });
+}
+
+/**
+ * Imports what a move exported. Declining the import leaves the export sent and its funds waiting on `destination`,
+ * which the user must be told, not "nothing was sent".
+ */
+async function importExported(
+  session: Session,
+  exported: Outcome,
+  destination: "P" | "C",
+  request: TxRequest
+): Promise<void> {
+  try {
+    await execute(session, request);
+  } catch (error) {
+    if (!(error instanceof SigningDeclined) || exported.status !== "sent") throw error;
+    logInfo(
+      `The import was not signed. Export ${exported.txId} was sent: its funds wait on the ${destination}-chain; ` +
+        'import them with "Import Funds".'
+    );
+  }
 }
 
 /**

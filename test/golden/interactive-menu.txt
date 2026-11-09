@@ -549,6 +549,59 @@ ESTIMATE {"type":"exportCP","amount":"10000000000n"}
 > ""
 [log] [34mNot signed; nothing was sent.[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from C-chain to P-chain"
+? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
+> "10"
+ESTIMATE {"type":"exportCP","amount":"10000000000n"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> ""
+[log] Please approve export transaction
+[log] About to sign exportCP on localflare:
+[log]   Account: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC / P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
+[log]   Amount: 10 LFLR from the C-chain to the P-chain
+[log]   Fee: 0.00002246 LFLR
+? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
+> true
+TX {"type":"exportCP","amount":"10000000000n","fee":"22460n"} signer=privateKey
+[log] [32mTransaction with hash tx1 built and sent to the network[39m
+[log] [34mFee paid: 0.00002246 LFLR[39m
+UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"} -> tx1
+[log] Please approve import transaction
+[log] About to sign importCP on localflare:
+[log]   Account: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC / P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
+[log]   Amount: 2.998766 LFLR to the P-chain
+[log]   Fee: 0.001234 LFLR
+? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
+> false
+[log] [34mThe import was not signed. Export tx1 was sent: its funds wait on the P-chain; import them with "Import Funds".[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Move assets from P-chain to C-chain"
+NODE verifyNetwork
+? input "\u001b[35mEnter amount (in FLR):\u001b[39m" default="2.999"
+> "1.5"
+[log] Please approve export transaction
+[log] About to sign exportPC on localflare:
+[log]   Account: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC / P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
+[log]   Amount: 1.5 LFLR from the P-chain to the C-chain
+[log]   Fee: 0.001234 LFLR
+? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
+> true
+TX {"type":"exportPC","amount":"1500000000n"} signer=privateKey
+[log] [32mTransaction with hash tx2 built and sent to the network[39m
+[log] [34mFee paid: 0.001234 LFLR[39m
+UTXOS C {"addresses":["C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"P"} -> tx2
+ESTIMATE {"type":"importPC"}
+? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> "1"
+[log] Please approve import transaction
+[log] About to sign importPC on localflare:
+[log]   Account: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC / P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
+[log]   Amount: 2.998766 LFLR to the C-chain
+[log]   Fee: 1 LFLR
+? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
+> false
+[log] [34mThe import was not signed. Export tx2 was sent: its funds wait on the C-chain; import them with "Import Funds".[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Quit"
 [log] [34mExiting interactive cli.[39m
 EXIT ok
