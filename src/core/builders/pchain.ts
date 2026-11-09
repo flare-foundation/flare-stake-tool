@@ -138,6 +138,10 @@ function pChainInputGas(
  * C-chain, for importCP). When spending P-chain UTXOs, one worth less than the fee its own input adds at the lowest
  * price (the fee config's `minPrice`) costs more to spend than it brings at any price, and anyone can send such dust
  * to any address, plain or stakeable-locked with any lock (go-flare lets unlocked funds pay for a locked output).
+ * So is a UTXO the account can't spend alone at `minIssuanceTime` (flarejs `matchOwners`): one needing another key
+ * (threshold above 1) or whose owners' lock still runs. flarejs passes over such a plain UTXO, but takes a
+ * stakeable-locked one for a stake and then fails the whole transaction ("No addresses match UTXO owners"), so one
+ * sent by anyone blocked the account's stake, delegate and addAutoRenewedValidator.
  * flarejs spends UTXOs in the order given until the amount and fee are covered (a stake takes locked ones first), so
  * dust in front made a transaction pay more, and enough of it pushed the transaction over the gas capacity. It is
  * left out, of the inputs and of the balance exportPC without -a exports, and `notices` says so. The rest, locked or
@@ -165,12 +169,24 @@ async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sou
   const isDust = (utxo: PChainUtxo) =>
     (utxo.output instanceof TransferOutput || utxo.output instanceof pvmSerial.StakeableLockOut) &&
     amountOf(utxo) < pChainInputGas(utxo, weights, minIssuanceTime) * minPrice;
+  const needsOthers = (utxo: PChainUtxo) => {
+    if (!(utxo.output instanceof TransferOutput || utxo.output instanceof pvmSerial.StakeableLockOut)) return false;
+    const info = futils.getUtxoInfo(utxo);
+    return info.threshold > 1 || info.locktime > minIssuanceTime;
+  };
   const dust = utxos.filter(isDust);
-  if (dust.length === 0) {
+  const shared = utxos.filter((utxo) => !isDust(utxo) && needsOthers(utxo));
+  if (dust.length === 0 && shared.length === 0) {
     return inputs;
   }
-  const notice = `${describeUtxos(dust, env.network.symbol)} left out: each is worth less than the fee of spending it`;
-  return { ...inputs, utxos: utxos.filter((utxo) => !isDust(utxo)), notices: [notice] };
+  const { symbol } = env.network;
+  const notices = [
+    ...(dust.length ? [`${describeUtxos(dust, symbol)} left out: each is worth less than the fee of spending it`] : []),
+    ...(shared.length
+      ? [`${describeUtxos(shared, symbol)} left out: each needs another key, or its owners' lock still runs`]
+      : []),
+  ];
+  return { ...inputs, utxos: utxos.filter((utxo) => !isDust(utxo) && !needsOthers(utxo)), notices };
 }
 
 type PChainInputs = Awaited<ReturnType<typeof pChainInputs>>;

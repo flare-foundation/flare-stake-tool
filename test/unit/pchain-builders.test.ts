@@ -433,6 +433,51 @@ describe("core/builders/pchain", function () {
         );
       }
 
+      it("stakes past a stakeable-locked UTXO the account can't spend alone, co-owned or owner-locked, which anyone can send", async () => {
+        const { avaxAssetID } = await env.clients.context();
+        const other = accountFromPrivateKey(getBytes(`0x${"11".repeat(32)}`), "localflare");
+        const lockedTo = (index: number, owners: OutputOwners) =>
+          new Utxo(
+            new avaxSerial.UTXOID(Id.fromHex(`0x${String(index).repeat(64)}`), new Int(0)),
+            Id.fromString(avaxAssetID),
+            new pvmSerial.StakeableLockOut(new BigIntPr(UNLOCK), new TransferOutput(new BigIntPr(1_000_000n), owners))
+          );
+        const coOwned = lockedTo(7, OutputOwners.fromNative([account.addressBytes, other.addressBytes], 0n, 2));
+        const ownerLocked = lockedTo(8, OutputOwners.fromNative([account.addressBytes], UNLOCK + 3_600n, 1));
+        // flarejs fails only when every stakeable-locked UTXO it could take is one the account can't spend: here the
+        // account's own funds are all unlocked
+        const free = await owned(51_000_000_000n, 1); // 51 FLR
+        const pop = readGolden("addAutoRenewedValidator-pk").spec.args;
+        const argOf = (flag: string) => getBytes(pop[pop.indexOf(flag) + 1]!);
+        const nodeId = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
+        const amount = asNFlr(50_000_000_000n);
+        const bls = { blsPublicKey: argOf("--pop-bls-public-key"), blsSignature: argOf("--pop-bls-signature") };
+        const times = { startTime: UNLOCK + 7_200n, endTime: UNLOCK + 86_400n };
+        const requests = [
+          { type: "delegate", nodeId, amount, ...times },
+          { type: "stake", nodeId, amount, ...times, delegationFeeShares: 100_000, ...bls },
+          { type: "addAutoRenewedValidator", nodeId, amount, period: 900n, delegationFeeShares: 100_000, ...bls },
+        ] as const;
+        Date.now = () => Number(UNLOCK - 1n) * 1000; // the stake locks still run
+        for (const policy of POLICIES) {
+          for (const request of requests) {
+            const label = `${request.type}, lock check ${String(policy.lockCheckTime)}`;
+            const bundle = await buildTransaction(request, pChainEnv([coOwned, ownerLocked, free]), account, policy);
+            if (bundle.kind !== "atomic") throw new Error(`${request.type} must be a P-chain transaction`);
+            const tx = bundle.unsignedTx.getTx() as unknown as {
+              baseTx: { inputs: TransferableInput[] };
+              stake: { output: unknown }[];
+            };
+            const spent = tx.baseTx.inputs.map((input) => input.utxoID.txID.toString());
+            expect(spent, label).to.deep.equal([free.utxoId.txID.toString()]);
+            expect(tx.stake.length, label).to.equal(1);
+            expect(bundle.notices, label).to.deep.equal([
+              "2 UTXO(s) (0.002 LFLR) left out: each needs another key, or its owners' lock still runs",
+            ]);
+          }
+        }
+      });
+
       it("unsigned files stake a stakeable-locked UTXO with its lock on either side of the lock's end, the fee paid from unlocked funds", async () => {
         const locked = await stakeableLocked(50_000_000_000n); // 50 FLR
         const free = await owned(1_000_000_000n, 1); // 1 FLR, for the fee
