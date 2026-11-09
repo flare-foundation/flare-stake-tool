@@ -349,7 +349,8 @@ const FILE_ONLY_IN_4X = {
 
 function refuseIdWithImmediateSigner(operation: string, options: GlobalOptions): void {
   const command = FILE_ONLY_IN_4X[operation as keyof typeof FILE_ONLY_IN_4X];
-  if (command === undefined || !options.transactionId) return;
+  // an empty -i counts as given: `-i "$TX_ID"` with the variable unset meant a file in 4.x as well
+  if (command === undefined || options.transactionId === undefined) return;
   const flag = options.ledger ? "--ledger" : options.getHacked ? "--get-hacked" : undefined;
   if (flag === undefined) return;
   throw new Error(

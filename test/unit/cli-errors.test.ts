@@ -381,18 +381,22 @@ describe("CLI errors (built CLI, no node)", function () {
         ["--get-hacked", ["--get-hacked", "--env-path", envPath]],
         ["--ledger", ["--ledger"]],
       ] as const) {
-        const result = runCli(
-          [command, ...args, "-i", "w1", ...signer, "--network", "localflare", "--rpc-url", CLOSED_NODE],
-          {
-            cwd,
-            env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
-          }
-        );
-        expect(result.exitCode, `${command} ${flag}`).to.equal(1);
-        expect(result.stderr, `${command} ${flag}`).to.include(
-          `${command} with ${flag} signs and sends at once, where 4.x wrote the unsigned file -i names; ` +
-            `leave out -i to sign and send now, or ${flag} to write the unsigned file`
-        );
+        // an empty -i too: `-i "$TX_ID"` with the variable unset
+        for (const id of ["-i w1", "-i ", "--transaction-id="]) {
+          const idArgs = id === "--transaction-id=" ? [id] : ["-i", id.slice(3)];
+          const result = runCli(
+            [command, ...args, ...idArgs, ...signer, "--network", "localflare", "--rpc-url", CLOSED_NODE],
+            {
+              cwd,
+              env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+            }
+          );
+          expect(result.exitCode, `${command} ${flag} ${id}`).to.equal(1);
+          expect(result.stderr, `${command} ${flag} ${id}`).to.include(
+            `${command} with ${flag} signs and sends at once, where 4.x wrote the unsigned file -i names; ` +
+              `leave out -i to sign and send now, or ${flag} to write the unsigned file`
+          );
+        }
       }
     }
     // claim signed in 4.4.0 too: -i with an immediate signer goes on to the node
