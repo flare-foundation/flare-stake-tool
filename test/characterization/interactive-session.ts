@@ -68,6 +68,8 @@ interface Flags {
   failTx?: string[];
   /** runTransaction has the node take the first request of each of these types, then fails to read its status. */
   failAfterIssue?: string[];
+  /** runTransaction fails to build the first request of each of these types, before its summary is shown. */
+  failBuild?: string[];
   /**
    * Those refusals, and a failure of the first wallet connection, are a node's answer that starts with the API key
    * and fails to parse as JSON (V8 quotes its start), noted with a node URL holding a password: what is printed must
@@ -265,6 +267,10 @@ function builtDetailsOf(request: TxRequest): BuiltDetails {
 const transactions = fromDist<typeof TransactionsModule>("app/transactions.js");
 stub(transactions, "runTransaction", async (request, _env, signer, confirm, beforeSign) => {
   await signer.account(); // as runTransaction does before building
+  if (flags.failBuild?.includes(request.type)) {
+    flags.failBuild = flags.failBuild.filter((type) => type !== request.type);
+    throw new Error(`could not build ${request.type}`);
+  }
   const details = builtDetailsOf(request);
   await beforeSign?.(details); // between building and signing; No throws
   record(`TX ${show(request)} signer=${signer.kind}`);
@@ -459,15 +465,16 @@ const SCENARIOS: Scenario[] = [
   },
   {
     // an import the node took may still land: the funds wait only if it does not
-    name: "private key: an import submitted but not confirmed",
-    flags: { failAfterIssue: ["importCP", "importPC"] },
+    // approved, then taken by the node with its status unread, or failing with no answer: either may have landed
+    name: "private key: an import approved but not confirmed",
+    flags: { failAfterIssue: ["importCP"], failTx: ["importPC"] },
     script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, SIGN, TASK.PC, "1", SIGN, "", SIGN, TASK.quit],
   },
   {
     // the error, and that the export was sent and its funds wait for "Import Funds"
     name: "private key: a failed import says the export was sent",
-    flags: { failTx: ["importCP", "importPC"] },
-    script: [...PRIVATE_KEY, TASK.CP, "10", "0", "", SIGN, SIGN, TASK.PC, "1", SIGN, "", SIGN, TASK.quit],
+    flags: { failBuild: ["importCP", "importPC"] },
+    script: [...PRIVATE_KEY, TASK.CP, "10", "0", "", SIGN, TASK.PC, "1", SIGN, "", TASK.quit],
   },
   {
     // No (also the default) signs nothing; a move whose export is not signed waits for nothing and imports nothing

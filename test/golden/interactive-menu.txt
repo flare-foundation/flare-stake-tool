@@ -548,7 +548,7 @@ TX {"type":"exportPC","amount":"1000000000n"} signer=privateKey
 [log] [34mExiting interactive cli.[39m
 EXIT ok
 
-===== private key: an import submitted but not confirmed
+===== private key: an import approved but not confirmed
 ? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Private Key"
 ? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
@@ -584,7 +584,7 @@ UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"so
 TX {"type":"importCP"} signer=privateKey
 [error] [34mTransaction tx2 submitted, waiting for the chain to accept it[39m
 [log] [31mError: Transaction tx2 was submitted, but its status could not be read: fetch failed[39m
-[log] [34mExport tx1 was sent, and import tx2 submitted but not confirmed: check it; if it does not land, the funds wait on the P-chain for "Import Funds".[39m
+[log] [34mExport tx1 was sent and import tx2 submitted, but the import is not confirmed: if it did not land, the funds wait on the P-chain for "Import Funds".[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (exported, not yet imported)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Move assets from P-chain to C-chain"
 NODE verifyNetwork
@@ -612,9 +612,8 @@ ESTIMATE {"type":"importPC"}
 ? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
 > true
 TX {"type":"importPC","fee":"22460n"} signer=privateKey
-[error] [34mTransaction tx4 submitted, waiting for the chain to accept it[39m
-[log] [31mError: Transaction tx4 was submitted, but its status could not be read: fetch failed[39m
-[log] [34mExport tx3 was sent, and import tx4 submitted but not confirmed: check it; if it does not land, the funds wait on the C-chain for "Import Funds".[39m
+[log] [31mError: node refused importPC[39m
+[log] [34mExport tx3 was sent and its import approved, but the import is not confirmed: if it did not land, the funds wait on the C-chain for "Import Funds".[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (exported, not yet imported)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Quit"
 [log] [34mExiting interactive cli.[39m
@@ -649,14 +648,7 @@ TX {"type":"exportCP","amount":"10000000000n","fee":"22460n"} signer=privateKey
 [log] [34mFee paid: 0.00002246 LFLR[39m
 UTXOS P {"addresses":["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"],"sourceChain":"C"} -> tx1
 [log] Please approve import transaction
-[log] About to sign importCP on localflare:
-[log]   Account: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC / P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
-[log]   Amount: 2.998766 LFLR to the P-chain
-[log]   Fee: 0.001234 LFLR
-? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
-> true
-TX {"type":"importCP"} signer=privateKey
-[log] [31mError: node refused importCP[39m
+[log] [31mError: could not build importCP[39m
 [log] [34mExport tx1 was sent: its funds wait on the P-chain; import them with "Import Funds".[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (exported, not yet imported)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Move assets from P-chain to C-chain"
@@ -678,14 +670,7 @@ ESTIMATE {"type":"importPC"}
 ? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
 > ""
 [log] Please approve import transaction
-[log] About to sign importPC on localflare:
-[log]   Account: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC / P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
-[log]   Amount: 2.998766 LFLR to the C-chain
-[log]   Fee: 0.00002246 LFLR
-? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
-> true
-TX {"type":"importPC","fee":"22460n"} signer=privateKey
-[log] [31mError: node refused importPC[39m
+[log] [31mError: could not build importPC[39m
 [log] [34mExport tx2 was sent: its funds wait on the C-chain; import them with "Import Funds".[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (exported, not yet imported)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
 > "Quit"
