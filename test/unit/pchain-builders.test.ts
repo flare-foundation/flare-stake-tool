@@ -478,6 +478,68 @@ describe("core/builders/pchain", function () {
         }
       });
 
+      it("unsigned files build the same stake, auto-renewed validator and config change on either side of a lock's end", async () => {
+        const locked = await stakeableLocked(50_000_000_000n); // 50 FLR
+        const free = await owned(1_000_000_000n, 1); // 1 FLR, for the fee
+        const pop = readGolden("addAutoRenewedValidator-pk").spec.args;
+        const argOf = (flag: string) => getBytes(pop[pop.indexOf(flag) + 1]!);
+        const bls = { blsPublicKey: argOf("--pop-bls-public-key"), blsSignature: argOf("--pop-bls-signature") };
+        const nodeId = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
+        const amount = asNFlr(50_000_000_000n);
+        const requests = [
+          { type: "stake", nodeId, amount, endTime: UNLOCK + 86_400n, delegationFeeShares: 100_000, ...bls },
+          { type: "addAutoRenewedValidator", nodeId, amount, period: 900n, delegationFeeShares: 100_000, ...bls },
+          { type: "setAutoRenewedValidatorConfig", nodeId, period: 0n },
+        ] as const;
+        const base = pChainEnv([locked, free]) as unknown as { network: unknown; clients: { pvm: object } };
+        const validator = {
+          nodeID: nodeId,
+          txID: Id.fromHex(`0x${"cd".repeat(32)}`).toString(),
+          validatorAuthority: { addresses: [account.pAddress], threshold: "1" },
+        };
+        const withValidator = {
+          ...base,
+          clients: {
+            ...base.clients,
+            pvm: { ...base.clients.pvm, getCurrentValidators: () => Promise.resolve({ validators: [validator] }) },
+          },
+        } as unknown as Env;
+        // flarejs takes the time from new Date() when the build leaves minIssuanceTime out: the clock is set for both
+        const RealDate = Date;
+        const buildAt = async (seconds: bigint, request: (typeof requests)[number]) => {
+          const ms = Number(seconds) * 1000;
+          class FakeDate extends RealDate {
+            constructor(...args: [] | [string | number | Date]) {
+              if (args.length === 0) super(ms);
+              else super(args[0]);
+            }
+            static override now(): number {
+              return ms;
+            }
+          }
+          globalThis.Date = FakeDate as DateConstructor;
+          try {
+            const bundle = await buildTransaction(request, withValidator, account, FILE_SIGNER_POLICY);
+            if (bundle.kind !== "atomic") throw new Error(`${request.type} must be a P-chain transaction`);
+            const tx = bundle.unsignedTx.getTx() as unknown as { stake?: { output: unknown }[] };
+            return {
+              bytes: Buffer.from(bundle.unsignedTx.toBytes()).toString("hex"),
+              stakedLocked: tx.stake?.map((output) => output.output instanceof pvmSerial.StakeableLockOut),
+            };
+          } finally {
+            globalThis.Date = RealDate;
+          }
+        };
+        for (const request of requests) {
+          const before = await buildAt(UNLOCK - 1n, request);
+          const after = await buildAt(UNLOCK + 3600n, request);
+          expect(after.bytes, `${request.type}: the same transaction an hour apart`).to.equal(before.bytes);
+          if (request.type !== "setAutoRenewedValidatorConfig") {
+            expect(after.stakedLocked, `${request.type}: the stake keeps its lock`).to.deep.equal([true]);
+          }
+        }
+      });
+
       it("unsigned files stake a stakeable-locked UTXO with its lock on either side of the lock's end, the fee paid from unlocked funds", async () => {
         const locked = await stakeableLocked(50_000_000_000n); // 50 FLR
         const free = await owned(1_000_000_000n, 1); // 1 FLR, for the fee

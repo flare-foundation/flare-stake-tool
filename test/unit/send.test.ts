@@ -10,8 +10,11 @@ import { Transaction, getBytes } from "ethers";
 import { accountFromPrivateKey, accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import {
+  bundleFromUnsignedTxJson,
   isAlreadySentToChain,
+  messageOf,
   signedTxPath,
+  unsignedTxJsonFromBundle,
   writeSignedTxJson,
   type UnsignedAtomicTxJson,
   type UnsignedTxJson,
@@ -19,6 +22,7 @@ import {
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
 import { describeError } from "../../src/output";
 import { readGolden } from "../characterization/scenarios";
+import { Int, messageHashFromUnsignedTx } from "@flarenetwork/flarejs";
 import { cleanupTempDir, makeTempDir } from "../helpers/cli";
 import { EWOQ_PUBLIC_KEY_COMPRESSED, signMessageHash } from "../helpers/keys";
 
@@ -397,6 +401,50 @@ describe("app/send: the file's network must be the selected one", () => {
 
   afterEach(() => {
     cleanupTempDir(cwd);
+  });
+
+  it("sends valid Songbird files, whose C-chain chain id (19) is not the network id (5), atomic and EVM", async () => {
+    const rawTx = {
+      type: 2,
+      nonce: 1,
+      gasLimit: 21_000,
+      maxFeePerGas: 1,
+      maxPriorityFeePerGas: 1,
+      to: "0x2222222222222222222222222222222222222222",
+      value: "1",
+      chainId: 19,
+    };
+    const evmMessage = Transaction.from(rawTx).unsignedHash.slice(2);
+    writeSignedTxJson(
+      {
+        transactionType: "EVM",
+        rawTx,
+        message: evmMessage,
+        signature: signMessageHash(evmMessage),
+      },
+      "sgb-evm",
+      cwd
+    );
+    // the recorded transfer, rebuilt for network id 5
+    const bundle = bundleFromUnsignedTxJson(readGolden("transfer-file").outcome.unsignedTxJson as UnsignedTxJson);
+    if (bundle.kind !== "atomic") throw new Error("transfer must be a P-chain transaction");
+    (bundle.unsignedTx.getTx() as unknown as { baseTx: { NetworkId: Int } }).baseTx.NetworkId = new Int(5);
+    const songbird = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "songbird");
+    const atomic = unsignedTxJsonFromBundle(
+      { ...bundle, digest: messageHashFromUnsignedTx(bundle.unsignedTx) },
+      songbird
+    );
+    writeSignedTxJson({ ...atomic, signature: signMessageHash(messageOf(atomic)) }, "sgb-atomic", cwd);
+    for (const id of ["sgb-evm", "sgb-atomic"]) {
+      await sendSignedTransaction(
+        id,
+        scriptedEnv({ statuses: ["Committed"] }, id, cwd, "songbird"),
+        undefined,
+        cwd,
+        FAST
+      );
+      expect(isAlreadySentToChain(id, cwd), id).to.equal(true);
+    }
   });
 
   it("sends a file signed with a high s, as its low-s twin, atomic and EVM", async () => {

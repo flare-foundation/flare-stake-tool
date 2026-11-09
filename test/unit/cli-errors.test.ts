@@ -637,6 +637,33 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("send checks the signature against the account --env-path or --ledger selects, with no ctx.json", () => {
+    // a file of an earlier version, which records no account, signed by another key than the one selected
+    const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson & { message: string };
+    const signature = signMessageHash(unsigned.message, "22".repeat(32));
+    const older = { ...unsigned, signer: undefined };
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    for (const [label, selector, env] of [
+      ["--env-path", ["--env-path", envPath], {}],
+      ["--ledger", ["--ledger"], { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX }],
+    ] as const) {
+      writeSignedTxJson({ ...older, signature }, "w1", cwd);
+      const result = runCli(["send", "-i", "w1", ...selector, "--network", "localflare"], {
+        cwd,
+        env: { FLARE_RPC_URL: CLOSED_NODE, ...env },
+      });
+      expect(result.exitCode, label).to.equal(1);
+      expect(result.stderr, label).to.include(
+        "The signature does not belong to the configured account (recovered address differs)"
+      );
+      const signed = JSON.parse(
+        fs.readFileSync(path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "w1.signedTx.json"), "utf8")
+      ) as { isSentToChain?: boolean };
+      expect(signed.isSentToChain, label).to.equal(undefined);
+    }
+    expect(fs.existsSync(path.join(cwd, "ctx.json"))).to.equal(false);
+  });
+
   it("setClaimExecutors and setAllowedClaimRecipients need their list before anything is signed", () => {
     // signing directly: without the check, an omitted list would be signed and sent as a clearing call
     const keyFile = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
