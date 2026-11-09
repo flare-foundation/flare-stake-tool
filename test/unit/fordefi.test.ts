@@ -15,7 +15,7 @@ import {
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import { describeError } from "../../src/output";
-import { SigningKey, getBytes } from "ethers";
+import { SigningKey, Transaction, getBytes } from "ethers";
 import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED, signMessageHash } from "../helpers/keys";
 import { recoverPublicKey } from "../../src/core/signing/signature";
@@ -166,6 +166,22 @@ describe("app/fordefi", () => {
     expect(
       await rejectedWith(sendToForDefi("evm-localflare", context, fakeFetch({}), networkConfig("songbird", {})))
     ).to.equal("Transaction evm-localflare is for chain id 162, not songbird (19); select its network with --network");
+    expect(calls.length, "no request to ForDefi").to.equal(requests);
+  });
+
+  it("refuses an unprotected legacy EVM file (no chain id), whose signature every network would take", async () => {
+    const rawTx = { type: 0, nonce: 1, gasPrice: 1, gasLimit: 21_000, to: `0x${"22".repeat(20)}`, value: "1" };
+    const message = Transaction.from(rawTx).unsignedHash.slice(2);
+    saveUnsignedTxJson({ transactionType: "EVM", rawTx, message }, "unprotected");
+    const requests = calls.length;
+    for (const network of ["flare", "songbird"] as const) {
+      expect(
+        await rejectedWith(
+          sendToForDefi("unprotected", context, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED), networkConfig(network, {}))
+        ),
+        network
+      ).to.match(/^Transaction unprotected is for chain id 0, not (flare \(14\)|songbird \(19\)); select its network/);
+    }
     expect(calls.length, "no request to ForDefi").to.equal(requests);
   });
 

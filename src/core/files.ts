@@ -190,8 +190,9 @@ export function bundleFromUnsignedTxJson(json: UnsignedTxJson): UnsignedTxBundle
 /**
  * Refuses a file built for another network than the selected one, before it is signed or sent: the node would refuse
  * it with a less clear error, and a signature for it is one for the other network. Atomic transactions carry the
- * network id, EVM ones the chain id, which differ on Songbird and Coston. Only an unprotected legacy transaction (type
- * 0 without a chain id) has nothing to compare; a typed one always carries its chain id, 0 included.
+ * network id, EVM ones the chain id, which differ on Songbird and Coston. An EVM transaction without one (chain id 0:
+ * an unprotected legacy one, or a typed one naming 0) is refused as well: a signature for it is valid on every EVM
+ * chain, and no version of this tool wrote one.
  */
 export function checkFileNetwork(
   id: string,
@@ -209,8 +210,8 @@ export function checkFileNetwork(
     }
     return;
   }
-  const { chainId, type } = bundle.tx;
-  if (!(type === 0 && chainId === 0n) && chainId !== BigInt(network.chainId)) {
+  const { chainId } = bundle.tx;
+  if (chainId !== BigInt(network.chainId)) {
     throw new Error(
       `Transaction ${id} is for chain id ${chainId}, not ${network.name} (${network.chainId}); ` +
         "select its network with --network"
