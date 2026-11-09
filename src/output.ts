@@ -119,7 +119,7 @@ function describeUncleaned(error: unknown): string {
     ? `The node answered HTTP ${refused[1]} ${refused[2]}${NODE_HINT}`
     : redirect !== undefined
       ? REDIRECT_TEXT
-      : /Unexpected token '<'.*is not valid JSON/.test(raw)
+      : /Unexpected token '<'[\s\S]*is not valid JSON/.test(raw) // the quoted start of a page may hold a line break
         ? `The node answered with an error page instead of JSON-RPC (${message})${NODE_HINT}`
         : noResult
           ? `The node answered without a JSON-RPC result (${message})${NODE_HINT}`

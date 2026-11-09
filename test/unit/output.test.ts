@@ -50,6 +50,19 @@ describe("output/describeError", () => {
     expect(text).to.include("--api-key or FLARE_API_KEY");
   });
 
+  it("explains an error page whose quoted start holds a line break, as nginx's does (<html>\\r\\n)", () => {
+    let error: unknown;
+    try {
+      JSON.parse("<html>\r\n<head><title>403 Forbidden</title></head>\r\n");
+    } catch (thrown) {
+      error = thrown;
+    }
+    expect((error as Error).message).to.include("\r\n"); // V8 quotes the line break as it is
+    expect(describeError(error)).to.match(
+      /^The node answered with an error page instead of JSON-RPC \(Unexpected token '<' in JSON\); check /
+    );
+  });
+
   it("leaves out the text other JSON parse errors quote", () => {
     expect(describeError(new SyntaxError(`Unexpected token '}', "{}}" is not valid JSON`))).to.equal(
       "Unexpected token '}' in JSON"
