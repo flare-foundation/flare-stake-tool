@@ -73,6 +73,19 @@ function givenFlags(command: Command, only?: readonly string[]): string[] {
     .flatMap((option) => (option.long === undefined ? [] : [option.long]));
 }
 
+/**
+ * Refuses the C-chain fee options for a command that builds no C-chain transaction (`send` sends a signed one as it
+ * was signed): they were ignored, so a value the user meant to set wasn't.
+ */
+function refuseFeeOptions(program: Command, command: string): void {
+  const given = givenFlags(program, EVM_FEE_OPTIONS);
+  if (given.length === 0) return;
+  throw new Error(
+    `${command} doesn't use ${given.join(", ")}; leave ${given.length === 1 ? "it" : "them"} out ` +
+      "(the C-chain gas options are for the C-chain commands that build a transaction)"
+  );
+}
+
 /** Options of `send` and `forDefi`. */
 type TransactionIdOptions = Pick<GlobalOptions, "transactionId">;
 
@@ -125,6 +138,7 @@ export function cli(program: Command): void {
     .option("-p, --public-key <public-key>", "Public key of the account")
     .option("--vault-id <vault-id>", "ForDefi vault id to store in the context file")
     .action(async (options: InitCtxOptions) => {
+      refuseFeeOptions(program, "init-ctx");
       await initCtx(globalOptions(program.opts(), options));
     });
 
@@ -133,6 +147,7 @@ export function cli(program: Command): void {
     .description("Relevant information")
     .addArgument(new Argument("<addresses|balance|validators>", "Type of information").choices(INFO_TYPES))
     .action(async (type: string) => {
+      refuseFeeOptions(program, `info ${type}`);
       await info(type, globalOptions(program.opts()));
     });
 
@@ -180,6 +195,7 @@ export function cli(program: Command): void {
     .description("Send signed transaction json to the node")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to send to the network")
     .action(async (options: TransactionIdOptions) => {
+      refuseFeeOptions(program, "send");
       await send(globalOptions(program.opts(), options));
     });
 
@@ -190,6 +206,7 @@ export function cli(program: Command): void {
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("--evm-tx", "Accepted for compatibility; the transaction file tells the kind")
     .action(async (type: string, options: TransactionIdOptions) => {
+      refuseFeeOptions(program, `forDefi ${type}`);
       await forDefi(type, globalOptions(program.opts(), options));
     });
 

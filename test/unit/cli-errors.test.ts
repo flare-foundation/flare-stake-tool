@@ -288,6 +288,25 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("refuses the C-chain fee options for send, forDefi, info and init-ctx, which ignored them", () => {
+    for (const [args, command] of [
+      [["send", "-i", "w1", "--max-fee-per-gas", "99999"], "send"],
+      [["forDefi", "fetch", "-i", "w1", "--gas-limit", "21000"], "forDefi fetch"],
+      [["balance", "--priority-fee-per-gas", "1"], "info balance"],
+      [["info", "addresses", "--gas-limit", "1", "--max-fee-per-gas", "2"], "info addresses"],
+      [["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--gas-limit", "1"], "init-ctx"],
+    ] as const) {
+      const result = runCli([...args, "--network", "localflare"], { cwd });
+      expect(result.exitCode, command).to.equal(1);
+      expect(result.stderr, command).to.match(
+        new RegExp(
+          `^Error: ${command} doesn't use --[a-z-]+(, --[a-z-]+)?; leave (it|them) out \\(the C-chain gas options`
+        )
+      );
+    }
+    expect(fs.existsSync(path.join(cwd, "ctx.json")), "init-ctx wrote nothing").to.equal(false);
+  });
+
   it("names the network of a transaction on stderr, and warns when it is Flare because nothing chose one", () => {
     const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
     const withdrawal = ["withdrawal", "-a", "1", "-t", "0x2222222222222222222222222222222222222222", "-i", "w1"];

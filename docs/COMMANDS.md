@@ -27,7 +27,8 @@ focuses on inputs / outputs / side effects / failure modes.
 Global options can come before or after the command. Each `transaction` type
 takes only the options listed for it below: another one given on the command
 line is refused (a default, such as `--delegation-fee`'s, doesn't count), and
-so are the C-chain gas options, which only the C-chain commands use. `-i` and
+so are the C-chain gas options, which only the C-chain commands use (`send`,
+`forDefi`, `info` and `init-ctx` refuse them too). `-i` and
 `--threshold 1` are taken by every type. `-i` names the unsigned file of the
 file flow: with `--get-hacked` or `--ledger` the transaction is signed and sent
 at once, and `-i` is not used. `withdrawal`, `setClaimExecutors`,
