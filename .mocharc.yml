@@ -3,5 +3,7 @@ spec:
   - "test/!(integration)/**/*.test.ts"
 timeout: 10000
 exit: true
+# A committed `.only` fails the run instead of running one test: `pnpm test` is release.yaml's test gate.
+forbid-only: true
 node-option:
   - "import=tsx"
