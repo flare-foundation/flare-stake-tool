@@ -50,8 +50,11 @@ export function createEnv(network: string, node: NodeOverrides = {}): Env {
 
 export function readContextFile(file: string = DEFAULT_CTX_FILE): ContextFile {
   if (!fs.existsSync(file)) {
+    // a path given with --ctx-file is not repeated: a key given in its place would be printed
     throw new Error(
-      `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
+      file === DEFAULT_CTX_FILE
+        ? `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
+        : "The context file given with --ctx-file does not exist"
     );
   }
   // only the fields the tool reads are checked, and the object is returned as it was: older files carry other fields

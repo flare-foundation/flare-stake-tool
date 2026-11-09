@@ -18,10 +18,15 @@ import {
   type UnsignedTxBundle,
 } from "../core/types";
 
-/** A key file's lines, read without touching process.env. */
+/**
+ * A key file's lines, read without touching process.env. A path that doesn't exist is not repeated: a key given in its
+ * place (`--env-path "$PRIVATE_KEY"`) would be printed, into a script's log.
+ */
 function readKeyFile(envPath: string): Record<string, string> {
   if (!fs.existsSync(envPath)) {
-    throw new Error(`Env file ${envPath} does not exist`);
+    throw new Error(
+      "The key file given with --env-path does not exist; give the path of a file holding PRIVATE_KEY_HEX or PRIVATE_KEY_CB58, not the key itself"
+    );
   }
   return dotenv.parse(fs.readFileSync(envPath));
 }

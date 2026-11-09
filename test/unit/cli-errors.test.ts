@@ -12,7 +12,12 @@ import { accountFromPublicKey } from "../../src/chain/keys";
 import { markSentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { readGolden } from "../characterization/scenarios";
 import { cleanupTempDir, makeTempDir, runCli, writeEnvFile } from "../helpers/cli";
-import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED, signMessageHash } from "../helpers/keys";
+import {
+  EWOQ_PRIVATE_KEY_CB58,
+  EWOQ_PRIVATE_KEY_HEX,
+  EWOQ_PUBLIC_KEY_COMPRESSED,
+  signMessageHash,
+} from "../helpers/keys";
 import { NODE_A_POP, NODE_B_POP } from "../helpers/bls";
 import { version } from "../../package.json";
 
@@ -540,6 +545,23 @@ describe("CLI errors (built CLI, no node)", function () {
     );
   });
 
+  it("doesn't print a key given in place of the key file or the context file", () => {
+    for (const args of [
+      ["transaction", "exportCP", "-a", "1", "--get-hacked", "--env-path", EWOQ_PRIVATE_KEY_HEX],
+      ["transaction", "exportCP", "-a", "1", "--get-hacked", "--env-path", EWOQ_PRIVATE_KEY_CB58],
+      ["info", "balance", "--env-path", EWOQ_PRIVATE_KEY_HEX],
+      ["send", "-i", "t1", "--env-path", EWOQ_PRIVATE_KEY_HEX],
+      ["info", "balance", "--ctx-file", EWOQ_PRIVATE_KEY_HEX],
+    ]) {
+      const result = runCli([...args, "--network", "costwo"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      const label = args.join(" ");
+      expect(result.exitCode, label).to.equal(1);
+      expect(result.stderr, label).to.match(/The (key|context) file given with --(env-path|ctx-file) does not exist/);
+      expect(result.stdout + result.stderr, label).to.not.include(args[args.length - 1]);
+      expect(result.stdout + result.stderr, label).to.not.include(EWOQ_PRIVATE_KEY_HEX.slice(-16));
+    }
+  });
+
   it("send needs the key file of --get-hacked too, rather than checking against the context file", () => {
     // the account in ctx.json is not the one --get-hacked selects, so it must not stand in for the missing key file
     const context = { wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "costwo" };
@@ -557,7 +579,7 @@ describe("CLI errors (built CLI, no node)", function () {
     for (const file of ["missing.json", "ctx.json"]) {
       const result = runCli(["send", "-i", "w1", "--ctx-file", file], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
       expect(result.exitCode, file).to.equal(1);
-      expect(result.stderr, file).to.include(`Context file ${file} does not exist`);
+      expect(result.stderr, file).to.include("The context file given with --ctx-file does not exist");
     }
     // no context file at all: the account is the one that signed, and the send gets as far as the node
     const relay = runCli(["send", "-i", "w1", "--network", "localflare"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
@@ -674,15 +696,13 @@ describe("CLI errors (built CLI, no node)", function () {
         env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
       });
       expect(result.exitCode, selectors.join(" ")).to.equal(1);
-      expect(result.stderr, selectors.join(" ")).to.include(
-        "Context file missing.json does not exist (given with --ctx-file)"
-      );
+      expect(result.stderr, selectors.join(" ")).to.include("The context file given with --ctx-file does not exist");
     }
     for (const action of ["fetch", "sign"]) {
       // fetch reads no context, and nothing is asked of ForDefi before the refusal
       const result = runCli(["forDefi", action, "-i", "t1", "--ctx-file", "missing.json"], { cwd });
       expect(result.exitCode, action).to.equal(1);
-      expect(result.stderr, action).to.include("Context file missing.json does not exist (given with --ctx-file)");
+      expect(result.stderr, action).to.include("The context file given with --ctx-file does not exist");
     }
     const created = runCli(
       ["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo", "--ctx-file", "new.json"],

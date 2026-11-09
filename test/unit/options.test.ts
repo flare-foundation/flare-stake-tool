@@ -595,7 +595,8 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       for (const selectors of [{}, { ledger: true }]) {
         await resolveAccount({ ...base, ...selectors, ctxFile: missing }, env).then(
           () => expect.fail(`resolved an account without ${missing}`),
-          (error: unknown) => expect((error as Error).message).to.include(`Context file ${missing} does not exist`)
+          (error: unknown) =>
+            expect((error as Error).message).to.equal("The context file given with --ctx-file does not exist")
         );
       }
     });

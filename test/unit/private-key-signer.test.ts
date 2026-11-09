@@ -54,9 +54,13 @@ describe("signers/privateKey key file", () => {
     expect(Object.fromEntries(names.map((name) => [name, process.env[name]]))).to.deep.equal(before);
   });
 
-  it("refuses a file that does not exist", () => {
-    const missing = path.join(dir, "missing");
-    expect(() => PrivateKeySigner.fromEnvFile(missing, "localflare")).to.throw(`Env file ${missing} does not exist`);
+  it("refuses a file that does not exist, without repeating the path, which may be a key given in its place", () => {
+    for (const missing of [path.join(dir, "missing"), EWOQ_PRIVATE_KEY_HEX]) {
+      expect(() => PrivateKeySigner.fromEnvFile(missing, "localflare"))
+        .to.throw("The key file given with --env-path does not exist")
+        .with.property("message")
+        .that.does.not.include(missing);
+    }
   });
 
   it("gives the account of a file with only PUBLIC_KEY, as 4.4.0 did, but signs nothing with it", async () => {

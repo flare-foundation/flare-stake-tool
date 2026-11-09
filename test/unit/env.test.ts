@@ -111,9 +111,20 @@ describe("app/env context file", () => {
   });
 
   it("refuses to read a missing context file and to overwrite an existing one", () => {
-    expect(() => readContextFile(file)).to.throw(
-      `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
-    );
+    // a given path is not repeated, as it may be a key given in its place; the default one is
+    expect(() => readContextFile(file))
+      .to.throw("The context file given with --ctx-file does not exist")
+      .with.property("message")
+      .that.does.not.include(file);
+    const cwd = process.cwd();
+    process.chdir(path.dirname(file));
+    try {
+      expect(() => readContextFile()).to.throw(
+        "Context file ctx.json does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path"
+      );
+    } finally {
+      process.chdir(cwd);
+    }
     writeContextFile(FORDEFI_CONTEXT, file);
     expect(() => writeContextFile({ ...FORDEFI_CONTEXT, vaultId: "vault-456" }, file)).to.throw(
       "ctx.json already exists"
