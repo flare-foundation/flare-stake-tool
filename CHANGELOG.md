@@ -26,6 +26,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * `interactive` refuses unknown options, options it doesn't use (`--network`, `--ledger`, `--blind`, `--derivation-path`, `--ctx-file`, `--env-path`, `--get-hacked`), and running without a terminal.
 * `transaction <type>` refuses an option given on the command line that the type doesn't use, such as `importCP -a 5`, `exportPC -f 1`, `--nonce` on another type than `exportCP`, or the C-chain gas options (`--gas-limit`, `--max-fee-per-gas`, `--priority-fee-per-gas`) on a P-chain or atomic type. They were ignored, so a value the user meant to pin wasn't. `-i` and `--threshold 1` are taken by every type.
 * `addAutoRenewedValidator` takes one `--owner-address`, as documented. Several made a validator authority that any one of them controlled alone (1-of-N), whatever `--threshold` said; `--threshold` other than 1 is refused.
+* `withdrawal`, `setClaimExecutors`, `setAllowedClaimRecipients` and `customCChainTx` sign and send at once with `--get-hacked` or `--ledger`; 4.4.0 ignored both flags for them and always wrote an unsigned file. So that a 4.x command line meant to write a file for review doesn't send instead, these four refuse `-i` together with `--get-hacked` or `--ledger`: leave out `-i` to sign and send, or the signer flag to write the file.
 * `customCChainTx` has a 300,000 gas limit by default (was 1,000,000); heavier calls need `--gas-limit`. See Changed for the other gas limits.
 
 ### Fixed
@@ -110,7 +111,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * Auto-renewed validators (Helicon, ACP-236): `transaction addAutoRenewedValidator`, and `transaction setAutoRenewedValidatorConfig` to change the period or stop renewal (`--period 0`). They work on every signing path and in the interactive menu, and are refused where Helicon is not active. `info validators` shows their cycle.
 * Durations for `--end-time`, `--start-time` and `--period`, such as `2d12h` or `90m`. An end or start time given as a duration is added to now and printed as a unix time, which ForDefi co-signers must pass instead; a `--period` duration is just converted to seconds.
 * `--rpc-url` (`FLARE_RPC_URL`) and `--api-key` (`FLARE_API_KEY`) for another node or an API gateway. The tool checks that the node belongs to the selected network. A request carrying the key refuses a redirect instead of taking the key to the host it names.
-* `claim`, `withdrawal`, `setClaimExecutors`, `setAllowedClaimRecipients` and `customCChainTx` can be signed with `--get-hacked` or `--ledger`.
+* `withdrawal`, `setClaimExecutors`, `setAllowedClaimRecipients` and `customCChainTx` can be signed with `--get-hacked` or `--ledger` (see Breaking changes).
 * `init-ctx --vault-id` for ForDefi contexts, `--version`, and `--gas-limit`, `--max-fee-per-gas` and `--priority-fee-per-gas` for `interactive`.
 * Tests: `pnpm test` replays recorded scenarios of every transaction type and signing path offline; the integration tests run against a running localflare (`LOCALFLARE_RPC_URL`).
 

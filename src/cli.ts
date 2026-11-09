@@ -289,8 +289,32 @@ async function evmTransaction(
 ): Promise<void> {
   const env = resolveEnv(options);
   const request = parseEvmTxRequest(operation, options); // before the signer, as for transactions
+  refuseIdWithImmediateSigner(operation, options);
   const signer = await resolveSigner(options, env);
   reportOutcome(await runTransaction(request, env, signer), env.network.symbol);
+}
+
+/**
+ * The C-chain commands for which 4.4.0 ignored --get-hacked and --ledger and always wrote an unsigned file. 5.0.0
+ * signs and sends them at once, so a 4.x command line meant to write a file for review would send instead: `-i`
+ * together with an immediate signer is refused for them. `claim` signed in 4.4.0 too and keeps taking both.
+ */
+const FILE_ONLY_IN_4X = {
+  withdrawal: "withdrawal",
+  setClaimExecutors: "setClaimExecutors",
+  setAllowedClaimRecipients: "setAllowedClaimRecipients",
+  custom: "customCChainTx",
+} as const;
+
+function refuseIdWithImmediateSigner(operation: string, options: GlobalOptions): void {
+  const command = FILE_ONLY_IN_4X[operation as keyof typeof FILE_ONLY_IN_4X];
+  if (command === undefined || !options.transactionId) return;
+  const flag = options.ledger ? "--ledger" : options.getHacked ? "--get-hacked" : undefined;
+  if (flag === undefined) return;
+  throw new Error(
+    `${command} with ${flag} signs and sends at once, where 4.x wrote the unsigned file -i names; ` +
+      `leave out -i to sign and send now, or ${flag} to write the unsigned file`
+  );
 }
 
 async function send(options: GlobalOptions): Promise<void> {

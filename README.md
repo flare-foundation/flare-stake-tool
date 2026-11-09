@@ -304,7 +304,7 @@ To use the app with the private key, you can copy the commands used with ledger 
 flare-stake-tool exportCP -a <amount> --env-path <path to your private key file> --get-hacked --network <flare|costwo|songbird|coston|localflare>
 ```
 
-`-i <transaction-id>` doesn't select the unsigned-file flow: with `--get-hacked` or `--ledger` the transaction is signed and sent at once, and `-i` is not used. Leave both out to get an unsigned file.
+`-i <transaction-id>` doesn't select the unsigned-file flow: with `--get-hacked` or `--ledger` the transaction is signed and sent at once, and `-i` is not used. Leave both out to get an unsigned file. `withdrawal`, `setClaimExecutors`, `setAllowedClaimRecipients` and `customCChainTx`, which 4.x always wrote as a file, refuse `-i` together with `--get-hacked` or `--ledger`.
 
 ## Interactive CLI
 

@@ -288,6 +288,57 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("refuses -i with --get-hacked or --ledger on the four C-chain commands that wrote a file in 4.x, before signing", () => {
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const to = "0x2222222222222222222222222222222222222222";
+    const commands: [string, string[]][] = [
+      ["withdrawal", ["-a", "1", "-t", to]],
+      ["setClaimExecutors", ["--executors", to]],
+      ["setAllowedClaimRecipients", ["--recipients", to]],
+      ["customCChainTx", ["--to", to]],
+    ];
+    for (const [command, args] of commands) {
+      for (const [flag, signer] of [
+        ["--get-hacked", ["--get-hacked", "--env-path", envPath]],
+        ["--ledger", ["--ledger"]],
+      ] as const) {
+        const result = runCli(
+          [command, ...args, "-i", "w1", ...signer, "--network", "localflare", "--rpc-url", CLOSED_NODE],
+          {
+            cwd,
+            env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+          }
+        );
+        expect(result.exitCode, `${command} ${flag}`).to.equal(1);
+        expect(result.stderr, `${command} ${flag}`).to.include(
+          `${command} with ${flag} signs and sends at once, where 4.x wrote the unsigned file -i names; ` +
+            `leave out -i to sign and send now, or ${flag} to write the unsigned file`
+        );
+      }
+    }
+    // claim signed in 4.4.0 too: -i with an immediate signer goes on to the node
+    const claim = runCli(
+      [
+        "claim",
+        "-r",
+        to,
+        "-i",
+        "c1",
+        "--get-hacked",
+        "--env-path",
+        envPath,
+        "--network",
+        "localflare",
+        "--rpc-url",
+        CLOSED_NODE,
+      ],
+      { cwd }
+    );
+    expect(claim.exitCode).to.equal(1);
+    expect(claim.stderr).not.to.include("signs and sends at once");
+    expect(claim.stderr).to.include(`node ${CLOSED_NODE}`);
+  });
+
   it("forDefi sign checks the file against --network, over the context's network, before reading the token", () => {
     const { forDefiHash: _hash, ...unsigned } = readGolden("exportCP-file").outcome.unsignedTxJson as UnsignedTxJson;
     fs.mkdirSync(path.join(cwd, "ForDefiTxnFiles", "UnsignedTxns"), { recursive: true });
