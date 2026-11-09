@@ -13,9 +13,10 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import { UnsignedTx, messageHashFromUnsignedTx, secp256k1, utils as futils } from "@flarenetwork/flarejs";
+import { UnsignedTx, messageHashFromUnsignedTx, secp256k1, utils as futils, type Int } from "@flarenetwork/flarejs";
 import { Transaction, computeAddress, getAddress, getBytes, hexlify, type TransactionLike } from "ethers";
 import type { Account } from "../chain/keys";
+import type { NetworkConfig } from "../chain/network";
 import { chainOfAtomicTx, isAtomicTxType, type UnsignedTxBundle } from "./types";
 import { toHex } from "./signing/signature";
 import { isJsonObject, parseJson } from "./json";
@@ -184,6 +185,37 @@ export function bundleFromUnsignedTxJson(json: UnsignedTxJson): UnsignedTxBundle
     unsignedTx,
     digest: messageHashFromUnsignedTx(unsignedTx),
   };
+}
+
+/**
+ * Refuses a file built for another network than the selected one, before it is signed or sent: the node would refuse
+ * it with a less clear error, and a signature for it is one for the other network. Atomic transactions carry the
+ * network id, EVM ones the chain id, which differ on Songbird and Coston. Only an unprotected legacy transaction (type
+ * 0 without a chain id) has nothing to compare; a typed one always carries its chain id, 0 included.
+ */
+export function checkFileNetwork(
+  id: string,
+  bundle: UnsignedTxBundle,
+  network: Pick<NetworkConfig, "name" | "networkId" | "chainId">
+): void {
+  if (bundle.kind === "atomic") {
+    const tx = bundle.unsignedTx.getTx() as { baseTx?: { NetworkId: Int }; networkId?: Int };
+    const networkId = (tx.baseTx?.NetworkId ?? tx.networkId)?.value();
+    if (networkId !== network.networkId) {
+      throw new Error(
+        `Transaction ${id} is for network id ${String(networkId)}, not ${network.name} (${network.networkId}); ` +
+          "select its network with --network"
+      );
+    }
+    return;
+  }
+  const { chainId, type } = bundle.tx;
+  if (!(type === 0 && chainId === 0n) && chainId !== BigInt(network.chainId)) {
+    throw new Error(
+      `Transaction ${id} is for chain id ${chainId}, not ${network.name} (${network.chainId}); ` +
+        "select its network with --network"
+    );
+  }
 }
 
 /**

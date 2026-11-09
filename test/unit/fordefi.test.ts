@@ -12,6 +12,7 @@ import {
   type UnsignedEvmTxJson,
 } from "../../src/core/files";
 import { accountFromPublicKey } from "../../src/chain/keys";
+import { networkConfig } from "../../src/chain/network";
 import { SigningKey } from "ethers";
 import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
@@ -135,6 +136,20 @@ describe("app/fordefi", () => {
       );
     }
     expect(posted()).to.equal(before);
+  });
+
+  it("refuses a file of another network than the selected one, before anything is read from or posted to ForDefi", async () => {
+    const { forDefiHash: _evmHash, ...evm } = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedEvmTxJson;
+    saveUnsignedTxJson(evm, "evm-localflare");
+    const requests = calls.length;
+    // the context's network, and a network selected over it (--network)
+    expect(await rejectedWith(sendToForDefi("tx1", { ...context, network: "costwo" }, fakeFetch({})))).to.equal(
+      "Transaction tx1 is for network id 162, not costwo (114); select its network with --network"
+    );
+    expect(
+      await rejectedWith(sendToForDefi("evm-localflare", context, fakeFetch({}), networkConfig("songbird", {})))
+    ).to.equal("Transaction evm-localflare is for chain id 162, not songbird (19); select its network with --network");
+    expect(calls.length, "no request to ForDefi").to.equal(requests);
   });
 
   it("posts a file from an earlier version, which records no account", async () => {

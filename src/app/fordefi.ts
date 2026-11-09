@@ -8,6 +8,7 @@ import crypto from "crypto";
 import fs from "fs";
 import {
   bundleFromConsistentTxJson,
+  checkFileNetwork,
   forDefiHashOf,
   readUnsignedTxJson,
   saveSignedTxJson,
@@ -15,6 +16,7 @@ import {
   writeUnsignedTxJson,
 } from "../core/files";
 import { normalizePublicKey } from "../chain/keys";
+import { networkConfig, type NetworkConfig } from "../chain/network";
 import { isJsonObject } from "../core/json";
 import { SIGNATURE_LENGTH, equalBytes, toHex } from "../core/signing/signature";
 import type { ContextFile } from "./env";
@@ -87,14 +89,25 @@ function publicKeyOf(hex: string, whose: string): Uint8Array {
   }
 }
 
-/** Posts the unsigned transaction's hash for signing and records the ForDefi transaction id in the unsigned file. */
-export async function sendToForDefi(id: string, context: ContextFile, fetchImpl: FetchLike = fetch): Promise<string> {
+/**
+ * Posts the unsigned transaction's hash for signing and records the ForDefi transaction id in the unsigned file. The
+ * file must be for `network` (the selected one, by default the context's): a signature is valid on the file's network
+ * only.
+ */
+export async function sendToForDefi(
+  id: string,
+  context: ContextFile,
+  fetchImpl: FetchLike = fetch,
+  network: Pick<NetworkConfig, "name" | "networkId" | "chainId"> = networkConfig(context.network, {})
+): Promise<string> {
   if (!context.vaultId) {
     throw new Error("vaultId not found in context");
   }
   const unsigned = readUnsignedTxJson(id);
   // the hash ForDefi signs: the file's message, which must be the digest of the file's transaction
-  const { digest } = bundleFromConsistentTxJson(unsigned);
+  const bundle = bundleFromConsistentTxJson(unsigned);
+  checkFileNetwork(id, bundle, network);
+  const { digest } = bundle;
   const vaultPublicKey = await getVaultPublicKey(context.vaultId, fetchImpl);
   // compared as keys: a context may hold its key uncompressed or with 0x, the vault answers it compressed
   const contextKey = publicKeyOf(context.publicKey, "The context's publicKey");

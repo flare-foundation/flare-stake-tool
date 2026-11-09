@@ -288,6 +288,26 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("forDefi sign checks the file against --network, over the context's network, before reading the token", () => {
+    const { forDefiHash: _hash, ...unsigned } = readGolden("exportCP-file").outcome.unsignedTxJson as UnsignedTxJson;
+    fs.mkdirSync(path.join(cwd, "ForDefiTxnFiles", "UnsignedTxns"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, "ForDefiTxnFiles", "UnsignedTxns", "t1.unsignedTx.json"), JSON.stringify(unsigned));
+    fs.writeFileSync(
+      path.join(cwd, "ctx.json"),
+      JSON.stringify({
+        wallet: "publicKey",
+        publicKey: EWOQ_PUBLIC_KEY_COMPRESSED,
+        network: "localflare",
+        vaultId: "v",
+      })
+    );
+    const result = runCli(["forDefi", "sign", "-i", "t1", "--network", "costwo"], { cwd });
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.include(
+      "Transaction t1 is for network id 162, not costwo (114); select its network with --network"
+    );
+  });
+
   it("forDefi refuses fetching a signature once the transaction was sent", () => {
     const unsigned = readGolden("exportCP-file").outcome.unsignedTxJson as UnsignedTxJson;
     writeSignedTxJson({ ...unsigned, signature: "00".repeat(65) }, "t1", cwd);

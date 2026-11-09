@@ -7,7 +7,7 @@ import { Argument, Command } from "commander";
 import { styleText } from "node:util";
 import figlet from "figlet";
 import { accountFromPublicKey } from "./chain/keys";
-import { NETWORK_NAMES, overriddenNode } from "./chain/network";
+import { NETWORK_NAMES, networkConfig, overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
@@ -315,7 +315,9 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
   }
   requireGivenContextFile(options); // fetch does not read the context, but a given one must still exist
   if (type === "sign") {
-    const forDefiTxId = await sendToForDefi(id, readContextFile(options.ctxFile));
+    // the network as transactions choose it: --network, else the context's
+    const network = networkConfig(resolveNetworkName(options.network, options.ctxFile), {});
+    const forDefiTxId = await sendToForDefi(id, readContextFile(options.ctxFile), fetch, network);
     logSuccess(`Transaction ${id} sent to ForDefi (ForDefi transaction id ${forDefiTxId})`);
   } else if (type === "fetch") {
     if (isAlreadySentToChain(id)) {
