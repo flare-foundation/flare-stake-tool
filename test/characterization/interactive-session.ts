@@ -21,6 +21,7 @@ import type InquirerModule from "inquirer";
 import type * as EnvModule from "../../src/app/env";
 import type * as InfoModule from "../../src/app/info";
 import type * as TransactionsModule from "../../src/app/transactions";
+import type * as ClientsModule from "../../src/chain/clients";
 import type * as ContractsModule from "../../src/chain/contracts";
 import type * as NetworkModule from "../../src/chain/network";
 import type { NFlr, Wei } from "../../src/chain/units";
@@ -65,6 +66,12 @@ function stub<M extends object, K extends keyof M & string>(module: M, name: K, 
 interface Flags {
   /** runTransaction refuses the first request of each of these types. */
   failTx?: string[];
+  /**
+   * Those refusals, and a failure of the first wallet connection, are a node's answer that starts with the API key
+   * and fails to parse as JSON (V8 quotes its start), noted with a node URL holding a password: what is printed must
+   * be cleaned of both, as describeError cleans it.
+   */
+  nodeErrors?: boolean;
   /** No fee estimate (nothing to estimate). */
   noEstimate?: boolean;
   /** No exportPC default (node unreachable). */
@@ -175,7 +182,24 @@ Object.assign(inquirer, { prompt });
 
 // ---- node and device ----
 
-const { networkConfig } = fromDist<typeof NetworkModule>("chain/network.js");
+const { networkConfig, rememberSecret } = fromDist<typeof NetworkModule>("chain/network.js");
+const { notingNode } = fromDist<typeof ClientsModule>("chain/clients.js");
+
+const API_KEY = "k7Qz2LmN9pXy4RtV";
+/** The error a node client throws for an answer that is not JSON and starts with the key, noted with the node. */
+function nodeAnswerError(): Error {
+  rememberSecret(API_KEY); // as createClients does with the key it sends
+  const node = notingNode(
+    { answer: () => JSON.parse(`${API_KEY} is not authorised`) as unknown },
+    `http://user:${API_KEY}@127.0.0.1:9650`
+  );
+  try {
+    node.answer();
+  } catch (error) {
+    return error as Error;
+  }
+  throw new Error("the answer parsed");
+}
 
 /** Only the client calls interactive mode makes itself; everything else goes through the stubs below. */
 const fakeClients = () => {
@@ -201,8 +225,10 @@ const fakeClients = () => {
 };
 
 const envModule = fromDist<typeof EnvModule>("app/env.js");
+let connections = 0;
 stub(envModule, "createEnv", (network, node = {}) => {
   record(`ENV ${network} ${show(node)}`);
+  if (flags.nodeErrors && connections++ === 0) throw nodeAnswerError();
   return { network: networkConfig(network, {}, node), clients: fakeClients() } as unknown as ReturnType<
     typeof EnvModule.createEnv
   >;
@@ -242,7 +268,7 @@ stub(transactions, "runTransaction", async (request, _env, signer, _confirm, bef
   record(`TX ${show(request)} signer=${signer.kind}`);
   if (flags.failTx?.includes(request.type)) {
     flags.failTx = flags.failTx.filter((type) => type !== request.type);
-    throw new Error(`node refused ${request.type}`);
+    throw flags.nodeErrors ? nodeAnswerError() : new Error(`node refused ${request.type}`);
   }
   txCount++;
   utxoReads = 0;
@@ -401,6 +427,13 @@ const SCENARIOS: Scenario[] = [
     ],
   },
   {
+    // the session prints errors as the command line does: without the input a JSON parse error quotes (the key's
+    // start, which masking can't match), with the node and its credentials masked
+    name: "private key: node errors are printed cleaned",
+    flags: { failTx: ["transfer"], nodeErrors: true },
+    script: [...PRIVATE_KEY, ...PRIVATE_KEY, TASK.transfer, "1", P_ADDRESS, SIGN, TASK.quit],
+  },
+  {
     // the rewards and the cycle end were read from the node, and shown, before any transaction checked its network
     name: "private key: a node on another network",
     flags: { wrongNetwork: true },
@@ -531,6 +564,7 @@ async function main(): Promise<void> {
     script = [...scenario.script];
     flags = { ...scenario.flags };
     exhausted = 0;
+    connections = 0;
     txCount = 0;
     ledgerSwapped = false;
     deviceReads = 0;

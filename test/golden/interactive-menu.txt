@@ -431,6 +431,42 @@ TX {"type":"setAutoRenewedValidatorConfig","nodeId":"NodeID-NFBbbJ4qCmNaCzeW7sxE
 [log] [34mExiting interactive cli.[39m
 EXIT ok
 
+===== private key: node errors are printed cleaned
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
+> "Private Key"
+? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
+> "pk"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "LocalHost"
+ENV localflare {}
+[log] [31mError: Unexpected token 'k' in JSON (node http://***@127.0.0.1:9650)[39m
+? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
+> "Private Key"
+? input "\u001b[35mEnter Path to Private Key file\u001b[39m \u001b[33m(E.g. /home/wallet/pvtKeyFile)\u001b[39m\u001b[35m:\u001b[39m"
+> "pk"
+? list "\u001b[35mWhich network do you want to connect to?\u001b[39m" choices=["Flare \u001b[32m(mainnet)\u001b[39m","Songbird \u001b[32m(canary)\u001b[39m","Coston2 \u001b[33m(testnet)\u001b[39m","Coston \u001b[33m(testnet)\u001b[39m","LocalHost \u001b[31m(devnet)\u001b[39m"]
+> "LocalHost"
+ENV localflare {}
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Transfer funds"
+? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
+> "1"
+? input "\u001b[35mEnter destination P-chain address:\u001b[39m"
+> "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
+[log] About to sign transfer on localflare:
+[log]   Account: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC / P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
+[log]   Amount: 1 LFLR
+[log]   To: P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
+[log]   Fee: 0.001234 LFLR
+? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
+> true
+TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"} signer=privateKey
+[log] [31mError: Unexpected token 'k' in JSON (node http://***@127.0.0.1:9650)[39m
+? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
+> "Quit"
+[log] [34mExiting interactive cli.[39m
+EXIT ok
+
 ===== private key: a node on another network
 ? list "\u001b[35mHow do you want to connect your wallet?\u001b[39m" choices=["Ledger","Private Key \u001b[31m(not recommended!)\u001b[39m","Quit"]
 > "Private Key"
