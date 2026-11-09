@@ -254,6 +254,18 @@ describe("app/fordefi", () => {
     expect(readSignedTxJson("tx-checked").signature, "the good one kept").to.equal(good);
   });
 
+  it("reports a broken file as such, not as the signature's fault, and quotes none of it", async () => {
+    // a serialization that is not JSON: V8's error quotes its first 10 characters
+    writeUnsignedTxJson({ ...unsigned, serialization: "d133724945abcdef", forDefiTxId: "fordefi-tx-42" }, "tx-broken");
+    const answer = signatureAnswer(signMessageHash(unsigned.signatureRequests[0]!.message));
+    const error = await fetchForDefiSignature("tx-broken", answer).then(
+      () => expect.fail("fetched for a broken file"),
+      (thrown: unknown) => thrown
+    );
+    expect(describeError(error)).to.equal("Unexpected token 'd' in JSON");
+    expect(fs.existsSync(path.join("ForDefiTxnFiles", "SignedTxns", "tx-broken.signedTx.json"))).to.equal(false);
+  });
+
   it("checks the signature of a C-chain file too", async () => {
     const { forDefiHash: _evmHash, ...evm } = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedEvmTxJson;
     saveUnsignedTxJson({ ...evm, forDefiTxId: "fordefi-tx-42" }, "evm-checked");

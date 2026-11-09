@@ -193,10 +193,12 @@ export async function fetchForDefiSignature(id: string, fetchImpl: FetchLike = f
     );
   }
   // the signature must be over this file's transaction, by the account it was built for: a mixed-up or wrong answer
-  // would replace a good signature not sent yet, and send would refuse the file only later
+  // would replace a good signature not sent yet, and send would refuse the file only later. The file is read first,
+  // so that a broken one fails with its own error, not as the signature's
+  const bundle = bundleFromConsistentTxJson(unsigned);
   let signer: Uint8Array;
   try {
-    signer = recoverSigner(bundleFromConsistentTxJson(unsigned), bytes);
+    signer = recoverSigner(bundle, bytes);
   } catch (error) {
     throw new Error(
       `ForDefi answered a signature of no key for transaction ${id} (${error instanceof Error ? error.message : String(error)}); ` +
