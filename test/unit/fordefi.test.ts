@@ -282,6 +282,18 @@ describe("app/fordefi", () => {
     expect(fs.existsSync(path.join("ForDefiTxnFiles", "SignedTxns", "tx-broken.signedTx.json"))).to.equal(false);
   });
 
+  it("refuses a file whose message is not its transaction's hash, before writing a signature of that message", async () => {
+    // a file from an earlier version records no account, so a signature of the wrong hash by the right key would
+    // otherwise recover to some key, pass, and be written as the transaction's signature
+    const message = "ab".repeat(32);
+    const request = { ...unsigned.signatureRequests[0]!, signer: "", message };
+    writeUnsignedTxJson({ ...unsigned, signatureRequests: [request], forDefiTxId: "fordefi-tx-42" }, "tx-other-hash");
+    expect(
+      await rejectedWith(fetchForDefiSignature("tx-other-hash", signatureAnswer(signMessageHash(message))))
+    ).to.match(/^The file's message (ab){32} is not the hash of its transaction \([0-9a-f]{64}\); rebuild the file$/);
+    expect(fs.existsSync(path.join("ForDefiTxnFiles", "SignedTxns", "tx-other-hash.signedTx.json"))).to.equal(false);
+  });
+
   it("checks the signature of a C-chain file too", async () => {
     const { forDefiHash: _evmHash, ...evm } = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedEvmTxJson;
     saveUnsignedTxJson({ ...evm, forDefiTxId: "fordefi-tx-42" }, "evm-checked");
