@@ -58,7 +58,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `--nonce` must be a non-negative integer, and is stored as a number in unsigned files (the hash is unchanged).
   * C-chain commands print the nonce they used, `claim` the amount it takes (all unclaimed rewards without `-a`) and `setClaimExecutors` the executor fees it pays: values read from the chain, which ForDefi co-signers had no way to see and pass in turn.
 * Signing:
-  * `send -i` accepts `v` as `1b`/`1c` as documented, and fills the validator-authority credential of `setAutoRenewedValidatorConfig`.
+  * `send -i` accepts `v` as `1b`/`1c` as documented, and fills the validator-authority credential of `setAutoRenewedValidatorConfig`. A signature with a high `s` (as Go's `crypto/ecdsa` or a KMS may give) is sent as its low-`s` twin, which the node and ethers require; an `r` or `s` of 0 or above the curve order, or a signature no key recovers from, is refused with a message saying so (it used to be an empty error or "sqrt invalid").
   * A given `--ctx-file` that doesn't exist is refused by every command but `init-ctx`, whatever else selects the account; `send` skipped the signer check then, and `--ledger` ignored it.
   * The Ledger Ethereum app is refused for P-chain and atomic transactions, which the node never accepts from it; the tool asks for the Flare app.
   * Ledger: the Avalanche app works with multi-digit path indices (`m/44'/60'/0'/0/10`), a signature with an impossible `v` is refused, and the USB connection is always closed.

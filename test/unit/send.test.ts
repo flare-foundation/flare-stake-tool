@@ -295,10 +295,20 @@ describe("app/send: the isSentToChain mark", () => {
     writeSignedTxJson({ ...unsigned, signature: "00".repeat(65) }, "e", cwd);
     const issued: string[] = [];
     const env = scriptedEnv({ statuses: ["Committed"], onIssue: () => issued.push("issued") }, "e", cwd);
-    // the signature library refuses r = 0 itself, before the tool's own "Cannot recover the signer" check
+    // r = 0 is refused when the signature is read, before any recovery
     await sendSignedTransaction("e", env, undefined, cwd, FAST).then(
       () => expect.fail("an unrecoverable signature should fail"),
-      (error: unknown) => expect(describeError(error)).to.equal("r must be 0 < r < CURVE.n")
+      (error: unknown) =>
+        expect(describeError(error)).to.equal("Invalid signature: its r is 0 or not below the curve order")
+    );
+    // r = 5 is in range, but no point on the curve has that x
+    writeSignedTxJson({ ...unsigned, signature: "05".padStart(64, "0") + "01".padStart(64, "0") + "00" }, "e5", cwd);
+    await sendSignedTransaction("e5", env, undefined, cwd, FAST).then(
+      () => expect.fail("an unrecoverable signature should fail"),
+      (error: unknown) =>
+        expect(describeError(error)).to.equal(
+          "The signature is not a valid signature of this transaction (no key recovers from it)"
+        )
     );
     expect(issued).to.deep.equal([]);
     expect(isAlreadySentToChain("e", cwd)).to.equal(false);
@@ -387,6 +397,31 @@ describe("app/send: the file's network must be the selected one", () => {
 
   afterEach(() => {
     cleanupTempDir(cwd);
+  });
+
+  it("sends a file signed with a high s, as its low-s twin, atomic and EVM", async () => {
+    const n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+    for (const [scenario, id] of [
+      ["withdrawal-file", "high-s-evm"],
+      ["exportCP-file", "high-s-atomic"],
+    ] as const) {
+      const unsigned = readGolden(scenario).outcome.unsignedTxJson as UnsignedTxJson & {
+        signatureRequests?: { message: string }[];
+        message?: string;
+      };
+      const low = signMessageHash(unsigned.signatureRequests?.[0]?.message ?? unsigned.message!);
+      const highS = (n - BigInt(`0x${low.slice(64, 128)}`)).toString(16).padStart(64, "0");
+      const v = (parseInt(low.slice(128), 16) ^ 1).toString(16).padStart(2, "0");
+      writeSignedTxJson({ ...unsigned, signature: low.slice(0, 64) + highS + v }, id, cwd);
+      await sendSignedTransaction(
+        id,
+        scriptedEnv({ statuses: ["Accepted", "Committed"] }, id, cwd),
+        undefined,
+        cwd,
+        FAST
+      );
+      expect(isAlreadySentToChain(id, cwd), scenario).to.equal(true);
+    }
   });
 
   it("refuses a typed EVM file with chain id 0, and sends an unprotected legacy one, which has none", async () => {

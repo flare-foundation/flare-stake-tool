@@ -10,7 +10,7 @@ import {
   signerMismatch,
 } from "../core/files";
 import { attachEvmSignature, attachSignature } from "../core/signing/attach";
-import { normalizeSignature, recoverPublicKey } from "../core/signing/signature";
+import { UNRECOVERABLE_SIGNATURE, normalizeSignature, recoverPublicKey } from "../core/signing/signature";
 import {
   SubmittedTxError,
   TxNotAcceptedError,
@@ -94,9 +94,15 @@ function recoverAccount(bundle: UnsignedTxBundle, signature: Uint8Array, hrp: st
     return accountFromPublicKey(recoverPublicKey(bundle.digest, signature), hrp);
   }
   const probe = Transaction.from(bundle.tx.unsignedSerialized); // a copy: the bundle itself stays unsigned
-  attachEvmSignature(probe, signature);
-  if (!probe.fromPublicKey) {
+  let publicKey: string | null;
+  try {
+    attachEvmSignature(probe, signature);
+    publicKey = probe.fromPublicKey;
+  } catch (error) {
+    throw new Error(UNRECOVERABLE_SIGNATURE, { cause: error });
+  }
+  if (!publicKey) {
     throw new Error("Cannot recover the signer of the EVM transaction");
   }
-  return accountFromPublicKey(probe.fromPublicKey, hrp);
+  return accountFromPublicKey(publicKey, hrp);
 }
