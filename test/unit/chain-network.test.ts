@@ -226,7 +226,14 @@ describe("chain/network", () => {
   it("warns, without the key, when an API key would go over plain http to another machine", () => {
     const warning = (apiUrl: string, apiKey: string | undefined = "SECRET-KEY") =>
       insecureApiKeyWarning({ apiUrl, apiKey });
-    for (const apiUrl of ["http://node.example", "http://localhost.evil.example:9650", "http://192.168.1.10:9650"]) {
+    // names that start like a loopback address but are other hosts
+    for (const apiUrl of [
+      "http://node.example",
+      "http://localhost.evil.example:9650",
+      "http://192.168.1.10:9650",
+      "http://127.evil.example:9650",
+      "http://127.0.0.1.evil.example",
+    ]) {
       expect(warning(apiUrl), apiUrl).to.equal(
         `the API key goes unencrypted to ${apiUrl} over plain http; use an https URL, or no key for this node`
       );

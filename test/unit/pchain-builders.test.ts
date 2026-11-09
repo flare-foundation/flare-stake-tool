@@ -478,6 +478,46 @@ describe("core/builders/pchain", function () {
         }
       });
 
+      it("stakes a stakeable-locked UTXO whose owners' lock ends at the very second the build checks", async () => {
+        const { avaxAssetID } = await env.clients.context();
+        const free = await owned(1_000_000_000n, 1); // 1 FLR, for the fee
+        const now = UNLOCK - 3_600n; // the stake lock still runs
+        const nodeId = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
+        const request = {
+          type: "delegate",
+          nodeId,
+          amount: asNFlr(50_000_000_000n),
+          startTime: now + 60n,
+          endTime: UNLOCK + 86_400n,
+        } as const;
+        Date.now = () => Number(now) * 1000;
+        for (const policy of POLICIES) {
+          // flarejs spends a UTXO whose owners' lock is not after the check time (matchOwners), so it is not left out
+          const checked = policy.lockCheckTime === "now" ? now : policy.lockCheckTime;
+          const locked = new Utxo(
+            new avaxSerial.UTXOID(Id.fromHex(`0x${"9".repeat(64)}`), new Int(0)),
+            Id.fromString(avaxAssetID),
+            new pvmSerial.StakeableLockOut(
+              new BigIntPr(UNLOCK),
+              new TransferOutput(
+                new BigIntPr(50_000_000_000n),
+                OutputOwners.fromNative([account.addressBytes], checked, 1)
+              )
+            )
+          );
+          const label = `lock check ${String(policy.lockCheckTime)}`;
+          const bundle = await buildTransaction(request, pChainEnv([locked, free]), account, policy);
+          if (bundle.kind !== "atomic") throw new Error("delegate must be a P-chain transaction");
+          const { inputs } = (bundle.unsignedTx.getTx() as unknown as { baseTx: { inputs: TransferableInput[] } })
+            .baseTx;
+          expect(
+            inputs.map((input) => input.utxoID.txID.toString()),
+            label
+          ).to.include(locked.utxoId.txID.toString());
+          expect(bundle.notices ?? [], label).to.deep.equal([]);
+        }
+      });
+
       it("unsigned files build the same stake, auto-renewed validator and config change on either side of a lock's end", async () => {
         const locked = await stakeableLocked(50_000_000_000n); // 50 FLR
         const free = await owned(1_000_000_000n, 1); // 1 FLR, for the fee
