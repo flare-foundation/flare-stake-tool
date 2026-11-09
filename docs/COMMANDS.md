@@ -105,9 +105,11 @@ network. It does **not** contain the private key.
 
 ## info \<addresses\|balance\|validators\>
 
-Read-only queries against the configured network. Requires either a
-context file (`--ctx-file ctx.json`), `--ledger`, or
-`--get-hacked --env-path`. The account is chosen as transactions choose the
+Read-only queries against the configured network. `addresses` and `balance`
+need an account: a context file (`--ctx-file`, default `ctx.json`),
+`--ledger`, or a key file with `--env-path` (one holding only `PUBLIC_KEY` will
+do, except with `--get-hacked`, which needs its private key). `validators`
+needs none. The account is chosen as transactions choose the
 one they sign for (and `send` the one it checks the signature against): the
 key file with `--get-hacked --env-path`, else the Ledger with `--ledger`, else
 the key file of `--env-path`, else the context file.

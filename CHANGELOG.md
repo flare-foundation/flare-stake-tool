@@ -130,6 +130,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 ### Deprecated
 
 * `--blind` and `--threshold` have no effect (they never had any) and are kept for compatibility; `--threshold` accepts only 1.
+* `forDefi --evm-tx` has no effect and is kept for compatibility: the transaction file tells whether it holds a C-chain transaction.
 
 ## [[v4.4.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.4.0)] - 2026-09-01
 
