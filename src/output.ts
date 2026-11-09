@@ -122,6 +122,8 @@ function describeUncleaned(error: unknown): string {
     node !== undefined &&
     ((error instanceof TypeError && /\bundefined\b/.test(message)) ||
       (error instanceof Error && message.trim() === ""));
+  // flarejs parses any answer as JSON, whatever its HTTP status: a gateway's 401 with an empty or a text body fails there
+  const notJson = node !== undefined && error instanceof SyntaxError && /\bJSON\b/.test(raw);
   const text = refused
     ? `The node answered HTTP ${refused[1]} ${refused[2]}${NODE_HINT}`
     : redirect !== undefined
@@ -130,7 +132,9 @@ function describeUncleaned(error: unknown): string {
         ? `The node answered with an error page instead of JSON-RPC (${message})${NODE_HINT}`
         : noResult
           ? `The node answered without a JSON-RPC result${message.trim() === "" ? "" : ` (${message})`}${NODE_HINT}`
-          : message;
+          : notJson
+            ? `The node answered with something other than JSON-RPC (${message})${NODE_HINT}`
+            : message;
   if (node === undefined) return text; // other wrappers (keys, Ledger) already carry their cause's message
   const causes = redirect !== undefined ? [redirect] : causeMessages(error).filter((cause) => !text.includes(cause));
   const details = [...causes, `node ${node}`];

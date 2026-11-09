@@ -141,6 +141,46 @@ describe("output/describeError", () => {
         refusing.close();
       }
     }
+    // a refusal with an empty or a text body, which flarejs fails to parse as JSON whatever the HTTP status
+    for (const body of ["", "Unauthorized"]) {
+      const refusing = http.createServer((_req, res) => {
+        res.writeHead(401, { "content-type": "text/plain" });
+        res.end(body);
+      });
+      await new Promise<void>((resolve) => refusing.listen(0, "127.0.0.1", resolve));
+      const at = `http://127.0.0.1:${(refusing.address() as AddressInfo).port}`;
+      try {
+        const clients = createClients(networkConfig("localflare", {}, { apiUrl: at }));
+        clients.provider.destroy();
+        for (const call of [() => clients.pvm.getFeeConfig(), () => clients.info.getNetworkId()]) {
+          const error = await call().then(
+            () => expect.fail("should have thrown"),
+            (thrown: unknown) => thrown
+          );
+          expect(error, body).to.be.instanceOf(SyntaxError);
+          expect(describeError(error), body).to.match(
+            new RegExp(
+              "^The node answered with something other than JSON-RPC \\((Unexpected end of JSON input|Unexpected token 'U' in JSON)\\); " +
+                `check --rpc-url and the API key .* \\(node ${at}\\)$`
+            )
+          );
+        }
+      } finally {
+        refusing.close();
+      }
+    }
+    // a JSON parse error of the tool's own, such as a file's, is left as it is, and so is another node error naming JSON
+    expect(describeError(new SyntaxError("Unexpected end of JSON input"))).to.equal("Unexpected end of JSON input");
+    const named = await notingNode(
+      { call: () => Promise.reject(new Error("invalid JSON-RPC version")) },
+      "http://127.0.0.1:9650"
+    )
+      .call()
+      .then(
+        () => expect.fail("should have thrown"),
+        (thrown: unknown) => thrown
+      );
+    expect(describeError(named)).to.equal("invalid JSON-RPC version (node http://127.0.0.1:9650)");
     // a TypeError of the tool's own, with no node request below it, is left as it is
     expect(describeError(new TypeError("Cannot read properties of undefined (reading 'x')"))).to.equal(
       "Cannot read properties of undefined (reading 'x')"
@@ -163,7 +203,12 @@ describe("output/describeError", () => {
         (thrown: unknown) => thrown
       );
       expect(String((error as Error).message), "V8 quotes the answer's first characters").to.include('"SYNTHETIC-"');
-      expect(describeError(error)).to.equal(`Unexpected token 'S' in JSON (node ${url})`);
+      expect(describeError(error)).to.match(
+        new RegExp(
+          `^The node answered with something other than JSON-RPC \\(Unexpected token 'S' in JSON\\); check .* \\(node ${url}\\)$`
+        )
+      );
+      expect(describeError(error)).to.not.include("SYNTHETIC");
     } finally {
       server.close();
     }
