@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { REPO_ROOT } from "../helpers/cli";
+import { REPO_ROOT, requireCurrentBuild } from "../helpers/cli";
 import { GOLDEN_DIR, updateRequested } from "./scenarios";
 
 const SESSION = path.join(__dirname, "interactive-session.ts");
@@ -19,6 +19,7 @@ describe("interactive menu (offline, scripted)", function () {
   this.timeout(60_000);
 
   it("asks, prints and sends what the recorded transcript holds", () => {
+    requireCurrentBuild(); // the session runs dist/
     const run = spawnSync(process.execPath, ["--import", "tsx", SESSION], {
       cwd: REPO_ROOT,
       // colours on, so that the styling of every question is compared; an unreachable node, should a stub not apply

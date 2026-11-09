@@ -1,9 +1,7 @@
 import * as pty from "node-pty";
 import path from "path";
 import fs from "fs";
-
-const REPO_ROOT = path.resolve(__dirname, "..", "..");
-const CLI_ENTRY = path.join(REPO_ROOT, "dist", "run.js");
+import { CLI_ENTRY, REPO_ROOT, requireCurrentBuild } from "../helpers/cli";
 
 // pnpm sometimes strips the execute bit from prebuilt native binaries
 // during extraction. node-pty's spawn-helper needs to be executable for
@@ -48,6 +46,7 @@ export interface InteractiveSession {
 }
 
 export function spawnInteractive(args: string[] = ["interactive"], cwd: string = REPO_ROOT): InteractiveSession {
+  requireCurrentBuild();
   ensureSpawnHelperExecutable();
   // Spawn node directly with the compiled entry point (rather than the bin
   // shell-script wrapper) so node-pty doesn't have to resolve a shebang.
