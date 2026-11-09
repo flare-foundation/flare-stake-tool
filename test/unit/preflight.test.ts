@@ -86,6 +86,16 @@ describe("the node's network, checked before any request is built", () => {
 });
 
 describe("checks before a P-chain request is built", () => {
+  // the fixtures' stakes end at PERIOD_END, and the checks compare them with the clock: it is set to a time they run,
+  // whatever the date (with the real clock, the three-node limit had no stakes to count from 2027-01-16)
+  const realNow = Date.now;
+  beforeEach(() => {
+    Date.now = () => (PERIOD_END - 60 * 86_400) * 1000;
+  });
+  afterEach(() => {
+    Date.now = realNow;
+  });
+
   it("refuses a delegation to a node that is not a current validator", async () => {
     const req: TxRequest = {
       type: "delegate",
