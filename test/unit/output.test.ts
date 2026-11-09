@@ -302,6 +302,45 @@ describe("output: what is printed", () => {
     }
   });
 
+  it("info validators prints the header and the JSON on stdout, and an auto-renewed validator's summary on stderr", async () => {
+    const validator = {
+      txID: "tx",
+      nodeID: "NodeID-auto",
+      startTime: "1700000000",
+      endTime: "1800000000",
+      validatorAuthority: { locktime: "0", threshold: "1", addresses: ["P-localflare1authority"] },
+      nextPeriod: "1209600",
+      autoCompoundRewardShares: "500000",
+    };
+    const server = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk: Buffer) => (body += chunk.toString()));
+      req.on("end", () => {
+        const { id, method } = JSON.parse(body) as { id: number; method: string };
+        const result = method === "info.getNetworkID" ? { networkID: "162" } : { validators: [validator] };
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ jsonrpc: "2.0", id, result }));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const cwd = makeTempDir("output-test-");
+    try {
+      const result = await runCliAsync(["info", "validators", "--network", "localflare", "--rpc-url", url], { cwd });
+      expect(result.exitCode, result.stderr).to.equal(0);
+      const [header, ...json] = result.stdout.trimEnd().split("\n");
+      expect(header).to.equal('Validators on the network "localflare"');
+      expect(JSON.parse(json.join("\n"))).to.deep.equal([validator]);
+      expect(result.stderr).to.include(
+        "NodeID-auto: auto-renewed: cycle ends 2027-01-15T08:00:00.000Z, next period 1209600s, " +
+          "authority P-localflare1authority, auto-compound 50%"
+      );
+    } finally {
+      cleanupTempDir(cwd);
+      server.close();
+    }
+  });
+
   it("does not show an API key that a node repeats in a result (info validators)", async () => {
     const key = "SYNTHETIC-REFLECTED-KEY-0042";
     const server = http.createServer((req, res) => {

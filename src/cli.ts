@@ -513,9 +513,10 @@ async function info(type: string, options: GlobalOptions): Promise<void> {
     const validators = await getValidators(env);
     logInfo(`Validators on the network "${env.network.name}"`);
     log(JSON.stringify(validators, null, 2));
+    // on stderr, so that stdout stays the header and the JSON, as 4.4.0 printed it
     for (const validator of validators) {
       const summary = describeAutoRenewal(validator);
-      if (summary) log(`${validator.nodeID}: ${summary}`);
+      if (summary) logProgress(`${validator.nodeID}: ${summary}`);
     }
     return;
   }
