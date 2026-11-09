@@ -94,7 +94,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * The shortcuts (`balance`, `exportCP`, …) and `interactive` work after global options, as in `--network costwo balance`.
   * `--derivation-path` without `--ledger`, which nothing reads, gets a warning.
   * An unknown `--network` is refused with the networks listed, and an end or start time that is neither a unix time nor a duration says so ("use seconds" read as a time gave a 1970 date).
-  * `<command> --help` lists the global options (`--network`, `--ledger`, the C-chain fee options, …) after its own; a command refuses those it doesn't use.
+  * `<command> --help` lists the global options (`--network`, `--ledger`, the C-chain fee options, …) after its own. The C-chain fee options are refused wherever they are unused, and `interactive` refuses the account and network options (see Breaking changes); the others are accepted where unused, such as `--get-hacked` for `init-ctx`.
   * `-i <id>` given before a command (`-i myid exportCP …`) says that `-i` there starts interactive mode and that the id goes after the command, instead of reporting the command's first option as unknown.
   * An end time that is not in the future gets a warning (`-e 1209600` is a unix time, not 14 days).
   * A BLS key or signature that is not a point of its curve, or is its point at infinity, or a signature that is not the key's proof of possession (key and signature copied from two nodes), is refused when parsed, naming the option; flarejs failed at build time with "Cannot find square root", and the node refused a mismatched pair.
