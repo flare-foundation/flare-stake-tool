@@ -4,6 +4,7 @@
  * or durations, percentages as decimals. Nothing here talks to a node or a
  * signer.
  */
+import { bls } from "@flarenetwork/flarejs";
 import { getBytes } from "ethers";
 import { decodeCb58 } from "../chain/keys";
 import { isDurationInput, parseEndTime } from "../chain/units";
@@ -43,7 +44,9 @@ const BLS_LENGTHS = { publicKey: 48, signature: 96 } as const;
 
 /**
  * Parses the hex (0x optional) of a node's BLS public key or proof-of-possession
- * signature and checks its length, for the command line and the interactive menu.
+ * signature and checks its length and that it is a point of its curve group, for
+ * the command line and the interactive menu: flarejs failed only at build time,
+ * with "Cannot find square root".
  */
 export function parseBlsHex(value: string, part: keyof typeof BLS_LENGTHS): Uint8Array {
   const label = part === "publicKey" ? "BLS public key (--pop-bls-public-key)" : "BLS signature (--pop-bls-signature)";
@@ -57,7 +60,28 @@ export function parseBlsHex(value: string, part: keyof typeof BLS_LENGTHS): Uint
   if (bytes.length !== BLS_LENGTHS[part]) {
     throw new Error(`${label} must be ${BLS_LENGTHS[part]} bytes, got ${bytes.length}`);
   }
+  try {
+    if (part === "publicKey") bls.publicKeyFromBytes(bytes);
+    else bls.signatureFromBytes(bytes);
+  } catch {
+    throw new Error(`${label} is not a valid BLS ${part === "publicKey" ? "key" : "signature"}; ${COPY_FROM_NODE}`);
+  }
   return bytes;
+}
+
+const COPY_FROM_NODE = "copy it from the node's info.getNodeID";
+
+/**
+ * Refuses a BLS signature that is not the proof of possession of the public key, as the P-chain does: a key and a
+ * signature copied from two nodes were refused only by the node.
+ */
+export function checkProofOfPossession(publicKey: Uint8Array, signature: Uint8Array): void {
+  if (!bls.verifyProofOfPossession(bls.publicKeyFromBytes(publicKey), bls.signatureFromBytes(signature), publicKey)) {
+    throw new Error(
+      "The BLS signature (--pop-bls-signature) is not the proof of possession of the BLS public key " +
+        "(--pop-bls-public-key); copy both from the same node's info.getNodeID"
+    );
+  }
 }
 
 const NODE_ID_PREFIX = "NodeID-";

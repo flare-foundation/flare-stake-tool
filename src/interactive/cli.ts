@@ -214,7 +214,7 @@ async function askStake(): Promise<TxRequest> {
   const endTime = await askEndTime();
   const fee = await prompts.delegationFee();
   const popBLSPublicKey = await prompts.popBLSPublicKey();
-  const popBLSSignature = await prompts.popBLSSignature();
+  const popBLSSignature = await prompts.popBLSSignature(popBLSPublicKey);
   return {
     type: "stake",
     nodeId: id,
@@ -239,7 +239,7 @@ async function askAutoRenewedValidator(): Promise<TxRequest> {
   const period = await prompts.period("add");
   const fee = await prompts.delegationFee();
   const popBLSPublicKey = await prompts.popBLSPublicKey();
-  const popBLSSignature = await prompts.popBLSSignature();
+  const popBLSSignature = await prompts.popBLSSignature(popBLSPublicKey);
   return {
     type: "addAutoRenewedValidator",
     nodeId: id,

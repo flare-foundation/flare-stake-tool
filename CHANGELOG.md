@@ -87,7 +87,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * A new Ledger context is saved only after the device has shown the chosen address and the user approved it, as with `init-ctx --ledger`. The listed addresses come from keys the host received, so a substituted key was saved and later trusted without the device ever showing it.
   * A failed action or wallet connection no longer ends the session, and the wallet menu has a Quit entry.
   * Ctrl-C at a question, or Ctrl-D on an empty answer (the end of input), ends the session with exit code 130 instead of 0, so a script sees it was cancelled; Ctrl-D also printed a stack trace. Quit still exits with 0.
-  * Invalid amounts, fees, periods, end times, delegation fees, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again; a delegation fee of `10%` used to fail only after both BLS values were entered. The delegation fee prompt says that Enter accepts 20%.
+  * Invalid amounts, fees, periods, end times, delegation fees, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again (a BLS key or signature that is not a point of its curve, or a signature that is another key's proof of possession, too); a delegation fee of `10%` used to fail only after both BLS values were entered. The delegation fee prompt says that Enter accepts 20%.
   * `interactive --help` prints help instead of starting a session, and a bad node URL is reported before the banner.
 * Command line:
   * Transactions, `send` and `forDefi sign` print `Using network: …` on stderr (4.4.0 printed it on stdout, for every command). Without `--network` and a context file, every command warns that it uses Flare.
@@ -95,6 +95,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `<command> --help` lists the global options the command takes (`--network`, `--ledger`, the C-chain fee options, …) after its own.
   * `-i <id>` given before a command (`-i myid exportCP …`) says that `-i` there starts interactive mode and that the id goes after the command, instead of reporting the command's first option as unknown.
   * An end time that is not in the future gets a warning (`-e 1209600` is a unix time, not 14 days).
+  * A BLS key or signature that is not a point of its curve, or a signature that is not the key's proof of possession (key and signature copied from two nodes), is refused when parsed, naming the option; flarejs failed at build time with "Cannot find square root", and the node refused a mismatched pair.
   * A start or end time that looks like milliseconds (`-e 1700000000000`, the year 55840 as seconds) gets a warning, on the command line and in interactive mode.
   * An unknown `info`, `transaction` or `forDefi` type is refused with the allowed ones listed (also in `--help`), and a missing or invalid transaction option is reported before the signer, so `delegate` without `--node-id` says so instead of asking for `-i`.
   * A failed node request names its cause and the node, as in `fetch failed (connect ECONNREFUSED …; node http://…)`, instead of only `fetch failed`. URL credentials and the API key are masked in every error.

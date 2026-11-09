@@ -13,6 +13,7 @@ import { markSentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../s
 import { readGolden } from "../characterization/scenarios";
 import { cleanupTempDir, makeTempDir, runCli, writeEnvFile } from "../helpers/cli";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED, signMessageHash } from "../helpers/keys";
+import { NODE_A_POP, NODE_B_POP } from "../helpers/bls";
 import { version } from "../../package.json";
 
 /** Nothing listens here, so a command that gets as far as the node fails fast. */
@@ -233,9 +234,34 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stdout).to.not.include("Warning");
   });
 
+  it("refuses a BLS key and signature of two nodes before anything is built", () => {
+    const result = runCli(
+      [
+        "stake",
+        "-n",
+        NODE_ID,
+        "-a",
+        "10000",
+        "-e",
+        "14d",
+        "--pop-bls-public-key",
+        NODE_A_POP.publicKey,
+        "--pop-bls-signature",
+        NODE_B_POP.signature,
+        "-i",
+        "t1",
+        "--network",
+        "costwo",
+      ],
+      { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } }
+    );
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.include("is not the proof of possession of the BLS public key");
+  });
+
   it("refuses a mistyped --node-id before anything is built", () => {
     expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
-    const bls = ["--pop-bls-public-key", "ab".repeat(48), "--pop-bls-signature", "cd".repeat(96)];
+    const bls = ["--pop-bls-public-key", NODE_A_POP.publicKey, "--pop-bls-signature", NODE_A_POP.signature];
     const mistyped = `${NODE_ID.slice(0, -1)}Y`;
     const result = runCli(
       ["stake", "-n", mistyped, "-a", "10000", "-e", "14d", ...bls, "-i", "t1", "--network", "costwo"],
@@ -259,7 +285,7 @@ describe("CLI errors (built CLI, no node)", function () {
 
   it("refuses a time or period the chain can't hold, rather than building a malformed transaction or crashing", () => {
     expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
-    const bls = ["--pop-bls-public-key", "ab".repeat(48), "--pop-bls-signature", "cd".repeat(96)];
+    const bls = ["--pop-bls-public-key", NODE_A_POP.publicKey, "--pop-bls-signature", NODE_A_POP.signature];
     for (const [args, message] of [
       [["delegate", "-n", NODE_ID, "-a", "1", "-e", "15000000w"], 'Invalid time "15000000w"'], // was a RangeError
       [["delegate", "-n", NODE_ID, "-a", "1", "-e", "18446744073709551621"], 'Invalid time "18446744073709551621"'],

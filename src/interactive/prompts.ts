@@ -3,7 +3,7 @@ import inquirer from "inquirer";
 import { pChainAddressBytes } from "../chain/keys";
 import type { NetworkName } from "../chain/network";
 import { parseDuration, parseEndTime, parseFlr, parseFlrToWei, parsePercentToShares } from "../chain/units";
-import { DEFAULT_DELEGATION_FEE_PERCENT, parseBlsHex, parseNodeId } from "../cli/inputs";
+import { DEFAULT_DELEGATION_FEE_PERCENT, checkProofOfPossession, parseBlsHex, parseNodeId } from "../cli/inputs";
 import {
   derivationModeConstants,
   networkConstants,
@@ -207,9 +207,13 @@ export const prompts = {
       validate: (value) => validationOf(() => parseBlsHex(value, "publicKey")),
     }),
 
-  popBLSSignature: (): Promise<string> =>
+  // the signature must be the proof of possession of the key entered before it
+  popBLSSignature: (publicKey: string): Promise<string> =>
     input(ask("Please enter the popBLSSignature:"), {
-      validate: (value) => validationOf(() => parseBlsHex(value, "signature")),
+      validate: (value) =>
+        validationOf(() =>
+          checkProofOfPossession(parseBlsHex(publicKey, "publicKey"), parseBlsHex(value, "signature"))
+        ),
     }),
 
   transferAddress: (hrp: string): Promise<string> =>

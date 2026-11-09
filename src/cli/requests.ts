@@ -22,6 +22,7 @@ import {
   START_TIME,
   optionValue,
   optionalString,
+  checkProofOfPossession,
   parseBlsHex,
   parseNodeId,
   parseNonce,
@@ -191,16 +192,18 @@ export function parseAtomicTxRequest(
   };
   const shares = (): number =>
     parsePercentToShares(optionValue(options.delegationFee, "--delegation-fee") ?? DEFAULT_DELEGATION_FEE_PERCENT);
-  const bls = () => ({
-    blsPublicKey: parseBlsHex(
+  const bls = () => {
+    const blsPublicKey = parseBlsHex(
       required(options.popBlsPublicKey, "popBlsPublicKey", "--pop-bls-public-key <popBlsPublicKey>", type),
       "publicKey"
-    ),
-    blsSignature: parseBlsHex(
+    );
+    const blsSignature = parseBlsHex(
       required(options.popBlsSignature, "popBlsSignature", "--pop-bls-signature <popBlsSignature>", type),
       "signature"
-    ),
-  });
+    );
+    checkProofOfPossession(blsPublicKey, blsSignature);
+    return { blsPublicKey, blsSignature };
+  };
   const period = (): bigint => parseDuration(required(options.period, "period", "--period <seconds|duration>", type));
 
   let request: TxRequest;

@@ -8,6 +8,7 @@ import {
   endTimeWarnings,
   evmFeeOverrides,
   millisecondsWarning,
+  checkProofOfPossession,
   parseBlsHex,
   parseNodeId,
   parseNonce,
@@ -24,6 +25,7 @@ import {
 import { FAKE_LEDGER_KEY_ENV } from "../../src/signers/ledger";
 import { cleanupTempDir, makeTempDir, writeEnvFile } from "../helpers/cli";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
+import { NODE_A_POP, NODE_B_POP } from "../helpers/bls";
 
 const TO = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC";
 const NODE_ID = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
@@ -61,8 +63,8 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       endTime: ["--end-time", "1900086400", "1900086401"],
       nonce: ["--nonce", "1", "2"],
       delegationFee: ["--delegation-fee", "10", "12"],
-      popBlsPublicKey: ["--pop-bls-public-key", "a1".repeat(48), "a2".repeat(48)],
-      popBlsSignature: ["--pop-bls-signature", "b1".repeat(96), "b2".repeat(96)],
+      popBlsPublicKey: ["--pop-bls-public-key", NODE_A_POP.publicKey, NODE_B_POP.publicKey],
+      popBlsSignature: ["--pop-bls-signature", NODE_A_POP.signature, NODE_B_POP.signature],
       transferAddress: ["--transfer-address", "P-costwo1a", "P-costwo1b"],
       period: ["--period", "14d", "7d"],
       autoCompoundShares: ["--auto-compound-shares", "0", "5"],
@@ -91,7 +93,11 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         const read = Object.entries(VALUES)
           .filter(([key, [, first, other]]) => {
             const value = key in base ? other : first;
-            return request({ ...base, [key]: value }) !== request(base);
+            try {
+              return request({ ...base, [key]: value }) !== request(base);
+            } catch {
+              return true; // refused: read (a BLS key alone, without its signature, is no proof of possession)
+            }
           })
           .map(([, [flag]]) => flag);
         expect([...read].sort(), type).to.deep.equal([...ATOMIC_TX_OPTIONS[type]!].sort());
@@ -119,7 +125,7 @@ describe("cli/inputs, cli/requests and cli/options", () => {
     const empty = (flag: string): string => `Option ${flag} is empty; leave it out to use the default`;
 
     it("is refused where leaving the option out means a default, so an unset shell variable can't pick it", () => {
-      const bls = { popBlsPublicKey: "ab".repeat(48), popBlsSignature: "cd".repeat(96) };
+      const bls = { popBlsPublicKey: NODE_A_POP.publicKey, popBlsSignature: NODE_A_POP.signature };
       const stake = { nodeId: NODE_ID, amount: "10000", endTime: "14d", ...bls };
       const atomic: [string, Record<string, string>, string][] = [
         ["exportPC", { amount: "" }, "--amount"], // would export the whole balance
@@ -179,13 +185,33 @@ describe("cli/inputs, cli/requests and cli/options", () => {
   });
 
   describe("parseBlsHex", () => {
-    const key = "ab".repeat(48);
-    const signature = "cd".repeat(96);
+    const key = NODE_A_POP.publicKey.slice(2);
+    const signature = NODE_A_POP.signature.slice(2);
 
     it("accepts a 48-byte public key and a 96-byte signature, with or without 0x", () => {
       expect(parseBlsHex(key, "publicKey")).to.have.length(48);
       expect(parseBlsHex(`0x${key}`, "publicKey")).to.deep.equal(parseBlsHex(key, "publicKey"));
       expect(parseBlsHex(` 0x${signature} `, "signature")).to.have.length(96);
+    });
+
+    it("refuses a key or signature that is not a point, and a signature that is another key's proof", () => {
+      // one hex digit changed, as a typo: flarejs failed at build time with "Cannot find square root"
+      const typo = (hex: string) => `${hex.slice(0, 10)}${hex[10] === "a" ? "b" : "a"}${hex.slice(11)}`;
+      expect(() => parseBlsHex(typo(key), "publicKey")).to.throw(
+        "BLS public key (--pop-bls-public-key) is not a valid BLS key; copy it from the node's info.getNodeID"
+      );
+      expect(() => parseBlsHex("ab".repeat(48), "publicKey")).to.throw(/is not a valid BLS key/);
+      expect(() => parseBlsHex(typo(signature), "signature")).to.throw(
+        "BLS signature (--pop-bls-signature) is not a valid BLS signature; copy it from the node's info.getNodeID"
+      );
+      const pop = (p: { publicKey: string; signature: string }) =>
+        [parseBlsHex(p.publicKey, "publicKey"), parseBlsHex(p.signature, "signature")] as const;
+      expect(() => checkProofOfPossession(...pop(NODE_A_POP))).not.to.throw();
+      expect(() => checkProofOfPossession(...pop(NODE_B_POP))).not.to.throw();
+      expect(() => checkProofOfPossession(pop(NODE_A_POP)[0], pop(NODE_B_POP)[1])).to.throw(
+        "The BLS signature (--pop-bls-signature) is not the proof of possession of the BLS public key " +
+          "(--pop-bls-public-key); copy both from the same node's info.getNodeID"
+      );
     });
 
     it("refuses non-hex input and wrong lengths, which used to slip through the interactive menu", () => {
@@ -229,7 +255,7 @@ describe("cli/inputs, cli/requests and cli/options", () => {
     it("is checked by every transaction that takes --node-id", () => {
       const mistyped = `${NODE_ID.slice(0, -1)}Y`;
       const common = { nodeId: mistyped, amount: "10000", endTime: "14d", period: "14d" };
-      const bls = { popBlsPublicKey: "ab".repeat(48), popBlsSignature: "cd".repeat(96) };
+      const bls = { popBlsPublicKey: NODE_A_POP.publicKey, popBlsSignature: NODE_A_POP.signature };
       for (const type of ["stake", "delegate", "addAutoRenewedValidator", "setAutoRenewedValidatorConfig"]) {
         expect(() => parseAtomicTxRequest(type, { ...common, ...bls }), type).to.throw(BAD_CHECKSUM);
       }
@@ -244,8 +270,8 @@ describe("cli/inputs, cli/requests and cli/options", () => {
           amount: "10000",
           endTime: "1900086400",
           startTime: "0",
-          popBlsPublicKey: "ab".repeat(48),
-          popBlsSignature: "cd".repeat(96),
+          popBlsPublicKey: NODE_A_POP.publicKey,
+          popBlsSignature: NODE_A_POP.signature,
         };
         const { request, resolvedTimes } = parseAtomicTxRequest(type, options);
         expect(request, type).to.include({ startTime: undefined });
@@ -295,7 +321,7 @@ describe("cli/inputs, cli/requests and cli/options", () => {
   });
 
   describe("refused requests", () => {
-    const BLS = { popBlsPublicKey: "0x" + "a1".repeat(48), popBlsSignature: "0x" + "b2".repeat(96) };
+    const BLS = { popBlsPublicKey: NODE_A_POP.publicKey, popBlsSignature: NODE_A_POP.signature };
 
     it("names the missing option and its flag", () => {
       expect(() => parseAtomicTxRequest("delegate", { amount: "1", endTime: "14d" })).to.throw(

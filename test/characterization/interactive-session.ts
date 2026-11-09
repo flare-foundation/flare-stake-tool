@@ -33,6 +33,7 @@ import type * as LedgerSignerModule from "../../src/signers/ledger";
 import type { LedgerDevice } from "../../src/signers/ledger";
 import { SigningKey, computeAddress, keccak256, toUtf8Bytes } from "ethers";
 import { EWOQ_P_ADDRESS, EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
+import { NODE_A_POP, NODE_B_POP } from "../helpers/bls";
 
 const DIST = path.resolve(__dirname, "..", "..", "dist");
 const load = createRequire(__filename);
@@ -335,8 +336,8 @@ const PRIVATE_KEY = ["Private Key", "pk", "LocalHost"];
 /** The answer to "Sign and send this transaction?", asked after the summary of each built transaction. */
 const SIGN = true;
 const P_ADDRESS = EWOQ_P_ADDRESS;
-const BLS_PUBLIC_KEY = "0x" + "a1".repeat(48);
-const BLS_SIGNATURE = "0x" + "b2".repeat(96);
+const BLS_PUBLIC_KEY = NODE_A_POP.publicKey;
+const BLS_SIGNATURE = NODE_A_POP.signature;
 // node ids with valid checksums (the prompt refuses others), and one with its last character mistyped
 const NODE_X = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
 const NODE_Y = "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu";
@@ -371,7 +372,7 @@ const SCENARIOS: Scenario[] = [
       TASK.import, "P", SIGN,
       TASK.import, "C", "0.5", SIGN,
       TASK.transfer, "1.5", P_ADDRESS, SIGN,
-      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE, SIGN,
+      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", NODE_B_POP.signature, BLS_SIGNATURE, SIGN,
       TASK.delegate, "50", NODE_X, "1700000000", SIGN,
       TASK.addARV, "10000", NODE_Y, "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE, SIGN,
       TASK.setARV, NODE_Y, "0", false,

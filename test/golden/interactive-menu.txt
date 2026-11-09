@@ -184,11 +184,13 @@ TX {"type":"transfer","amount":"1500000000n","to":"P-localflare18jma8ppw3nhx5r4a
 ? input "\u001b[35mPlease enter the popBLSPublicKey:\u001b[39m"
 > "zz"
   ! BLS public key (--pop-bls-public-key) must be a hex string
-> "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+> "0x83a2f6ccaae3ab909f68cdd2da7d41843aa6723fb24202f65a4b3048eb20e065c30aad5b290e8238a7155a440fde780b"
 ? input "\u001b[35mPlease enter the popBLSSignature:\u001b[39m"
 > "zz"
   ! BLS signature (--pop-bls-signature) must be a hex string
-> "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+> "0xb9a3b3cf09f987cd314551bde2c7a1182210d91af36689e5ac31a213e5c5e9c66dc2abd83959b8204264919e2456652f17fc3eed88469a06212787f12ea400977c6319ce2157b5d816000fd19c64dfd55a94e64b49f993664e69f23cf1acf51d"
+  ! The BLS signature (--pop-bls-signature) is not the proof of possession of the BLS public key (--pop-bls-public-key); copy both from the same node's info.getNodeID
+> "0x99e3394f0a161167879218a180d1efe3f571a119b02ecc44334fd8aefd561e7c938d85e7b288c3d92ddb94b7983b56a811ce43a876985278e08039865c952aeba3f1ff31fa8642d4ed2e94cda4e6696c5bc411f8f2bf93928e5b9c7e55ad6cb7"
 [log] About to sign stake on localflare:
 [log]   Account: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC / P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
 [log]   Amount: 10000 LFLR
@@ -198,7 +200,7 @@ TX {"type":"transfer","amount":"1500000000n","to":"P-localflare18jma8ppw3nhx5r4a
 [log]   Fee: 0.001234 LFLR
 ? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
 > true
-TX {"type":"stake","nodeId":"NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ","amount":"10000000000000n","endTime":"1800172800n","delegationFeeShares":200000,"blsPublicKey":"0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","blsSignature":"0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"} signer=privateKey
+TX {"type":"stake","nodeId":"NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ","amount":"10000000000000n","endTime":"1800172800n","delegationFeeShares":200000,"blsPublicKey":"0x83a2f6ccaae3ab909f68cdd2da7d41843aa6723fb24202f65a4b3048eb20e065c30aad5b290e8238a7155a440fde780b","blsSignature":"0x99e3394f0a161167879218a180d1efe3f571a119b02ecc44334fd8aefd561e7c938d85e7b288c3d92ddb94b7983b56a811ce43a876985278e08039865c952aeba3f1ff31fa8642d4ed2e94cda4e6696c5bc411f8f2bf93928e5b9c7e55ad6cb7"} signer=privateKey
 [log] [32mTransaction with hash tx10 built and sent to the network[39m
 [log] [34mFee paid: 0.001234 LFLR[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
@@ -234,9 +236,9 @@ TX {"type":"delegate","nodeId":"NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ","amoun
 ? input "\u001b[35mEnter delegation fee\u001b[39m \u001b[33m(E.g. 10; Enter accepts 20%)\u001b[39m\u001b[35m:\u001b[39m"
 > "15"
 ? input "\u001b[35mPlease enter the popBLSPublicKey:\u001b[39m"
-> "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+> "0x83a2f6ccaae3ab909f68cdd2da7d41843aa6723fb24202f65a4b3048eb20e065c30aad5b290e8238a7155a440fde780b"
 ? input "\u001b[35mPlease enter the popBLSSignature:\u001b[39m"
-> "0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+> "0x99e3394f0a161167879218a180d1efe3f571a119b02ecc44334fd8aefd561e7c938d85e7b288c3d92ddb94b7983b56a811ce43a876985278e08039865c952aeba3f1ff31fa8642d4ed2e94cda4e6696c5bc411f8f2bf93928e5b9c7e55ad6cb7"
 [log] About to sign addAutoRenewedValidator on localflare:
 [log]   Account: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC / P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v
 [log]   Amount: 10000 LFLR
@@ -246,7 +248,7 @@ TX {"type":"delegate","nodeId":"NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ","amoun
 [log]   Fee: 0.001234 LFLR
 ? confirm "\u001b[35mSign and send this transaction?\u001b[39m" default=false
 > true
-TX {"type":"addAutoRenewedValidator","nodeId":"NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu","amount":"10000000000000n","period":"1209600n","delegationFeeShares":150000,"blsPublicKey":"0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1","blsSignature":"0xb2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"} signer=privateKey
+TX {"type":"addAutoRenewedValidator","nodeId":"NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu","amount":"10000000000000n","period":"1209600n","delegationFeeShares":150000,"blsPublicKey":"0x83a2f6ccaae3ab909f68cdd2da7d41843aa6723fb24202f65a4b3048eb20e065c30aad5b290e8238a7155a440fde780b","blsSignature":"0x99e3394f0a161167879218a180d1efe3f571a119b02ecc44334fd8aefd561e7c938d85e7b288c3d92ddb94b7983b56a811ce43a876985278e08039865c952aeba3f1ff31fa8642d4ed2e94cda4e6696c5bc411f8f2bf93928e5b9c7e55ad6cb7"} signer=privateKey
 [log] [32mTransaction with hash tx12 built and sent to the network[39m
 [log] [34mFee paid: 0.001234 LFLR[39m
 ? list "\u001b[35mWhat do you want to do?\u001b[39m" choices=["View chain addresses","Check on-chain balance","Get validator info","Move assets from C-chain to P-chain","Move assets from P-chain to C-chain","Add a validator node","Delegate to a validator node","Import Funds (in case export fails for either P chain or C chain)","Transfer funds to another P-chain address","Claim staking rewards","Add an auto-renewed validator node","Change the auto-renew period of a validator node","Quit"]
