@@ -365,6 +365,15 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(info.exitCode, info.stderr).to.equal(0);
     expect(info.stderr).to.include(fallback);
     expect(info.stdout).to.include('Addresses on the network "flare"');
+    // init-ctx writes a context every later command takes its network from; to a --ctx-file that doesn't exist yet too
+    for (const file of ["ctx.json", "other.json"]) {
+      const initCtx = runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--ctx-file", file], { cwd });
+      expect(initCtx.exitCode, initCtx.stderr).to.equal(0);
+      expect(initCtx.stderr, file).to.include(fallback);
+      expect(JSON.parse(fs.readFileSync(path.join(cwd, file), "utf8"))).to.include({ network: "flare" });
+    }
+    // a context file there gives the network: no warning
+    expect(runCli(["info", "addresses", "--env-path", envPath], { cwd }).stderr).not.to.include(fallback);
   });
 
   it("refuses -i with --get-hacked or --ledger on the four C-chain commands that wrote a file in 4.x, before signing", () => {

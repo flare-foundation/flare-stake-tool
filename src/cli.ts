@@ -11,7 +11,15 @@ import { DEFAULT_NETWORK, NETWORK_NAMES, networkConfig, overriddenNode } from ".
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES, type Env } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
-import { createEnv, readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
+import {
+  DEFAULT_CTX_FILE,
+  contextFileExists,
+  createEnv,
+  readContextFile,
+  resolveNetworkName,
+  writeContextFile,
+  type ContextFile,
+} from "./app/env";
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
 import { describeAutoRenewal, getBalances, getValidators } from "./app/info";
 import { sendSignedTransaction } from "./app/send";
@@ -307,8 +315,9 @@ function announceNetwork(env: Env, options: GlobalOptions): void {
   warnOnDefaultNetwork(options);
 }
 
+/** Warns when resolveNetworkName falls back to Flare: no --network, and no context file to take the network from. */
 function warnOnDefaultNetwork(options: GlobalOptions): void {
-  if (options.network === undefined && !contextFileApplies(options)) {
+  if (options.network === undefined && !contextFileExists(options.ctxFile ?? DEFAULT_CTX_FILE)) {
     logWarning(`No --network was given and there is no context file: using ${DEFAULT_NETWORK}`);
   }
 }
@@ -444,6 +453,7 @@ async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
     throw new Error("init-ctx takes --ledger or --public-key, not both");
   }
   const network = resolveNetworkName(options.network, options.ctxFile);
+  warnOnDefaultNetwork(options); // the context written then takes Flare for every later command
   const env = createEnv(network, nodeOverrides(options)); // not resolveEnv: --ctx-file is the file to write
   const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;
   let context: ContextFile;
