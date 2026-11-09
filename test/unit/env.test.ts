@@ -135,7 +135,9 @@ describe("app/env context file", () => {
     });
 
     it("refuses an unknown --network, and a context file without a network", () => {
-      expect(() => resolveNetworkName("mainnet", file)).to.throw('Unknown network "mainnet"');
+      expect(() => resolveNetworkName("mainnet", file)).to.throw(
+        'Unknown network "mainnet"; expected one of flare, songbird, costwo, coston, localflare'
+      );
       fs.writeFileSync(file, JSON.stringify({ wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED }));
       expect(() => resolveNetworkName(undefined, file)).to.throw(
         `Context file ${file} is missing publicKey or network`

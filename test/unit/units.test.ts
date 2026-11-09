@@ -153,6 +153,10 @@ describe("chain/units", () => {
     it("rejects ascending order, fractions, unknown units, repeats and empty input", () => {
       for (const bad of ["2h2d", "1.5d", "3mo", "1h1h", "", "d", "2d 12h", "-1d"]) {
         expect(() => parseDuration(bad), bad).to.throw(/Invalid duration/);
+        // an end or start time: a plain number is a unix time, so the error doesn't say "use seconds"
+        expect(() => parseEndTime(bad), bad).to.throw(
+          `Invalid time "${bad}": use a unix time in seconds, or a duration from now such as 2d12h or 90m`
+        );
       }
     });
 

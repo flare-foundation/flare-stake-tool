@@ -167,6 +167,10 @@ export function formatDuration(seconds: bigint): string {
  */
 export function parseEndTime(input: string, nowMs: () => number = () => Date.now()): bigint {
   const text = input.trim();
+  // a plain number is a unix time here, not seconds from now: "use seconds" would lead to a 1970 date
+  if (!/^\d+$/.test(text) && (text === "" || !DURATION_RE.test(text))) {
+    throw new Error(`Invalid time "${input}": use a unix time in seconds, or a duration from now such as 2d12h or 90m`);
+  }
   const time = /^\d+$/.test(text) ? BigInt(text) : BigInt(Math.floor(nowMs() / 1000)) + parseDuration(text);
   if (time > MAX_TIME_SECONDS) {
     throw new Error(

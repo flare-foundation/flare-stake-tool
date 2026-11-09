@@ -5,6 +5,7 @@ import { createClients } from "../chain/clients";
 import { accountFromPublicKey, type Account } from "../chain/keys";
 import {
   DEFAULT_NETWORK,
+  NETWORK_NAMES,
   insecureApiKeyWarning,
   isNetworkName,
   networkConfig,
@@ -114,7 +115,7 @@ export function accountFromContextFile(context: ContextFile, hrp: string): Accou
 export function resolveNetworkName(explicit: string | undefined, ctxFile: string = DEFAULT_CTX_FILE): string {
   if (explicit !== undefined) {
     if (!isNetworkName(explicit)) {
-      throw new Error(`Unknown network "${explicit}"`);
+      throw new Error(`Unknown network "${explicit}"; expected one of ${NETWORK_NAMES.join(", ")}`);
     }
     return explicit;
   }
