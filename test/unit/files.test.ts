@@ -190,6 +190,26 @@ describe("core/files", () => {
       }
     });
 
+    it("refuses a forDefiHash that is not the transaction's, and accepts the published v4.3.3 one and none", () => {
+      const evm = fileOf("withdrawal-file") as UnsignedEvmTxJson;
+      const otherEvm = fileOf("claim-file") as UnsignedEvmTxJson;
+      for (const [json, own] of [
+        [{ ...delegate, forDefiHash: transfer.forDefiHash }, delegate.forDefiHash],
+        [{ ...evm, forDefiHash: otherEvm.forDefiHash }, evm.forDefiHash],
+      ] as [UnsignedTxJson, string][]) {
+        expect(() => bundleFromConsistentTxJson(json)).to.throw(
+          `The file's forDefiHash ${json.forDefiHash} is not the hash of its transaction (${own}); rebuild the file`
+        );
+      }
+      for (const json of [
+        { ...PUBLISHED_V433_TX, forDefiHash: PUBLISHED_V433_FORDEFI_HASH },
+        { ...delegate, forDefiHash: "" },
+        { ...delegate, forDefiHash: undefined },
+      ]) {
+        expect(() => bundleFromConsistentTxJson(json)).not.to.throw();
+      }
+    });
+
     it("refuses a buffer of another transaction, even when message and serialization agree with each other", () => {
       // transfer's buffer, delegate's serialization and message: the buffer shows one transaction, the hash is another's
       const json = { ...delegate, unsignedTransactionBuffer: transfer.unsignedTransactionBuffer };

@@ -8,6 +8,7 @@ import {
   readSignedTxJson,
   readUnsignedTxJson,
   saveUnsignedTxJson,
+  writeUnsignedTxJson,
   type UnsignedAtomicTxJson,
   type UnsignedEvmTxJson,
 } from "../../src/core/files";
@@ -75,7 +76,10 @@ describe("app/fordefi", () => {
       },
       "POST /api/v1/transactions": { id: "fordefi-tx-42" },
     });
-    expect(await sendToForDefi("tx1", context, fetchImpl)).to.equal("fordefi-tx-42");
+    expect(await sendToForDefi("tx1", context, fetchImpl)).to.deep.equal({
+      forDefiTxId: "fordefi-tx-42",
+      forDefiHash: Buffer.from(unsigned.signatureRequests[0]!.message, "hex").toString("base64"),
+    });
     const post = calls.at(-1)!;
     const body = JSON.parse(post.init.body as string);
     expect(body).to.deep.equal({
@@ -111,6 +115,17 @@ describe("app/fordefi", () => {
     const requests = calls.length;
     expect(await rejectedWith(sendToForDefi("tampered", context, fakeFetch({})))).to.match(
       /^The file's message [0-9a-f]{64} is not the hash of its transaction \([0-9a-f]{64}\); rebuild the file$/
+    );
+    expect(calls.length).to.equal(requests);
+  });
+
+  it("refuses a file whose forDefiHash is not its transaction's, before any request to ForDefi", async () => {
+    const other = readGolden("delegate-file").outcome.unsignedTxJson as UnsignedAtomicTxJson;
+    // written as it is: saving recomputes the hash
+    writeUnsignedTxJson({ ...unsigned, forDefiHash: other.forDefiHash }, "stale-hash");
+    const requests = calls.length;
+    expect(await rejectedWith(sendToForDefi("stale-hash", context, fakeFetch({})))).to.match(
+      /^The file's forDefiHash \S+ is not the hash of its transaction \(\S+\); rebuild the file$/
     );
     expect(calls.length).to.equal(requests);
   });
@@ -157,7 +172,9 @@ describe("app/fordefi", () => {
       { ...unsigned, signatureRequests: [{ ...unsigned.signatureRequests[0]!, signer: "" }] },
       "older"
     );
-    expect(await sendToForDefi("older", context, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED))).to.equal("fordefi-tx-42");
+    expect(await sendToForDefi("older", context, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED))).to.include({
+      forDefiTxId: "fordefi-tx-42",
+    });
   });
 
   it("refuses a vault whose key is another valid key than the context's", async () => {
@@ -170,9 +187,9 @@ describe("app/fordefi", () => {
   it("accepts the context's key uncompressed or with 0x, as the same key as the vault's compressed one", async () => {
     const uncompressed = new SigningKey(`0x${EWOQ_PRIVATE_KEY_HEX}`).publicKey; // 0x04…
     for (const publicKey of [uncompressed, uncompressed.slice(2), `0x${EWOQ_PUBLIC_KEY_COMPRESSED}`]) {
-      expect(await sendToForDefi("tx1", { ...context, publicKey }, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED))).to.equal(
-        "fordefi-tx-42"
-      );
+      expect(await sendToForDefi("tx1", { ...context, publicKey }, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED))).to.include({
+        forDefiTxId: "fordefi-tx-42",
+      });
     }
   });
 

@@ -341,8 +341,9 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
   if (type === "sign") {
     // the network as transactions choose it: --network, else the context's
     const network = networkConfig(resolveNetworkName(options.network, options.ctxFile), {});
-    const forDefiTxId = await sendToForDefi(id, readContextFile(options.ctxFile), fetch, network);
+    const { forDefiTxId, forDefiHash } = await sendToForDefi(id, readContextFile(options.ctxFile), fetch, network);
     logSuccess(`Transaction ${id} sent to ForDefi (ForDefi transaction id ${forDefiTxId})`);
+    logSuccess(`ForDefi hash: ${forDefiHash}`);
   } else if (type === "fetch") {
     if (isAlreadySentToChain(id)) {
       throw new Error("Tx already sent to chain");

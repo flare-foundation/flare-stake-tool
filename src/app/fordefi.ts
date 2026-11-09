@@ -90,16 +90,16 @@ function publicKeyOf(hex: string, whose: string): Uint8Array {
 }
 
 /**
- * Posts the unsigned transaction's hash for signing and records the ForDefi transaction id in the unsigned file. The
- * file must be for `network` (the selected one, by default the context's): a signature is valid on the file's network
- * only.
+ * Posts the unsigned transaction's hash for signing and records the ForDefi transaction id in the unsigned file; returns
+ * that id and the hash posted, to compare with the one printed at build time. The file must be for `network` (the
+ * selected one, by default the context's): a signature is valid on the file's network only.
  */
 export async function sendToForDefi(
   id: string,
   context: ContextFile,
   fetchImpl: FetchLike = fetch,
   network: Pick<NetworkConfig, "name" | "networkId" | "chainId"> = networkConfig(context.network, {})
-): Promise<string> {
+): Promise<{ forDefiTxId: string; forDefiHash: string }> {
   if (!context.vaultId) {
     throw new Error("vaultId not found in context");
   }
@@ -149,7 +149,7 @@ export async function sendToForDefi(
     throw new Error(`ForDefi did not return a transaction id: ${JSON.stringify(json).slice(0, 200)}`);
   }
   writeUnsignedTxJson({ ...unsigned, forDefiTxId: json.id }, id);
-  return json.id;
+  return { forDefiTxId: json.id, forDefiHash: hashBase64 };
 }
 
 /** Fetches the signature of a previously posted transaction and writes the signed file. */

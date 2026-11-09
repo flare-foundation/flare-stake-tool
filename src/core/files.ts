@@ -221,8 +221,10 @@ export function checkFileNetwork(
 /**
  * The bundle of a file whose representations of the transaction agree: the message an external signer signs must be
  * the digest of the transaction in `serialization` (EVM: `rawTx`), and an atomic file's `unsignedTransactionBuffer`,
- * when present, must be that transaction's bytes. Otherwise a file could show one transaction and have another one's
- * hash signed. A file rewritten consistently still passes; co-signers rebuilding it and comparing the hash catch that.
+ * when present, must be that transaction's bytes, and its `forDefiHash`, when present, that digest in base64 (the
+ * value printed at build time for co-signers to compare). Otherwise a file could show one transaction and have another
+ * one's hash signed. A file rewritten consistently still passes; co-signers rebuilding it and comparing the hash catch
+ * that.
  */
 export function bundleFromConsistentTxJson(json: UnsignedTxJson): UnsignedTxBundle {
   const bundle = bundleFromUnsignedTxJson(json);
@@ -231,6 +233,12 @@ export function bundleFromConsistentTxJson(json: UnsignedTxJson): UnsignedTxBund
   if (message !== digest) {
     throw new Error(
       `The file's message ${messageOf(json)} is not the hash of its transaction (${digest}); rebuild the file`
+    );
+  }
+  if (json.forDefiHash && json.forDefiHash !== forDefiHashOf(digest)) {
+    throw new Error(
+      `The file's forDefiHash ${json.forDefiHash} is not the hash of its transaction (${forDefiHashOf(digest)}); ` +
+        "rebuild the file"
     );
   }
   if (bundle.kind === "atomic" && !isEvmTxJson(json) && json.unsignedTransactionBuffer) {
