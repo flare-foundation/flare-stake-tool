@@ -293,6 +293,9 @@ describe("CLI errors (built CLI, no node)", function () {
       [["exportCP", "-a", "1", "-f", "1", "-i", "t1", "--ctx-file", ""], "--ctx-file"],
       [["info", "balance", "--rpc-url", ""], "--rpc-url"],
       [["info", "balance", "--api-key", ""], "--api-key"],
+      // spaces only: the network resolution reads them as no value, so the default node and FLARE_API_KEY were used
+      [["info", "balance", "--rpc-url", " "], "--rpc-url"],
+      [["info", "balance", "--api-key=\t"], "--api-key"],
       [["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--vault-id", "", "--ctx-file", "vault.json"], "--vault-id"],
       [["interactive", "--rpc-url", ""], "--rpc-url"],
     ] as const) {

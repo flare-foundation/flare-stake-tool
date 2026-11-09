@@ -130,6 +130,7 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       const stake = { nodeId: NODE_ID, amount: "10000", endTime: "14d", ...bls };
       const atomic: [string, Record<string, string>, string][] = [
         ["exportPC", { amount: "" }, "--amount"], // would export the whole balance
+        ["exportPC", { amount: "  " }, "--amount"],
         ["exportCP", { amount: "1", fee: "" }, "--fee"],
         ["importPC", { fee: "" }, "--fee"],
         ["exportCP", { amount: "1", nonce: "" }, "--nonce"], // would read the nonce from the chain

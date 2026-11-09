@@ -46,7 +46,7 @@ decimals (nFLR) and at most 18446744073.709551615 FLR (2^64−1 nFLR, also as
 an amount plus its fee); the C-chain amounts of `withdrawal` and `claim` take
 up to 18 decimals (wei). More non-zero decimals are an error rather than being
 cut off.
-An empty value (`-a ""`) is refused for `-a`, `-f`, `--nonce`, `--value`,
+An empty value (`-a ""`, or spaces only) is refused for `-a`, `-f`, `--nonce`, `--value`,
 `--data` (`--data 0x` sends no calldata), `--delegation-fee`, `--auto-compound-shares` and the gas and fee flags, whose
 absence means a default, and for `--env-path`, `--ctx-file`, `--rpc-url`, `--api-key` and `--vault-id`, whose absence
 selects another account, node or key:
