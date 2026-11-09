@@ -66,6 +66,8 @@ function stub<M extends object, K extends keyof M & string>(module: M, name: K, 
 interface Flags {
   /** runTransaction refuses the first request of each of these types. */
   failTx?: string[];
+  /** runTransaction has the node take the first request of each of these types, then fails to read its status. */
+  failAfterIssue?: string[];
   /**
    * Those refusals, and a failure of the first wallet connection, are a node's answer that starts with the API key
    * and fails to parse as JSON (V8 quotes its start), noted with a node URL holding a password: what is printed must
@@ -261,7 +263,7 @@ function builtDetailsOf(request: TxRequest): BuiltDetails {
 }
 
 const transactions = fromDist<typeof TransactionsModule>("app/transactions.js");
-stub(transactions, "runTransaction", async (request, _env, signer, _confirm, beforeSign) => {
+stub(transactions, "runTransaction", async (request, _env, signer, confirm, beforeSign) => {
   await signer.account(); // as runTransaction does before building
   const details = builtDetailsOf(request);
   await beforeSign?.(details); // between building and signing; No throws
@@ -269,6 +271,12 @@ stub(transactions, "runTransaction", async (request, _env, signer, _confirm, bef
   if (flags.failTx?.includes(request.type)) {
     flags.failTx = flags.failTx.filter((type) => type !== request.type);
     throw flags.nodeErrors ? nodeAnswerError() : new Error(`node refused ${request.type}`);
+  }
+  if (flags.failAfterIssue?.includes(request.type)) {
+    flags.failAfterIssue = flags.failAfterIssue.filter((type) => type !== request.type);
+    const txId = `tx${++txCount}`;
+    confirm?.onIssued?.(txId);
+    throw new Error(`Transaction ${txId} was submitted, but its status could not be read: fetch failed`);
   }
   txCount++;
   utxoReads = 0;
@@ -448,6 +456,12 @@ const SCENARIOS: Scenario[] = [
     name: "private key: a failed export is not imported",
     flags: { failTx: ["exportCP", "exportPC"] },
     script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, TASK.PC, "1", SIGN, TASK.quit],
+  },
+  {
+    // an import the node took may still land: the funds wait only if it does not
+    name: "private key: an import submitted but not confirmed",
+    flags: { failAfterIssue: ["importCP", "importPC"] },
+    script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, SIGN, TASK.PC, "1", SIGN, "", SIGN, TASK.quit],
   },
   {
     // the error, and that the export was sent and its funds wait for "Import Funds"

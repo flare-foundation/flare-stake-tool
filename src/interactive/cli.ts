@@ -196,12 +196,16 @@ class SigningDeclined extends Error {
  * Builds, signs and sends a transaction, and reports it as the command line does. What is about to be signed is shown
  * first, read from the built transaction, and signed only when the user confirms; No is the default.
  */
-async function execute(session: Session, request: TxRequest): Promise<Outcome> {
+async function execute(session: Session, request: TxRequest, onIssued?: (txId: string) => void): Promise<Outcome> {
   const confirmSigning = async (details: BuiltDetails): Promise<void> => {
     for (const line of signingSummary(request, details, session.account, session.env.network)) log(line);
     if (!(await prompts.confirmSigning())) throw new SigningDeclined();
   };
-  const outcome = await runTransaction(request, session.env, session.signer, { onIssued: logIssued }, confirmSigning);
+  const issued = (txId: string): void => {
+    logIssued(txId);
+    onIssued?.(txId);
+  };
+  const outcome = await runTransaction(request, session.env, session.signer, { onIssued: issued }, confirmSigning);
   reportOutcome(outcome, session.env.network.symbol);
   return outcome;
 }
@@ -305,10 +309,10 @@ async function moveCP(session: Session): Promise<void> {
   const fee = await askCChainFee(session, exportCP);
   log("Please approve export transaction");
   const exported = await execute(session, { ...exportCP, fee });
-  await afterExport(exported, "P", async () => {
+  await afterExport(exported, "P", async (onImportIssued) => {
     await waitForExport(session, "P", exported);
     log("Please approve import transaction");
-    await execute(session, { type: "importCP" });
+    await execute(session, { type: "importCP" }, onImportIssued);
   });
 }
 
@@ -324,36 +328,50 @@ async function movePC(session: Session): Promise<void> {
   const amount = await prompts.amount(defaultAmount);
   log("Please approve export transaction");
   const exported = await execute(session, { type: "exportPC", amount: parseFlr(amount) });
-  await afterExport(exported, "C", async () => {
+  await afterExport(exported, "C", async (onImportIssued) => {
     await waitForExport(session, "C", exported);
     const fee = await askCChainFee(session, { type: "importPC" });
     log("Please approve import transaction");
-    await execute(session, { type: "importPC", fee });
+    await execute(session, { type: "importPC", fee }, onImportIssued);
   });
 }
 
 /**
  * The steps of a move after its export: the wait for it, the import's questions and the import. Whatever stops them
  * once the export was sent (No at the import, an error, a timeout, Ctrl-C or Ctrl-D at a question) leaves its funds
- * waiting on `destination`, which the user must be told, not only the error or "nothing was sent".
+ * waiting on `destination`, which the user must be told, not only the error or "nothing was sent". Once the node has
+ * taken the import, a failure (its status unread, a timeout) leaves them waiting only if the import does not land.
  */
-async function afterExport(exported: Outcome, destination: "P" | "C", steps: () => Promise<void>): Promise<void> {
+async function afterExport(
+  exported: Outcome,
+  destination: "P" | "C",
+  steps: (onImportIssued: (txId: string) => void) => Promise<void>
+): Promise<void> {
+  let importId: string | undefined;
+  const onImportIssued = (txId: string): void => {
+    importId = txId;
+  };
   if (exported.status !== "sent") {
-    await steps(); // waitForExport refuses it
+    await steps(onImportIssued); // waitForExport refuses it
     return;
   }
   const notice =
     `Export ${exported.txId} was sent: its funds wait on the ${destination}-chain; ` +
     'import them with "Import Funds".';
   try {
-    await withCancelNotice(notice, steps);
+    await withCancelNotice(notice, () => steps(onImportIssued));
   } catch (error) {
     if (error instanceof SigningDeclined) {
       logInfo(`The import was not signed. ${notice}`);
       return;
     }
     reportError(error);
-    logInfo(notice);
+    logInfo(
+      importId === undefined
+        ? notice
+        : `Export ${exported.txId} was sent, and import ${importId} submitted but not confirmed: check it; if it ` +
+            `does not land, the funds wait on the ${destination}-chain for "Import Funds".`
+    );
   }
 }
 
