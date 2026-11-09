@@ -2,7 +2,14 @@ import { styleText } from "node:util";
 import inquirer from "inquirer";
 import { pChainAddressBytes } from "../chain/keys";
 import type { NetworkName } from "../chain/network";
-import { parseDuration, parseEndTime, parseFlrToWei, parsePercentToShares, parsePositiveFlr } from "../chain/units";
+import {
+  parseAtomicFee,
+  parseDuration,
+  parseEndTime,
+  parseFlrToWei,
+  parsePercentToShares,
+  parsePositiveFlr,
+} from "../chain/units";
 import { DEFAULT_DELEGATION_FEE_PERCENT, checkProofOfPossession, parseBlsHex, parseNodeId } from "../cli/inputs";
 import {
   derivationModeConstants,
@@ -143,7 +150,8 @@ export const prompts = {
       validate: (value) => validationOf(() => parsePositiveFlr(value)),
     }),
 
-  // exportCP and importPC fee: the default is the estimate from the current base fee, when there is one
+  // exportCP and importPC fee: the default is the estimate from the current base fee, when there is one; a typed fee
+  // is at most MAX_ATOMIC_FEE, the estimate offered is not capped
   fees: (estimate: string | undefined, symbol: string): Promise<string> => {
     const hint =
       estimate === undefined
@@ -151,7 +159,8 @@ export const prompts = {
         : `(Enter accepts ${estimate} ${symbol}: twice the current base fee, headroom for a rise before it lands)`;
     return input(askWithHint("Enter fee (in FLR)", hint), {
       default: estimate,
-      validate: (value) => (value.trim() === "" ? true : validationOf(() => parsePositiveFlr(value))),
+      validate: (value) =>
+        value.trim() === "" || value === estimate ? true : validationOf(() => parseAtomicFee(value)),
     });
   },
 

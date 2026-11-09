@@ -11,6 +11,7 @@ import {
   parseDuration,
   parseFlrToWei,
   parsePercentToShares,
+  parseAtomicFee,
   parsePositiveFlr,
   type NFlr,
 } from "../chain/units";
@@ -176,7 +177,7 @@ export function parseAtomicTxRequest(
     const text = optionValue(options.fee, "--fee");
     return text === undefined
       ? undefined
-      : parsePositiveFlr(text, "leave -f out to have the fee estimated (with --get-hacked or --ledger)");
+      : parseAtomicFee(text, "leave -f out to have the fee estimated (with --get-hacked or --ledger)");
   };
   const nodeId = (): string => parseNodeId(required(options.nodeId, "nodeId", "--node-id <nodeId>", type));
   const resolvedTimes: { name: string; time: ParsedTime }[] = [];

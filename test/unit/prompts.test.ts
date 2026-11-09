@@ -56,6 +56,33 @@ describe("interactive prompt checks", () => {
     expect(asked.map((question) => question.default)).to.deep.equal([undefined, undefined]); // empty stays empty
   });
 
+  it("the C-chain fee prompt takes a typed fee of at most 10 FLR, and the estimate it offers whatever it is", async () => {
+    const validates: ((value: string) => true | string)[] = [];
+    const original = inquirer.prompt;
+    Object.assign(inquirer, {
+      prompt: (questions: { validate?: (value: string) => true | string }[]) => {
+        validates.push(questions[0]!.validate!);
+        return Promise.resolve({ answer: "" });
+      },
+    });
+    try {
+      await prompts.fees("0.011", "LFLR");
+      await prompts.fees("12", "LFLR"); // a base fee spike: the estimate is above what may be typed
+      await prompts.fees(undefined, "LFLR");
+    } finally {
+      Object.assign(inquirer, { prompt: original });
+    }
+    for (const validate of validates) {
+      expect(validate("")).to.equal(true);
+      expect(validate("10")).to.equal(true);
+      expect(validate("10.000000001")).to.match(/^Invalid fee "10.000000001": at most 10 FLR/);
+      expect(validate("1000")).to.match(/^Invalid fee "1000": at most 10 FLR/);
+      expect(validate("0")).to.match(/^Invalid amount "0": must be more than 0/);
+    }
+    expect(validates[1]!("12")).to.equal(true);
+    expect(validates[0]!("12")).to.match(/^Invalid fee "12"/);
+  });
+
   it("the transfer address prompt checks the address against the session's network", async () => {
     let validate: ((value: string) => true | string) | undefined;
     const original = inquirer.prompt;

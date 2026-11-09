@@ -13,6 +13,7 @@ import {
   parseDuration,
   parseEndTime,
   parseFlr,
+  parseAtomicFee,
   parseFlrToWei,
   parsePercentToShares,
   parsePositiveFlr,
@@ -104,6 +105,22 @@ describe("chain/units", () => {
         expect(() => parseFlr(bad), bad).to.throw(/Invalid amount .*commas are not accepted/);
       }
       expect(() => parsePercentToShares("2,5")).to.throw(/commas are not accepted/);
+    });
+
+    it("takes a typed atomic fee of at most 10 FLR: 4.4.0's -f 1000, a gas price in nFLR, would burn 1000 FLR", () => {
+      for (const [fee, nFlr] of [
+        ["10", 10_000_000_000n],
+        ["10.000000000", 10_000_000_000n],
+        ["0.011", 11_000_000n],
+      ] as const) {
+        expect(parseAtomicFee(fee), fee).to.equal(nFlr);
+      }
+      for (const fee of ["10.000000001", "25", "1000"]) {
+        expect(() => parseAtomicFee(fee), fee).to.throw(
+          `Invalid fee "${fee}": at most 10 FLR, as it is the transaction's total fee, not a gas price (4.4.0 read -f with --get-hacked as nFLR per gas)`
+        );
+      }
+      expect(() => parseAtomicFee("0", "a hint")).to.throw('Invalid amount "0": must be more than 0; a hint');
     });
 
     it("refuses 0 as an amount a transaction moves or a fee it pays, however it is written", () => {
