@@ -98,10 +98,19 @@ function refuseFeeOptions(program: Command, command: string): void {
 /** Options of `send` and `forDefi`. */
 type TransactionIdOptions = Pick<GlobalOptions, "transactionId">;
 
+/**
+ * Commander's error with the value of an unknown `--option=value` masked: a misspelled `--apikey=KEY` would print the
+ * key, which nothing has remembered for masking yet.
+ */
+export function withoutUnknownOptionValue(text: string): string {
+  return text.replace(/(unknown option '[^'=\s]*=)[^']*'/g, "$1***'");
+}
+
 export function cli(program: Command): void {
   // each command's help lists the program's options too (--network, --ledger, the fee options, ...), which it takes;
-  // the commands defined below inherit this
+  // the commands defined below inherit this, and the error output
   program.configureHelp({ showGlobalOptions: true });
+  program.configureOutput({ outputError: (text, write) => write(withoutUnknownOptionValue(text)) });
   program
     .option("--network <network>", `Network name (${NETWORK_NAMES.join("|")})`)
     .option(RPC_URL_OPTION, RPC_URL_DESCRIPTION)

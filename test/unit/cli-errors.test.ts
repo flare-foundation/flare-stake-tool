@@ -873,6 +873,25 @@ describe("CLI commands that need no node (built CLI)", function () {
     }
   });
 
+  it("doesn't echo the value of a misspelled --option=value, which may be a key", () => {
+    const key = "k7Qz2LmN9pXy4RtV8wBc";
+    for (const args of [
+      ["info", "balance", `--apikey=${key}`],
+      [`--apikey=${key}`, "info", "balance"],
+      ["exportCP", "-a", "1", "-f", "1", `--api-ky=${key}`],
+      ["interactive", `--apikey=${key}`],
+    ]) {
+      const result = runCli(args, { cwd, env: PLAIN });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.match(/unknown option '--api-?ke?y=\*\*\*'/);
+      expect(result.stderr + result.stdout, args.join(" ")).to.not.include(key);
+    }
+    // a misspelled option without a value is named as it was
+    expect(runCli(["info", "balance", "--apikey", key], { cwd, env: PLAIN }).stderr).to.include(
+      "error: unknown option '--apikey'"
+    );
+  });
+
   it("interactive refuses an unknown option or a bad value before it looks for a terminal", () => {
     const misspelled = runCli(["interactive", "--gas-lmit", "250000"], { cwd, env: PLAIN });
     expect(misspelled.exitCode).to.equal(1);
