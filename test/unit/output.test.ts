@@ -116,6 +116,29 @@ describe("output/describeError", () => {
     } finally {
       server.close();
     }
+    // an `error` that is not a JSON-RPC error object: flarejs throws its missing message, an empty one
+    for (const body of ['{"error":"unauthorized"}', '{"error":{"code":-32000}}']) {
+      const refusing = http.createServer((_req, res) => {
+        res.writeHead(403, { "content-type": "application/json" });
+        res.end(body);
+      });
+      await new Promise<void>((resolve) => refusing.listen(0, "127.0.0.1", resolve));
+      const at = `http://127.0.0.1:${(refusing.address() as AddressInfo).port}`;
+      try {
+        const clients = createClients(networkConfig("localflare", {}, { apiUrl: at }));
+        clients.provider.destroy();
+        const error = await clients.pvm.getFeeConfig().then(
+          () => expect.fail("should have thrown"),
+          (thrown: unknown) => thrown
+        );
+        expect((error as Error).message, body).to.equal("");
+        expect(describeError(error), body).to.match(
+          new RegExp(`^The node answered without a JSON-RPC result; check --rpc-url .* \\(node ${at}\\)$`)
+        );
+      } finally {
+        refusing.close();
+      }
+    }
     // a TypeError of the tool's own, with no node request below it, is left as it is
     expect(describeError(new TypeError("Cannot read properties of undefined (reading 'x')"))).to.equal(
       "Cannot read properties of undefined (reading 'x')"
