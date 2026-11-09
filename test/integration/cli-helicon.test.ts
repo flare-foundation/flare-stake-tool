@@ -91,9 +91,12 @@ describe("CLI auto-renewed validators (Helicon, with network)", function () {
   it("shows the auto-renew summary in info validators", function () {
     if (!node) this.skip();
     const result = runCli(["info", "validators", ...signArgs()]);
-    expect(result.exitCode).to.equal(0);
-    expect(result.stdout).to.include(`${node.nodeID}: auto-renewed:`);
-    expect(result.stdout).to.include("next period 900s");
+    expect(result.exitCode, result.stderr).to.equal(0);
+    // on stderr, so that stdout stays the header and the JSON
+    expect(result.stderr).to.include(`${node.nodeID}: auto-renewed:`);
+    expect(result.stderr).to.include("next period 900s");
+    const [, ...json] = result.stdout.trimEnd().split("\n");
+    expect(JSON.parse(json.join("\n"))).to.be.an("array");
   });
 
   it("changes the period through the unsigned-file flow, signing the authority credential", async function () {
