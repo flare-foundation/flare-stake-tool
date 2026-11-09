@@ -81,12 +81,13 @@ export const parseFlrToWei = (input: string): Wei => asWei(parseDecimal(input, W
 
 /**
  * An amount a P-chain or atomic transaction moves, or a fee it pays (-a, -f): 0 is refused before anything is built,
- * as the node would refuse the transaction once signed ("output has no value", a fee below the base fee).
+ * as the node would refuse the transaction once signed ("output has no value", a fee below the base fee). `hint` says
+ * what to do instead, where 0 used to mean something (4.4.0's `-f 0`, an estimate, and `exportPC -a 0`, the balance).
  */
-export function parsePositiveFlr(input: string): NFlr {
+export function parsePositiveFlr(input: string, hint?: string): NFlr {
   const amount = parseFlr(input);
   if (amount === 0n) {
-    throw new Error(`Invalid amount "${input}": must be more than 0`);
+    throw new Error(`Invalid amount "${input}": must be more than 0${hint === undefined ? "" : `; ${hint}`}`);
   }
   return amount;
 }

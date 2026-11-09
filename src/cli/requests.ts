@@ -170,11 +170,13 @@ export function parseAtomicTxRequest(
   const amount = (): NFlr => parsePositiveFlr(required(options.amount, "amount", "--amount <amount>", type));
   const optionalAmount = (): NFlr | undefined => {
     const text = optionValue(options.amount, "--amount");
-    return text === undefined ? undefined : parsePositiveFlr(text);
+    return text === undefined ? undefined : parsePositiveFlr(text, "leave -a out to export the spendable balance");
   };
   const fee = (): NFlr | undefined => {
     const text = optionValue(options.fee, "--fee");
-    return text === undefined ? undefined : parsePositiveFlr(text);
+    return text === undefined
+      ? undefined
+      : parsePositiveFlr(text, "leave -f out to have the fee estimated (with --get-hacked or --ledger)");
   };
   const nodeId = (): string => parseNodeId(required(options.nodeId, "nodeId", "--node-id <nodeId>", type));
   const resolvedTimes: { name: string; time: ParsedTime }[] = [];
