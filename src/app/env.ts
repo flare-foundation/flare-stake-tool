@@ -38,12 +38,14 @@ const warnedNodes = new Set<string>();
  */
 export function createEnv(network: string, node: NodeOverrides = {}): Env {
   const config = networkConfig(network, process.env, node);
+  // built first, asking the node nothing, so that the warning masks what they remember (a token in the URL's path)
+  const clients = createClients(config);
   const warning = insecureApiKeyWarning(config);
   if (warning !== undefined && !warnedNodes.has(config.apiUrl)) {
     warnedNodes.add(config.apiUrl);
     logWarning(warning);
   }
-  return { network: config, clients: createClients(config) };
+  return { network: config, clients };
 }
 
 export function readContextFile(file: string = DEFAULT_CTX_FILE): ContextFile {

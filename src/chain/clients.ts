@@ -160,6 +160,13 @@ function rememberCredential(serialized: string, kind: "secret" | "username"): vo
   }
 }
 
+/**
+ * The shortest path segment of a node URL masked as a token: some providers put the key in the path
+ * (`https://host/<token>/ext/…`), where neither the credential nor the `x-apikey` masking finds it. Shorter segments
+ * are names (`/rpc`, `/flare`), shown as they are.
+ */
+const PATH_TOKEN_MIN_LENGTH = 16;
+
 /** The start of the error a request carrying the API key fails with on a redirect, as fetch words it. */
 export const REDIRECT_REFUSED = "unexpected redirect";
 
@@ -199,9 +206,12 @@ function shownLocation(location: string | undefined, requestUrl: string): string
 
 export function createClients(network: NetworkConfig): Clients {
   rememberSecret(network.apiKey);
-  const { username, password } = new URL(network.apiUrl);
+  const { username, password, pathname } = new URL(network.apiUrl);
   rememberCredential(username, "username");
   rememberCredential(password, "secret");
+  for (const segment of pathname.split("/")) {
+    if (segment.length >= PATH_TOKEN_MIN_LENGTH) rememberCredential(segment, "secret");
+  }
   // The API key travels as a header, never in the URL, so it stays out of logs and error messages. A request carrying
   // it refuses a redirect: fetch would send the header on to whatever host the redirect names, plain http included.
   const headers = network.apiKey === undefined ? undefined : { [API_KEY_HEADER]: network.apiKey };

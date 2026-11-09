@@ -138,6 +138,29 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stderr + result.stdout).to.not.include("TOPSECRET");
   });
 
+  it("masks a token in the node URL's path in the node's errors and the http warning, and shows a short segment", () => {
+    const token = "0123456789abcdef0123456789abcdef";
+    for (const [rpcUrl, shown] of [
+      [`http://127.0.0.1:1/${token}`, "node http://127.0.0.1:1/***)"],
+      [`http://127.0.0.1:1/${token}/ext/bc/C/rpc`, "node http://127.0.0.1:1/***)"],
+      [`http://127.0.0.1:1/flare/${token}/`, "node http://127.0.0.1:1/flare/***)"],
+      ["http://127.0.0.1:1/flare", "node http://127.0.0.1:1/flare)"],
+    ] as const) {
+      const result = runCli(["info", "validators", "--network", "localflare", "--rpc-url", rpcUrl], { cwd });
+      expect(result.exitCode, rpcUrl).to.equal(1);
+      expect(result.stderr, rpcUrl).to.include(shown);
+      expect(result.stderr + result.stdout, rpcUrl).to.not.include(token);
+    }
+    const warned = runCli(
+      ["info", "validators", "--network", "localflare", "--rpc-url", `http://node.invalid/${token}`, "--api-key", "k"],
+      { cwd }
+    );
+    expect(warned.stderr).to.include(
+      "Warning: the API key goes unencrypted to http://node.invalid/*** over plain http"
+    );
+    expect(warned.stderr + warned.stdout).to.not.include(token);
+  });
+
   it("refuses an unknown info, transaction or forDefi type with the allowed ones, before looking for a context file", () => {
     for (const [args, choices] of [
       [["info", "foo"], "addresses, balance, validators"],
