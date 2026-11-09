@@ -141,7 +141,9 @@ export function withoutPathTokens(url: string): string {
  * A node URL as given, for an error about it, refused before any key is remembered: its scheme and host (with the
  * port), what makes it invalid, and `/…` for the rest. The path can hold a token (`https://host/<token>`) and the query
  * a key under any spelling (`x%2Dapikey=`), and in text that didn't parse, where they start can't be told by `/` alone
- * (`https://host:bad\<token>`). With an `@` anywhere, only its scheme is shown: a password typed without escaping can
+ * (`https://host:bad\<token>`). A piece of the host, between colons, of PATH_TOKEN_MIN_LENGTH or more without a dot is
+ * shown as `***` too: a key given as the URL (`--rpc-url <key>`, `x-apikey:<key>`) is read as the host, while a host
+ * name of that length has dots. With an `@` anywhere, only its scheme is shown: a password typed without escaping can
  * hold `/`, `?` or `#`, and a query value an `@`, so where credentials end can't be told
  * (`https://alice:SECRET?tail@host`, `https://host:bad/?x-apikey=a@SECRET`).
  */
@@ -150,8 +152,12 @@ function shownNodeUrlInput(input: string): string {
   if (text.includes("@")) {
     return `${/^[a-z][a-z0-9+.-]*:\/\//i.exec(text)?.[0] ?? ""}***`;
   }
-  const origin = /^(?:[a-z][a-z0-9+.-]*:\/\/)?[^/\\?#]*/i.exec(text)?.[0] ?? "";
-  return redactSecrets(origin.length < text.length ? `${origin}/…` : origin);
+  const [origin = "", scheme = "", host = ""] = /^([a-z][a-z0-9+.-]*:\/\/)?([^/\\?#]*)/i.exec(text) ?? [];
+  const shownHost = host
+    .split(":")
+    .map((piece) => (piece.length >= PATH_TOKEN_MIN_LENGTH && !piece.includes(".") ? "***" : piece))
+    .join(":");
+  return redactSecrets(`${scheme}${shownHost}${origin.length < text.length ? "/…" : ""}`);
 }
 
 /**

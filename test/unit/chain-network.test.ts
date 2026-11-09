@@ -177,6 +177,12 @@ describe("chain/network", () => {
         [`https://node.invalid:bad#${token}`, "https://node.invalid:bad/…"],
         [`a-host-name-of-many-characters.example/${token}`, "a-host-name-of-many-characters.example/…"],
         ["https://node.invalid:bad", "https://node.invalid:bad"], // nothing after the host
+        // a key given as the URL, read as the host; host names of that length have dots, and stay
+        [token, "***"],
+        [`x-apikey:${token}`, "x-apikey:***"],
+        [`${token}/ext/info`, "***/…"],
+        ["https://a-host-name-of-many-characters.example:bad", "https://a-host-name-of-many-characters.example:bad"],
+        ["https://[2001:db8::1]:bad", "https://[2001:db8::1]:bad"],
       ] as const) {
         let message = "";
         try {
