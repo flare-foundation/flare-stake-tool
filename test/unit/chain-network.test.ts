@@ -152,7 +152,7 @@ describe("chain/network", () => {
         expect(message, input).to.not.include("SECRET");
       }
       expect(() => parseNodeUrl("https://host.example:bad/ext/info?x%2Dapikey=SECRET")).to.throw(
-        'Invalid node URL "https://host.example:bad/ext/info?…"; expected a base URL'
+        'Invalid node URL "https://host.example:bad/…"; expected a base URL'
       );
       // with an "@" anywhere, where credentials end can't be told: only the scheme is shown
       for (const input of [
@@ -167,13 +167,16 @@ describe("chain/network", () => {
       );
     });
 
-    it("masks a token in the path of a refused URL, which no client has remembered yet, and shows the host", () => {
+    it("shows only the scheme and host of a refused URL, whose path no client has remembered a token of", () => {
       const token = "0123456789abcdef0123456789abcdef";
       for (const [input, shown] of [
-        [`https://node.invalid:bad/${token}`, "https://node.invalid:bad/***"], // a typo in the port
-        [`wss://gateway.invalid/${token}/ext/bc/C/ws`, "wss://gateway.invalid/***/ext/bc/C/ws"], // a pasted WebSocket URL
-        [`https://node.invalid:bad/flare/${token}?x-apikey=k`, "https://node.invalid:bad/flare/***?…"],
-        [`a-host-name-of-many-characters.example/${token}`, "a-host-name-of-many-characters.example/***"],
+        [`https://node.invalid:bad/${token}`, "https://node.invalid:bad/…"], // a typo in the port
+        [`https://node.invalid:bad\\${token}`, "https://node.invalid:bad/…"], // a backslash, which URL reads as /
+        [`wss://gateway.invalid/${token}/ext/bc/C/ws`, "wss://gateway.invalid/…"], // a pasted WebSocket URL
+        [`https://node.invalid:bad/flare/${token}?x-apikey=k`, "https://node.invalid:bad/…"],
+        [`https://node.invalid:bad#${token}`, "https://node.invalid:bad/…"],
+        [`a-host-name-of-many-characters.example/${token}`, "a-host-name-of-many-characters.example/…"],
+        ["https://node.invalid:bad", "https://node.invalid:bad"], // nothing after the host
       ] as const) {
         let message = "";
         try {

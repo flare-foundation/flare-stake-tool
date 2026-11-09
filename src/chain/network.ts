@@ -125,8 +125,8 @@ export const PATH_TOKEN_MIN_LENGTH = 16;
 
 /**
  * A URL for a message with every path segment of PATH_TOKEN_MIN_LENGTH or more masked, where the clients have not
- * remembered it: a URL refused before they are built, or a redirect's target. The host (the first segment without a
- * scheme) is shown as it is.
+ * remembered it: a redirect's target, parsed (`\` read as `/`). The host (the first segment without a scheme) is
+ * shown as it is.
  */
 export function withoutPathTokens(url: string): string {
   const start = (/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i.exec(url) ?? /^[^/]*/.exec(url))?.[0] ?? "";
@@ -138,18 +138,20 @@ export function withoutPathTokens(url: string): string {
 }
 
 /**
- * A node URL as given, for an error about it, refused before any key is remembered: without its query and fragment,
- * which may hold a key under any spelling (`x%2Dapikey=`). With an `@` anywhere, only its scheme is shown: a password
- * typed without escaping can hold `/`, `?` or `#`, and a query value an `@`, so where credentials end and the query
- * starts can't be told (`https://alice:SECRET?tail@host`, `https://host:bad/?x-apikey=a@SECRET`).
+ * A node URL as given, for an error about it, refused before any key is remembered: its scheme and host (with the
+ * port), what makes it invalid, and `/…` for the rest. The path can hold a token (`https://host/<token>`) and the query
+ * a key under any spelling (`x%2Dapikey=`), and in text that didn't parse, where they start can't be told by `/` alone
+ * (`https://host:bad\<token>`). With an `@` anywhere, only its scheme is shown: a password typed without escaping can
+ * hold `/`, `?` or `#`, and a query value an `@`, so where credentials end can't be told
+ * (`https://alice:SECRET?tail@host`, `https://host:bad/?x-apikey=a@SECRET`).
  */
 function shownNodeUrlInput(input: string): string {
   const text = input.trim();
   if (text.includes("@")) {
     return `${/^[a-z][a-z0-9+.-]*:\/\//i.exec(text)?.[0] ?? ""}***`;
   }
-  const cut = text.search(/[?#]/);
-  return redactSecrets(cut < 0 ? withoutPathTokens(text) : `${withoutPathTokens(text.slice(0, cut))}?…`);
+  const origin = /^(?:[a-z][a-z0-9+.-]*:\/\/)?[^/\\?#]*/i.exec(text)?.[0] ?? "";
+  return redactSecrets(origin.length < text.length ? `${origin}/…` : origin);
 }
 
 /**

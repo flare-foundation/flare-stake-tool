@@ -82,7 +82,7 @@ describe("CLI errors (built CLI, no node)", function () {
       { cwd }
     );
     expect(result.exitCode).to.equal(1);
-    expect(result.stderr).to.include('Invalid node URL "https://host.example:bad/ext/info?…"');
+    expect(result.stderr).to.include('Invalid node URL "https://host.example:bad/…"');
     expect(result.stderr + result.stdout).to.not.include("SECRET");
   });
 
