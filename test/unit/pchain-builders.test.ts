@@ -1115,6 +1115,37 @@ describe("core/builders/pchain", function () {
       expect((await importCP(exportedEnv([await exported(4_500_000n, 0)]))).amounts).to.deep.equal([4_500_000n]);
     });
 
+    it("refuses an import its UTXOs can't pay the fee of, which flarejs paid with one of them a second time", async () => {
+      const context = await replay.env.clients.context();
+      // each worth importing, together less than the fee
+      const utxos = [await exported(20_000_000n, 0), ...(await many(10, () => 1_000_000n, 1))];
+      const direct = pvm.newImportTx(
+        {
+          feeState: { ...(await replay.env.clients.pvm.getFeeState()), price: FILE_SIGNER_POLICY.feePrice as bigint },
+          utxos,
+          fromAddressesBytes: [account.addressBytes],
+          minIssuanceTime: FILE_SIGNER_POLICY.lockCheckTime as bigint,
+          sourceChainId: context.cBlockchainID,
+          toAddressesBytes: [account.addressBytes],
+        },
+        context
+      );
+      const { ins, baseTx } = direct.getTx() as pvmSerial.ImportTx;
+      expect(ins.length, "flarejs imports all eleven").to.equal(11);
+      const local = baseTx.inputs.map((input) => input.utxoID.txID.toString());
+      expect(local, "and spends one of them again as a P-chain UTXO").to.have.length(1);
+      expect(ins.map((input) => input.utxoID.txID.toString())).to.include(local[0]);
+      expect(outputAmount(direct, context.avaxAssetID), "with an output, which looks paid for").not.to.equal(undefined);
+      await buildTransaction({ type: "importCP" }, exportedEnv(utxos), account, FILE_SIGNER_POLICY).then(
+        () => expect.fail("built an import that spends a UTXO twice"),
+        (error: unknown) =>
+          expect((error as Error).message).to.equal(
+            `The fee is more than the ${formatFlr(asNFlr(30_000_000n))} ${replay.env.network.symbol} being imported, ` +
+              "so nothing would arrive on the P-chain; it is not signed, and the UTXOs stay pending for a later import"
+          )
+      );
+    });
+
     it("leaves a time-locked UTXO pending, which flarejs would not import", async () => {
       const { avaxAssetID } = await replay.env.clients.context();
       const locked = new Utxo(

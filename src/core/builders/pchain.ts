@@ -438,6 +438,16 @@ export async function buildImportCP(
   }
   // with nothing importable at all, flarejs says so ("no UTXOs available to import")
   const unsignedTx = build(chosen.taken);
+  // flarejs got only the exported UTXOs: when they can't pay the fee, it spends one of them a second time as a
+  // P-chain UTXO, which doesn't exist, and the output looks paid for
+  const { ins, baseTx } = unsignedTx.getTx() as pvmSerial.ImportTx;
+  if (baseTx.inputs.length > 0) {
+    const imported = asNFlr(ins.reduce((sum, input) => sum + input.amount(), 0n));
+    throw new Error(
+      `The fee is more than the ${formatFlr(imported)} ${symbol} being imported, so nothing would arrive on the ` +
+        "P-chain; it is not signed, and the UTXOs stay pending for a later import"
+    );
+  }
   checkImportOutput(unsignedTx, context, "P-chain", symbol);
   return bundle("importCP", unsignedTx, importNotices(chosen, symbol, "the P-chain's gas capacity"));
 }
