@@ -879,6 +879,31 @@ describe("CLI commands that need no node (built CLI)", function () {
     }
   });
 
+  it("refuses a long option written with one dash and a value, without the value, which -a or -r would print", () => {
+    const key = "k7Qz2LmN9pXy4RtV8wBcTAIL";
+    for (const [args, name] of [
+      [["transaction", "exportCP", "-a", "1", `-api-key=${key}`], "api-key"],
+      [["exportCP", `-api-key=${key}`, "-a", "1"], "api-key"],
+      [["claim", "-a", "1", `-rpc-url=https://audit:${key}@127.0.0.1:1`], "rpc-url"],
+      [["info", "balance", `-network=costwo`], "network"],
+    ] as const) {
+      const result = runCli([...args], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(
+        `Error: -${name}=***: a long option takes two dashes, as in --${name}=…\n`
+      );
+      expect(result.stdout, args.join(" ")).to.equal("");
+    }
+    // a short option with its value, and a value after "=", are not long options
+    for (const args of [
+      ["exportCP", "-a", "-5", "--network", "costwo"],
+      ["exportCP", "-a=1", "--network", "costwo"],
+    ]) {
+      const result = runCli(args, { cwd });
+      expect(result.stderr, args.join(" ")).to.match(/^Error: Invalid amount "(-5|=1)"/);
+    }
+  });
+
   it("says where the id goes when -i <id> comes before a command, where -i starts interactive mode", () => {
     for (const args of [
       ["-i", "myid", "exportCP", "-a", "1"],

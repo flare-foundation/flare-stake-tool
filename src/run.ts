@@ -48,6 +48,18 @@ function expandAliases(argv: string[], index: number): string[] {
 }
 
 /**
+ * A long option written with one dash and a value, as go-flare's flags may be (`-api-key=KEY`): Commander reads it as
+ * the short option `-a` with the value `pi-key=KEY`, and the amount's error printed the key. Refused before parsing,
+ * without the value.
+ */
+function singleDashLongOption(argv: readonly string[]): string | undefined {
+  const arg = argv.slice(2).find((a) => /^-[A-Za-z][A-Za-z-]+=/.test(a));
+  if (arg === undefined) return undefined;
+  const name = arg.slice(1, arg.indexOf("="));
+  return `-${name}=***: a long option takes two dashes, as in --${name}=…`;
+}
+
+/**
  * `-i <id>` given before a command, as in `-i myid exportCP -a 1`: `-i` there is `interactive`, which takes no
  * arguments, and Commander would report `-a` as unknown. The id goes after the command.
  */
@@ -61,9 +73,9 @@ function misplacedTransactionId(argv: readonly string[], index: number): string 
 }
 
 const index = commandIndex(process.argv);
-const misplaced = misplacedTransactionId(process.argv, index);
-if (misplaced !== undefined) {
-  console.error(styleText("red", `Error: ${misplaced}`));
+const refused = singleDashLongOption(process.argv) ?? misplacedTransactionId(process.argv, index);
+if (refused !== undefined) {
+  console.error(styleText("red", `Error: ${refused}`));
   process.exit(1);
 }
 

@@ -24,7 +24,10 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The tool trusts the node for chain state (balances, UTXOs, nonces, fees, validators, contract addresses from the FlareContractRegistry): a node given here is your choice, so use one you trust. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command. A failed request is reported with its cause and the node's URL, such as `fetch failed (connect ECONNREFUSED 127.0.0.1:9650; node http://localhost:9650)`, and a refusal (HTTP 401 or 403, an error page, or a JSON answer without a result) says to check `--rpc-url` and the API key; URL credentials, a token in the URL's path (a segment of 16 characters or more, as in `https://host/<token>`) and the API key are masked as `***` in every error; in other output, the API key, URL passwords, path tokens and the ForDefi token are masked when 16 characters or more, so that addresses and hashes are printed whole |
 | `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes. Without it, the node URL's own `x-apikey` is used, then env `FLARE_API_KEY`, which goes only to the node of `FLARE_RPC_URL` or the network's default node, never to one given with `--rpc-url`. A request carrying a key refuses a redirect, which would take the key to the host it names: give the URL it redirects to. A key that would go over plain `http` to a host other than `localhost`, 127.x.x.x or `[::1]` gets a warning on stderr (the key itself is not printed) |
 
-Global options can come before or after the command. Each `transaction` type
+Global options can come before or after the command. A long option takes two
+dashes: one written with one dash and a value, as go-flare's flags may be
+(`-api-key=KEY`), is refused without its value; it would be read as `-a` with
+the rest as its value. Each `transaction` type
 takes only the options listed for it below: another one given on the command
 line is refused (a default, such as `--delegation-fee`'s, doesn't count), and
 so are the C-chain gas options, which only the C-chain commands use (`send`,
