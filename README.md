@@ -69,7 +69,7 @@ To use this app in a less-secure manner, you can set your private key as an envi
 
 1. Obtain the private key (32 bytes either in hexadecimal or [cb58](https://support.avax.network/en/articles/4587395-what-is-cb58) format).
 2. Create a file to hold your private key.
-3. Paste this code in as follows and enter the private key in either hex or cb58 format within the quotation marks:
+3. Paste one of these lines and enter the private key within the quotation marks, in hex or in cb58 format; delete the other line (with both, they must hold the same key). The key is read from the file only, not from the shell's environment:
 
    ```bash
    PRIVATE_KEY_CB58="private key"
