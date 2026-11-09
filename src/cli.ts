@@ -120,6 +120,13 @@ export function cli(program: Command): void {
         "Times: --end-time, --start-time and --period accept unix seconds or a duration such as\n" +
         "2d12h (units w, d, h, m, s); an end time given as a duration is added to now."
     );
+  // --derivation-path selects a Ledger address: without --ledger nothing reads it (interactive refuses it itself)
+  program.hook("preAction", (_program, action) => {
+    const { derivationPath, ledger } = program.opts<{ derivationPath?: string; ledger?: boolean }>();
+    if (derivationPath !== undefined && !ledger && action.name() !== "interactive") {
+      logWarning("--derivation-path is read only with --ledger; it is ignored here");
+    }
+  });
 
   program
     .command("interactive")

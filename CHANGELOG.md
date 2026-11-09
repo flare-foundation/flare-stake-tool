@@ -92,6 +92,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 * Command line:
   * Transactions, `send` and `forDefi sign` print `Using network: …` on stderr (4.4.0 printed it on stdout, for every command). Without `--network` and a context file, every command warns that it uses Flare.
   * The shortcuts (`balance`, `exportCP`, …) and `interactive` work after global options, as in `--network costwo balance`.
+  * `--derivation-path` without `--ledger`, which nothing reads, gets a warning.
   * `<command> --help` lists the global options the command takes (`--network`, `--ledger`, the C-chain fee options, …) after its own.
   * `-i <id>` given before a command (`-i myid exportCP …`) says that `-i` there starts interactive mode and that the id goes after the command, instead of reporting the command's first option as unknown.
   * An end time that is not in the future gets a warning (`-e 1209600` is a unix time, not 14 days).

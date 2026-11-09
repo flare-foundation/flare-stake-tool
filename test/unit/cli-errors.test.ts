@@ -314,6 +314,21 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("warns that --derivation-path is ignored without --ledger", () => {
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const path5 = ["--derivation-path", "m/44'/60'/0'/0/5", "--network", "localflare"];
+    const warning = "Warning: --derivation-path is read only with --ledger; it is ignored here";
+    const keyFile = runCli(["info", "addresses", "--env-path", envPath, ...path5], { cwd });
+    expect(keyFile.exitCode, keyFile.stderr).to.equal(0);
+    expect(keyFile.stderr).to.include(warning);
+    const ledger = runCli(["info", "addresses", "--ledger", ...path5], {
+      cwd,
+      env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+    });
+    expect(ledger.exitCode, ledger.stderr).to.equal(0);
+    expect(ledger.stderr).not.to.include(warning);
+  });
+
   it("refuses the C-chain fee options for send, forDefi, info and init-ctx, which ignored them", () => {
     for (const [args, command] of [
       [["send", "-i", "w1", "--max-fee-per-gas", "99999"], "send"],
