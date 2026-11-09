@@ -366,11 +366,12 @@ describe("chain/clients", () => {
     });
 
     it("names a refused redirect's target without its credentials, query or fragment", async () => {
+      // path segments of 15 characters (shown), 16 and more (masked)
       const server = http.createServer((req, res) => {
         req.resume();
         res.writeHead(302, {
           location:
-            "//bob:DUMMY-PASSWORD@other.invalid/next/DUMMY-PATH-TOKEN-0123456789?x-apikey=DUMMY-KEY#DUMMY-FRAGMENT",
+            "//bob:DUMMY-PASSWORD@other.invalid/next-segment-15/DUMMY-PATH-TOKEN/DUMMY-PATH-TOKEN-0123456789?x-apikey=DUMMY-KEY#DUMMY-FRAGMENT",
         });
         res.end();
       });
@@ -382,7 +383,7 @@ describe("chain/clients", () => {
           () => expect.fail("ethers followed the redirect"),
           (error: unknown) => describeError(error)
         );
-        expect(text).to.include("unexpected redirect to http://other.invalid/next/***;");
+        expect(text).to.include("unexpected redirect to http://other.invalid/next-segment-15/***/***;");
         expect(text).not.to.match(/DUMMY|secret-key/);
       } finally {
         clients.provider.destroy();

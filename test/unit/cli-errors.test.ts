@@ -175,6 +175,15 @@ describe("CLI errors (built CLI, no node)", function () {
       expect(result.stderr, rpcUrl).to.include(shown);
       expect(result.stderr + result.stdout, rpcUrl).to.not.include(token);
     }
+    // the boundary: a segment of 16 characters is masked, one of 15 shown
+    for (const [segment, shown] of [
+      ["0123456789abcdef", "***"],
+      ["0123456789abcde", "0123456789abcde"],
+    ] as const) {
+      const rpcUrl = `http://127.0.0.1:1/${segment}`;
+      const result = runCli(["info", "validators", "--network", "localflare", "--rpc-url", rpcUrl], { cwd });
+      expect(result.stderr, segment).to.include(`node http://127.0.0.1:1/${shown})`);
+    }
     const warned = runCli(
       ["info", "validators", "--network", "localflare", "--rpc-url", `http://node.invalid/${token}`, "--api-key", "k"],
       { cwd }
