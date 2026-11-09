@@ -214,9 +214,9 @@ Only the validator authority (by default the address that registered the
 validator) can change the configuration. `info validators` shows the current
 cycle end, the next period and the authority of every auto-renewed validator.
 
-Durations: `--period`, `--end-time` and `--start-time` accept unix seconds or
-a duration such as `2d12h` (units `w`, `d`, `h`, `m`, `s`); an end time given as
-a duration counts from now.
+Times and durations: `--end-time` and `--start-time` take a unix time in
+seconds, or a duration such as `2d12h` (units `w`, `d`, `h`, `m`, `s`), which
+counts from now. `--period` takes a number of seconds or a duration.
 
 ### Delegating
 

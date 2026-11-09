@@ -126,8 +126,9 @@ export function cli(program: Command): void {
       "\nC-chain fee options are fixed values rather than chain estimates, so that every ForDefi\n" +
         "signer of a transaction arrives at the same hash. All signers of one transaction must\n" +
         "pass the same values.\n\n" +
-        "Times: --end-time, --start-time and --period accept unix seconds or a duration such as\n" +
-        "2d12h (units w, d, h, m, s); an end time given as a duration is added to now."
+        "Times: --end-time and --start-time take a unix time in seconds, or a duration such as\n" +
+        "2d12h (units w, d, h, m, s), which is added to now. --period takes a number of seconds\n" +
+        "or a duration."
     );
   program.hook("preAction", (_program, action) => {
     const given: Record<string, unknown> = { ...program.opts(), ...action.opts() };
