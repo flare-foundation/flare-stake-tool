@@ -9,8 +9,8 @@ import {
   readSignedTxJson,
   signerMismatch,
 } from "../core/files";
-import { attachEvmSignature, attachSignature } from "../core/signing/attach";
-import { UNRECOVERABLE_SIGNATURE, normalizeSignature, recoverPublicKey } from "../core/signing/signature";
+import { attachSignature, recoverSigner } from "../core/signing/attach";
+import { normalizeSignature } from "../core/signing/signature";
 import {
   SubmittedTxError,
   TxNotAcceptedError,
@@ -19,10 +19,8 @@ import {
   type SubmitClients,
 } from "../core/submit";
 import type { Clients } from "../chain/clients";
-import type { UnsignedTxBundle } from "../core/types";
 import type { NetworkConfig } from "../chain/network";
 import { logIssued } from "../output";
-import { Transaction } from "ethers";
 
 /** What `send` uses of an Env: the network's ids and address prefix, the network check and the submit calls. */
 export interface SendEnv {
@@ -54,7 +52,7 @@ export async function sendSignedTransaction(
   checkFileNetwork(id, bundle, env.network);
   const signature = normalizeSignature(signed.signature);
   // who signed, whatever the context says: it must be the account the file was built for, when the file records it
-  const signer = recoverAccount(bundle, signature, env.network.hrp);
+  const signer = accountFromPublicKey(recoverSigner(bundle, signature), env.network.hrp);
   const mismatch = signerMismatch(signed, signer.publicKey);
   if (mismatch) {
     throw new Error(
@@ -87,22 +85,4 @@ export async function sendSignedTransaction(
     }
     throw error;
   }
-}
-
-function recoverAccount(bundle: UnsignedTxBundle, signature: Uint8Array, hrp: string): Account {
-  if (bundle.kind === "atomic") {
-    return accountFromPublicKey(recoverPublicKey(bundle.digest, signature), hrp);
-  }
-  const probe = Transaction.from(bundle.tx.unsignedSerialized); // a copy: the bundle itself stays unsigned
-  let publicKey: string | null;
-  try {
-    attachEvmSignature(probe, signature);
-    publicKey = probe.fromPublicKey;
-  } catch (error) {
-    throw new Error(UNRECOVERABLE_SIGNATURE, { cause: error });
-  }
-  if (!publicKey) {
-    throw new Error("Cannot recover the signer of the EVM transaction");
-  }
-  return accountFromPublicKey(publicKey, hrp);
 }

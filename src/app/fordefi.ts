@@ -18,6 +18,7 @@ import {
 import { normalizePublicKey } from "../chain/keys";
 import { networkConfig, redactSecrets, rememberSecret, type NetworkConfig } from "../chain/network";
 import { isJsonObject } from "../core/json";
+import { recoverSigner } from "../core/signing/attach";
 import { SIGNATURE_LENGTH, equalBytes, toHex } from "../core/signing/signature";
 import type { ContextFile } from "./env";
 
@@ -189,6 +190,25 @@ export async function fetchForDefiSignature(id: string, fetchImpl: FetchLike = f
   if (bytes?.length !== SIGNATURE_LENGTH) {
     throw new Error(
       `ForDefi answered a signature that is not ${SIGNATURE_LENGTH} bytes of base64: ${excerpt(JSON.stringify(data), 200)}`
+    );
+  }
+  // the signature must be over this file's transaction, by the account it was built for: a mixed-up or wrong answer
+  // would replace a good signature not sent yet, and send would refuse the file only later
+  let signer: Uint8Array;
+  try {
+    signer = recoverSigner(bundleFromConsistentTxJson(unsigned), bytes);
+  } catch (error) {
+    throw new Error(
+      `ForDefi answered a signature of no key for transaction ${id} (${error instanceof Error ? error.message : String(error)}); ` +
+        "the signed file is not written",
+      { cause: error }
+    );
+  }
+  const mismatch = signerMismatch(unsigned, signer);
+  if (mismatch) {
+    throw new Error(
+      `Transaction ${id} was built for ${mismatch.recorded}, but ForDefi answered a signature of ${mismatch.actual} ` +
+        "(over another transaction, or by another key); the signed file is not written"
     );
   }
   const signature = bytes.toString("hex");

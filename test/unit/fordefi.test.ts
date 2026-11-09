@@ -15,9 +15,10 @@ import {
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import { describeError } from "../../src/output";
-import { SigningKey } from "ethers";
+import { SigningKey, getBytes } from "ethers";
 import { readGolden } from "../characterization/scenarios";
-import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED, signMessageHash } from "../helpers/keys";
+import { recoverPublicKey } from "../../src/core/signing/signature";
 
 /** The ForDefi client reads ./token and ./private.pem from the working directory and talks to api.fordefi.com. */
 describe("app/fordefi", () => {
@@ -206,18 +207,65 @@ describe("app/fordefi", () => {
     expect(posted()).to.equal(before);
   });
 
-  it("fetches the signature and writes the signed file", async () => {
-    const signature = Buffer.from("ab".repeat(65), "hex");
-    const fetchImpl = fakeFetch({
+  /** ForDefi answering the lookup of fordefi-tx-42 with `signatureHex`, base64 as ForDefi sends it. */
+  const signatureAnswer = (signatureHex: string) =>
+    fakeFetch({
       "GET /api/v1/transactions/fordefi-tx-42": {
         id: "fordefi-tx-42",
-        signatures: [{ data: signature.toString("base64") }],
+        signatures: [{ data: Buffer.from(signatureHex, "hex").toString("base64") }],
       },
     });
-    expect(await fetchForDefiSignature("tx1", fetchImpl)).to.equal("ab".repeat(65));
+
+  it("fetches the signature and writes the signed file", async () => {
+    const signature = signMessageHash(unsigned.signatureRequests[0]!.message);
+    expect(await fetchForDefiSignature("tx1", signatureAnswer(signature))).to.equal(signature);
     const signed = readSignedTxJson("tx1");
-    expect(signed.signature).to.equal("ab".repeat(65));
+    expect(signed.signature).to.equal(signature);
     expect(signed.forDefiTxId).to.equal("fordefi-tx-42");
+  });
+
+  it("refuses a signature over another transaction or by another key, and keeps the signature it has", async () => {
+    const message = unsigned.signatureRequests[0]!.message;
+    const good = signMessageHash(message);
+    saveUnsignedTxJson({ ...unsigned, forDefiTxId: "fordefi-tx-42" }, "tx-checked");
+    await fetchForDefiSignature("tx-checked", signatureAnswer(good));
+    const other = accountFromPublicKey(new SigningKey(`0x${"22".repeat(32)}`).compressedPublicKey, "localflare");
+    const recordedFor = unsigned.signatureRequests[0]!.signer;
+    // the vault's key over another hash recovers some other key; another key over this hash recovers that key
+    const otherHash = readGolden("delegate-file").outcome.unsignedTxJson as UnsignedAtomicTxJson;
+    const overAnother = signMessageHash(otherHash.signatureRequests[0]!.message);
+    for (const [signature, actual] of [
+      [
+        overAnother,
+        accountFromPublicKey(recoverPublicKey(getBytes(`0x${message}`), getBytes(`0x${overAnother}`)), "localflare")
+          .pAddress,
+      ],
+      [signMessageHash(message, "22".repeat(32)), other.pAddress],
+    ] as const) {
+      expect(await rejectedWith(fetchForDefiSignature("tx-checked", signatureAnswer(signature)))).to.equal(
+        `Transaction tx-checked was built for ${recordedFor}, but ForDefi answered a signature of ${actual} ` +
+          "(over another transaction, or by another key); the signed file is not written"
+      );
+    }
+    // r = 0: no key recovers
+    expect(await rejectedWith(fetchForDefiSignature("tx-checked", signatureAnswer("00".repeat(64) + "00")))).to.match(
+      /^ForDefi answered a signature of no key for transaction tx-checked \(.+\); the signed file is not written$/
+    );
+    expect(readSignedTxJson("tx-checked").signature, "the good one kept").to.equal(good);
+  });
+
+  it("checks the signature of a C-chain file too", async () => {
+    const { forDefiHash: _evmHash, ...evm } = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedEvmTxJson;
+    saveUnsignedTxJson({ ...evm, forDefiTxId: "fordefi-tx-42" }, "evm-checked");
+    expect(
+      await rejectedWith(
+        fetchForDefiSignature("evm-checked", signatureAnswer(signMessageHash(evm.message, "22".repeat(32))))
+      )
+    ).to.match(
+      /^Transaction evm-checked was built for 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC, but ForDefi answered a signature of 0x/
+    );
+    const good = signMessageHash(evm.message);
+    expect(await fetchForDefiSignature("evm-checked", signatureAnswer(good))).to.equal(good);
   });
 
   /** Answers with the given HTTP status per request; status 200 bodies are JSON. */
