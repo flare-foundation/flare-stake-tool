@@ -194,6 +194,10 @@ describe("chain/network", () => {
       apiUrl: "https://flag.example",
       apiKey: "from-flag",
     });
+    // --api-key before the key written into the --rpc-url
+    expect(
+      networkConfig("costwo", {}, { apiUrl: "https://flag.example/?x-apikey=from-url", apiKey: "from-flag" })
+    ).to.include({ apiUrl: "https://flag.example", apiKey: "from-flag" });
     // FLARE_API_KEY goes to the node of FLARE_RPC_URL or the network's own, never to one --rpc-url names, even with
     // an unused FLARE_RPC_URL set
     expect(networkConfig("costwo", env, { apiUrl: "https://flag.example" })).to.include({

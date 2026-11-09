@@ -1282,6 +1282,8 @@ describe("core/builders/pchain", function () {
         expect(tx.delegationShares.value()).to.equal(100_000);
         expect(tx.period.value()).to.equal(900n);
         expect(bech32(tx.getValidatorRewardsOwner())).to.deep.equal([signer.pAddress]);
+        // the delegation fees go to the signer too, not to the owner given
+        expect(bech32(tx.getDelegatorRewardsOwner())).to.deep.equal([signer.pAddress]);
       }));
 
     it("setAutoRenewedValidatorConfig puts the auto-compound shares and period given into the transaction", () =>
