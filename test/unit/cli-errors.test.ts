@@ -903,6 +903,9 @@ describe("CLI commands that need no node (built CLI)", function () {
     for (const [arg, tail] of [
       ["--rpc-ur=http://audit:r8W'fkP3Z6dxqG2tB@127.0.0.1:1", "fkP3Z6dxqG2tB"],
       ["--apikey=k7Qz2LmN\n9pXy4RtV8wBcTAIL", "9pXy4RtV8wBcTAIL"],
+      // a Base64 key, whose padding ends the argument in "="
+      ["--apikey=c3ludGhldGljLWF1ZGl0LWtleQ==", "c3ludGhldGljLWF1ZGl0LWtleQ"],
+      ["--apikey=c3ludGhldGljLWF1ZGl0LWtleTE=", "c3ludGhldGljLWF1ZGl0LWtleTE"],
     ] as const) {
       const result = runCli(["info", "balance", arg], { cwd, env: PLAIN });
       expect(result.exitCode, arg).to.equal(1);

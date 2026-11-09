@@ -106,7 +106,8 @@ type TransactionIdOptions = Pick<GlobalOptions, "transactionId">;
  */
 export function withoutOptionValues(text: string, argv: readonly string[] = process.argv): string {
   const valued = argv
-    .filter((arg) => arg.startsWith("-") && arg.indexOf("=") > 0 && !arg.endsWith("="))
+    // a value is what follows the first "=", which may itself end in "=" (Base64 padding); only "--name=" has none
+    .filter((arg) => arg.startsWith("-") && arg.indexOf("=") > 0 && arg.indexOf("=") < arg.length - 1)
     .sort((a, b) => b.length - a.length);
   let masked = text;
   for (const arg of valued) {
