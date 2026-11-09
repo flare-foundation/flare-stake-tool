@@ -185,7 +185,7 @@ describe("app/send: the isSentToChain mark", () => {
       (error: unknown) =>
         expect(describeError(error)).to.equal(
           "Transaction 0xEvmHashFromTheScriptedNode was submitted, but its status could not be read: " +
-            "The node answered HTTP 403 Forbidden; check --rpc-url and the API key (--api-key or FLARE_API_KEY)"
+            "The node answered HTTP 403 Forbidden; check --rpc-url and the API key (--api-key or the URL's x-apikey; FLARE_API_KEY goes only to FLARE_RPC_URL or the default node)"
         )
     );
     expect(isAlreadySentToChain("e", cwd)).to.equal(true);

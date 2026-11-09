@@ -159,7 +159,7 @@ describe("CLI read-only commands (with network)", function () {
         "wrong-key",
       ]);
       expect(result.exitCode).to.equal(1);
-      expect(result.stderr).to.include("--api-key or FLARE_API_KEY");
+      expect(result.stderr).to.include("(--api-key or the URL's x-apikey; FLARE_API_KEY goes only to FLARE_RPC_URL");
       expect(refused).to.be.greaterThan(0);
     });
   });

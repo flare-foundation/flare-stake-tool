@@ -34,7 +34,7 @@ describe("output/describeError", () => {
       new Error("server response 403 Forbidden (request={ ... }, response={ ... }, code=SERVER_ERROR, version=6.17.0)")
     );
     expect(withDetails).to.equal(
-      "The node answered HTTP 403 Forbidden; check --rpc-url and the API key (--api-key or FLARE_API_KEY)"
+      "The node answered HTTP 403 Forbidden; check --rpc-url and the API key (--api-key or the URL's x-apikey; FLARE_API_KEY goes only to FLARE_RPC_URL or the default node)"
     );
     expect(describeError(new Error("server response 401 Unauthorized"))).to.match(
       /^The node answered HTTP 401 Unauthorized;/
@@ -47,7 +47,9 @@ describe("output/describeError", () => {
   it("explains an HTML error page reported by flarejs", () => {
     const text = describeError(new SyntaxError(`Unexpected token '<', "<!doctype " ... is not valid JSON`));
     expect(text).to.match(/^The node answered with an error page instead of JSON-RPC \(Unexpected token '<'/);
-    expect(text).to.include("--api-key or FLARE_API_KEY");
+    expect(text).to.include(
+      "(--api-key or the URL's x-apikey; FLARE_API_KEY goes only to FLARE_RPC_URL or the default node)"
+    );
   });
 
   it("explains an error page whose quoted start holds a line break, as nginx's does (<html>\\r\\n)", () => {
@@ -109,7 +111,7 @@ describe("output/describeError", () => {
         expect(describeError(error)).to.match(
           new RegExp(
             "^The node answered without a JSON-RPC result \\(Cannot .* undefined.*\\); check --rpc-url and the API key " +
-              `\\(--api-key or FLARE_API_KEY\\) \\(node ${url}\\)$`
+              `\\(--api-key or the URL's x-apikey; FLARE_API_KEY goes only to FLARE_RPC_URL or the default node\\) \\(node ${url}\\)$`
           )
         );
       }

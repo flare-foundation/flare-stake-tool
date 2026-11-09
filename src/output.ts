@@ -1,6 +1,6 @@
 import { styleText } from "node:util";
 import { REDIRECT_REFUSED, nodeOfError } from "./chain/clients";
-import { API_KEY_ENV, redactSecrets, redactSecretsInResult } from "./chain/network";
+import { API_KEY_ENV, API_KEY_HEADER, RPC_URL_ENV, redactSecrets, redactSecretsInResult } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { withoutQuotedInput } from "./core/json";
 import { SubmittedTxError } from "./core/submit";
@@ -86,7 +86,10 @@ export function logWarning(msg: string) {
   console.error(styleText("yellow", `Warning: ${redactSecretsInResult(msg)}`));
 }
 
-const NODE_HINT = `; check ${RPC_URL_FLAG} and the API key (${API_KEY_FLAG} or ${API_KEY_ENV})`;
+/** Where the key of the node that failed comes from: `FLARE_API_KEY` never goes to a node given with --rpc-url. */
+const NODE_HINT =
+  `; check ${RPC_URL_FLAG} and the API key (${API_KEY_FLAG} or the URL's ${API_KEY_HEADER}; ` +
+  `${API_KEY_ENV} goes only to ${RPC_URL_ENV} or the default node)`;
 
 const REDIRECT_TEXT =
   "The node answered with a redirect, which a request carrying the API key does not follow (the key would go to " +
