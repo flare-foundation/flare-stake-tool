@@ -9,9 +9,9 @@ import {
   SHARES_PER_PERCENT,
   asWei,
   parseDuration,
-  parseFlr,
   parseFlrToWei,
   parsePercentToShares,
+  parsePositiveFlr,
   type NFlr,
 } from "../chain/units";
 import { normalizeAddressList, resolveEvmFees, type EvmFeeOverrides, type EvmOperation } from "../constants/fees";
@@ -167,14 +167,14 @@ export function parseAtomicTxRequest(
   if (options.threshold !== undefined && options.threshold !== "1") {
     throw new Error("--threshold accepts only 1: the validator authority is a single address (--owner-address)");
   }
-  const amount = (): NFlr => parseFlr(required(options.amount, "amount", "--amount <amount>", type));
+  const amount = (): NFlr => parsePositiveFlr(required(options.amount, "amount", "--amount <amount>", type));
   const optionalAmount = (): NFlr | undefined => {
     const text = optionValue(options.amount, "--amount");
-    return text === undefined ? undefined : parseFlr(text);
+    return text === undefined ? undefined : parsePositiveFlr(text);
   };
   const fee = (): NFlr | undefined => {
     const text = optionValue(options.fee, "--fee");
-    return text === undefined ? undefined : parseFlr(text);
+    return text === undefined ? undefined : parsePositiveFlr(text);
   };
   const nodeId = (): string => parseNodeId(required(options.nodeId, "nodeId", "--node-id <nodeId>", type));
   const resolvedTimes: { name: string; time: ParsedTime }[] = [];

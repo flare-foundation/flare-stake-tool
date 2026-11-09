@@ -15,6 +15,7 @@ import {
   parseFlr,
   parseFlrToWei,
   parsePercentToShares,
+  parsePositiveFlr,
 } from "../../src/chain/units";
 import type { executorInfo } from "../../src/chain/contracts";
 import type { Stake } from "../../src/chain/validators";
@@ -103,6 +104,14 @@ describe("chain/units", () => {
         expect(() => parseFlr(bad), bad).to.throw(/Invalid amount .*commas are not accepted/);
       }
       expect(() => parsePercentToShares("2,5")).to.throw(/commas are not accepted/);
+    });
+
+    it("refuses 0 as an amount a transaction moves or a fee it pays, however it is written", () => {
+      for (const zero of ["0", "0.0", ".0", "0.", "000"]) {
+        expect(() => parsePositiveFlr(zero), zero).to.throw(`Invalid amount "${zero}": must be more than 0`);
+      }
+      expect(parsePositiveFlr("0.000000001")).to.equal(1n);
+      expect(() => parsePositiveFlr("abc")).to.throw('Invalid amount "abc"');
     });
 
     it("reads a point with no digits on one side, as 4.4.0 did (bc prints .50)", () => {

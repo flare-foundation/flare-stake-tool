@@ -390,6 +390,8 @@ TX {"type":"transfer","amount":"1000000000n","to":"P-localflare18jma8ppw3nhx5r4a
 ? input "\u001b[35mEnter amount (in FLR):\u001b[39m"
 > "abc"
   ! Invalid amount "abc": expected a non-negative decimal number
+> "0"
+  ! Invalid amount "0": must be more than 0
 > "1"
 ? input "\u001b[35mEnter destination P-chain address:\u001b[39m"
 > "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0"
@@ -560,6 +562,8 @@ ENV localflare {}
 > "10"
 ESTIMATE {"type":"exportCP","amount":"10000000000n"}
 ? input "\u001b[35mEnter fee (in FLR)\u001b[39m \u001b[33m(Enter accepts 0.00002246 LFLR: twice the current base fee, headroom for a rise before it lands)\u001b[39m\u001b[35m:\u001b[39m" default="0.00002246"
+> "0"
+  ! Invalid amount "0": must be more than 0
 > ""
 [log] Please approve export transaction
 [log] About to sign exportCP on localflare:

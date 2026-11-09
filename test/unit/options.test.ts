@@ -171,6 +171,29 @@ describe("cli/inputs, cli/requests and cli/options", () => {
     });
   });
 
+  describe("a zero amount or fee", () => {
+    it("is refused before anything is built: the node refuses the transaction once signed", () => {
+      const bls = { popBlsPublicKey: NODE_A_POP.publicKey, popBlsSignature: NODE_A_POP.signature };
+      const zero = (input: string): string => `Invalid amount "${input}": must be more than 0`;
+      for (const [type, options, input] of [
+        ["exportCP", { amount: "0", fee: "0.001" }, "0"],
+        ["exportCP", { amount: "1", fee: "0.000" }, "0.000"],
+        ["exportPC", { amount: ".0" }, ".0"],
+        ["importPC", { fee: "0" }, "0"],
+        ["transfer", { amount: "0", transferAddress: "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v" }, "0"],
+        ["delegate", { nodeId: NODE_ID, amount: "0", endTime: "14d" }, "0"],
+        ["stake", { nodeId: NODE_ID, amount: "0", endTime: "14d", ...bls }, "0"],
+      ] as const) {
+        expect(() => parseAtomicTxRequest(type, options), `${type} ${input}`).to.throw(zero(input));
+      }
+      // the smallest amount and fee are taken
+      expect(parseAtomicTxRequest("exportCP", { amount: "0.000000001", fee: "0.000000001" }).request).to.include({
+        amount: 1n,
+        fee: 1n,
+      });
+    });
+  });
+
   describe("C-chain amounts", () => {
     it("keep the full 18 decimals for withdrawal and claim", () => {
       const withdrawal = parseEvmTxRequest("withdrawal", { to: TO, amount: "0.0000000001" });

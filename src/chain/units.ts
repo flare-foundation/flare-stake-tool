@@ -78,6 +78,18 @@ export function parseFlr(input: string): NFlr {
 }
 /** FLR → wei (C-chain EVM amounts), with the C-chain's full 18 decimals. */
 export const parseFlrToWei = (input: string): Wei => asWei(parseDecimal(input, WEI_DECIMALS));
+
+/**
+ * An amount a P-chain or atomic transaction moves, or a fee it pays (-a, -f): 0 is refused before anything is built,
+ * as the node would refuse the transaction once signed ("output has no value", a fee below the base fee).
+ */
+export function parsePositiveFlr(input: string): NFlr {
+  const amount = parseFlr(input);
+  if (amount === 0n) {
+    throw new Error(`Invalid amount "${input}": must be more than 0`);
+  }
+  return amount;
+}
 export const formatFlr = (amount: NFlr): string => formatDecimal(amount, NFLR_DECIMALS);
 export const formatWei = (amount: Wei): string => formatDecimal(amount, WEI_DECIMALS);
 

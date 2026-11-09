@@ -2,7 +2,7 @@ import { styleText } from "node:util";
 import inquirer from "inquirer";
 import { pChainAddressBytes } from "../chain/keys";
 import type { NetworkName } from "../chain/network";
-import { parseDuration, parseEndTime, parseFlr, parseFlrToWei, parsePercentToShares } from "../chain/units";
+import { parseDuration, parseEndTime, parseFlrToWei, parsePercentToShares, parsePositiveFlr } from "../chain/units";
 import { DEFAULT_DELEGATION_FEE_PERCENT, checkProofOfPossession, parseBlsHex, parseNodeId } from "../cli/inputs";
 import {
   derivationModeConstants,
@@ -140,7 +140,7 @@ export const prompts = {
   amount: (defaultAmount?: string): Promise<string> =>
     input(ask("Enter amount (in FLR):"), {
       default: defaultAmount,
-      validate: (value) => validationOf(() => parseFlr(value)),
+      validate: (value) => validationOf(() => parsePositiveFlr(value)),
     }),
 
   // exportCP and importPC fee: the default is the estimate from the current base fee, when there is one
@@ -151,7 +151,7 @@ export const prompts = {
         : `(Enter accepts ${estimate} ${symbol}: twice the current base fee, headroom for a rise before it lands)`;
     return input(askWithHint("Enter fee (in FLR)", hint), {
       default: estimate,
-      validate: (value) => (value.trim() === "" ? true : validationOf(() => parseFlr(value))),
+      validate: (value) => (value.trim() === "" ? true : validationOf(() => parsePositiveFlr(value))),
     });
   },
 

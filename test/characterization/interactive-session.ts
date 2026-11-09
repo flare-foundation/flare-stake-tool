@@ -421,7 +421,7 @@ const SCENARIOS: Scenario[] = [
       "Private Key", "nofile",
       ...PRIVATE_KEY,
       TASK.transfer, "1", P_ADDRESS, SIGN,
-      TASK.transfer, "abc", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS, SIGN,
+      TASK.transfer, "abc", "0", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS, SIGN,
       TASK.setARV, NODE_Z, "0", true, SIGN,
       TASK.quit,
     ],
@@ -453,7 +453,7 @@ const SCENARIOS: Scenario[] = [
     // the error, and that the export was sent and its funds wait for "Import Funds"
     name: "private key: a failed import says the export was sent",
     flags: { failTx: ["importCP", "importPC"] },
-    script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, SIGN, TASK.PC, "1", SIGN, "", SIGN, TASK.quit],
+    script: [...PRIVATE_KEY, TASK.CP, "10", "0", "", SIGN, SIGN, TASK.PC, "1", SIGN, "", SIGN, TASK.quit],
   },
   {
     // No (also the default) signs nothing; a move whose export is not signed waits for nothing and imports nothing
