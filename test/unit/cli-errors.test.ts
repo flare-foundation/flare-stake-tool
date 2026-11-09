@@ -686,14 +686,39 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("takes the account of a key file with only PUBLIC_KEY, as 4.4.0 did, but refuses to sign with it", () => {
+    const publicOnly = path.join(cwd, "public-key.txt");
+    fs.writeFileSync(publicOnly, `PUBLIC_KEY=${EWOQ_PUBLIC_KEY_COMPRESSED}\n`);
+    const info = runCli(["info", "addresses", "--env-path", publicOnly, "--network", "localflare"], { cwd });
+    expect(info.exitCode, info.stderr).to.equal(0);
+    expect(info.stdout).to.include("C-chain address hex: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC");
+    // --get-hacked signs with the file: refused, and info shows no account a transaction would refuse
+    for (const args of [
+      ["exportCP", "-a", "1"],
+      ["info", "addresses"],
+    ]) {
+      const signing = runCli([...args, "--get-hacked", "--env-path", publicOnly, "--network", "localflare"], {
+        cwd,
+        env: { FLARE_RPC_URL: CLOSED_NODE },
+      });
+      expect(signing.exitCode, args[0]).to.equal(1);
+      expect(signing.stderr, args[0]).to.include(
+        `Env file ${publicOnly} holds only a PUBLIC_KEY; signing needs PRIVATE_KEY_HEX`
+      );
+    }
+  });
+
   it("send checks the signature against the account --env-path or --ledger selects, with no ctx.json", () => {
     // a file of an earlier version, which records no account, signed by another key than the one selected
     const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson & { message: string };
     const signature = signMessageHash(unsigned.message, "22".repeat(32));
     const older = { ...unsigned, signer: undefined };
     const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const publicOnly = path.join(cwd, "public-key.txt");
+    fs.writeFileSync(publicOnly, `PUBLIC_KEY=${EWOQ_PUBLIC_KEY_COMPRESSED}\n`);
     for (const [label, selector, env] of [
       ["--env-path", ["--env-path", envPath], {}],
+      ["--env-path with only PUBLIC_KEY", ["--env-path", publicOnly], {}],
       ["--ledger", ["--ledger"], { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX }],
     ] as const) {
       writeSignedTxJson({ ...older, signature }, "w1", cwd);

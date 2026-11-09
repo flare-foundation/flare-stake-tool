@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import fs from "fs";
 import path from "path";
 import { getBytes, hexlify } from "ethers";
 import { utils as futils } from "@flarenetwork/flarejs";
@@ -481,8 +482,12 @@ describe("cli/inputs, cli/requests and cli/options", () => {
 
     it("is the one transactions sign for, whatever the combination of selectors", async () => {
       const envPath = writeEnvFile(dir, EWOQ_PRIVATE_KEY_HEX);
+      // a key file with only PUBLIC_KEY gives the account of an unsigned file, as in 4.4.0
+      const publicOnly = path.join(dir, "public-key.txt");
+      fs.writeFileSync(publicOnly, `PUBLIC_KEY=${keyFile.publicKeyHex}\n`);
       const cases: [string, Partial<GlobalOptions>, string][] = [
         ["--env-path", { envPath }, keyFile.pAddress],
+        ["--env-path with only PUBLIC_KEY", { envPath: publicOnly }, keyFile.pAddress],
         ["--ledger", { ledger: true }, ledger.pAddress],
         // info and send took the key file here, while transactions signed with the Ledger
         ["--ledger --env-path", { ledger: true, envPath }, ledger.pAddress],
@@ -499,6 +504,7 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       // --get-hacked signs with the key file
       const kinds: [Partial<GlobalOptions>, string][] = [
         [{ envPath }, "file"],
+        [{ envPath: publicOnly }, "file"],
         [{ ledger: true, envPath }, "ledger"],
         [{ getHacked: true, envPath }, "privateKey"],
         [{}, "file"],

@@ -143,7 +143,9 @@ export async function resolveSigner(options: GlobalOptions, env: Env): Promise<S
 export async function resolveAccount(options: GlobalOptions, env: Env): Promise<Account> {
   switch (accountSource(options)) {
     case "keyFile":
-      return keyFileSigner(options, env).account();
+      // without --get-hacked nothing is signed with the file, so one with only PUBLIC_KEY gives the account, as in 4.4.0
+      if (options.getHacked || !options.envPath) return keyFileSigner(options, env).account();
+      return PrivateKeySigner.accountOfEnvFile(options.envPath, env.network.hrp);
     case "ledger":
       return ledgerSigner(options, env).account();
     case "contextFile":
