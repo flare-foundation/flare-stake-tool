@@ -74,21 +74,45 @@ export function redactApiKey(text: string): string {
   return text.replace(new RegExp(`([?&]${API_KEY_HEADER}=)[^&#\\s"]*`, "gi"), "$1***");
 }
 
-/** Secrets in use (the API key, URL credentials), masked wherever they turn up in a message. */
+/** Secrets in use (the API key, URL passwords, the ForDefi token), masked wherever they turn up in a message. */
 const secrets = new Set<string>();
+/** URL usernames: masked in errors with the other credentials, but not in results, where they are no secret. */
+const usernames = new Set<string>();
+/**
+ * The shortest secret masked in results: a shorter one can match part of an address, a hash or an id by chance (a
+ * 4-character URL username masked `0x8db9…` in the address `info addresses` printed).
+ */
+const RESULT_SECRET_MIN_LENGTH = 8;
 
-/** Masks `value` in every message `redactSecrets` cleans from now on. */
-export function rememberSecret(value: string | undefined): void {
-  if (value !== undefined && value.length >= 4) secrets.add(value);
+/** Masks `value` in every message `redactSecrets` cleans from now on, and a secret in results as well. */
+export function rememberSecret(value: string | undefined, kind: "secret" | "username" = "secret"): void {
+  if (value !== undefined && value.length >= 4) (kind === "username" ? usernames : secrets).add(value);
+}
+
+/** Masks the `x-apikey` query parameter and the user and password of a URL (`https://user:SECRET@host`). */
+const redactUrlCredentials = (text: string): string =>
+  redactApiKey(text).replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#@]*@/gi, "$1***@");
+
+/**
+ * An error message cleaned of credentials before it is printed: URL credentials, the `x-apikey` query parameter, and
+ * every remembered secret and URL username, wherever a library repeats them.
+ */
+export function redactSecrets(text: string): string {
+  let cleaned = redactUrlCredentials(text);
+  for (const secret of [...secrets, ...usernames]) cleaned = cleaned.split(secret).join("***");
+  return cleaned;
 }
 
 /**
- * A message cleaned of credentials before it is printed: the `x-apikey` query parameter, the user and password of a
- * URL (`https://user:SECRET@host`), and every remembered secret, wherever a library repeats them.
+ * A result cleaned of credentials before it is printed: URL credentials, the `x-apikey` query parameter, and the
+ * remembered secrets long enough not to match part of an address, a hash or an id (a node may repeat the API key in
+ * what it answers). Usernames and shorter secrets are masked in errors only, so that results stay whole.
  */
-export function redactSecrets(text: string): string {
-  let cleaned = redactApiKey(text).replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#@]*@/gi, "$1***@");
-  for (const secret of secrets) cleaned = cleaned.split(secret).join("***");
+export function redactSecretsInResult(text: string): string {
+  let cleaned = redactUrlCredentials(text);
+  for (const secret of secrets) {
+    if (secret.length >= RESULT_SECRET_MIN_LENGTH) cleaned = cleaned.split(secret).join("***");
+  }
   return cleaned;
 }
 

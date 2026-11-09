@@ -1,35 +1,36 @@
 import { styleText } from "node:util";
 import { REDIRECT_REFUSED, nodeOfError } from "./chain/clients";
-import { API_KEY_ENV, redactSecrets } from "./chain/network";
+import { API_KEY_ENV, redactSecrets, redactSecretsInResult } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { SubmittedTxError } from "./core/submit";
 import type { Outcome } from "./core/types";
 import { API_KEY_FLAG, RPC_URL_FLAG } from "./cli/node";
 
 /*
- * Every line printed is cleaned of the secrets in use (`redactSecrets`), results as well as errors: a node may repeat
- * the API key in what it answers, such as a field of a validator that `info validators` prints as it came.
+ * Every line printed is cleaned of the secrets in use (`redactSecretsInResult`), results as well as errors: a node may
+ * repeat the API key in what it answers, such as a field of a validator that `info validators` prints as it came.
+ * Errors are cleaned further by `describeError`.
  */
 
 export function log(msg: string) {
-  console.log(redactSecrets(msg));
+  console.log(redactSecretsInResult(msg));
 }
 
 export function logInfo(msg: string) {
-  console.log(styleText("blue", redactSecrets(msg)));
+  console.log(styleText("blue", redactSecretsInResult(msg)));
 }
 
 export function logError(msg: string) {
-  console.log(styleText("red", redactSecrets(msg)));
+  console.log(styleText("red", redactSecretsInResult(msg)));
 }
 
 export function logSuccess(msg: string) {
-  console.log(styleText("green", redactSecrets(msg)));
+  console.log(styleText("green", redactSecretsInResult(msg)));
 }
 
 /** Progress goes to stderr, like warnings, so that stdout holds only results. */
 export function logProgress(msg: string) {
-  console.error(styleText("blue", redactSecrets(msg)));
+  console.error(styleText("blue", redactSecretsInResult(msg)));
 }
 
 /** Printed as soon as the node takes a transaction, so that its id is known even if the wait for it fails. */
@@ -80,7 +81,7 @@ export function reportOutcome(outcome: Outcome, symbol: string): void {
 
 /** Warnings go to stderr so that stdout (transaction ids, hashes) stays parseable. */
 export function logWarning(msg: string) {
-  console.error(styleText("yellow", `Warning: ${redactSecrets(msg)}`));
+  console.error(styleText("yellow", `Warning: ${redactSecretsInResult(msg)}`));
 }
 
 const NODE_HINT = `; check ${RPC_URL_FLAG} and the API key (${API_KEY_FLAG} or ${API_KEY_ENV})`;

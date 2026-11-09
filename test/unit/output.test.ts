@@ -8,7 +8,7 @@ import { getBalances, getValidators } from "../../src/app/info";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { asNFlr, asWei } from "../../src/chain/units";
 import type { Env } from "../../src/core/types";
-import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 import {
   describeError,
   describeEvmValues,
@@ -20,7 +20,7 @@ import {
   logWarning,
   reportOutcome,
 } from "../../src/output";
-import { cleanupTempDir, makeTempDir, runCliAsync } from "../helpers/cli";
+import { cleanupTempDir, makeTempDir, runCli, runCliAsync, writeEnvFile } from "../helpers/cli";
 
 describe("output/describeError", () => {
   it("passes ordinary errors through", () => {
@@ -225,6 +225,48 @@ describe("output: what is printed", () => {
     }
     expect(printed).to.have.length(6);
     for (const line of printed) expect(line).to.include('"***"').and.not.to.include("SYNTHETIC");
+  });
+
+  it("leaves addresses and hashes whole: a URL username and a short secret are masked in errors only", () => {
+    const clients = createClients(
+      networkConfig("localflare", {}, { apiUrl: "https://uq7z:SYNTHETIC-RESULT-PASSWORD@node.example" })
+    );
+    clients.provider.destroy();
+    rememberSecret("zq7w"); // a short secret
+    const printed: string[] = [];
+    const log0 = console.log;
+    console.log = (line: string) => printed.push(line);
+    try {
+      log("P-localflare1uq7zzq7w and 0xabzq7w, password SYNTHETIC-RESULT-PASSWORD");
+    } finally {
+      console.log = log0;
+    }
+    expect(printed).to.deep.equal(["P-localflare1uq7zzq7w and 0xabzq7w, password ***"]);
+    expect(describeError(new Error("uq7z zq7w SYNTHETIC-RESULT-PASSWORD"))).to.equal("*** *** ***");
+  });
+
+  it("prints an address that contains the URL username whole (info addresses)", () => {
+    const cwd = makeTempDir("output-test-");
+    try {
+      const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+      const result = runCli(
+        [
+          "info",
+          "addresses",
+          "--env-path",
+          envPath,
+          "--network",
+          "localflare",
+          "--rpc-url",
+          "http://8db9:SYNTHETIC-PASSWORD@127.0.0.1:9650",
+        ],
+        { cwd }
+      );
+      expect(result.exitCode, result.stderr).to.equal(0);
+      expect(result.stdout).to.include("C-chain address hex: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC");
+    } finally {
+      cleanupTempDir(cwd);
+    }
   });
 
   it("does not show an API key that a node repeats in a result (info validators)", async () => {

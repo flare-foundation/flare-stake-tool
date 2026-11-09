@@ -151,10 +151,10 @@ export function notingNode<T extends object>(api: T, node: string): T {
  * Remembers a URL credential for masking, as written and decoded. Decoding is best effort: a `%` that starts no
  * escape is valid in a URL, and masking must not refuse a URL the clients accept.
  */
-function rememberCredential(serialized: string): void {
-  rememberSecret(serialized);
+function rememberCredential(serialized: string, kind: "secret" | "username"): void {
+  rememberSecret(serialized, kind);
   try {
-    rememberSecret(decodeURIComponent(serialized));
+    rememberSecret(decodeURIComponent(serialized), kind);
   } catch {
     // not decodable: the serialized form is what an error would show
   }
@@ -200,7 +200,8 @@ function shownLocation(location: string | undefined, requestUrl: string): string
 export function createClients(network: NetworkConfig): Clients {
   rememberSecret(network.apiKey);
   const { username, password } = new URL(network.apiUrl);
-  for (const credential of [username, password]) rememberCredential(credential);
+  rememberCredential(username, "username");
+  rememberCredential(password, "secret");
   // The API key travels as a header, never in the URL, so it stays out of logs and error messages. A request carrying
   // it refuses a redirect: fetch would send the header on to whatever host the redirect names, plain http included.
   const headers = network.apiKey === undefined ? undefined : { [API_KEY_HEADER]: network.apiKey };
