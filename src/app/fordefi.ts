@@ -16,7 +16,7 @@ import {
   writeUnsignedTxJson,
 } from "../core/files";
 import { normalizePublicKey } from "../chain/keys";
-import { networkConfig, type NetworkConfig } from "../chain/network";
+import { networkConfig, redactSecrets, rememberSecret, type NetworkConfig } from "../chain/network";
 import { isJsonObject } from "../core/json";
 import { SIGNATURE_LENGTH, equalBytes, toHex } from "../core/signing/signature";
 import type { ContextFile } from "./env";
@@ -39,7 +39,12 @@ interface VaultResponse {
   public_key_compressed?: unknown;
 }
 
-const readToken = (): string => fs.readFileSync(FORDEFI_TOKEN_FILE, "utf8").trim();
+/** The API token, remembered for masking as soon as it is read: a ForDefi answer may repeat it in an error body. */
+function readToken(): string {
+  const token = fs.readFileSync(FORDEFI_TOKEN_FILE, "utf8").trim();
+  rememberSecret(token);
+  return token;
+}
 
 /**
  * The JSON body of a ForDefi answer. A refused request (expired token, unknown
@@ -147,6 +152,10 @@ export async function sendToForDefi(
   const json = await forDefiJson<ForDefiTransactionResponse>(response, "signature request");
   if (typeof json.id !== "string" || !json.id) {
     throw new Error(`ForDefi did not return a transaction id: ${JSON.stringify(json).slice(0, 200)}`);
+  }
+  // the id goes into the unsigned file, which is shared with co-signers
+  if (redactSecrets(json.id) !== json.id) {
+    throw new Error("ForDefi answered a transaction id that holds a secret (such as the API token); it is not saved");
   }
   writeUnsignedTxJson({ ...unsigned, forDefiTxId: json.id }, id);
   return { forDefiTxId: json.id, forDefiHash: hashBase64 };

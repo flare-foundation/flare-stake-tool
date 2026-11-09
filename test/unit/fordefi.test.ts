@@ -14,6 +14,7 @@ import {
 } from "../../src/core/files";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
+import { describeError } from "../../src/output";
 import { SigningKey } from "ethers";
 import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
@@ -242,6 +243,35 @@ describe("app/fordefi", () => {
     expect(await rejectedWith(sendToForDefi("tx1", context, fetchImpl))).to.equal(
       `ForDefi vault lookup (${vaultId}) failed: HTTP 401 Unauthorized: {"title":"Invalid token"}`
     );
+  });
+
+  it("masks the API token in a ForDefi answer, and never saves a transaction id that holds it", async () => {
+    const refused = statusFetch({
+      [`GET /api/v1/vaults/${vaultId}`]: {
+        status: 401,
+        statusText: "Unauthorized",
+        body: '{"diagnostic":"refused Bearer secret-token"}',
+      },
+    });
+    const error = await sendToForDefi("tx1", context, refused).then(
+      () => expect.fail("should have thrown"),
+      (thrown: unknown) => describeError(thrown)
+    );
+    expect(error).to.equal(
+      `ForDefi vault lookup (${vaultId}) failed: HTTP 401 Unauthorized: {"diagnostic":"refused Bearer ***"}`
+    );
+    const before = readUnsignedTxJson("tx1").forDefiTxId;
+    const reflecting = fakeFetch({
+      [`GET /api/v1/vaults/${vaultId}`]: {
+        id: vaultId,
+        public_key_compressed: Buffer.from(EWOQ_PUBLIC_KEY_COMPRESSED, "hex").toString("base64"),
+      },
+      "POST /api/v1/transactions": { id: "tx-secret-token" },
+    });
+    expect(await rejectedWith(sendToForDefi("tx1", context, reflecting))).to.equal(
+      "ForDefi answered a transaction id that holds a secret (such as the API token); it is not saved"
+    );
+    expect(readUnsignedTxJson("tx1").forDefiTxId, "the file as it was").to.equal(before);
   });
 
   it("reports a failed signature request and leaves the unsigned file as it was", async () => {
