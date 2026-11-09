@@ -448,7 +448,7 @@ describe("core/pipeline: the transaction approved is the one signed", () => {
     expect(shown?.claimed).to.equal(4n * 10n ** 18n);
     expect(amount, "the amount approved, not the rewards now").to.equal(shown?.claimed);
     expect(signed.tx.nonce).to.equal(shown?.nonce);
-    expect(outcome.evm).to.deep.equal({ nonce: shown?.nonce, claimed: shown?.claimed });
+    expect(outcome.evm).to.deep.equal({ nonce: shown?.nonce, gasLimit: signed.tx.gasLimit, claimed: shown?.claimed });
     expect(rewardsOf, "built once").to.have.length(1);
   });
 });

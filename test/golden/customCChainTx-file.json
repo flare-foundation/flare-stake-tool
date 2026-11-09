@@ -20,7 +20,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction customCChainTx-file constructed\nForDefi hash: 7PBmx9ZqzBldEiJc/rXBWMRXCVAqGVmDs6Mgs9BwbhQ=\nNonce: 8\n",
+    "stdout": "Unsigned transaction customCChainTx-file constructed\nForDefi hash: 7PBmx9ZqzBldEiJc/rXBWMRXCVAqGVmDs6Mgs9BwbhQ=\nNonce: 8\nGas limit: 300000\n",
     "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],

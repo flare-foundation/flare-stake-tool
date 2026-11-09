@@ -30,11 +30,14 @@ export async function executeTransaction(
       ? {
           evm: {
             nonce: bundle.tx.nonce,
+            gasLimit: bundle.tx.gasLimit,
             ...(details.claimed !== undefined ? { claimed: details.claimed } : {}),
             ...(bundle.txType === "setClaimExecutors" ? { executorFees: details.value } : {}),
           },
         }
-      : {};
+      : details.nonce !== undefined
+        ? { evm: { nonce: details.nonce } } // exportCP
+        : {};
   await beforeSign?.(details);
   const result = await signer.sign(bundle);
   if (result.status === "pending") {

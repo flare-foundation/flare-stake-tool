@@ -199,12 +199,14 @@ export interface Signer {
 }
 
 /**
- * Values of a C-chain transaction that may come from the chain, read from the transaction built: the nonce, the amount
- * a claim takes (all unclaimed rewards without -a) and the executor fees setClaimExecutors pays. They are printed, so
- * that ForDefi co-signers can pass the same nonce and amount, and compare the fees.
+ * Values of a C-chain transaction that may come from the chain, read from the transaction built: the nonce (also
+ * exportCP's), the gas limit (claim's and withdrawal's default depends on the recipient's code), the amount a claim
+ * takes (all unclaimed rewards without -a) and the executor fees setClaimExecutors pays. They are printed, so that
+ * ForDefi co-signers can pass the same nonce, gas limit and amount, and compare the fees.
  */
 export interface EvmOutcomeValues {
   nonce: number;
+  gasLimit?: bigint | undefined;
   claimed?: Wei | undefined;
   executorFees?: Wei | undefined;
 }

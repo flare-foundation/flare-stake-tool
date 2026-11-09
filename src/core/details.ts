@@ -3,7 +3,7 @@
  * signed: interactive mode shows it for confirmation, and the outcome carries it, so that what the user approves is
  * what gets signed.
  */
-import { utils as futils, type Context } from "@flarenetwork/flarejs";
+import { utils as futils, type Context, type evmSerial } from "@flarenetwork/flarejs";
 import { contractInterface } from "../chain/contracts";
 import { asNFlr, asWei, type NFlr, type Wei } from "../chain/units";
 import { atomicTxFee } from "./fee";
@@ -14,7 +14,10 @@ export interface BuiltDetails {
   fee?: NFlr | undefined;
   /** importCP and importPC: what arrives on the destination chain, the UTXOs taken minus the fee. */
   imported?: NFlr | undefined;
-  /** C-chain transactions: the nonce, the value sent, and the most the gas can cost (gas limit × max fee per gas). */
+  /**
+   * C-chain transactions: the nonce (also exportCP's, of its C-chain input), the value sent, and the most the gas can
+   * cost (gas limit × max fee per gas).
+   */
   nonce?: number | undefined;
   value?: Wei | undefined;
   maxGasCost?: Wei | undefined;
@@ -30,9 +33,12 @@ export function builtDetails(bundle: UnsignedTxBundle, context: Context.Context 
     if (context === undefined) return {};
     const imports = bundle.txType === "importCP" || bundle.txType === "importPC";
     const received = futils.getOutputAmounts(bundle.unsignedTx.getTx() as OutputsTx).get(context.avaxAssetID);
+    // exportCP spends from the C-chain account with its nonce, read from the chain like an EVM transaction's
+    const exported = bundle.txType === "exportCP" ? (bundle.unsignedTx.getTx() as evmSerial.ExportTx) : undefined;
     return {
       fee: atomicTxFee(bundle.unsignedTx, context),
       ...(imports ? { imported: asNFlr(received ?? 0n) } : {}),
+      ...(exported?.ins[0] ? { nonce: Number(exported.ins[0].nonce.value()) } : {}),
     };
   }
   const { tx } = bundle;

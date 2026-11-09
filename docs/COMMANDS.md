@@ -319,8 +319,9 @@ lock. Values left out of the
 command are read from the chain as well (`--nonce`, `claim -a`, `exportPC -a`,
 and the default `--gas-limit` of `claim`/`withdrawal`, which depends on whether
 the recipient has contract code); passing them pins them. The C-chain commands
-print the nonce they used, and `claim` the amount it takes, so that co-signers
-can pass the same `--nonce` and `-a`.
+and `exportCP` print the nonce they used, the C-chain commands their gas limit,
+and `claim` the amount it takes, so that co-signers can pass the same
+`--nonce`, `--gas-limit` and `-a`.
 
 ---
 
