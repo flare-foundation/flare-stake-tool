@@ -105,8 +105,17 @@ describe("chain/units", () => {
       expect(() => parsePercentToShares("2,5")).to.throw(/commas are not accepted/);
     });
 
+    it("reads a point with no digits on one side, as 4.4.0 did (bc prints .50)", () => {
+      expect(parseFlr(".5")).to.equal(500_000_000n);
+      expect(parseFlr(".50")).to.equal(500_000_000n);
+      expect(parseFlr("1.")).to.equal(1_000_000_000n);
+      expect(parseFlrToWei(".000000000000000001")).to.equal(1n);
+      expect(parsePercentToShares(".5")).to.equal(5_000);
+      expect(() => parseFlr(".0000000001")).to.throw(/at most 9 decimal places/);
+    });
+
     it("rejects negative, empty and non-numeric input", () => {
-      for (const bad of ["", "-1", "1e9", "abc", "1.2.3", "0x10"]) {
+      for (const bad of ["", ".", "-1", "1e9", "abc", "1.2.3", "0x10", "..5", "1..", "+1", " . "]) {
         expect(() => parseFlr(bad), bad).to.throw(/Invalid amount/);
       }
     });

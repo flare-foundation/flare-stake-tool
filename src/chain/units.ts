@@ -6,7 +6,8 @@
 export const NFLR_DECIMALS = 9;
 export const WEI_DECIMALS = 18;
 
-const DECIMAL_RE = /^(\d+)(?:\.(\d+))?$/;
+/** Digits with an optional fraction; either side of the point may be empty, not both (`.5` and `1.` as 4.4.0 took). */
+const DECIMAL_RE = /^(?:(\d+)(?:\.(\d*))?|\.(\d+))$/;
 
 /**
  * Parses a non-negative decimal string into an integer with `decimals`
@@ -27,8 +28,8 @@ export function parseDecimal(input: string, decimals: number): bigint {
   if (!match) {
     throw new Error(`Invalid amount "${input}": expected a non-negative decimal number`);
   }
-  const whole = match[1]!;
-  const digits = match[2] ?? "";
+  const whole = match[1] ?? "0";
+  const digits = match[2] ?? match[3] ?? "";
   if (/[1-9]/.test(digits.slice(decimals))) {
     throw new Error(`Invalid amount "${input}": at most ${decimals} decimal places are supported`);
   }
