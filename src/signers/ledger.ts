@@ -11,7 +11,7 @@ import {
 } from "../core/types";
 import type { NetworkName } from "../chain/network";
 import * as ledger from "../ledger";
-import { logInfo, logProgress, logWarning } from "../output";
+import { logProgress, logWarning } from "../output";
 
 export type LedgerApp = ledger.LedgerAppName;
 
@@ -129,7 +129,7 @@ export class LedgerSigner implements Signer {
           cause: error,
         });
       }
-      logInfo(
+      logProgress(
         `The Flare app does not recognise ${bundle.txType} transactions; signing the transaction hash instead (blind signing).`
       );
       announceBlindSigning(digestHex);

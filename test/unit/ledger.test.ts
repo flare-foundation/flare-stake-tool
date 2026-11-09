@@ -301,12 +301,24 @@ describe("ledger", () => {
     it("falls back to signing the hash when the app does not recognise the transaction", async () => {
       const { device, signedHashes } = flareApp(invalidData("Unrecognized error code"));
       let result: unknown;
-      const printed = await logged(async () => {
-        result = await new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare").sign(bundle);
-      });
+      const stderr: string[] = [];
+      const original = console.error;
+      console.error = (message: unknown) => stderr.push(String(message));
+      let stdout: string;
+      try {
+        stdout = await logged(async () => {
+          result = await new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare").sign(bundle);
+        });
+      } finally {
+        console.error = original;
+      }
       expect(result).to.deep.equal({ status: "signed", signature: getBytes(`0x${HASH_SIGNATURE}`) });
       expect(signedHashes).to.deep.equal([Buffer.from(bundle.digest).toString("hex")]);
-      expect(printed).to.include("does not recognise delegate transactions; signing the transaction hash instead");
+      // on stderr with the other signing lines: stdout holds the result a script reads
+      expect(stderr.join("\n")).to.include(
+        "does not recognise delegate transactions; signing the transaction hash instead"
+      );
+      expect(stdout).to.equal("");
     });
 
     it("prints the digest on stderr before the fallback has the device sign it", async () => {
@@ -325,9 +337,10 @@ describe("ledger", () => {
         console.error = original;
       }
       const digest = Buffer.from(bundle.digest).toString("hex");
-      expect(events).to.have.length(2);
-      expect(events[0]).to.include(`Blind signing: the Ledger signs the transaction hash ${digest};`);
-      expect(events[1]).to.equal(`signHash ${digest}`);
+      expect(events).to.have.length(3);
+      expect(events[0]).to.include("does not recognise delegate transactions");
+      expect(events[1]).to.include(`Blind signing: the Ledger signs the transaction hash ${digest};`);
+      expect(events[2]).to.equal(`signHash ${digest}`);
     });
 
     it("does not fall back on other invalid-data answers, which fail instead", async () => {
