@@ -49,9 +49,37 @@ describe("output/describeError", () => {
     expect(text).to.include("--api-key or FLARE_API_KEY");
   });
 
-  it("leaves other JSON parse errors alone", () => {
-    const message = `Unexpected token '}', "{}}" is not valid JSON`;
-    expect(describeError(new SyntaxError(message))).to.equal(message);
+  it("leaves out the text other JSON parse errors quote", () => {
+    expect(describeError(new SyntaxError(`Unexpected token '}', "{}}" is not valid JSON`))).to.equal(
+      "Unexpected token '}' in JSON"
+    );
+    for (const quoted of [`"abcdefghij"...`, `..."abcdefghij"...`, `"abcdefghij"y"`, `"<!doctype " ...`]) {
+      expect(describeError(new SyntaxError(`Unexpected token 'a', ${quoted} is not valid JSON`)), quoted).to.equal(
+        "Unexpected token 'a' in JSON"
+      );
+    }
+  });
+
+  it("doesn't print the start of a node's answer that repeats the API key, which V8 quotes cut", async () => {
+    const key = "SYNTHETIC-QUOTED-API-KEY-0042";
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end(`${String(req.headers["x-apikey"])} is not a JSON-RPC answer`);
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    try {
+      const clients = createClients(networkConfig("localflare", {}, { apiUrl: url, apiKey: key }));
+      clients.provider.destroy();
+      const error = await clients.info.getNetworkId().then(
+        () => expect.fail("should have thrown"),
+        (thrown: unknown) => thrown
+      );
+      expect(String((error as Error).message), "V8 quotes the answer's first characters").to.include('"SYNTHETIC-"');
+      expect(describeError(error)).to.equal(`Unexpected token 'S' in JSON (node ${url})`);
+    } finally {
+      server.close();
+    }
   });
 });
 

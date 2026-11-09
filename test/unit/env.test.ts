@@ -71,6 +71,8 @@ describe("app/env context file", () => {
   it("refuses a context file that is not JSON, not an object, or has a field it reads of the wrong type", () => {
     for (const [content, refusal] of [
       ["{", `Context file ${file} is not valid JSON (`],
+      // a raw key file given as the context: none of its characters are quoted
+      ["d133724945abcdef", `Context file ${file} is not valid JSON (Unexpected token 'd' in JSON)`],
       ["null", `Context file ${file} is not a JSON object`],
       ["[]", `Context file ${file} is not a JSON object`],
       ['{"publicKey":"02aa"}', `Context file ${file} is missing publicKey or network`],

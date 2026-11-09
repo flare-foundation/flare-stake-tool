@@ -2,6 +2,7 @@ import { styleText } from "node:util";
 import { REDIRECT_REFUSED, nodeOfError } from "./chain/clients";
 import { API_KEY_ENV, redactSecrets, redactSecretsInResult } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
+import { withoutQuotedInput } from "./core/json";
 import { SubmittedTxError } from "./core/submit";
 import type { Outcome } from "./core/types";
 import { API_KEY_FLAG, RPC_URL_FLAG } from "./cli/node";
@@ -91,13 +92,14 @@ const REDIRECT_TEXT =
   `whatever host it names); give the URL it redirects to with ${RPC_URL_FLAG}`;
 
 /**
- * The message for the top-level error handlers, cleaned of credentials (`redactSecrets`). A gateway that refuses a
+ * The message for the top-level error handlers, cleaned of credentials (`redactSecrets`) and of the input a JSON parse
+ * error quotes (`withoutQuotedInput`; flarejs passes on the one of a node's answer). A gateway that refuses a
  * request answers with an HTML error page: ethers reports the status, flarejs fails to parse the page as JSON. Both
  * get a hint instead of the raw dump. An error from a node request also gets its causes ("fetch failed" alone says
  * nothing) and the node's URL.
  */
 export function describeError(error: unknown): string {
-  return redactSecrets(describeUncleaned(error));
+  return redactSecrets(withoutQuotedInput(describeUncleaned(error)));
 }
 
 function describeUncleaned(error: unknown): string {

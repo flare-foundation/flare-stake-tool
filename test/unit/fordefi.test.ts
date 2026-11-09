@@ -274,6 +274,41 @@ describe("app/fordefi", () => {
     expect(readUnsignedTxJson("tx1").forDefiTxId, "the file as it was").to.equal(before);
   });
 
+  it("masks the token before cutting a ForDefi answer short, so that no part of it prints", async () => {
+    saveUnsignedTxJson(unsigned, "tx-cut");
+    saveUnsignedTxJson({ ...unsigned, forDefiTxId: "fordefi-tx-42" }, "tx-cut-posted");
+    const x = (length: number) => "X".repeat(length);
+    // the token straddles the 300 characters of the body printed: cut first, "secre" would print unmasked
+    const refused = statusFetch({
+      [`GET /api/v1/vaults/${vaultId}`]: { status: 401, statusText: "Unauthorized", body: `${x(295)}secret-token` },
+    });
+    expect(await rejectedWith(getVaultPublicKey(vaultId, refused))).to.equal(
+      `ForDefi vault lookup (${vaultId}) failed: HTTP 401 Unauthorized: ${x(295)}***`
+    );
+    const notJson = statusFetch({ [`GET /api/v1/vaults/${vaultId}`]: { status: 200, body: `${x(295)}secret-token` } });
+    expect(await rejectedWith(getVaultPublicKey(vaultId, notJson))).to.equal(
+      `ForDefi vault lookup (${vaultId}) did not answer with JSON: ${x(295)}***`
+    );
+    // the 200 characters of JSON printed of an answer without a transaction id, and of a signature that isn't one
+    const vault = vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED);
+    const withoutId: FetchLike = (url, init) =>
+      init?.method === "POST"
+        ? Promise.resolve(new Response(JSON.stringify({ note: `${x(185)}secret-token` }), { status: 200 }))
+        : vault(url, init);
+    expect(await rejectedWith(sendToForDefi("tx-cut", context, withoutId))).to.equal(
+      `ForDefi did not return a transaction id: {"note":"${x(185)}***"}`
+    );
+    const badSignature = fakeFetch({
+      "GET /api/v1/transactions/fordefi-tx-42": {
+        id: "fordefi-tx-42",
+        signatures: [{ data: `${x(190)}secret-token` }],
+      },
+    });
+    expect(await rejectedWith(fetchForDefiSignature("tx-cut-posted", badSignature))).to.equal(
+      `ForDefi answered a signature that is not 65 bytes of base64: "${x(190)}***"`
+    );
+  });
+
   it("reports a failed signature request and leaves the unsigned file as it was", async () => {
     const before = readUnsignedTxJson("tx1").forDefiTxId;
     const vault = {

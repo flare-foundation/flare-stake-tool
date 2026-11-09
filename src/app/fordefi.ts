@@ -47,13 +47,19 @@ function readToken(): string {
 }
 
 /**
+ * The start of a ForDefi answer for an error message, masked before it is cut: a secret the answer repeats (the
+ * token) would no longer match once cut, and all of it but the last characters would print.
+ */
+const excerpt = (text: string, length: number): string => redactSecrets(text.trim()).slice(0, length);
+
+/**
  * The JSON body of a ForDefi answer. A refused request (expired token, unknown
  * vault, server error) is reported with its HTTP status and body instead of
  * surfacing later as a missing field.
  */
 async function forDefiJson<T>(response: Response, what: string): Promise<T> {
   const text = await response.text();
-  const body = text.trim().slice(0, 300);
+  const body = excerpt(text, 300);
   if (!response.ok) {
     throw new Error(
       `ForDefi ${what} failed: HTTP ${response.status} ${response.statusText}`.trim() + (body ? `: ${body}` : "")
@@ -151,7 +157,7 @@ export async function sendToForDefi(
   });
   const json = await forDefiJson<ForDefiTransactionResponse>(response, "signature request");
   if (typeof json.id !== "string" || !json.id) {
-    throw new Error(`ForDefi did not return a transaction id: ${JSON.stringify(json).slice(0, 200)}`);
+    throw new Error(`ForDefi did not return a transaction id: ${excerpt(JSON.stringify(json), 200)}`);
   }
   // the id goes into the unsigned file, which is shared with co-signers
   if (redactSecrets(json.id) !== json.id) {
@@ -182,7 +188,7 @@ export async function fetchForDefiSignature(id: string, fetchImpl: FetchLike = f
   const bytes = typeof data === "string" ? Buffer.from(data, "base64") : undefined;
   if (bytes?.length !== SIGNATURE_LENGTH) {
     throw new Error(
-      `ForDefi answered a signature that is not ${SIGNATURE_LENGTH} bytes of base64: ${JSON.stringify(data).slice(0, 200)}`
+      `ForDefi answered a signature that is not ${SIGNATURE_LENGTH} bytes of base64: ${excerpt(JSON.stringify(data), 200)}`
     );
   }
   const signature = bytes.toString("hex");
