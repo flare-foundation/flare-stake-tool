@@ -108,17 +108,21 @@ function describeUncleaned(error: unknown): string {
     return `${error.context}: ${describeUncleaned(error.cause)}`;
   }
   const message = error instanceof Error ? error.message : String(error);
+  const node = nodeOfError(error);
   const refused = /server response (40[13]) ([^(]*?)\s*(?:\(|$)/.exec(message);
   // a refused redirect, worded by fetch ("fetch failed", caused by it) or by refuseRedirects (with its target)
   const redirect = [message, ...causeMessages(error)].find((text) => text.startsWith(REDIRECT_REFUSED));
+  // flarejs reads a JSON answer without a result, such as a gateway's 401 or 403 body, as a result, and fails on it
+  const noResult = node !== undefined && error instanceof TypeError && /\bundefined\b/.test(message);
   const text = refused
     ? `The node answered HTTP ${refused[1]} ${refused[2]}${NODE_HINT}`
     : redirect !== undefined
       ? REDIRECT_TEXT
       : /Unexpected token '<'.*is not valid JSON/.test(message)
         ? `The node answered with an error page instead of JSON-RPC (${message})${NODE_HINT}`
-        : message;
-  const node = nodeOfError(error);
+        : noResult
+          ? `The node answered without a JSON-RPC result (${message})${NODE_HINT}`
+          : message;
   if (node === undefined) return text; // other wrappers (keys, Ledger) already carry their cause's message
   const causes = redirect !== undefined ? [redirect] : causeMessages(error).filter((cause) => !text.includes(cause));
   const details = [...causes, `node ${node}`];

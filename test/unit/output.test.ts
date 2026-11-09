@@ -60,6 +60,41 @@ describe("output/describeError", () => {
     }
   });
 
+  it("explains a gateway's JSON refusal, which flarejs reads as an answer without a result", async () => {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(401, { "content-type": "application/json" });
+      res.end('{"message":"No API key found in request"}');
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    try {
+      const clients = createClients(networkConfig("localflare", {}, { apiUrl: url }));
+      clients.provider.destroy();
+      for (const call of [
+        () => clients.verifyNetwork(),
+        () => clients.pvm.getFeeConfig(),
+        () => clients.pvm.getBalance({ addresses: ["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"] }),
+      ]) {
+        const error = await call().then(
+          () => expect.fail("should have thrown"),
+          (thrown: unknown) => thrown
+        );
+        expect(describeError(error)).to.match(
+          new RegExp(
+            "^The node answered without a JSON-RPC result \\(Cannot .* undefined.*\\); check --rpc-url and the API key " +
+              `\\(--api-key or FLARE_API_KEY\\) \\(node ${url}\\)$`
+          )
+        );
+      }
+    } finally {
+      server.close();
+    }
+    // a TypeError of the tool's own, with no node request below it, is left as it is
+    expect(describeError(new TypeError("Cannot read properties of undefined (reading 'x')"))).to.equal(
+      "Cannot read properties of undefined (reading 'x')"
+    );
+  });
+
   it("doesn't print the start of a node's answer that repeats the API key, which V8 quotes cut", async () => {
     const key = "SYNTHETIC-QUOTED-API-KEY-0042";
     const server = http.createServer((req, res) => {
