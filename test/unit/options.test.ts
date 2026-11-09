@@ -202,6 +202,9 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         "BLS public key (--pop-bls-public-key) is not a valid BLS key; copy it from the node's info.getNodeID"
       );
       expect(() => parseBlsHex("ab".repeat(48), "publicKey")).to.throw(/is not a valid BLS key/);
+      // the point at infinity decodes, but is no key or signature
+      expect(() => parseBlsHex(`c0${"00".repeat(47)}`, "publicKey")).to.throw(/is not a valid BLS key; copy it/);
+      expect(() => parseBlsHex(`c0${"00".repeat(95)}`, "signature")).to.throw(/is not a valid BLS signature; copy it/);
       expect(() => parseBlsHex(typo(signature), "signature")).to.throw(
         "BLS signature (--pop-bls-signature) is not a valid BLS signature; copy it from the node's info.getNodeID"
       );

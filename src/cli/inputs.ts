@@ -39,6 +39,9 @@ export function optionValue(value: unknown, flag: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+/** The infinity flag of a compressed BLS point's first byte (the ZCash encoding flarejs reads). */
+const BLS_INFINITY_FLAG = 0x40;
+
 /** Byte lengths of a BLS proof of possession: the compressed G1 public key and the G2 signature. */
 const BLS_LENGTHS = { publicKey: 48, signature: 96 } as const;
 
@@ -60,11 +63,17 @@ export function parseBlsHex(value: string, part: keyof typeof BLS_LENGTHS): Uint
   if (bytes.length !== BLS_LENGTHS[part]) {
     throw new Error(`${label} must be ${BLS_LENGTHS[part]} bytes, got ${bytes.length}`);
   }
+  const invalid = new Error(
+    `${label} is not a valid BLS ${part === "publicKey" ? "key" : "signature"}; ${COPY_FROM_NODE}`
+  );
+  // the point at infinity (its flag set, as in c0 and zeros) decodes, but is no key or signature: the proof check then
+  // failed with "pairing is not available for ZERO point"
+  if (((bytes[0] ?? 0) & BLS_INFINITY_FLAG) !== 0) throw invalid;
   try {
     if (part === "publicKey") bls.publicKeyFromBytes(bytes);
     else bls.signatureFromBytes(bytes);
   } catch {
-    throw new Error(`${label} is not a valid BLS ${part === "publicKey" ? "key" : "signature"}; ${COPY_FROM_NODE}`);
+    throw invalid;
   }
   return bytes;
 }
