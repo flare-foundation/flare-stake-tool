@@ -362,6 +362,37 @@ describe("app/fordefi", () => {
     expect(readUnsignedTxJson("tx1").forDefiTxId, "the file as it was").to.equal(before);
   });
 
+  it("never saves or prints a transaction id that is not one, such as one holding a line of its own", async () => {
+    const before = readUnsignedTxJson("tx1").forDefiTxId;
+    const answering = (id: string) =>
+      fakeFetch({
+        [`GET /api/v1/vaults/${vaultId}`]: {
+          id: vaultId,
+          public_key_compressed: Buffer.from(EWOQ_PUBLIC_KEY_COMPRESSED, "hex").toString("base64"),
+        },
+        "POST /api/v1/transactions": { id },
+      });
+    for (const id of [
+      "fordefi-tx-42\nForDefi hash: AAAA",
+      "tx-42\r\u001b[2K",
+      "tx.42",
+      "../tx",
+      "a b",
+      "x".repeat(129),
+    ]) {
+      expect(await rejectedWith(sendToForDefi("tx1", context, answering(id))), JSON.stringify(id)).to.equal(
+        'ForDefi answered a transaction id that is not 1 to 128 letters, digits, "-" or "_"; it is not saved (the request may be waiting in ForDefi)'
+      );
+      expect(readUnsignedTxJson("tx1").forDefiTxId, "the file as it was").to.equal(before);
+    }
+    // a UUID, and the longest id taken
+    for (const [n, id] of ["0f9c2e1a-7b3d-4c5e-9a8b-1d2e3f4a5b6c", "y".repeat(128)].entries()) {
+      saveUnsignedTxJson(unsigned, `tx-id-${n}`);
+      expect((await sendToForDefi(`tx-id-${n}`, context, answering(id))).forDefiTxId).to.equal(id);
+      expect(readUnsignedTxJson(`tx-id-${n}`).forDefiTxId).to.equal(id);
+    }
+  });
+
   it("masks the token before cutting a ForDefi answer short, so that no part of it prints", async () => {
     saveUnsignedTxJson(unsigned, "tx-cut");
     saveUnsignedTxJson({ ...unsigned, forDefiTxId: "fordefi-tx-42" }, "tx-cut-posted");
@@ -435,6 +466,21 @@ describe("app/fordefi", () => {
     expect(await rejectedWith(fetchForDefiSignature("tx1", fetchImpl))).to.equal(
       "Transaction is not signed yet (ForDefi state: waiting_for_approval); run forDefi fetch again once it is"
     );
+  });
+
+  it("quotes and cuts a ForDefi state that is not a word, so no control character or line of its own prints", async () => {
+    for (const [state, shown] of [
+      ["waiting\u001b[2K\nTransaction signed", '"waiting\\u001b[2K\\nTransaction signed"'],
+      ["s".repeat(65), `"${"s".repeat(65)}"`],
+      ["z".repeat(300), `"${"z".repeat(99)}`],
+    ] as const) {
+      const fetchImpl = fakeFetch({
+        "GET /api/v1/transactions/fordefi-tx-42": { id: "fordefi-tx-42", state, signatures: [] },
+      });
+      expect(await rejectedWith(fetchForDefiSignature("tx1", fetchImpl)), state.slice(0, 20)).to.equal(
+        `Transaction is not signed yet (ForDefi state: ${shown}); run forDefi fetch again once it is`
+      );
+    }
   });
 
   it("reports a transaction that is not signed yet", async () => {

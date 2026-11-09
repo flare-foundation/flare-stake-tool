@@ -54,6 +54,12 @@ function readToken(): string {
 const excerpt = (text: string, length: number): string => redactSecrets(text.trim()).slice(0, length);
 
 /**
+ * A ForDefi transaction id (a UUID), as saved in the unsigned file shared with co-signers and printed: another answer
+ * could hold a line break and a line of the tool's own, such as a false `ForDefi hash: …`.
+ */
+const FORDEFI_TX_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+/**
  * The JSON body of a ForDefi answer. A refused request (expired token, unknown
  * vault, server error) is reported with its HTTP status and body instead of
  * surfacing later as a missing field.
@@ -161,6 +167,11 @@ export async function sendToForDefi(
     throw new Error(`ForDefi did not return a transaction id: ${excerpt(JSON.stringify(json), 200)}`);
   }
   // the id goes into the unsigned file, which is shared with co-signers
+  if (!FORDEFI_TX_ID.test(json.id)) {
+    throw new Error(
+      'ForDefi answered a transaction id that is not 1 to 128 letters, digits, "-" or "_"; it is not saved (the request may be waiting in ForDefi)'
+    );
+  }
   if (redactSecrets(json.id) !== json.id) {
     throw new Error("ForDefi answered a transaction id that holds a secret (such as the API token); it is not saved");
   }
@@ -183,7 +194,16 @@ export async function fetchForDefiSignature(id: string, fetchImpl: FetchLike = f
   const first: unknown = Array.isArray(json.signatures) ? json.signatures[0] : undefined;
   const data = isJsonObject(first) ? first["data"] : undefined;
   if (data === undefined || data === null || data === "") {
-    const state = typeof json["state"] === "string" ? ` (ForDefi state: ${json["state"]})` : "";
+    // a state is a word, such as waiting_for_approval; another answer is quoted as JSON, and cut, so no control
+    // character or line of its own prints
+    const answered = json["state"];
+    const shown =
+      typeof answered !== "string"
+        ? undefined
+        : /^\w{1,64}$/.test(answered)
+          ? answered
+          : excerpt(JSON.stringify(answered), 100);
+    const state = shown === undefined ? "" : ` (ForDefi state: ${shown})`;
     throw new Error(`Transaction is not signed yet${state}; run forDefi fetch again once it is`);
   }
   const bytes = typeof data === "string" ? Buffer.from(data, "base64") : undefined;
