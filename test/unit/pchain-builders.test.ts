@@ -720,6 +720,9 @@ describe("core/builders/pchain", function () {
       if (given.kind !== "atomic" || estimated.kind !== "atomic") throw new Error("not an atomic transaction");
       expect(importedInputs(given)).to.equal(1);
       expect(importedInputs(estimated)).to.equal(1);
+      expect(given.notices, "the two left out, said").to.deep.equal([
+        `2 UTXO(s) (8 ${env.network.symbol}) left pending: each needs another key or has a time lock, which cannot be imported even once it has passed`,
+      ]);
       expect(atomicTxFee(given.unsignedTx, context)).to.equal(FEE); // flarejs alone built one that paid 0
       expect(atomicTxFee(estimated.unsignedTx, context) > 0n).to.equal(true);
     });
@@ -1080,6 +1083,7 @@ describe("core/builders/pchain", function () {
       ]);
       expect(file.notices).to.deep.equal([
         `100 UTXO(s) (${formatFlr(asNFlr(100n * (worthImporting - 1n)))} ${symbol}) skipped: each is worth less than the fee of importing it, and stays pending`,
+        `1 UTXO(s) (50 ${symbol}) left pending: each needs another key, or its time lock still runs`,
       ]);
       const immediate = await importCP(exportedEnv(utxos), IMMEDIATE_SIGNER_POLICY);
       expect(immediate.amounts, "at the chain's price").to.deep.equal(file.amounts);
@@ -1101,6 +1105,7 @@ describe("core/builders/pchain", function () {
       const left = 400 - taken;
       expect(built.notices).to.deep.equal([
         `${left} UTXO(s) (${formatFlr(asNFlr((BigInt(left * (left + 1)) / 2n) * ONE_FLR))} ${symbol}) stay pending for a later import: the P-chain's gas capacity fits only ${taken} in one`,
+        `1 UTXO(s) (1000 ${symbol}) left pending: each needs another key, or its time lock still runs`,
       ]);
       expect((await importCP(exportedEnv([...utxos].reverse()))).bytes, "node order").to.equal(built.bytes);
     });
@@ -1197,10 +1202,18 @@ describe("core/builders/pchain", function () {
         )
       );
       const plain = await exported(ONE_FLR, 0);
-      expect((await importCP(exportedEnv([locked, plain]))).amounts).to.deep.equal([ONE_FLR]);
+      const symbol = replay.env.network.symbol;
+      const withPlain = await importCP(exportedEnv([locked, plain]));
+      expect(withPlain.amounts).to.deep.equal([ONE_FLR]);
+      expect(withPlain.notices, "said, not left out in silence").to.deep.equal([
+        `1 UTXO(s) (5 ${symbol}) left pending: each needs another key, or its time lock still runs`,
+      ]);
       await buildTransaction({ type: "importCP" }, exportedEnv([locked]), account, FILE_SIGNER_POLICY).then(
         () => expect.fail("built an import of a time-locked UTXO"),
-        (error: unknown) => expect(String(error)).to.include("no UTXOs available to import")
+        (error: unknown) =>
+          expect((error as Error).message).to.equal(
+            `Nothing to import from the C-chain that this account can spend alone (1 UTXO(s) (5 ${symbol}) need more signatures or have a time lock that still runs)`
+          )
       );
       // flarejs leaves it out of the transaction too, but counted among the UTXOs taken it would take the place of
       // one that fits: over the gas capacity, the import and what it says stays pending are as without it
@@ -1208,7 +1221,10 @@ describe("core/builders/pchain", function () {
       const without = await importCP(exportedEnv(many400));
       const withLocked = await importCP(exportedEnv([locked, ...many400]));
       expect(withLocked.bytes).to.equal(without.bytes);
-      expect(withLocked.notices).to.deep.equal(without.notices);
+      expect(withLocked.notices).to.deep.equal([
+        ...without.notices,
+        `1 UTXO(s) (5 ${symbol}) left pending: each needs another key, or its time lock still runs`,
+      ]);
     });
 
     it("refuses an import of UTXOs that each fit in uint64 but whose sum does not", async () => {

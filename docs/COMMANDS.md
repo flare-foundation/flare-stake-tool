@@ -157,15 +157,17 @@ brings, and is skipped. One import holds at most about 300 UTXOs (the
 P-chain's gas capacity, less one second of refill as headroom); with more, the
 largest are imported and the rest stay pending for the next import. Both rules
 use fixed values from the chain's fee config, so every ForDefi co-signer
-imports the same UTXOs. A warning says how many UTXOs were left out and what
-they hold.
+imports the same UTXOs. A UTXO the account can't spend alone (a co-owned one,
+or one whose time lock still runs, which anyone can export to the address) is
+left pending too. A warning says how many UTXOs were left out and what they
+hold.
 
 | Aspect | Detail |
 |---|---|
 | Inputs | None (uses configured key/context) |
 | Side effects | Submits an atomic import tx on the P-chain |
 | Output | Tx hash, "sent to the network", and the amount arriving on the P-chain; a warning when UTXOs were skipped or left for the next import |
-| Failures | "no UTXOs available to import" if the export hasn't propagated yet (wait a few seconds), or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. "The fee takes all of the … being imported" when the import's fee would leave no output (the UTXOs stay pending). A large import right after a burst of P-chain transactions can be refused with "Gas usage of transaction (…) exceeds capacity (…)"; the chain refills its capacity within seconds, so run it again |
+| Failures | "no UTXOs available to import" if the export hasn't propagated yet (wait a few seconds), "… that this account can spend alone" when only UTXOs it cannot spend alone are pending, or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. "The fee takes all of the … being imported" when the import's fee would leave no output (the UTXOs stay pending). A large import right after a burst of P-chain transactions can be refused with "Gas usage of transaction (…) exceeds capacity (…)"; the chain refills its capacity within seconds, so run it again |
 
 ---
 

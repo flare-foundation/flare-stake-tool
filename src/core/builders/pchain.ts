@@ -425,12 +425,20 @@ export async function buildImportCP(
       info.locktime <= inputs.minIssuanceTime
     );
   });
+  // anyone can export a co-owned or time-locked UTXO to the account's address; flarejs passes over it in silence
+  const symbol = env.network.symbol;
+  const unspendable = inputs.utxos.filter((utxo) => !importable.includes(utxo));
+  if (importable.length === 0 && unspendable.length > 0) {
+    throw new Error(
+      `Nothing to import from the C-chain that this account can spend alone (${describeUtxos(unspendable, symbol)} ` +
+        "need more signatures or have a time lock that still runs)"
+    );
+  }
   const inputGas = (utxo: PChainUtxo) => pChainInputGas(utxo, weights, inputs.minIssuanceTime);
   const probeFeeState = { ...inputs.feeState, price: 0n, capacity: PROBE_GAS_CAPACITY };
   const chosen = chooseImported(importable, inputGas, minPrice, maxCapacity - maxPerSecond, (utxos) =>
     pvm.calculateFee(build(utxos, probeFeeState).getTx(), weights, 1n)
   );
-  const symbol = env.network.symbol;
   if (chosen.taken.length === 0 && chosen.skipped.length > 0) {
     throw new Error(
       `Nothing worth importing from the C-chain: ${describeUtxos(chosen.skipped, symbol)}, each worth less than the fee of importing it`
@@ -449,7 +457,12 @@ export async function buildImportCP(
     );
   }
   checkImportOutput(unsignedTx, context, "P-chain", symbol);
-  return bundle("importCP", unsignedTx, importNotices(chosen, symbol, "the P-chain's gas capacity"));
+  return bundle("importCP", unsignedTx, [
+    ...importNotices(chosen, symbol, "the P-chain's gas capacity"),
+    ...(unspendable.length > 0
+      ? [`${describeUtxos(unspendable, symbol)} left pending: each needs another key, or its time lock still runs`]
+      : []),
+  ]);
 }
 
 export async function buildExportPC(
@@ -548,7 +561,15 @@ export async function buildImportPC(
   }
   // an estimate above the imported value is cut to it by flarejs, leaving a 0-value output; so is -f equal to it
   checkImportOutput(unsignedTx, context, "C-chain", symbol);
-  return bundle("importPC", unsignedTx, importNotices(chosen, symbol, "the C-chain's atomic gas limit"));
+  const unspendable = pending.filter((utxo) => !importable.includes(utxo));
+  return bundle("importPC", unsignedTx, [
+    ...importNotices(chosen, symbol, "the C-chain's atomic gas limit"),
+    ...(unspendable.length > 0
+      ? [
+          `${describeUtxos(unspendable, symbol)} left pending: each needs another key or has a time lock, which cannot be imported even once it has passed`,
+        ]
+      : []),
+  ]);
 }
 
 export async function buildStake(
