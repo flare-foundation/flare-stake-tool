@@ -24,6 +24,8 @@ jobs:
         with:
           cache: 'true'
       - run: pnpm install --frozen-lockfile
+      # The same audit as GitLab's lint job: the GitLab tag pipeline doesn't hold back this publish.
+      - run: pnpm audit --audit-level=high
       # The characterization and CLI tests run the built CLI (dist/run.js).
       - run: pnpm build
       - run: pnpm test
