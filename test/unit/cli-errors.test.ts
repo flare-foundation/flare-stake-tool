@@ -283,6 +283,27 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("refuses an empty key file, context file, node, API key or vault id rather than using another one", () => {
+    expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
+    const empty = (flag: string): string => `Option ${flag} is empty; leave it out to use the default`;
+    for (const [args, flag] of [
+      // with ctx.json there, an empty --env-path took its account; send then checked the signature against none
+      [["send", "-i", "t1", "--env-path", ""], "--env-path"],
+      [["info", "addresses", "--env-path="], "--env-path"],
+      [["exportCP", "-a", "1", "-f", "1", "-i", "t1", "--ctx-file", ""], "--ctx-file"],
+      [["info", "balance", "--rpc-url", ""], "--rpc-url"],
+      [["info", "balance", "--api-key", ""], "--api-key"],
+      [["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--vault-id", "", "--ctx-file", "vault.json"], "--vault-id"],
+      [["interactive", "--rpc-url", ""], "--rpc-url"],
+    ] as const) {
+      const result = runCli([...args, "--network", "costwo"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.include(empty(flag));
+      expect(result.stdout, args.join(" ")).to.equal("");
+    }
+    expect(fs.existsSync(path.join(cwd, "vault.json")), "no context saved without its vault").to.equal(false);
+  });
+
   it("refuses a time or period the chain can't hold, rather than building a malformed transaction or crashing", () => {
     expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
     const bls = ["--pop-bls-public-key", NODE_A_POP.publicKey, "--pop-bls-signature", NODE_A_POP.signature];

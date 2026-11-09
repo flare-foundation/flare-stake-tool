@@ -48,7 +48,8 @@ up to 18 decimals (wei). More non-zero decimals are an error rather than being
 cut off.
 An empty value (`-a ""`) is refused for `-a`, `-f`, `--nonce`, `--value`,
 `--data` (`--data 0x` sends no calldata), `--delegation-fee`, `--auto-compound-shares` and the gas and fee flags, whose
-absence means a default:
+absence means a default, and for `--env-path`, `--ctx-file`, `--rpc-url`, `--api-key` and `--vault-id`, whose absence
+selects another account, node or key:
 leave the option out to get the default. `--executors ""` and
 `--recipients ""` clear a list.
 `--gas-limit` (gas units), `--max-fee-per-gas` and `--priority-fee-per-gas`

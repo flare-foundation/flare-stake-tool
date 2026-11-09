@@ -33,6 +33,7 @@ import {
   evmFeeOverrides,
   endTimeWarnings,
   millisecondsWarning,
+  optionValue,
   type ParsedTime,
 } from "./cli/inputs";
 import {
@@ -128,8 +129,10 @@ export function cli(program: Command): void {
         "Times: --end-time, --start-time and --period accept unix seconds or a duration such as\n" +
         "2d12h (units w, d, h, m, s); an end time given as a duration is added to now."
     );
-  // --derivation-path selects a Ledger address: without --ledger nothing reads it (interactive refuses it itself)
   program.hook("preAction", (_program, action) => {
+    const given: Record<string, unknown> = { ...program.opts(), ...action.opts() };
+    for (const [key, flag] of NOT_EMPTY_OPTIONS) optionValue(given[key], flag);
+    // --derivation-path selects a Ledger address: without --ledger nothing reads it (interactive refuses it itself)
     const { derivationPath, ledger } = program.opts<{ derivationPath?: string; ledger?: boolean }>();
     if (derivationPath !== undefined && !ledger && action.name() !== "interactive") {
       logWarning("--derivation-path is read only with --ledger; it is ignored here");
@@ -407,6 +410,19 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
     throw new Error(`Unknown forDefi action ${type}; use sign or fetch`);
   }
 }
+
+/**
+ * Options whose empty value is refused rather than taken as left out, which selects something else: with the variable
+ * unset, `send --env-path "$KEYFILE"` took whichever account signed the file, `--rpc-url "$NODE"` another node, and
+ * `init-ctx --vault-id "$VAULT"` saved a context without the vault.
+ */
+const NOT_EMPTY_OPTIONS = [
+  ["envPath", "--env-path"],
+  ["ctxFile", "--ctx-file"],
+  ["rpcUrl", "--rpc-url"],
+  ["apiKey", "--api-key"],
+  ["vaultId", "--vault-id"],
+] as const;
 
 /**
  * Global options interactive mode has no use for: it asks for the wallet and the network itself, and keeps a Ledger
