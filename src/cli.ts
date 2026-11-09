@@ -99,18 +99,27 @@ function refuseFeeOptions(program: Command, command: string): void {
 type TransactionIdOptions = Pick<GlobalOptions, "transactionId">;
 
 /**
- * Commander's error with the value of an unknown `--option=value` masked: a misspelled `--apikey=KEY` would print the
- * key, which nothing has remembered for masking yet.
+ * Commander's error with the value of every `--name=value` argument masked where it repeats it: a misspelled
+ * `--apikey=KEY` is reported as an unknown option, value included, before any key is remembered for masking. The
+ * arguments are matched as given, not found in the message, so a value holding a quote or a line break is masked
+ * whole; the longest first, so that one argument that starts another doesn't leave the other's tail.
  */
-export function withoutUnknownOptionValue(text: string): string {
-  return text.replace(/(unknown option '[^'=\s]*=)[^']*'/g, "$1***'");
+export function withoutOptionValues(text: string, argv: readonly string[] = process.argv): string {
+  const valued = argv
+    .filter((arg) => arg.startsWith("-") && arg.indexOf("=") > 0 && !arg.endsWith("="))
+    .sort((a, b) => b.length - a.length);
+  let masked = text;
+  for (const arg of valued) {
+    masked = masked.split(arg).join(`${arg.slice(0, arg.indexOf("=") + 1)}***`);
+  }
+  return masked;
 }
 
 export function cli(program: Command): void {
   // each command's help lists the program's options too (--network, --ledger, the fee options, ...), which it takes;
   // the commands defined below inherit this, and the error output
   program.configureHelp({ showGlobalOptions: true });
-  program.configureOutput({ outputError: (text, write) => write(withoutUnknownOptionValue(text)) });
+  program.configureOutput({ outputError: (text, write) => write(withoutOptionValues(text)) });
   program
     .option("--network <network>", `Network name (${NETWORK_NAMES.join("|")})`)
     .option(RPC_URL_OPTION, RPC_URL_DESCRIPTION)

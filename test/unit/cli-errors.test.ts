@@ -899,6 +899,16 @@ describe("CLI commands that need no node (built CLI)", function () {
       expect(result.stderr, args.join(" ")).to.match(/unknown option '--api-?ke?y=\*\*\*'/);
       expect(result.stderr + result.stdout, args.join(" ")).to.not.include(key);
     }
+    // a value holding a quote, which Commander's message also quotes the option in, or a line break
+    for (const [arg, tail] of [
+      ["--rpc-ur=http://audit:r8W'fkP3Z6dxqG2tB@127.0.0.1:1", "fkP3Z6dxqG2tB"],
+      ["--apikey=k7Qz2LmN\n9pXy4RtV8wBcTAIL", "9pXy4RtV8wBcTAIL"],
+    ] as const) {
+      const result = runCli(["info", "balance", arg], { cwd, env: PLAIN });
+      expect(result.exitCode, arg).to.equal(1);
+      expect(result.stderr, arg).to.match(/unknown option '--(rpc-ur|apikey)=\*\*\*'/);
+      expect(result.stderr + result.stdout, arg).to.not.include(tail);
+    }
     // a misspelled option without a value is named as it was
     expect(runCli(["info", "balance", "--apikey", key], { cwd, env: PLAIN }).stderr).to.include(
       "error: unknown option '--apikey'"
