@@ -152,37 +152,28 @@ describe("chain/network", () => {
         expect(message, input).to.not.include("SECRET");
       }
       expect(() => parseNodeUrl("https://host.example:bad/ext/info?x%2Dapikey=SECRET")).to.throw(
-        'Invalid node URL "https://host.example:bad/…"; expected a base URL'
+        'Invalid node URL "https://…"; expected a base URL'
       );
-      // with an "@" anywhere, where credentials end can't be told: only the scheme is shown
-      for (const input of [
-        "https://alice:synthetic/SECRET@node.invalid",
-        "https://alice:SECRET?tail@node.invalid",
-        "https://host.invalid:bad/ext/info?x-apikey=public@SECRET",
-      ]) {
-        expect(() => parseNodeUrl(input), input).to.throw('Invalid node URL "https://***"; expected a base URL');
-      }
       expect(() => parseNodeUrl("ftp://user:SECRET@host.example")).to.throw(
-        'Invalid node URL "ftp://***"; only http and https are supported'
+        'Invalid node URL "ftp://…"; only http and https are supported'
       );
     });
 
-    it("shows only the scheme and host of a refused URL, whose path no client has remembered a token of", () => {
+    it("shows only the scheme of a refused URL: what follows can hold a key no client has remembered yet", () => {
       const token = "0123456789abcdef0123456789abcdef";
+      const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhdWRpdCJ9.Q8m7kW2rX9tLp4vN6sFz3cH0bY5eA1dJ7uI9oP2qR4s";
       for (const [input, shown] of [
-        [`https://node.invalid:bad/${token}`, "https://node.invalid:bad/…"], // a typo in the port
-        [`https://node.invalid:bad\\${token}`, "https://node.invalid:bad/…"], // a backslash, which URL reads as /
-        [`wss://gateway.invalid/${token}/ext/bc/C/ws`, "wss://gateway.invalid/…"], // a pasted WebSocket URL
-        [`https://node.invalid:bad/flare/${token}?x-apikey=k`, "https://node.invalid:bad/…"],
-        [`https://node.invalid:bad#${token}`, "https://node.invalid:bad/…"],
-        [`a-host-name-of-many-characters.example/${token}`, "a-host-name-of-many-characters.example/…"],
-        ["https://node.invalid:bad", "https://node.invalid:bad"], // nothing after the host
-        // a key given as the URL, read as the host; host names of that length have dots, and stay
-        [token, "***"],
-        [`x-apikey:${token}`, "x-apikey:***"],
-        [`${token}/ext/info`, "***/…"],
-        ["https://a-host-name-of-many-characters.example:bad", "https://a-host-name-of-many-characters.example:bad"],
-        ["https://[2001:db8::1]:bad", "https://[2001:db8::1]:bad"],
+        [`https://node.invalid:bad/${token}`, "https://…"], // a typo in the port
+        [`https://node.invalid:bad\\${token}`, "https://…"], // a backslash, which URL reads as /
+        [`wss://gateway.invalid/${token}/ext/bc/C/ws`, "wss://…"], // a pasted WebSocket URL
+        [`https://node.invalid:bad/flare/${token}?x-apikey=k`, "https://…"],
+        [`https://node.invalid:bad#${token}`, "https://…"],
+        [`https://${token}:bad`, "https://…"],
+        // a key given as the URL, read as the host, with dots (a JWT) or without
+        [token, "…"],
+        [jwt, "…"],
+        [`x-apikey:${token}`, "…"],
+        [`${token}/ext/info`, "…"],
       ] as const) {
         let message = "";
         try {
@@ -192,11 +183,12 @@ describe("chain/network", () => {
         }
         expect(message, input).to.include(`Invalid node URL "${shown}"`);
         expect(message, input).to.not.include(token);
+        expect(message, input).to.not.include("Q8m7kW2rX9");
       }
     });
 
     it("rejects what is not an http(s) URL", () => {
-      expect(() => parseNodeUrl("coston2-api.flare.network")).to.throw(/Invalid node URL "coston2-api.flare.network"/);
+      expect(() => parseNodeUrl("coston2-api.flare.network")).to.throw('Invalid node URL "…"; expected a base URL');
       expect(() => parseNodeUrl("ftp://host.example")).to.throw(/only http and https/);
     });
   });

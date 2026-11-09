@@ -82,8 +82,21 @@ describe("CLI errors (built CLI, no node)", function () {
       { cwd }
     );
     expect(result.exitCode).to.equal(1);
-    expect(result.stderr).to.include('Invalid node URL "https://host.example:bad/…"');
+    expect(result.stderr).to.include('Invalid node URL "https://…"');
     expect(result.stderr + result.stdout).to.not.include("SECRET");
+  });
+
+  it("never prints a key pasted where the node URL goes, a JWT with its dots included", () => {
+    const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhdWRpdCJ9.Q8m7kW2rX9tLp4vN6sFz3cH0bY5eA1dJ7uI9oP2qR4s";
+    for (const [args, env] of [
+      [["info", "validators", "--network", "localflare", "--rpc-url", jwt], {}],
+      [["info", "validators", "--network", "localflare"], { FLARE_RPC_URL: jwt }],
+    ] as const) {
+      const result = runCli([...args], { cwd, env });
+      expect(result.exitCode, JSON.stringify(env)).to.equal(1);
+      expect(result.stderr).to.include('Invalid node URL "…"; expected a base URL');
+      expect(result.stderr + result.stdout).to.not.include("eyJzdWIiOiJhdWRpdCJ9");
+    }
   });
 
   it("never prints the password of a node URL, which the fetch error repeats", () => {
@@ -930,7 +943,7 @@ describe("CLI commands that need no node (built CLI)", function () {
       const result = runCli([...args], { cwd, env });
       expect(result.exitCode, args.join(" ")).to.equal(1);
       expect(result.stderr, args.join(" ")).to.equal(
-        'Error: Invalid node URL "ftp://node"; only http and https are supported\n'
+        'Error: Invalid node URL "ftp://…"; only http and https are supported\n'
       );
     }
   });
