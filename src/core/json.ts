@@ -1,13 +1,15 @@
 /** Reading JSON that comes from outside the tool: files people or other tools may have edited, and API answers. */
 
 /**
- * A message without the text V8's JSON.parse errors quote from their input (`Unexpected token 'd', "d133724945"... is
- * not valid JSON` becomes `Unexpected token 'd' in JSON`): the first characters of a raw key file given as a context
- * file, or of a node's answer that starts with the API key, which masking no longer matches once V8 has cut it.
+ * A JSON.parse error message without the text V8 quotes from its input (`Unexpected token 'd', "d133724945"... is not
+ * valid JSON` becomes `Unexpected token 'd' in JSON`): the first characters of a raw key file given as a context file,
+ * or of a node's answer that starts with the API key, which masking no longer matches once V8 has cut it. It takes one
+ * message as V8 wrote it, the quote running to the suffix at its end: a short input is quoted whole, and may hold that
+ * suffix itself.
  */
 export const withoutQuotedInput = (message: string): string =>
   message.replace(
-    /(Unexpected token '[\s\S]+?'), (?:\.\.\.)?"[\s\S]*?"(?:\s*\.\.\.)? is not valid JSON/g,
+    /^(Unexpected token '[\s\S]+?'), (?:\.\.\.)?"[\s\S]*"(?:\s*\.\.\.)? is not valid JSON$/,
     "$1 in JSON"
   );
 

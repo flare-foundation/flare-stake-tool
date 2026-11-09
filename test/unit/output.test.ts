@@ -7,6 +7,7 @@ import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
 import { getBalances, getValidators } from "../../src/app/info";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { asNFlr, asWei } from "../../src/chain/units";
+import { parseJson } from "../../src/core/json";
 import type { Env } from "../../src/core/types";
 import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 import {
@@ -57,6 +58,19 @@ describe("output/describeError", () => {
       expect(describeError(new SyntaxError(`Unexpected token 'a', ${quoted} is not valid JSON`)), quoted).to.equal(
         "Unexpected token 'a' in JSON"
       );
+    }
+    // an input of up to 20 characters is quoted whole, and may itself hold the suffix that ends V8's message
+    for (const input of ['x" is not valid JSON']) {
+      const thrown = (() => {
+        try {
+          parseJson(input, "Input");
+        } catch (error) {
+          return error;
+        }
+        return expect.fail("parsed");
+      })();
+      expect(String((thrown as Error).cause), "V8 quotes it whole").to.include(input);
+      expect(describeError(thrown), input).to.equal("Input is not valid JSON (Unexpected token 'x' in JSON)");
     }
   });
 
@@ -115,6 +129,26 @@ describe("output/describeError", () => {
     } finally {
       server.close();
     }
+    // the same as the cause of a node error, which lists its causes
+    const wrapped = await notingNode(
+      {
+        call: () =>
+          Promise.reject(
+            new Error("request failed", {
+              cause: new SyntaxError(`Unexpected token 'S', "SYNTHETIC-"... is not valid JSON`),
+            })
+          ),
+      },
+      "http://127.0.0.1:9650"
+    )
+      .call()
+      .then(
+        () => expect.fail("should have thrown"),
+        (thrown: unknown) => thrown
+      );
+    expect(describeError(wrapped)).to.equal(
+      "request failed (Unexpected token 'S' in JSON; node http://127.0.0.1:9650)"
+    );
   });
 });
 

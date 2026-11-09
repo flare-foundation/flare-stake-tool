@@ -93,21 +93,22 @@ const REDIRECT_TEXT =
   `whatever host it names); give the URL it redirects to with ${RPC_URL_FLAG}`;
 
 /**
- * The message for the top-level error handlers, cleaned of credentials (`redactSecrets`) and of the input a JSON parse
- * error quotes (`withoutQuotedInput`; flarejs passes on the one of a node's answer). A gateway that refuses a
+ * The message for the top-level error handlers, cleaned of credentials (`redactSecrets`) and, message by message, of
+ * the input a JSON parse error quotes (`withoutQuotedInput`; flarejs passes on the one of a node's answer). A gateway that refuses a
  * request answers with an HTML error page: ethers reports the status, flarejs fails to parse the page as JSON. Both
  * get a hint instead of the raw dump. An error from a node request also gets its causes ("fetch failed" alone says
  * nothing) and the node's URL.
  */
 export function describeError(error: unknown): string {
-  return redactSecrets(withoutQuotedInput(describeUncleaned(error)));
+  return redactSecrets(describeUncleaned(error));
 }
 
 function describeUncleaned(error: unknown): string {
   if (error instanceof SubmittedTxError) {
     return `${error.context}: ${describeUncleaned(error.cause)}`;
   }
-  const message = error instanceof Error ? error.message : String(error);
+  const raw = error instanceof Error ? error.message : String(error);
+  const message = withoutQuotedInput(raw);
   const node = nodeOfError(error);
   const refused = /server response (40[13]) ([^(]*?)\s*(?:\(|$)/.exec(message);
   // a refused redirect, worded by fetch ("fetch failed", caused by it) or by refuseRedirects (with its target)
@@ -118,7 +119,7 @@ function describeUncleaned(error: unknown): string {
     ? `The node answered HTTP ${refused[1]} ${refused[2]}${NODE_HINT}`
     : redirect !== undefined
       ? REDIRECT_TEXT
-      : /Unexpected token '<'.*is not valid JSON/.test(message)
+      : /Unexpected token '<'.*is not valid JSON/.test(raw)
         ? `The node answered with an error page instead of JSON-RPC (${message})${NODE_HINT}`
         : noResult
           ? `The node answered without a JSON-RPC result (${message})${NODE_HINT}`
@@ -139,7 +140,9 @@ function causeMessages(error: unknown, depth = 0, seen = new Set<unknown>([error
   for (const inner of below) {
     if (inner === undefined || inner === null || seen.has(inner)) continue;
     seen.add(inner);
-    const message = (inner instanceof Error ? inner.message : typeof inner === "string" ? inner : "").trim();
+    const message = withoutQuotedInput(
+      (inner instanceof Error ? inner.message : typeof inner === "string" ? inner : "").trim()
+    );
     if (message && !found.includes(message)) found.push(message);
     causeMessages(inner, depth + 1, seen, found);
   }
