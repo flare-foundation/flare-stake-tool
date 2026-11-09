@@ -325,9 +325,11 @@ describe("chain/clients", () => {
           (error: unknown) => refusal(error)
         );
         expect(ethers).to.include(`unexpected redirect to ${second.url}/ext/bc/C/rpc`);
-        // the P-chain client, and the EVM API's inner C-chain client, which has fetch options of its own
+        // the P-chain client, the EVM API's outer client (atomic transactions) and its inner C-chain client, which has
+        // fetch options of its own
         for (const [name, request] of [
           ["pvm", () => clients.pvm.getFeeConfig()],
+          ["evm (atomic transactions)", () => clients.evm.getAtomicTxStatus("synthetic-tx")],
           ["evm (inner C-chain client)", () => clients.evm.getBaseFee()],
         ] as const) {
           await request().then(
@@ -335,7 +337,7 @@ describe("chain/clients", () => {
             (error: unknown) => refusal(error)
           );
         }
-        expect(first.requests()).to.equal(4);
+        expect(first.requests()).to.equal(5);
         expect(second.requests(), "the redirect's target").to.equal(0);
         expect(node.seen, "the host behind it").to.deep.equal([]);
       } finally {
