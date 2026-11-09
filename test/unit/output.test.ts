@@ -1,4 +1,6 @@
 import { expect } from "chai";
+import http from "http";
+import type { AddressInfo } from "net";
 import { createClients, nodeOfError, notingNode } from "../../src/chain/clients";
 import { networkConfig, rememberSecret } from "../../src/chain/network";
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
@@ -7,7 +9,18 @@ import { accountFromPublicKey } from "../../src/chain/keys";
 import { asNFlr, asWei } from "../../src/chain/units";
 import type { Env } from "../../src/core/types";
 import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
-import { describeError, describeEvmValues, reportOutcome } from "../../src/output";
+import {
+  describeError,
+  describeEvmValues,
+  log,
+  logError,
+  logInfo,
+  logProgress,
+  logSuccess,
+  logWarning,
+  reportOutcome,
+} from "../../src/output";
+import { cleanupTempDir, makeTempDir, runCliAsync } from "../helpers/cli";
 
 describe("output/describeError", () => {
   it("passes ordinary errors through", () => {
@@ -192,6 +205,57 @@ describe("output/describeError: a URL credential", () => {
       expect(describeError(new Error("refused p@ss and p%40ss"))).to.equal("refused *** and ***");
     } finally {
       clients.provider.destroy();
+    }
+  });
+});
+
+describe("output: what is printed", () => {
+  it("is cleaned of remembered secrets on stdout and stderr, results as well as errors", () => {
+    rememberSecret("SYNTHETIC-OUTPUT-KEY-5150");
+    const printed: string[] = [];
+    const [log0, error0] = [console.log, console.error];
+    console.log = (line: string) => printed.push(line);
+    console.error = (line: string) => printed.push(line);
+    try {
+      for (const print of [log, logInfo, logError, logSuccess, logProgress, logWarning]) {
+        print('{"nodeMessage": "SYNTHETIC-OUTPUT-KEY-5150"}');
+      }
+    } finally {
+      [console.log, console.error] = [log0, error0];
+    }
+    expect(printed).to.have.length(6);
+    for (const line of printed) expect(line).to.include('"***"').and.not.to.include("SYNTHETIC");
+  });
+
+  it("does not show an API key that a node repeats in a result (info validators)", async () => {
+    const key = "SYNTHETIC-REFLECTED-KEY-0042";
+    const server = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk: Buffer) => (body += chunk.toString()));
+      req.on("end", () => {
+        const { id, method } = JSON.parse(body) as { id: number; method: string };
+        const result =
+          method === "info.getNetworkID"
+            ? { networkID: "162" }
+            : { validators: [{ txID: "tx", nodeID: "NodeID-x", nodeMessage: String(req.headers["x-apikey"]) }] };
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ jsonrpc: "2.0", id, result }));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const cwd = makeTempDir("output-test-");
+    try {
+      const result = await runCliAsync(
+        ["info", "validators", "--network", "localflare", "--rpc-url", url, "--api-key", key],
+        { cwd }
+      );
+      expect(result.exitCode, result.stderr).to.equal(0);
+      expect(result.stdout).to.include('"nodeMessage": "***"');
+      expect(result.stdout + result.stderr).not.to.include(key);
+    } finally {
+      cleanupTempDir(cwd);
+      await new Promise<void>((done) => server.close(() => done()));
     }
   });
 });
