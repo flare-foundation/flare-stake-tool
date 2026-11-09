@@ -255,25 +255,28 @@ describe("output: what is printed", () => {
     for (const line of printed) expect(line).to.include('"***"').and.not.to.include("SYNTHETIC");
   });
 
-  it("leaves addresses and hashes whole: a URL username and a short secret are masked in errors only", () => {
+  it("leaves addresses and hashes whole: a URL username and a secret under 16 characters are masked in errors only", () => {
+    const username = "uq7zuq7zuq7zuq7zuq7z"; // above the minimum: usernames stay whole in results whatever their length
     const clients = createClients(
-      networkConfig("localflare", {}, { apiUrl: "https://uq7z:SYNTHETIC-RESULT-PASSWORD@node.example" })
+      networkConfig("localflare", {}, { apiUrl: `https://${username}:SYNTHETIC-RESULT-PASSWORD@node.example` })
     );
     clients.provider.destroy();
-    rememberSecret("zq7w"); // a short secret
+    const short = "zq7wzq7wzq7wzq7"; // 15 characters
+    rememberSecret(short);
+    rememberSecret("SIXTEEN-CHARS-16"); // the shortest masked in results
     const printed: string[] = [];
     const log0 = console.log;
     console.log = (line: string) => printed.push(line);
     try {
-      log("P-localflare1uq7zzq7w and 0xabzq7w, password SYNTHETIC-RESULT-PASSWORD");
+      log(`P-localflare1${username}${short} and 0xab${short}, password SYNTHETIC-RESULT-PASSWORD, SIXTEEN-CHARS-16`);
     } finally {
       console.log = log0;
     }
-    expect(printed).to.deep.equal(["P-localflare1uq7zzq7w and 0xabzq7w, password ***"]);
-    expect(describeError(new Error("uq7z zq7w SYNTHETIC-RESULT-PASSWORD"))).to.equal("*** *** ***");
+    expect(printed).to.deep.equal([`P-localflare1${username}${short} and 0xab${short}, password ***, ***`]);
+    expect(describeError(new Error(`${username} ${short} SYNTHETIC-RESULT-PASSWORD`))).to.equal("*** *** ***");
   });
 
-  it("prints an address that contains the URL username whole (info addresses)", () => {
+  it("prints an address that contains the URL username or the API key whole (info addresses)", () => {
     const cwd = makeTempDir("output-test-");
     try {
       const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
@@ -286,7 +289,9 @@ describe("output: what is printed", () => {
           "--network",
           "localflare",
           "--rpc-url",
-          "http://8db9:SYNTHETIC-PASSWORD@127.0.0.1:9650",
+          "http://8db97C7cEcE249c2b98b:SYNTHETIC-PASSWORD@127.0.0.1:9650",
+          "--api-key",
+          "DC0226Cc4C2A57B", // 15 characters of the address
         ],
         { cwd }
       );

@@ -79,10 +79,10 @@ const secrets = new Set<string>();
 /** URL usernames: masked in errors with the other credentials, but not in results, where they are no secret. */
 const usernames = new Set<string>();
 /**
- * The shortest secret masked in results: a shorter one can match part of an address, a hash or an id by chance (a
- * 4-character URL username masked `0x8db9…` in the address `info addresses` printed).
+ * The shortest secret masked in results: a shorter one can match part of an address, a hash or an id (a 4-character
+ * URL username masked `0x8db9…` in the address `info addresses` printed, and an 8-character API key the next 8).
  */
-const RESULT_SECRET_MIN_LENGTH = 8;
+const RESULT_SECRET_MIN_LENGTH = 16;
 
 /** Masks `value` in every message `redactSecrets` cleans from now on, and a secret in results as well. */
 export function rememberSecret(value: string | undefined, kind: "secret" | "username" = "secret"): void {
