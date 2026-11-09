@@ -4,7 +4,14 @@
  */
 import { Context, avm, evm, info, networkIDs, pvm } from "@flarenetwork/flarejs";
 import { FetchRequest, JsonRpcProvider } from "ethers";
-import { API_KEY_HEADER, assertNodeNetwork, rememberSecret, type NetworkConfig } from "./network";
+import {
+  API_KEY_HEADER,
+  PATH_TOKEN_MIN_LENGTH,
+  assertNodeNetwork,
+  rememberSecret,
+  withoutPathTokens,
+  type NetworkConfig,
+} from "./network";
 
 export type UpgradesInfo = Awaited<ReturnType<info.InfoApi["getUpgradesInfo"]>>;
 
@@ -160,13 +167,6 @@ function rememberCredential(serialized: string, kind: "secret" | "username"): vo
   }
 }
 
-/**
- * The shortest path segment of a node URL masked as a token: some providers put the key in the path
- * (`https://host/<token>/ext/…`), where neither the credential nor the `x-apikey` masking finds it. Shorter segments
- * are names (`/rpc`, `/flare`), shown as they are.
- */
-const PATH_TOKEN_MIN_LENGTH = 16;
-
 /** The start of the error a request carrying the API key fails with on a redirect, as fetch words it. */
 export const REDIRECT_REFUSED = "unexpected redirect";
 
@@ -187,8 +187,9 @@ function refuseRedirects(request: FetchRequest): void {
 }
 
 /**
- * A redirect's target for the error, resolved against the request's URL and without credentials, query or fragment:
- * masking knows only `scheme://user:password@`, and a relative `//user:password@host` would be printed as it came.
+ * A redirect's target for the error, resolved against the request's URL and without credentials, query, fragment or
+ * path tokens: masking knows only `scheme://user:password@` and what the clients remembered, and a relative
+ * `//user:password@host` or a token of the target's own would be printed as it came.
  */
 function shownLocation(location: string | undefined, requestUrl: string): string {
   if (!location) return "";
@@ -198,7 +199,7 @@ function shownLocation(location: string | undefined, requestUrl: string): string
     url.password = "";
     url.search = "";
     url.hash = "";
-    return ` to ${url.href}`;
+    return ` to ${withoutPathTokens(url.href)}`;
   } catch {
     return "";
   }

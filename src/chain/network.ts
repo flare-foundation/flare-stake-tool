@@ -117,6 +117,27 @@ export function redactSecretsInResult(text: string): string {
 }
 
 /**
+ * The shortest path segment of a node URL masked as a token: some providers put the key in the path
+ * (`https://host/<token>/ext/…`), where neither the credential nor the `x-apikey` masking finds it. Shorter segments
+ * are names (`/rpc`, `/flare`), shown as they are.
+ */
+export const PATH_TOKEN_MIN_LENGTH = 16;
+
+/**
+ * A URL for a message with every path segment of PATH_TOKEN_MIN_LENGTH or more masked, where the clients have not
+ * remembered it: a URL refused before they are built, or a redirect's target. The host (the first segment without a
+ * scheme) is shown as it is.
+ */
+export function withoutPathTokens(url: string): string {
+  const start = (/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i.exec(url) ?? /^[^/]*/.exec(url))?.[0] ?? "";
+  const path = url
+    .slice(start.length)
+    .split("/")
+    .map((segment) => (segment.length >= PATH_TOKEN_MIN_LENGTH ? "***" : segment));
+  return start + path.join("/");
+}
+
+/**
  * A node URL as given, for an error about it, refused before any key is remembered: without its query and fragment,
  * which may hold a key under any spelling (`x%2Dapikey=`). With an `@` anywhere, only its scheme is shown: a password
  * typed without escaping can hold `/`, `?` or `#`, and a query value an `@`, so where credentials end and the query
@@ -128,7 +149,7 @@ function shownNodeUrlInput(input: string): string {
     return `${/^[a-z][a-z0-9+.-]*:\/\//i.exec(text)?.[0] ?? ""}***`;
   }
   const cut = text.search(/[?#]/);
-  return redactSecrets(cut < 0 ? text : `${text.slice(0, cut)}?…`);
+  return redactSecrets(cut < 0 ? withoutPathTokens(text) : `${withoutPathTokens(text.slice(0, cut))}?…`);
 }
 
 /**

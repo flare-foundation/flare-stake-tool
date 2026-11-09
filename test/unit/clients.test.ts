@@ -368,7 +368,10 @@ describe("chain/clients", () => {
     it("names a refused redirect's target without its credentials, query or fragment", async () => {
       const server = http.createServer((req, res) => {
         req.resume();
-        res.writeHead(302, { location: "//bob:DUMMY-PASSWORD@other.invalid/next?x-apikey=DUMMY-KEY#DUMMY-FRAGMENT" });
+        res.writeHead(302, {
+          location:
+            "//bob:DUMMY-PASSWORD@other.invalid/next/DUMMY-PATH-TOKEN-0123456789?x-apikey=DUMMY-KEY#DUMMY-FRAGMENT",
+        });
         res.end();
       });
       await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -379,7 +382,7 @@ describe("chain/clients", () => {
           () => expect.fail("ethers followed the redirect"),
           (error: unknown) => describeError(error)
         );
-        expect(text).to.include("unexpected redirect to http://other.invalid/next;");
+        expect(text).to.include("unexpected redirect to http://other.invalid/next/***;");
         expect(text).not.to.match(/DUMMY|secret-key/);
       } finally {
         clients.provider.destroy();

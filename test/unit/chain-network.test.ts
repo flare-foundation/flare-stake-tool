@@ -167,6 +167,25 @@ describe("chain/network", () => {
       );
     });
 
+    it("masks a token in the path of a refused URL, which no client has remembered yet, and shows the host", () => {
+      const token = "0123456789abcdef0123456789abcdef";
+      for (const [input, shown] of [
+        [`https://node.invalid:bad/${token}`, "https://node.invalid:bad/***"], // a typo in the port
+        [`wss://gateway.invalid/${token}/ext/bc/C/ws`, "wss://gateway.invalid/***/ext/bc/C/ws"], // a pasted WebSocket URL
+        [`https://node.invalid:bad/flare/${token}?x-apikey=k`, "https://node.invalid:bad/flare/***?…"],
+        [`a-host-name-of-many-characters.example/${token}`, "a-host-name-of-many-characters.example/***"],
+      ] as const) {
+        let message = "";
+        try {
+          parseNodeUrl(input);
+        } catch (error) {
+          message = (error as Error).message;
+        }
+        expect(message, input).to.include(`Invalid node URL "${shown}"`);
+        expect(message, input).to.not.include(token);
+      }
+    });
+
     it("rejects what is not an http(s) URL", () => {
       expect(() => parseNodeUrl("coston2-api.flare.network")).to.throw(/Invalid node URL "coston2-api.flare.network"/);
       expect(() => parseNodeUrl("ftp://host.example")).to.throw(/only http and https/);
