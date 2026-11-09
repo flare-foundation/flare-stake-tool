@@ -152,19 +152,18 @@ function shownNodeUrlInput(input: string): string {
  * Turns a node URL into the base URL the clients are built on. A full endpoint
  * URL as copied from a node's documentation (`https://host/ext/info?x-apikey=KEY`)
  * is accepted: the `/ext/...` API path is dropped and an `x-apikey` query
- * parameter becomes the API key.
+ * parameter becomes the API key. `source` says in the error where the URL came from, as it shows little of it.
  */
-export function parseNodeUrl(input: string): ParsedNodeUrl {
+export function parseNodeUrl(input: string, source?: string): ParsedNodeUrl {
+  const invalid = `Invalid node URL "${shownNodeUrlInput(input)}"${source === undefined ? "" : ` ${source}`}`;
   let url: URL;
   try {
     url = new URL(input.trim());
   } catch {
-    throw new Error(
-      `Invalid node URL "${shownNodeUrlInput(input)}"; expected a base URL such as https://coston2-api.flare.network`
-    );
+    throw new Error(`${invalid}; expected a base URL such as https://coston2-api.flare.network`);
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`Invalid node URL "${shownNodeUrlInput(input)}"; only http and https are supported`);
+    throw new Error(`${invalid}; only http and https are supported`);
   }
   const apiKey = nonEmpty(url.searchParams.get(API_KEY_HEADER) ?? undefined);
   url.search = "";
@@ -213,8 +212,10 @@ export function overriddenNode(
   overrides: NodeOverrides,
   env: NodeJS.ProcessEnv = process.env
 ): ParsedNodeUrl | undefined {
-  const urlInput = nonEmpty(overrides.apiUrl) ?? nonEmpty(env[RPC_URL_ENV]);
-  return urlInput === undefined ? undefined : parseNodeUrl(urlInput);
+  const given = nonEmpty(overrides.apiUrl);
+  if (given !== undefined) return parseNodeUrl(given, "given with --rpc-url");
+  const fromEnv = nonEmpty(env[RPC_URL_ENV]);
+  return fromEnv === undefined ? undefined : parseNodeUrl(fromEnv, `in ${RPC_URL_ENV}`);
 }
 
 /**
