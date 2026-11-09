@@ -13,6 +13,7 @@ import {
   type TaskId,
   type WalletId,
 } from "../constants/screen";
+import { logInfo } from "../output";
 
 /** A list choice: inquirer shows `name` and answers `value`. */
 export interface Choice<T> {
@@ -64,6 +65,20 @@ export const CANCELLED_EXIT_CODE = 130;
 
 type Questions = Parameters<typeof inquirer.prompt>[0];
 
+/** What a session cancelled at a question leaves behind, printed before it ends (see withCancelNotice). */
+let cancelNotice: string | undefined;
+
+/** Runs `steps` with `notice` printed should a question among them be cancelled with Ctrl-C or Ctrl-D. */
+export async function withCancelNotice<T>(notice: string, steps: () => Promise<T>): Promise<T> {
+  const outer = cancelNotice;
+  cancelNotice = notice;
+  try {
+    return await steps();
+  } finally {
+    cancelNotice = outer;
+  }
+}
+
 /**
  * inquirer's prompt, with Ctrl-C ending the session with exit code 130. inquirer 8 answers Ctrl-C by closing the
  * prompt and sending its own process SIGINT, and the process can end before that signal arrives, with code 0. A key
@@ -79,6 +94,7 @@ async function askInquirer<T>(questions: Questions): Promise<T> {
     if (key?.ctrl !== true) return;
     if (key.name === "c" || (key.name === "d" && readline?.line === "")) {
       process.stdout.write("\x1b[?25h\n"); // the cursor back, which a list question hides
+      if (cancelNotice !== undefined) logInfo(cancelNotice);
       process.exit(CANCELLED_EXIT_CODE);
     }
   };

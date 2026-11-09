@@ -450,6 +450,12 @@ const SCENARIOS: Scenario[] = [
     script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, TASK.PC, "1", SIGN, TASK.quit],
   },
   {
+    // the error, and that the export was sent and its funds wait for "Import Funds"
+    name: "private key: a failed import says the export was sent",
+    flags: { failTx: ["importCP", "importPC"] },
+    script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, SIGN, TASK.PC, "1", SIGN, "", SIGN, TASK.quit],
+  },
+  {
     // No (also the default) signs nothing; a move whose export is not signed waits for nothing and imports nothing
     name: "private key: No to signing",
     // and a move whose import is declined says that its export was sent

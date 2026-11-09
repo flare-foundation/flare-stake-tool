@@ -45,7 +45,7 @@ import {
   parseTime,
 } from "../cli/inputs";
 import type { DerivationMode, TaskId } from "../constants/screen";
-import { prompts } from "./prompts";
+import { prompts, withCancelNotice } from "./prompts";
 
 interface DerivedAddress {
   ethAddress: string;
@@ -89,10 +89,15 @@ export async function interactiveCli(options: InteractiveOptions): Promise<void>
     try {
       await TASKS[task](session);
     } catch (error) {
-      if (error instanceof SigningDeclined) logInfo(error.message);
-      else logError(`Error: ${describeError(error)}`);
+      reportError(error);
     }
   }
+}
+
+/** Prints an action's error as the command line does (describeError), or the note of a transaction not signed. */
+function reportError(error: unknown): void {
+  if (error instanceof SigningDeclined) logInfo(error.message);
+  else logError(`Error: ${describeError(error)}`);
 }
 
 /** Asks again after an error, until a wallet is connected; undefined when the user quits. */
@@ -101,7 +106,7 @@ async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWal
     try {
       return await connectWallet(node);
     } catch (error) {
-      logError(`Error: ${describeError(error)}`);
+      reportError(error);
     }
   }
 }
@@ -300,9 +305,11 @@ async function moveCP(session: Session): Promise<void> {
   const fee = await askCChainFee(session, exportCP);
   log("Please approve export transaction");
   const exported = await execute(session, { ...exportCP, fee });
-  await waitForExport(session, "P", exported);
-  log("Please approve import transaction");
-  await importExported(session, exported, "P", { type: "importCP" });
+  await afterExport(exported, "P", async () => {
+    await waitForExport(session, "P", exported);
+    log("Please approve import transaction");
+    await execute(session, { type: "importCP" });
+  });
 }
 
 /** Export from the P-chain, wait, import on the C-chain. The amount offered is what `exportPC` without -a exports. */
@@ -317,30 +324,36 @@ async function movePC(session: Session): Promise<void> {
   const amount = await prompts.amount(defaultAmount);
   log("Please approve export transaction");
   const exported = await execute(session, { type: "exportPC", amount: parseFlr(amount) });
-  await waitForExport(session, "C", exported);
-  const fee = await askCChainFee(session, { type: "importPC" });
-  log("Please approve import transaction");
-  await importExported(session, exported, "C", { type: "importPC", fee });
+  await afterExport(exported, "C", async () => {
+    await waitForExport(session, "C", exported);
+    const fee = await askCChainFee(session, { type: "importPC" });
+    log("Please approve import transaction");
+    await execute(session, { type: "importPC", fee });
+  });
 }
 
 /**
- * Imports what a move exported. Declining the import leaves the export sent and its funds waiting on `destination`,
- * which the user must be told, not "nothing was sent".
+ * The steps of a move after its export: the wait for it, the import's questions and the import. Whatever stops them
+ * once the export was sent (No at the import, an error, a timeout, Ctrl-C or Ctrl-D at a question) leaves its funds
+ * waiting on `destination`, which the user must be told, not only the error or "nothing was sent".
  */
-async function importExported(
-  session: Session,
-  exported: Outcome,
-  destination: "P" | "C",
-  request: TxRequest
-): Promise<void> {
+async function afterExport(exported: Outcome, destination: "P" | "C", steps: () => Promise<void>): Promise<void> {
+  if (exported.status !== "sent") {
+    await steps(); // waitForExport refuses it
+    return;
+  }
+  const notice =
+    `Export ${exported.txId} was sent: its funds wait on the ${destination}-chain; ` +
+    'import them with "Import Funds".';
   try {
-    await execute(session, request);
+    await withCancelNotice(notice, steps);
   } catch (error) {
-    if (!(error instanceof SigningDeclined) || exported.status !== "sent") throw error;
-    logInfo(
-      `The import was not signed. Export ${exported.txId} was sent: its funds wait on the ${destination}-chain; ` +
-        'import them with "Import Funds".'
-    );
+    if (error instanceof SigningDeclined) {
+      logInfo(`The import was not signed. ${notice}`);
+      return;
+    }
+    reportError(error);
+    logInfo(notice);
   }
 }
 

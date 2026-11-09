@@ -10,7 +10,7 @@ export const taskConstants = {
   PC: "Move assets from P-chain to C-chain",
   stake: "Add a validator node",
   delegate: "Delegate to a validator node",
-  import: "Import Funds (in case export fails for either P chain or C chain)",
+  import: "Import Funds (exported, not yet imported)",
   transfer: "Transfer funds to another P-chain address",
   claim: "Claim staking rewards",
   addAutoRenewedValidator: "Add an auto-renewed validator node",

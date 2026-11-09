@@ -195,6 +195,42 @@ describe("CLI interactive mode (with network)", function () {
     });
   });
 
+  it("Ctrl-C at a move's import confirmation says that the export was sent and where its funds wait", async () => {
+    const session = spawnInteractive(["interactive"], tempDir);
+    await session.waitFor("How do you want to connect your wallet?");
+    pressDown(session, menuIndex(walletConstants, "privateKey"));
+    session.send(KEYS.ENTER);
+    await session.waitFor("Enter Path to Private Key file");
+    session.send("pktest");
+    session.send(KEYS.ENTER);
+    await session.waitFor("Which network do you want to connect to?");
+    pressDown(session, menuIndex(networkConstants, "localflare"));
+    session.send(KEYS.ENTER);
+
+    await session.waitFor("What do you want to do?");
+    pressDown(session, menuIndex(taskConstants, "CP"));
+    session.send(KEYS.ENTER);
+    await session.waitFor("Enter amount");
+    session.send("1");
+    session.send(KEYS.ENTER);
+    await session.waitFor("Enter fee", 60_000);
+    session.send(KEYS.ENTER); // the estimate
+    await session.waitFor("Sign and send this transaction?", 60_000);
+    session.send("y");
+    session.send(KEYS.ENTER);
+    // the export sent and arrived, the import built: cancel at its confirmation
+    await session.waitFor(/Please approve import transaction[^]*Sign and send this transaction\?/, 120_000);
+    session.send(KEYS.CTRL_C);
+    expect(await session.wait(10_000)).to.equal(130);
+    expect(session.output).to.match(
+      /Export \w+ was sent: its funds wait on the P-chain; import them with "Import Funds"\./
+    );
+    // nothing left pending for the other tests
+    runCli(["transaction", "importCP", "--get-hacked", "--env-path", envPath, "--network", "localflare"], {
+      timeoutMs: 60_000,
+    });
+  });
+
   it("stakes a new validator via the menu flow", async function () {
     if (!nodeInfo) {
       this.skip();
