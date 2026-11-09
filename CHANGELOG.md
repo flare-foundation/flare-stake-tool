@@ -88,6 +88,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Invalid amounts, fees, periods, end times, delegation fees, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again; a delegation fee of `10%` used to fail only after both BLS values were entered. The delegation fee prompt says that Enter accepts 20%.
   * `interactive --help` prints help instead of starting a session, and a bad node URL is reported before the banner.
 * Command line:
+  * Transactions, `send` and `forDefi sign` print `Using network: …` on stderr (4.4.0 printed it on stdout, for every command). Without `--network` and a context file, every command warns that it uses Flare.
   * The shortcuts (`balance`, `exportCP`, …) and `interactive` work after global options, as in `--network costwo balance`.
   * `<command> --help` lists the global options the command takes (`--network`, `--ledger`, the C-chain fee options, …) after its own.
   * `-i <id>` given before a command (`-i myid exportCP …`) says that `-i` there starts interactive mode and that the id goes after the command, instead of reporting the command's first option as unknown.

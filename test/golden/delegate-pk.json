@@ -24,7 +24,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Transaction with hash 29xUdx1NCNJncoBAyfLwBfTbvMJqdox3fojqiXtj1tijYzjm1b built and sent to the network\nFee paid: 0.00207475 LFLR\n",
-    "stderr": "Warning: --start-time does not delay the stake: the network starts it when it accepts the transaction (since the Durango upgrade), whatever start time the transaction carries\nWarning: End time 1793275684 (2026-10-29T12:08:04.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now\nTransaction 29xUdx1NCNJncoBAyfLwBfTbvMJqdox3fojqiXtj1tijYzjm1b submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nWarning: --start-time does not delay the stake: the network starts it when it accepts the transaction (since the Durango upgrade), whatever start time the transaction carries\nWarning: End time 1793275684 (2026-10-29T12:08:04.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now\nTransaction 29xUdx1NCNJncoBAyfLwBfTbvMJqdox3fojqiXtj1tijYzjm1b submitted, waiting for the chain to accept it\n",
     "txIds": [
       "29xUdx1NCNJncoBAyfLwBfTbvMJqdox3fojqiXtj1tijYzjm1b"
     ],

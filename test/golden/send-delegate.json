@@ -16,7 +16,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Signed transaction delegate-file with hash 2GdVCQhjzszpLnuewH6J1r4N1SW7Anu5tbmnrSH7isGywSbCgP sent to the node\n",
-    "stderr": "Transaction 2GdVCQhjzszpLnuewH6J1r4N1SW7Anu5tbmnrSH7isGywSbCgP submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nTransaction 2GdVCQhjzszpLnuewH6J1r4N1SW7Anu5tbmnrSH7isGywSbCgP submitted, waiting for the chain to accept it\n",
     "txIds": [
       "2GdVCQhjzszpLnuewH6J1r4N1SW7Anu5tbmnrSH7isGywSbCgP"
     ],

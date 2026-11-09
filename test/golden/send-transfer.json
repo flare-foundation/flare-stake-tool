@@ -16,7 +16,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Signed transaction transfer-file with hash rBeD174usN8GqqKkENVUKzuefEmKSJVMRzXLUrF3Usdj9UoSj sent to the node\n",
-    "stderr": "Transaction rBeD174usN8GqqKkENVUKzuefEmKSJVMRzXLUrF3Usdj9UoSj submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nTransaction rBeD174usN8GqqKkENVUKzuefEmKSJVMRzXLUrF3Usdj9UoSj submitted, waiting for the chain to accept it\n",
     "txIds": [
       "rBeD174usN8GqqKkENVUKzuefEmKSJVMRzXLUrF3Usdj9UoSj"
     ],

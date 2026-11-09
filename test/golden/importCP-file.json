@@ -16,7 +16,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Unsigned transaction importCP-file constructed\nForDefi hash: v1GRXx/ZtU6fzMYKxz+w1jNzySe48mQ6dYo05rYgR5k=\nFee: 0.004135 LFLR (burned when the signed transaction is sent)\n",
-    "stderr": "",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

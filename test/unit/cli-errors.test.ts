@@ -288,6 +288,25 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("names the network of a transaction on stderr, and warns when it is Flare because nothing chose one", () => {
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const withdrawal = ["withdrawal", "-a", "1", "-t", "0x2222222222222222222222222222222222222222", "-i", "w1"];
+    const fallback = "Warning: No --network was given and there is no context file: using flare";
+    const unchosen = runCli([...withdrawal, "--env-path", envPath, "--rpc-url", CLOSED_NODE], { cwd });
+    expect(unchosen.exitCode).to.equal(1); // at the node
+    expect(unchosen.stderr).to.include(`Using network: flare\n${fallback}\n`);
+    const chosen = runCli([...withdrawal, "--env-path", envPath, "--network", "costwo", "--rpc-url", CLOSED_NODE], {
+      cwd,
+    });
+    expect(chosen.stderr).to.include("Using network: costwo\n");
+    expect(chosen.stderr).not.to.include(fallback);
+    // info names the network itself, but warns as well
+    const info = runCli(["info", "addresses", "--env-path", envPath], { cwd });
+    expect(info.exitCode, info.stderr).to.equal(0);
+    expect(info.stderr).to.include(fallback);
+    expect(info.stdout).to.include('Addresses on the network "flare"');
+  });
+
   it("refuses -i with --get-hacked or --ledger on the four C-chain commands that wrote a file in 4.x, before signing", () => {
     const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
     const to = "0x2222222222222222222222222222222222222222";
@@ -410,7 +429,7 @@ describe("CLI errors (built CLI, no node)", function () {
     // no context file at all: the account is the one that signed, and the send gets as far as the node
     const relay = runCli(["send", "-i", "w1", "--network", "localflare"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
     expect(relay.exitCode).to.equal(1);
-    expect(relay.stderr).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
+    expect(relay.stderr).to.equal(`Using network: localflare\nError: fetch failed (bad port; node ${CLOSED_NODE})\n`);
   });
 
   it("refuses an option the transaction type doesn't read, given on the command line, whatever its position", () => {
@@ -565,7 +584,7 @@ describe("CLI errors (built CLI, no node)", function () {
       writeSignedTxJson({ ...file, signature }, "w1", cwd);
       const result = runCli(["send", "-i", "w1"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
       expect(result.exitCode).to.equal(1);
-      expect(result.stderr).to.equal(`Error: ${refusal}\n`);
+      expect(result.stderr).to.equal(`Using network: localflare\nError: ${refusal}\n`);
       const signed = JSON.parse(
         fs.readFileSync(path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "w1.signedTx.json"), "utf8")
       ) as { isSentToChain?: boolean };

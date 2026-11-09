@@ -7,9 +7,9 @@ import { Argument, Command } from "commander";
 import { styleText } from "node:util";
 import figlet from "figlet";
 import { accountFromPublicKey } from "./chain/keys";
-import { NETWORK_NAMES, networkConfig, overriddenNode } from "./chain/network";
+import { DEFAULT_NETWORK, NETWORK_NAMES, networkConfig, overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
-import { ATOMIC_TX_TYPES } from "./core/types";
+import { ATOMIC_TX_TYPES, type Env } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
 import { createEnv, readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
@@ -47,7 +47,7 @@ import {
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
 import { checkDerivationPath } from "./ledger/path";
-import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
+import { log, logInfo, logProgress, logSuccess, logWarning, reportOutcome } from "./output";
 import { confirmLedgerAccount, ledgerDevice } from "./signers/ledger";
 import { version } from "../package.json";
 
@@ -274,11 +274,27 @@ function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFl
   }
 }
 
+/**
+ * Names the network a transaction is built, signed or sent for, on stderr as 4.4.0 did ("Using network"), and warns
+ * when nothing chose it: without --network and a context file it is Flare mainnet.
+ */
+function announceNetwork(env: Env, options: GlobalOptions): void {
+  logProgress(`Using network: ${env.network.name}`);
+  warnOnDefaultNetwork(options);
+}
+
+function warnOnDefaultNetwork(options: GlobalOptions): void {
+  if (options.network === undefined && !contextFileApplies(options)) {
+    logWarning(`No --network was given and there is no context file: using ${DEFAULT_NETWORK}`);
+  }
+}
+
 async function transaction(type: string, options: GlobalOptions & AtomicTxOptions): Promise<void> {
   const env = resolveEnv(options);
   // the request first: a missing or invalid option is reported as such, not as a missing signer or transaction id
   const { request, resolvedTimes } = parseAtomicTxRequest(type, options);
   const signer = await resolveSigner(options, env);
+  announceNetwork(env, options);
   reportResolvedTimes(resolvedTimes, signer.kind === "file");
   reportOutcome(await runTransaction(request, env, signer), env.network.symbol);
 }
@@ -291,6 +307,7 @@ async function evmTransaction(
   const request = parseEvmTxRequest(operation, options); // before the signer, as for transactions
   refuseIdWithImmediateSigner(operation, options);
   const signer = await resolveSigner(options, env);
+  announceNetwork(env, options);
   reportOutcome(await runTransaction(request, env, signer), env.network.symbol);
 }
 
@@ -328,6 +345,7 @@ async function send(options: GlobalOptions): Promise<void> {
   // account is the one that signed
   const expected =
     selectsAccount(options) || contextFileApplies(options) ? await resolveAccount(options, env) : undefined;
+  announceNetwork(env, options);
   const { txId } = await sendSignedTransaction(id, env, expected);
   logSuccess(`Signed transaction ${id} with hash ${txId} sent to the node`);
 }
@@ -341,6 +359,7 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
   if (type === "sign") {
     // the network as transactions choose it: --network, else the context's
     const network = networkConfig(resolveNetworkName(options.network, options.ctxFile), {});
+    logProgress(`Using network: ${network.name}`);
     const { forDefiTxId, forDefiHash } = await sendToForDefi(id, readContextFile(options.ctxFile), fetch, network);
     logSuccess(`Transaction ${id} sent to ForDefi (ForDefi transaction id ${forDefiTxId})`);
     logSuccess(`ForDefi hash: ${forDefiHash}`);
@@ -438,6 +457,7 @@ async function info(type: string, options: GlobalOptions): Promise<void> {
     throw new Error(`Unknown information type "${type}"; use ${INFO_TYPES.join(", ")}`);
   }
   const env = resolveEnv(options);
+  warnOnDefaultNetwork(options); // info names the network itself
   if (type === "validators") {
     const validators = await getValidators(env);
     logInfo(`Validators on the network "${env.network.name}"`);

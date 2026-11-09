@@ -18,7 +18,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Unsigned transaction setClaimExecutors-file constructed\nForDefi hash: 6ionkME26YbfqzZ57d6P2hDh4d16jIKa+NnujhlqeZQ=\nNonce: 10\nExecutor fees: 0.2 LFLR\n",
-    "stderr": "",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

@@ -16,7 +16,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Signed transaction importPC-file with hash nTaG1WHn8zUrExNsSitoxABtvGc6BvKcYsnEvcKjn5oDacS7r sent to the node\n",
-    "stderr": "Transaction nTaG1WHn8zUrExNsSitoxABtvGc6BvKcYsnEvcKjn5oDacS7r submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nTransaction nTaG1WHn8zUrExNsSitoxABtvGc6BvKcYsnEvcKjn5oDacS7r submitted, waiting for the chain to accept it\n",
     "txIds": [
       "nTaG1WHn8zUrExNsSitoxABtvGc6BvKcYsnEvcKjn5oDacS7r"
     ],

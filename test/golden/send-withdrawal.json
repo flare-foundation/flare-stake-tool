@@ -17,7 +17,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Signed transaction withdrawal-file with hash 0x2a3072869a5c0b512a6e44cd0e397ceb2dd5f3a1dd999be7848ab69a90deec96 sent to the node\n",
-    "stderr": "Transaction 0x2a3072869a5c0b512a6e44cd0e397ceb2dd5f3a1dd999be7848ab69a90deec96 submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nTransaction 0x2a3072869a5c0b512a6e44cd0e397ceb2dd5f3a1dd999be7848ab69a90deec96 submitted, waiting for the chain to accept it\n",
     "txIds": [
       "0x2a3072869a5c0b512a6e44cd0e397ceb2dd5f3a1dd999be7848ab69a90deec96"
     ],

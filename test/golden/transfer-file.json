@@ -20,7 +20,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Unsigned transaction transfer-file constructed\nForDefi hash: QXFDpx09Wl+QHwtdLM8A6oLBDCIw5xgaH765WZ/wtcM=\nFee: 0.005179 LFLR (burned when the signed transaction is sent)\n",
-    "stderr": "",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

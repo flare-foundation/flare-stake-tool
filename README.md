@@ -143,7 +143,7 @@ Where:
 
 - `amount` is the amount to export, in FLR.
 - `fee` is optional. It specifies a gas fee for a transaction in FLR.
-- --network is optional. It specifies the network to use. Without it, the network of the context file (`ctx.json`, or the one given with `--ctx-file`) is used, else `flare`; the others are `costwo`, `songbird`, `coston` and `localflare`.
+- --network is optional. It specifies the network to use. Without it, the network of the context file (`ctx.json`, or the one given with `--ctx-file`) is used, else `flare`, with a warning; the others are `costwo`, `songbird`, `coston` and `localflare`. Transactions print the network they use on stderr (`Using network: …`).
 
 > **Note**
 > P-chain transactions (`importCP`, `exportPC`, staking) pay the P-chain's dynamic fee from the funds being moved; it cannot be set. C-chain atomic transactions (`exportCP` and `importPC`) take `-f <fee>` (total fee in FLR); when it is omitted the fee is estimated at twice the current base fee (headroom for a rise before the transaction lands; the whole fee is burned, about 0.011 FLR at the 500 gwei floor), except in the unsigned-file flow, where it is required so that every signer builds the same transaction.

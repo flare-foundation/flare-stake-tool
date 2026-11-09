@@ -20,7 +20,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Signed transaction setAutoRenewedValidatorConfig-file with hash uJKjqViKevryqJ8PqkcEzeHcWwUsDfLVsoUEtGPp3rJAjuozy sent to the node\n",
-    "stderr": "Transaction uJKjqViKevryqJ8PqkcEzeHcWwUsDfLVsoUEtGPp3rJAjuozy submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nTransaction uJKjqViKevryqJ8PqkcEzeHcWwUsDfLVsoUEtGPp3rJAjuozy submitted, waiting for the chain to accept it\n",
     "txIds": [
       "uJKjqViKevryqJ8PqkcEzeHcWwUsDfLVsoUEtGPp3rJAjuozy"
     ],

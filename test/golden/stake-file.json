@@ -28,7 +28,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Unsigned transaction stake-file constructed\nForDefi hash: ilFZsEFDAxX/Q9tMjJuVv94Zx+bCn1J12etSA0zXwNU=\nFee: 0.016652 LFLR (burned when the signed transaction is sent)\n",
-    "stderr": "Warning: End time 1793354884 (2026-10-30T10:08:04.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now\n",
+    "stderr": "Using network: localflare\nWarning: End time 1793354884 (2026-10-30T10:08:04.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

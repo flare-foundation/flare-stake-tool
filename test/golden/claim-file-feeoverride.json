@@ -23,7 +23,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Unsigned transaction claim-file-feeoverride constructed\nForDefi hash: pqupeLm+9/kg8y2uBSGvn5DHK/CUPAFEA1UEZWhLPC4=\nNonce: 9\nClaim amount: 4 LFLR\n",
-    "stderr": "",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

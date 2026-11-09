@@ -17,7 +17,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Transaction with hash 0xabfc12f4bc237d82c72083187f2793b397f4ae49256b3ff84d35e242d6fcdabc built and sent to the network\nNonce: 9\nClaim amount: 4 LFLR\n",
-    "stderr": "Transaction 0xabfc12f4bc237d82c72083187f2793b397f4ae49256b3ff84d35e242d6fcdabc submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nTransaction 0xabfc12f4bc237d82c72083187f2793b397f4ae49256b3ff84d35e242d6fcdabc submitted, waiting for the chain to accept it\n",
     "txIds": [
       "0xabfc12f4bc237d82c72083187f2793b397f4ae49256b3ff84d35e242d6fcdabc"
     ],

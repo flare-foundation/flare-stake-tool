@@ -16,7 +16,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Signed transaction exportCP-file with hash qrYiqS2Hk6FGgVk5Usx5FGsTwDRNpLfS3v3nrWW4sg1NhxLBZ sent to the node\n",
-    "stderr": "Transaction qrYiqS2Hk6FGgVk5Usx5FGsTwDRNpLfS3v3nrWW4sg1NhxLBZ submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nTransaction qrYiqS2Hk6FGgVk5Usx5FGsTwDRNpLfS3v3nrWW4sg1NhxLBZ submitted, waiting for the chain to accept it\n",
     "txIds": [
       "qrYiqS2Hk6FGgVk5Usx5FGsTwDRNpLfS3v3nrWW4sg1NhxLBZ"
     ],
