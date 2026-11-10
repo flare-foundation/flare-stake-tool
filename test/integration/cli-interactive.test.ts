@@ -1,4 +1,7 @@
 import { expect } from "chai";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { stripVTControlCharacters } from "util";
 import { runCli, makeTempDir, cleanupTempDir } from "./cli-helper";
 import { createFundedAccount, type FundedAccount } from "./accounts";
@@ -512,13 +515,14 @@ describe("CLI interactive mode (with network)", function () {
       await answer("Enter delegation fee", "10");
       await answer("Please enter the popBLSPublicKey", node.blsPublicKey);
       await answer("Please enter the popBLSSignature", node.blsProofOfPossession);
+      // the validator may exist from the Yes on, even if waiting for its status then fails
+      added = true;
       await sign("addAutoRenewedValidator", [
         "Amount: 10000 LFLR",
         `Node: ${node.nodeID}`,
         "Period: 15m (900 s)",
         "Delegation fee: 10%",
       ]);
-      added = true;
       const validator = await current();
       expect(validator?.weight).to.equal("10000000000000");
       expect(validator?.["delegationFee"]).to.equal("10.0000");
@@ -544,9 +548,9 @@ describe("CLI interactive mode (with network)", function () {
       await quit();
     } finally {
       session.kill();
-      // a failure after the validator was added must not leave it renewing, holding its node for later runs
+      // a failure once the validator may exist must not leave it renewing, holding its node for later runs
       if (added && !stopped) {
-        runCli(
+        const stop = runCli(
           [
             "transaction",
             "setAutoRenewedValidatorConfig",
@@ -562,6 +566,21 @@ describe("CLI interactive mode (with network)", function () {
           ],
           { timeoutMs: 90_000 }
         );
+        // confirmed from the chain; else the key is kept outside the temp directory, which `after` deletes, with
+        // the command that stops it (not thrown: the test's own failure stays the one reported)
+        const left = await current().then(
+          (validator) => validator === undefined || validator.nextPeriod === "0",
+          () => false
+        );
+        if (!left) {
+          const kept = path.join(os.tmpdir(), `auto-renew-recovery-${node.nodeID}.key`);
+          fs.copyFileSync(keyFile, kept);
+          console.error(
+            `The auto-renewed validator on ${node.nodeID} may still renew (stop exited ${stop.exitCode}: ` +
+              `${stop.stderr.trim().replace(/\s+/g, " ")}). Stop it with: node dist/run.js transaction setAutoRenewedValidatorConfig ` +
+              `-n ${node.nodeID} --period 0 --get-hacked --env-path ${kept} --network localflare`
+          );
+        }
       }
     }
   });
