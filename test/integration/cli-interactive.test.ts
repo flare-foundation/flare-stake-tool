@@ -1,8 +1,19 @@
 import { expect } from "chai";
+import { stripVTControlCharacters } from "util";
 import { runCli, makeTempDir, cleanupTempDir } from "./cli-helper";
 import { createFundedAccount, type FundedAccount } from "./accounts";
-import { fromNow, pickFreeNode, waitForLocalNetwork, type NodeInfo } from "./local-network";
-import { spawnInteractive, KEYS } from "./interactive-helper";
+import {
+  freshPAddress,
+  fromNow,
+  getCurrentValidators,
+  getNodeInfo,
+  getPBalance,
+  LOCAL_RPC_URL,
+  pickFreeNode,
+  waitForLocalNetwork,
+  type NodeInfo,
+} from "./local-network";
+import { spawnInteractive, KEYS, type InteractiveSession } from "./interactive-helper";
 import { networkConstants, taskConstants, walletConstants } from "../../src/constants/screen";
 import { version } from "../../package.json";
 
@@ -15,6 +26,29 @@ const menuIndex = (table: Record<string, string>, key: string): number => {
 const pressDown = (session: { send: (data: string) => void }, times: number): void => {
   for (let i = 0; i < times; i++) session.send(KEYS.DOWN);
 };
+
+/**
+ * Waits for `pattern` in the output after what earlier calls matched, and returns the output up to the match:
+ * session.waitFor looks at the whole output, where a menu or a prompt shown before would match at once.
+ */
+function outputCursor(session: InteractiveSession): (pattern: string | RegExp, timeoutMs?: number) => Promise<string> {
+  let mark = 0;
+  return async (pattern, timeoutMs = 90_000) => {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const rest = stripVTControlCharacters(session.output).slice(mark);
+      const index = typeof pattern === "string" ? rest.indexOf(pattern) : (pattern.exec(rest)?.index ?? -1);
+      if (index >= 0) {
+        const length = typeof pattern === "string" ? pattern.length : pattern.exec(rest)![0].length;
+        mark += index + length;
+        return rest.slice(0, index + length);
+      }
+      if (Date.now() > deadline)
+        throw new Error(`Timed out waiting for ${String(pattern)}; output:\n${rest.slice(-800)}`);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  };
+}
 
 const STAKE_DURATION_S = 60 * 60; // localflare minimum is 15 minutes
 
@@ -293,5 +327,158 @@ describe("CLI interactive mode (with network)", function () {
     await session.wait(10_000).catch(() => {
       session.kill();
     });
+  });
+
+  /**
+   * A session on a fresh funded account, connected with its key file on localflare, and the steps of the menu: each
+   * waits for its prompt after the previous one.
+   */
+  async function menuSession(keyName: string, cChainFlr: string) {
+    const own = await createFundedAccount(cChainFlr);
+    const keyFile = own.writeEnv(tempDir, keyName);
+    const session = spawnInteractive(["interactive"], tempDir);
+    const next = outputCursor(session);
+    const answer = async (prompt: string, value: string): Promise<void> => {
+      await next(prompt);
+      session.send(value);
+      session.send(KEYS.ENTER);
+    };
+    const task = async (key: keyof typeof taskConstants): Promise<void> => {
+      await next("What do you want to do?");
+      pressDown(session, menuIndex(taskConstants, key));
+      session.send(KEYS.ENTER);
+    };
+    /** Signs after the summary of `type`, and waits for the node to take the transaction. */
+    const sign = async (type: string): Promise<void> => {
+      expect(await next("Sign and send this transaction?", 120_000), type).to.include(
+        `About to sign ${type} on localflare:`
+      );
+      session.send("y");
+      session.send(KEYS.ENTER);
+      expect(await next(/sent to the network|Error: [^\n]*/, 120_000), type).to.match(/sent to the network$/);
+    };
+    /** Quits, and ends the session in any case. */
+    const quit = async (): Promise<void> => {
+      await task("quit");
+      expect(await session.wait(15_000)).to.equal(0);
+    };
+    await next("How do you want to connect your wallet?");
+    pressDown(session, menuIndex(walletConstants, "privateKey"));
+    session.send(KEYS.ENTER);
+    await answer("Enter Path to Private Key file", keyName);
+    await next("Which network do you want to connect to?");
+    pressDown(session, menuIndex(networkConstants, "localflare"));
+    session.send(KEYS.ENTER);
+    return { own, keyFile, session, next, answer, task, sign, quit };
+  }
+
+  it("runs every menu option that needs no free node against the network, each after its summary", async function () {
+    this.timeout(600_000);
+    const validator = (await getNodeInfo(LOCAL_RPC_URL)).nodeID; // the genesis validator, to delegate to
+    const recipient = freshPAddress();
+    const { own, keyFile, session, next, answer, task, sign, quit } = await menuSession("pk-every-option", "50000");
+    try {
+      await task("addresses");
+      expect(await next(/secp256k1 public key: \S+/)).to.include(own.pAddress);
+      await task("validators");
+      expect(await next(validator)).to.include(validator);
+
+      // both moves, the fee estimate taken with Enter
+      await task("CP");
+      await answer("Enter amount", "15000");
+      await answer("Enter fee", "");
+      await sign("exportCP");
+      await sign("importCP");
+      await task("PC");
+      await answer("Enter amount", "5");
+      await sign("exportPC");
+      await answer("Enter fee", "");
+      await sign("importPC");
+
+      // Import Funds, both ways, of an export made on the command line
+      for (const [destination, exported, imported] of [
+        ["P", ["exportCP", "-a", "1", "-f", "0.01"], "importCP"],
+        ["C", ["exportPC", "-a", "1"], "importPC"],
+      ] as const) {
+        const result = runCli(
+          ["transaction", ...exported, "--get-hacked", "--env-path", keyFile, "--network", "localflare"],
+          { timeoutMs: 90_000 }
+        );
+        expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
+        await new Promise((resolve) => setTimeout(resolve, 3_000));
+        await task("import");
+        await next("Please select the destination chain");
+        if (destination === "C") session.send(KEYS.DOWN);
+        session.send(KEYS.ENTER);
+        if (destination === "C") await answer("Enter fee", "");
+        await sign(imported);
+      }
+
+      await task("transfer");
+      await answer("Enter amount", "1.5");
+      await answer("Enter destination P-chain address", recipient);
+      await sign("transfer");
+      expect(await getPBalance(recipient)).to.equal(1_500_000_000n);
+
+      await task("delegate");
+      await answer("Enter amount", "10000");
+      await answer("Enter NodeId", validator);
+      await answer("Enter end time", "30m");
+      await sign("delegate");
+
+      // localflare has none of Flare's reward contracts: the error is reported and the menu comes back
+      await task("claim");
+      await next(/Error: [^\n]*/);
+      await quit();
+    } finally {
+      session.kill();
+    }
+  });
+
+  it("adds an auto-renewed validator through the menu, changes its period and stops it", async function () {
+    this.timeout(300_000);
+    // a node of its own; the renewal is stopped below, so the node is free again after one 15 minute period
+    const node = await pickFreeNode(nodeInfo ? [nodeInfo.nodeID] : []);
+    if (!node) {
+      this.skip();
+    }
+    const period = async (): Promise<unknown> => (await getCurrentValidators([node.nodeID]))[0]?.nextPeriod;
+    const { session, next, answer, task, sign, quit } = await menuSession("pk-auto-renew", "11000");
+    try {
+      await task("CP");
+      await answer("Enter amount", "10010");
+      await answer("Enter fee", "");
+      await sign("exportCP");
+      await sign("importCP");
+
+      await task("addAutoRenewedValidator");
+      await answer("Enter amount", "10000");
+      await answer("Enter NodeId", node.nodeID);
+      await answer("Enter the validation period", "15m");
+      await answer("Enter delegation fee", "10");
+      await answer("Please enter the popBLSPublicKey", node.blsPublicKey);
+      await answer("Please enter the popBLSSignature", node.blsProofOfPossession);
+      await sign("addAutoRenewedValidator");
+      expect(await period()).to.equal("900");
+
+      await task("setAutoRenewedValidatorConfig");
+      await answer("Enter NodeId", node.nodeID);
+      await answer("Enter the validation period", "20m");
+      await sign("setAutoRenewedValidatorConfig");
+      expect(await period()).to.equal("1200");
+
+      // a period of 0 has a confirmation of its own before the summary
+      await task("setAutoRenewedValidatorConfig");
+      await answer("Enter NodeId", node.nodeID);
+      await answer("Enter the validation period", "0");
+      await next("A period of 0 stops auto-renewal");
+      session.send("y");
+      session.send(KEYS.ENTER);
+      await sign("setAutoRenewedValidatorConfig");
+      expect(await period()).to.equal("0");
+      await quit();
+    } finally {
+      session.kill();
+    }
   });
 });
