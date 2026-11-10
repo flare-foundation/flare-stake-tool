@@ -1,6 +1,5 @@
 /** Environment resolution and the ctx.json context file. */
 import fs from "fs";
-import path from "path";
 import { createClients } from "../chain/clients";
 import { accountFromPublicKey, type Account } from "../chain/keys";
 import {
@@ -81,17 +80,23 @@ export function contextFileExists(file: string = DEFAULT_CTX_FILE): boolean {
   return fs.existsSync(file);
 }
 
-/** Writes ctx.json, refusing to overwrite an existing one, even one that appeared since the check ("wx"). */
+/**
+ * Writes ctx.json, refusing to overwrite an existing one, even one that appeared since the check ("wx"). A path given
+ * with --ctx-file is not repeated in an error, as when reading: a key given in its place would be printed.
+ */
 export function writeContextFile(context: ContextFile, file: string = DEFAULT_CTX_FILE): void {
-  const exists = new Error(`${path.basename(file)} already exists`);
+  const shown = file === DEFAULT_CTX_FILE ? DEFAULT_CTX_FILE : "The context file given with --ctx-file";
+  const exists = new Error(`${shown} already exists`);
   if (fs.existsSync(file)) {
     throw exists;
   }
   try {
     fs.writeFileSync(file, JSON.stringify(context, null, 2), { flag: "wx" });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw exists;
-    throw error;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EEXIST") throw exists;
+    if (file === DEFAULT_CTX_FILE) throw error;
+    throw new Error(`${shown} could not be written (${code ?? "unknown error"})`, { cause: error });
   }
 }
 

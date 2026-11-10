@@ -598,6 +598,26 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(fs.existsSync(path.join(cwd, "ForDefiTxnFiles"))).to.equal(false);
   });
 
+  it("init-ctx doesn't print a key given as the file to write, when it already exists", () => {
+    const args = [
+      "init-ctx",
+      "-p",
+      EWOQ_PUBLIC_KEY_COMPRESSED,
+      "--network",
+      "costwo",
+      "--ctx-file",
+      EWOQ_PRIVATE_KEY_HEX,
+    ];
+    const first = runCli(args, { cwd });
+    expect(first.exitCode).to.equal(0);
+    const again = runCli(args, { cwd });
+    expect(again.exitCode).to.equal(1);
+    expect(again.stderr).to.include("Error: The context file given with --ctx-file already exists\n");
+    for (const result of [first, again]) {
+      expect(result.stdout + result.stderr).to.not.include(EWOQ_PRIVATE_KEY_HEX.slice(-16));
+    }
+  });
+
   it("send needs the key file of --get-hacked too, rather than checking against the context file", () => {
     // the account in ctx.json is not the one --get-hacked selects, so it must not stand in for the missing key file
     const context = { wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "costwo" };

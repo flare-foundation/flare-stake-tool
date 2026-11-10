@@ -103,7 +103,9 @@ describe("app/env context file", () => {
     const original = fs.existsSync;
     fs.existsSync = () => false;
     try {
-      expect(() => writeContextFile(FORDEFI_CONTEXT, file)).to.throw("ctx.json already exists");
+      expect(() => writeContextFile(FORDEFI_CONTEXT, file)).to.throw(
+        "The context file given with --ctx-file already exists"
+      );
     } finally {
       fs.existsSync = original;
     }
@@ -126,10 +128,24 @@ describe("app/env context file", () => {
       process.chdir(cwd);
     }
     writeContextFile(FORDEFI_CONTEXT, file);
-    expect(() => writeContextFile({ ...FORDEFI_CONTEXT, vaultId: "vault-456" }, file)).to.throw(
-      "ctx.json already exists"
-    );
+    expect(() => writeContextFile({ ...FORDEFI_CONTEXT, vaultId: "vault-456" }, file))
+      .to.throw("The context file given with --ctx-file already exists")
+      .with.property("message")
+      .that.does.not.include(file);
     expect(readContextFile(file).vaultId).to.equal("vault-123");
+    // nor in another write error; the default ctx.json is named
+    const unwritable = path.join(path.dirname(file), "no-such-dir", "f".repeat(64));
+    expect(() => writeContextFile(FORDEFI_CONTEXT, unwritable)).to.throw(
+      "The context file given with --ctx-file could not be written (ENOENT)"
+    );
+    process.chdir(path.dirname(file));
+    try {
+      fs.unlinkSync(file);
+      writeContextFile(FORDEFI_CONTEXT);
+      expect(() => writeContextFile(FORDEFI_CONTEXT)).to.throw("ctx.json already exists");
+    } finally {
+      process.chdir(cwd);
+    }
   });
 
   describe("the network to act on", () => {
