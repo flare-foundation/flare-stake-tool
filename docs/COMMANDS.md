@@ -26,8 +26,9 @@ focuses on inputs / outputs / side effects / failure modes.
 
 Global options can come before or after the command. A long option takes two
 dashes: one written with one dash and a value, as go-flare's flags may be
-(`-api-key=KEY`), is refused without its value; it would be read as `-a` with
-the rest as its value. Each `transaction` type
+(`-api-key=KEY`), is refused, and not repeated; it would be read as `-a` with
+the rest as its value. An option's value is never taken for one, so an API key
+may start with `-`. Each `transaction` type
 takes only the options listed for it below: another one given on the command
 line is refused (a default, such as `--delegation-fee`'s, doesn't count), and
 so are the C-chain gas options, which only the C-chain commands use (`send`,

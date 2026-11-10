@@ -917,19 +917,36 @@ describe("CLI commands that need no node (built CLI)", function () {
 
   it("refuses a long option written with one dash and a value, without the value, which -a or -r would print", () => {
     const key = "k7Qz2LmN9pXy4RtV8wBcTAIL";
-    for (const [args, name] of [
-      [["transaction", "exportCP", "-a", "1", `-api-key=${key}`], "api-key"],
-      [["exportCP", `-api-key=${key}`, "-a", "1"], "api-key"],
-      [["claim", "-a", "1", `-rpc-url=https://audit:${key}@127.0.0.1:1`], "rpc-url"],
-      [["info", "balance", `-network=costwo`], "network"],
-    ] as const) {
-      const result = runCli([...args], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+    for (const args of [
+      ["transaction", "exportCP", "-a", "1", `-api-key=${key}`],
+      ["exportCP", `-api-key=${key}`, "-a", "1"],
+      ["claim", "-a", "1", `-rpc-url=https://audit:${key}@127.0.0.1:1`],
+      ["info", "balance", `-network=costwo`],
+      // after a misspelled option, the argument may be its value: it is not repeated either
+      ["info", "balance", "--apikey", "-kQzLmNpXyRtVwBcTAIL="],
+    ]) {
+      const result = runCli(args, { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
       expect(result.exitCode, args.join(" ")).to.equal(1);
       expect(result.stderr, args.join(" ")).to.equal(
-        `Error: -${name}=***: a long option takes two dashes, as in --${name}=…\n`
+        "Error: a long option takes two dashes: --name=value, not -name=value\n"
       );
       expect(result.stdout, args.join(" ")).to.equal("");
     }
+    // the value of an option that takes one is never taken for an option, whatever it looks like: an API key may
+    // start with "-" and end in "=" (Base64url), and a file name may hold "="
+    const dashKey = "-AbCdEfGhIjKlMnOpQrStUvWxYzabcA=";
+    for (const args of [
+      ["info", "validators", "--network", "localflare", "--rpc-url", CLOSED_NODE, "--api-key", dashKey],
+      ["info", "validators", "--api-key", dashKey, "--network", "localflare", "--rpc-url", CLOSED_NODE],
+    ]) {
+      const result = runCli(args, { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
+    }
+    const dashFile = runCli(["info", "addresses", "--ctx-file", "-local=ctx.json", "--network", "costwo"], { cwd });
+    expect(dashFile.stderr).to.equal("Error: The context file given with --ctx-file does not exist\n");
+    const dashId = runCli(["send", "-i", "-ab=c", "--network", "costwo"], { cwd }); // a short flag's value too
+    expect(dashId.stderr).to.match(/^Using network: costwo\nError: Invalid transaction id "-ab=c"/);
     // a short option with its value, and a value after "=", are not long options
     for (const args of [
       ["exportCP", "-a", "-5", "--network", "costwo"],
