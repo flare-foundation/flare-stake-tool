@@ -15,6 +15,7 @@ import {
 } from "./local-network";
 import { spawnInteractive, KEYS, type InteractiveSession } from "./interactive-helper";
 import { networkConstants, taskConstants, walletConstants } from "../../src/constants/screen";
+import { parseFlr } from "../../src/chain/units";
 import { version } from "../../package.json";
 
 /** Number of DOWN presses to reach `key` in an inquirer list built from `table`. */
@@ -348,52 +349,75 @@ describe("CLI interactive mode (with network)", function () {
       pressDown(session, menuIndex(taskConstants, key));
       session.send(KEYS.ENTER);
     };
-    /** Signs after the summary of `type`, and waits for the node to take the transaction. */
-    const sign = async (type: string): Promise<void> => {
-      expect(await next("Sign and send this transaction?", 120_000), type).to.include(
-        `About to sign ${type} on localflare:`
-      );
+    /** The summary of `type`, checked for its account and each of `lines`, before the confirmation is answered. */
+    const summary = async (type: string, lines: string[]): Promise<string> => {
+      const shown = await next("Sign and send this transaction?", 120_000);
+      expect(shown, type).to.include(`About to sign ${type} on localflare:`);
+      expect(shown, type).to.include(`Account: ${own.ethAddress} / ${own.pAddress}`);
+      for (const line of lines) expect(shown, type).to.include(line);
+      return shown;
+    };
+    /** Signs after the summary of `type`; returns the summary and the id of the transaction the node took. */
+    const sign = async (type: string, lines: string[] = []): Promise<{ shown: string; txId: string }> => {
+      const shown = await summary(type, lines);
       session.send("y");
       session.send(KEYS.ENTER);
-      expect(await next(/sent to the network|Error: [^\n]*/, 120_000), type).to.match(/sent to the network$/);
+      const outcome = await next(/sent to the network|Error: [^\n]*/, 120_000);
+      expect(outcome, type).to.match(/sent to the network$/);
+      return { shown, txId: /Transaction with hash (\S+) built and sent to the network$/.exec(outcome)![1]! };
     };
     /** Quits, and ends the session in any case. */
     const quit = async (): Promise<void> => {
       await task("quit");
       expect(await session.wait(15_000)).to.equal(0);
     };
-    await next("How do you want to connect your wallet?");
-    pressDown(session, menuIndex(walletConstants, "privateKey"));
-    session.send(KEYS.ENTER);
-    await answer("Enter Path to Private Key file", keyName);
-    await next("Which network do you want to connect to?");
-    pressDown(session, menuIndex(networkConstants, "localflare"));
-    session.send(KEYS.ENTER);
-    return { own, keyFile, session, next, answer, task, sign, quit };
+    try {
+      await next("How do you want to connect your wallet?");
+      pressDown(session, menuIndex(walletConstants, "privateKey"));
+      session.send(KEYS.ENTER);
+      await answer("Enter Path to Private Key file", keyName);
+      await next("Which network do you want to connect to?");
+      pressDown(session, menuIndex(networkConstants, "localflare"));
+      session.send(KEYS.ENTER);
+    } catch (error) {
+      session.kill();
+      throw error;
+    }
+    return { own, keyFile, session, next, answer, task, summary, sign, quit };
   }
+
+  /** The amount, or the fee, a summary shows, in nFLR. */
+  const shownFlr = (shown: string, label: "Amount" | "Fee"): bigint =>
+    parseFlr(new RegExp(`${label}: ([0-9.]+) LFLR`).exec(shown)![1]!);
 
   it("runs every menu option that needs no free node against the network, each after its summary", async function () {
     this.timeout(600_000);
     const validator = (await getNodeInfo(LOCAL_RPC_URL)).nodeID; // the genesis validator, to delegate to
     const recipient = freshPAddress();
-    const { own, keyFile, session, next, answer, task, sign, quit } = await menuSession("pk-every-option", "50000");
+    const { own, keyFile, session, next, answer, task, summary, sign, quit } = await menuSession(
+      "pk-every-option",
+      "50000"
+    );
     try {
       await task("addresses");
       expect(await next(/secp256k1 public key: \S+/)).to.include(own.pAddress);
       await task("validators");
       expect(await next(validator)).to.include(validator);
 
-      // both moves, the fee estimate taken with Enter
+      // both moves, the fee estimate taken with Enter; the P-chain balance is what the summaries showed
       await task("CP");
       await answer("Enter amount", "15000");
       await answer("Enter fee", "");
-      await sign("exportCP");
-      await sign("importCP");
+      await sign("exportCP", ["Amount: 15000 LFLR from the C-chain to the P-chain"]);
+      const toP = await sign("importCP", ["to the P-chain"]);
+      const afterCP = shownFlr(toP.shown, "Amount");
+      expect(await getPBalance(own.pAddress)).to.equal(afterCP);
       await task("PC");
       await answer("Enter amount", "5");
-      await sign("exportPC");
+      const toC = await sign("exportPC", ["Amount: 5 LFLR from the P-chain to the C-chain"]);
       await answer("Enter fee", "");
-      await sign("importPC");
+      await sign("importPC", ["to the C-chain"]);
+      expect(await getPBalance(own.pAddress)).to.equal(afterCP - 5_000_000_000n - shownFlr(toC.shown, "Fee"));
 
       // Import Funds, both ways, of an export made on the command line
       for (const [destination, exported, imported] of [
@@ -411,20 +435,48 @@ describe("CLI interactive mode (with network)", function () {
         if (destination === "C") session.send(KEYS.DOWN);
         session.send(KEYS.ENTER);
         if (destination === "C") await answer("Enter fee", "");
-        await sign(imported);
+        await sign(imported, [`to the ${destination}-chain`]);
       }
 
+      // No signs and sends nothing; Yes is waited for: nothing is sent while the question is open
+      const transferLines = ["Amount: 1.5 LFLR", `To: ${recipient}`];
       await task("transfer");
       await answer("Enter amount", "1.5");
       await answer("Enter destination P-chain address", recipient);
-      await sign("transfer");
+      await summary("transfer", transferLines);
+      session.send("n");
+      session.send(KEYS.ENTER);
+      await next("Not signed; nothing was sent.");
+      await task("transfer"); // the menu came back
+      expect(await getPBalance(recipient), "after No").to.equal(0n);
+      await answer("Enter amount", "1.5");
+      await answer("Enter destination P-chain address", recipient);
+      await summary("transfer", transferLines);
+      await new Promise((resolve) => setTimeout(resolve, 3_000));
+      const output = stripVTControlCharacters(session.output);
+      expect(output.slice(output.lastIndexOf("Sign and send this transaction?")), "before the answer").to.not.include(
+        "submitted"
+      );
+      expect(await getPBalance(recipient), "before the answer").to.equal(0n);
+      session.send("y");
+      session.send(KEYS.ENTER);
+      expect(await next(/sent to the network|Error: [^\n]*/, 120_000)).to.match(/sent to the network$/);
       expect(await getPBalance(recipient)).to.equal(1_500_000_000n);
 
+      // the delegation the node took: to the node given, for the amount and the time given, owned by the account
       await task("delegate");
       await answer("Enter amount", "10000");
       await answer("Enter NodeId", validator);
+      const answeredAt = Math.floor(Date.now() / 1000);
       await answer("Enter end time", "30m");
-      await sign("delegate");
+      const { txId } = await sign("delegate", ["Amount: 10000 LFLR", `Node: ${validator}`]);
+      const [genesis] = await getCurrentValidators([validator]);
+      const delegation = (genesis?.delegators ?? []).find((d) => d.txID === txId) as
+        { endTime: string; weight: string; rewardOwner: { addresses: string[] } } | undefined;
+      expect(delegation, "the delegation, on the node given").to.not.equal(undefined);
+      expect(delegation!.weight).to.equal("10000000000000");
+      expect(Number(delegation!.endTime) - answeredAt).to.be.within(30 * 60, 30 * 60 + 60);
+      expect(delegation!.rewardOwner.addresses).to.deep.equal([own.pAddress]);
 
       // localflare has none of Flare's reward contracts: the error is reported and the menu comes back
       await task("claim");
@@ -442,14 +494,16 @@ describe("CLI interactive mode (with network)", function () {
     if (!node) {
       this.skip();
     }
-    const period = async (): Promise<unknown> => (await getCurrentValidators([node.nodeID]))[0]?.nextPeriod;
-    const { session, next, answer, task, sign, quit } = await menuSession("pk-auto-renew", "11000");
+    const current = async () => (await getCurrentValidators([node.nodeID]))[0];
+    const { own, keyFile, session, next, answer, task, sign, quit } = await menuSession("pk-auto-renew", "11000");
+    let added = false;
+    let stopped = false;
     try {
       await task("CP");
       await answer("Enter amount", "10010");
       await answer("Enter fee", "");
-      await sign("exportCP");
-      await sign("importCP");
+      await sign("exportCP", ["Amount: 10010 LFLR from the C-chain to the P-chain"]);
+      await sign("importCP", ["to the P-chain"]);
 
       await task("addAutoRenewedValidator");
       await answer("Enter amount", "10000");
@@ -458,14 +512,24 @@ describe("CLI interactive mode (with network)", function () {
       await answer("Enter delegation fee", "10");
       await answer("Please enter the popBLSPublicKey", node.blsPublicKey);
       await answer("Please enter the popBLSSignature", node.blsProofOfPossession);
-      await sign("addAutoRenewedValidator");
-      expect(await period()).to.equal("900");
+      await sign("addAutoRenewedValidator", [
+        "Amount: 10000 LFLR",
+        `Node: ${node.nodeID}`,
+        "Period: 15m (900 s)",
+        "Delegation fee: 10%",
+      ]);
+      added = true;
+      const validator = await current();
+      expect(validator?.weight).to.equal("10000000000000");
+      expect(validator?.["delegationFee"]).to.equal("10.0000");
+      expect(validator?.validatorAuthority?.addresses).to.deep.equal([own.pAddress]);
+      expect(validator?.nextPeriod).to.equal("900");
 
       await task("setAutoRenewedValidatorConfig");
       await answer("Enter NodeId", node.nodeID);
       await answer("Enter the validation period", "20m");
-      await sign("setAutoRenewedValidatorConfig");
-      expect(await period()).to.equal("1200");
+      await sign("setAutoRenewedValidatorConfig", [`Node: ${node.nodeID}`, "Period: 20m (1200 s) from the next cycle"]);
+      expect((await current())?.nextPeriod).to.equal("1200");
 
       // a period of 0 has a confirmation of its own before the summary
       await task("setAutoRenewedValidatorConfig");
@@ -474,11 +538,31 @@ describe("CLI interactive mode (with network)", function () {
       await next("A period of 0 stops auto-renewal");
       session.send("y");
       session.send(KEYS.ENTER);
-      await sign("setAutoRenewedValidatorConfig");
-      expect(await period()).to.equal("0");
+      await sign("setAutoRenewedValidatorConfig", ["Period: 0: auto-renewal stops at the end of the current cycle"]);
+      expect((await current())?.nextPeriod).to.equal("0");
+      stopped = true;
       await quit();
     } finally {
       session.kill();
+      // a failure after the validator was added must not leave it renewing, holding its node for later runs
+      if (added && !stopped) {
+        runCli(
+          [
+            "transaction",
+            "setAutoRenewedValidatorConfig",
+            "-n",
+            node.nodeID,
+            "--period",
+            "0",
+            "--get-hacked",
+            "--env-path",
+            keyFile,
+            "--network",
+            "localflare",
+          ],
+          { timeoutMs: 90_000 }
+        );
+      }
     }
   });
 });
