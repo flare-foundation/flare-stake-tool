@@ -196,14 +196,14 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         amount: 1n,
         fee: 1n,
       });
-      // and a fee of at most 10 FLR, on both atomic C-chain types; more is a 4.4.0 gas price, not a fee
-      expect(parseAtomicTxRequest("exportCP", { amount: "1", fee: "10" }).request).to.include({ fee: 10_000_000_000n });
-      expect(parseAtomicTxRequest("importPC", { fee: "10" }).request).to.include({ fee: 10_000_000_000n });
+      // and a fee of at most 20 FLR, on both atomic C-chain types; more is a 4.4.0 gas price, not a fee
+      expect(parseAtomicTxRequest("exportCP", { amount: "1", fee: "20" }).request).to.include({ fee: 20_000_000_000n });
+      expect(parseAtomicTxRequest("importPC", { fee: "20" }).request).to.include({ fee: 20_000_000_000n });
       expect(() => parseAtomicTxRequest("exportCP", { amount: "1", fee: "1000" })).to.throw(
-        'Invalid fee "1000": at most 10 FLR'
+        'Invalid fee "1000": at most 20 FLR'
       );
-      expect(() => parseAtomicTxRequest("importPC", { fee: "10.000000001" })).to.throw(
-        'Invalid fee "10.000000001": at most 10 FLR'
+      expect(() => parseAtomicTxRequest("importPC", { fee: "20.000000001" })).to.throw(
+        'Invalid fee "20.000000001": at most 20 FLR'
       );
     });
   });

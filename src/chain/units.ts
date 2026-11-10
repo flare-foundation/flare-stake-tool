@@ -92,12 +92,13 @@ export function parsePositiveFlr(input: string, hint?: string): NFlr {
   return amount;
 }
 /**
- * The most a typed fee of an atomic transaction (exportCP, importPC: -f, or the interactive fee prompt) may be: 10 FLR,
- * about 900 times the estimate at the 500 gwei floor. With --get-hacked, 4.4.0 read -f as a gas price in nFLR (when
- * at least the base fee), so `-f 1000` paid about 0.011 FLR; as the total fee it is, it would burn 1000 FLR. Fixed,
- * not taken from an estimate, so that every ForDefi co-signer builds the same transaction.
+ * The most a typed fee of an atomic transaction (exportCP, importPC: -f, or the interactive fee prompt) may be: 20 FLR,
+ * about 1,800 times the estimate at the 500 gwei floor. With --get-hacked, 4.4.0 read -f as a gas price in nFLR (when
+ * at least the base fee), so `-f 1000` paid about 0.011 FLR; as the total fee it is, it would burn 1000 FLR. 20 is
+ * below 25, the lowest base fee in gwei 4.4.0 saw, so every -f it read as a gas price is refused. Fixed, not taken
+ * from an estimate, so that every ForDefi co-signer builds the same transaction.
  */
-export const MAX_ATOMIC_FEE = asNFlr(10_000_000_000n);
+export const MAX_ATOMIC_FEE = asNFlr(20_000_000_000n);
 
 /** A typed atomic fee: more than 0 (`zeroHint` says what to do instead) and at most MAX_ATOMIC_FEE. */
 export function parseAtomicFee(input: string, zeroHint?: string): NFlr {

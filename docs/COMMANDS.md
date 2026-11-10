@@ -52,7 +52,7 @@ up to 18 decimals (wei). More non-zero decimals are an error rather than being
 cut off. An `-a` or `-f` of 0 is refused for P-chain and atomic transactions,
 which the node would refuse. 4.4.0's `--ledger` path read `-f 0` as "estimate
 the fee" and `exportPC -a 0` as "the whole balance": leave the option out for
-that. The `-f` of `exportCP` and `importPC` is the total fee and at most 10 FLR:
+that. The `-f` of `exportCP` and `importPC` is the total fee and at most 20 FLR:
 with `--get-hacked`, 4.4.0 read it as a gas price in nFLR, so `-f 1000` cost
 about 0.011 FLR, and would now burn 1000 FLR.
 An empty value (`-a ""`, or spaces only) is refused for `-a`, `-f`, `--nonce`, `--value`,
@@ -148,7 +148,7 @@ Move FLR from the C-chain to the P-chain (atomic export step).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-a <amount>` (FLR, required), `-f <fee>` (FLR; total fee, at most 10. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path) |
+| Inputs | `-a <amount>` (FLR, required), `-f <fee>` (FLR; total fee, at most 20. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path) |
 | Side effects | Submits an atomic export tx on the C-chain; exactly `amount` is exported and the fee is paid from the C-chain account. The P-chain import fee is paid from the imported funds on import. |
 | Output | Tx hash, "sent to the network" |
 | Failures | "insufficient funds" if C-chain balance < amount + fee. Network parse errors if amount serialization changes between go-flare versions. |
@@ -213,7 +213,7 @@ says how many UTXOs were left out and what they hold.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-f <fee>` (FLR; total fee, at most 10. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path). |
+| Inputs | `-f <fee>` (FLR; total fee, at most 20. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path). |
 | Side effects | Submits an atomic import tx on the C-chain |
 | Output | Tx hash, "sent to the network", and the amount arriving on the C-chain; a warning when UTXOs were skipped or left for the next import |
 | Failures | "Nothing to import from the P-chain" if exportPC hasn't propagated to the C-chain yet (3s delay typically suffices on local), "… that this account can spend alone" when only UTXOs it cannot spend alone are pending, or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. Refused before signing if the built transaction would not pay exactly `-f` (or would pay nothing when estimated), or if the fee takes all of the value imported (an estimate is cut to it); the UTXOs stay pending. |
@@ -453,7 +453,7 @@ is chosen as for the other commands (`--rpc-url`, `--api-key` or the
 environment variables), the network from the menu. The C-chain fee prompt of
 an export or import offers the fee estimated at twice the current base fee,
 as `-f` omitted does, so Enter pays the fee shown. A fee typed in instead is
-paid exactly, and is at most 10 FLR, as `-f`; one below the cost at the current base fee is sent only after a
+paid exactly, and is at most 20 FLR, as `-f`; one below the cost at the current base fee is sent only after a
 warning and a confirmation. When the fee cannot be estimated
 yet (nothing to import yet), an empty answer is estimated when the transaction
 is built. Invalid input (amounts, fees, periods, BLS keys) is refused at the

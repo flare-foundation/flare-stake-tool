@@ -577,12 +577,12 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
-  it("refuses an atomic -f above 10 FLR on every path before anything is signed: 4.4.0 read it as a gas price", () => {
+  it("refuses an atomic -f above 20 FLR on every path before anything is signed: 4.4.0 read it as a gas price", () => {
     const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
     for (const args of [
       ["exportCP", "-a", "100", "-f", "1000", "--get-hacked", "--env-path", envPath],
       ["importPC", "-f", "25", "--get-hacked", "--env-path", envPath],
-      ["exportCP", "-a", "1", "-f", "10.5", "--ledger"],
+      ["exportCP", "-a", "1", "-f", "20.5", "--ledger"],
       ["importPC", "-f", "500", "-i", "fee-file", "--env-path", envPath],
     ]) {
       const result = runCli([...args, "--network", "costwo"], {
@@ -591,7 +591,7 @@ describe("CLI errors (built CLI, no node)", function () {
       });
       expect(result.exitCode, args.join(" ")).to.equal(1);
       expect(result.stderr, args.join(" ")).to.equal(
-        `Error: Invalid fee "${args[args.indexOf("-f") + 1]}": at most 10 FLR, as it is the transaction's total fee, not a gas price (4.4.0 read -f with --get-hacked as nFLR per gas)\n`
+        `Error: Invalid fee "${args[args.indexOf("-f") + 1]}": at most 20 FLR, as it is the transaction's total fee, not a gas price (4.4.0 read -f with --get-hacked as nFLR per gas)\n`
       );
       expect(result.stdout, args.join(" ")).to.equal("");
     }
