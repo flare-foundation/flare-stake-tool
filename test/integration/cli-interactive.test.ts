@@ -498,7 +498,10 @@ describe("CLI interactive mode (with network)", function () {
       this.skip();
     }
     const current = async () => (await getCurrentValidators([node.nodeID]))[0];
-    const { own, keyFile, session, next, answer, task, sign, quit } = await menuSession("pk-auto-renew", "11000");
+    const { own, keyFile, session, next, answer, task, summary, sign, quit } = await menuSession(
+      "pk-auto-renew",
+      "11000"
+    );
     let added = false;
     let stopped = false;
     try {
@@ -515,14 +518,17 @@ describe("CLI interactive mode (with network)", function () {
       await answer("Enter delegation fee", "10");
       await answer("Please enter the popBLSPublicKey", node.blsPublicKey);
       await answer("Please enter the popBLSSignature", node.blsProofOfPossession);
-      // the validator may exist from the Yes on, even if waiting for its status then fails
-      added = true;
-      await sign("addAutoRenewedValidator", [
+      await summary("addAutoRenewedValidator", [
         "Amount: 10000 LFLR",
         `Node: ${node.nodeID}`,
         "Period: 15m (900 s)",
         "Delegation fee: 10%",
       ]);
+      // nothing is sent before the Yes; from it on, the validator may exist, even if waiting for its status fails
+      added = true;
+      session.send("y");
+      session.send(KEYS.ENTER);
+      expect(await next(/sent to the network|Error: [^\n]*/, 120_000)).to.match(/sent to the network$/);
       const validator = await current();
       expect(validator?.weight).to.equal("10000000000000");
       expect(validator?.["delegationFee"]).to.equal("10.0000");
@@ -566,17 +572,18 @@ describe("CLI interactive mode (with network)", function () {
           ],
           { timeoutMs: 90_000 }
         );
-        // confirmed from the chain; else the key is kept outside the temp directory, which `after` deletes, with
-        // the command that stops it (not thrown: the test's own failure stays the one reported)
-        const left = await current().then(
-          (validator) => validator === undefined || validator.nextPeriod === "0",
+        // stopped only if the chain lists it with no next period: absent, it may be an add still pending. Otherwise the
+        // key is kept outside the temp directory, which `after` deletes, with the command that stops it (not thrown:
+        // the test's own failure stays the one reported)
+        const confirmed = await current().then(
+          (validator) => validator?.nextPeriod === "0",
           () => false
         );
-        if (!left) {
+        if (!confirmed) {
           const kept = path.join(os.tmpdir(), `auto-renew-recovery-${node.nodeID}.key`);
           fs.copyFileSync(keyFile, kept);
           console.error(
-            `The auto-renewed validator on ${node.nodeID} may still renew (stop exited ${stop.exitCode}: ` +
+            `An auto-renewed validator on ${node.nodeID} may exist and still renew (stop exited ${stop.exitCode}: ` +
               `${stop.stderr.trim().replace(/\s+/g, " ")}). Stop it with: node dist/run.js transaction setAutoRenewedValidatorConfig ` +
               `-n ${node.nodeID} --period 0 --get-hacked --env-path ${kept} --network localflare`
           );
