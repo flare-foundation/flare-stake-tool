@@ -1,5 +1,6 @@
 /** Typed `platform.getCurrentValidators`, including the Helicon (ACP-236) fields. */
 import type { Env } from "../core/types";
+import { asNFlr, type NFlr } from "./units";
 
 export interface OutputOwners {
   locktime: string;
@@ -60,12 +61,12 @@ export interface Stake {
   owner: string;
   startTime: bigint;
   endTime: bigint;
-  amount: bigint;
+  amount: NFlr;
 }
 
 const ownerOf = (owners: OutputOwners | undefined): string | undefined => owners?.addresses[0];
-const amountOf = (stake: { stakeAmount?: string; weight?: string }): bigint =>
-  BigInt(stake.stakeAmount ?? stake.weight ?? "0");
+const amountOf = (stake: { stakeAmount?: string; weight?: string }): NFlr =>
+  asNFlr(BigInt(stake.stakeAmount ?? stake.weight ?? "0"));
 
 /** Every current stake (validation or delegation) whose reward owner is `pAddress`. */
 export function stakesOf(validators: CurrentValidator[], pAddress: string): Stake[] {

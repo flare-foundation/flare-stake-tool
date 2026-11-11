@@ -18,23 +18,6 @@
       }
     },
     {
-      "path": "/ext/info",
-      "method": "info.getTxFee",
-      "response": {
-        "result": {
-          "txFee": "1000000",
-          "createAssetTxFee": "1000000",
-          "createSubnetTxFee": "100000000",
-          "transformSubnetTxFee": "100000000",
-          "createBlockchainTxFee": "100000000",
-          "addPrimaryNetworkValidatorFee": "0",
-          "addPrimaryNetworkDelegatorFee": "0",
-          "addSubnetValidatorFee": "1000000",
-          "addSubnetDelegatorFee": "1000000"
-        }
-      }
-    },
-    {
       "path": "/ext/bc/X",
       "method": "avm.getTxFee",
       "response": {
@@ -134,41 +117,6 @@
     },
     {
       "path": "/ext/bc/C/avax",
-      "method": "avax.getUTXOs",
-      "params": {
-        "addresses": [
-          "C-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"
-        ],
-        "sourceChain": "11111111111111111111111111111111LpoYY",
-        "encoding": "hex"
-      },
-      "response": {
-        "result": {
-          "numFetched": "1",
-          "utxos": [
-            "0x00006c933f2cbdef725c1066a0a8a4477f275a94a611e33c62b80f933c82364f7d920000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000700000002540be400000000000000000000000001000000013cb7d3842e8cee6a0ebd09f1fe884f6861e1b29cdfe43a50"
-          ],
-          "endIndex": {
-            "address": "C-localflare1llllllllllllllllllllllllllllllllwam74j",
-            "utxo": "2wkBET2rRgE8pahuaczxKbmv7ciehqsne57F9gtzf1PVcUJEQG"
-          },
-          "encoding": "hex"
-        }
-      }
-    },
-    {
-      "path": "/ext/bc/C/rpc",
-      "method": "eth_getBalance",
-      "params": [
-        "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
-        "latest"
-      ],
-      "response": {
-        "result": "0x314dc6448d8cfccba669c8fb2800"
-      }
-    },
-    {
-      "path": "/ext/bc/C/avax",
       "method": "avax.issueTx",
       "params": {
         "tx": "0x000000000000000000a29fc077083da8d53594cb7c3abf6333269db12626e62f1c2af3ed3d3cff8f0ac60000000000000000000000000000000000000000000000000000000000000000000000016c933f2cbdef725c1066a0a8a4477f275a94a611e33c62b80f933c82364f7d920000000134ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd55280000000500000002540be4000000000100000000000000018db97c7cece249c2b98bdc0226cc4c2a57bf52fc0000000218711a0034ed4f389dd4c1ad0f9641614304357b8249588603224ea98563333655cd5528000000010000000900000001b6551c79b30420b198a82e5625de9125000de90ecb940f0ed6be32bce70ad32474ff20c9ff29c81a9298dcaa1bf4b92da03ca104474e83ca87e68f1368c3d1700038501684"
@@ -202,17 +150,6 @@
           "status": "Accepted",
           "blockHeight": "160"
         }
-      }
-    },
-    {
-      "path": "/ext/bc/C/rpc",
-      "method": "eth_getBalance",
-      "params": [
-        "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
-        "latest"
-      ],
-      "response": {
-        "result": "0x314dc6448d8d79b212baab7f2800"
       }
     }
   ]

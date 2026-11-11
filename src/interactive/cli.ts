@@ -14,6 +14,7 @@ import {
   parseEndTime,
   parseFlr,
   parsePercentToShares,
+  type NFlr,
 } from "../chain/units";
 import { contractAddress, stateOfRewards } from "../chain/contracts";
 import { currentValidators } from "../chain/validators";
@@ -248,9 +249,9 @@ async function cycleEndOf(env: Env, nodeId: string): Promise<string | undefined>
 async function askCChainFee(
   session: Session,
   req: TxRequestOf<"exportCP"> | TxRequestOf<"importPC">
-): Promise<bigint | undefined> {
+): Promise<NFlr | undefined> {
   const symbol = session.env.network.symbol;
-  let estimate: bigint | undefined;
+  let estimate: NFlr | undefined;
   try {
     estimate = await estimateAtomicFee({ ...req, fee: undefined }, session.env, session.account);
   } catch {

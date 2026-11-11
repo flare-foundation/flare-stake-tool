@@ -18,23 +18,6 @@
       }
     },
     {
-      "path": "/ext/info",
-      "method": "info.getTxFee",
-      "response": {
-        "result": {
-          "txFee": "1000000",
-          "createAssetTxFee": "1000000",
-          "createSubnetTxFee": "100000000",
-          "transformSubnetTxFee": "100000000",
-          "createBlockchainTxFee": "100000000",
-          "addPrimaryNetworkValidatorFee": "0",
-          "addPrimaryNetworkDelegatorFee": "0",
-          "addSubnetValidatorFee": "1000000",
-          "addSubnetDelegatorFee": "1000000"
-        }
-      }
-    },
-    {
       "path": "/ext/bc/X",
       "method": "avm.getTxFee",
       "response": {
@@ -130,13 +113,6 @@
           },
           "encoding": "hex"
         }
-      }
-    },
-    {
-      "path": "/ext/bc/C/rpc",
-      "method": "eth_baseFee",
-      "response": {
-        "result": "0x1"
       }
     },
     {

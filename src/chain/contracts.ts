@@ -1,6 +1,7 @@
 /** The C-chain contracts the tool talks to, via ethers over six ABI fragments. */
 import { Interface, ZeroAddress, getAddress } from "ethers";
 import type { EvmEnv } from "../core/types";
+import { asWei, type Wei } from "./units";
 
 export const FLARE_CONTRACT_REGISTRY_ADDRESS = "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019";
 
@@ -41,23 +42,23 @@ export async function hasContractCode(env: EvmEnv, address: string): Promise<boo
 }
 
 export interface RewardState {
-  totalWei: bigint;
-  claimedWei: bigint;
-  unclaimedWei: bigint;
+  totalWei: Wei;
+  claimedWei: Wei;
+  unclaimedWei: Wei;
 }
 
 export async function stateOfRewards(env: EvmEnv, rewardManager: string, owner: string): Promise<RewardState> {
   const [total, claimed] = await call(env, rewardManager, "getStateOfRewards", [owner]);
-  const totalWei = BigInt(total as bigint);
-  const claimedWei = BigInt(claimed as bigint);
-  return { totalWei, claimedWei, unclaimedWei: totalWei - claimedWei };
+  const totalWei = asWei(BigInt(total as bigint));
+  const claimedWei = asWei(BigInt(claimed as bigint));
+  return { totalWei, claimedWei, unclaimedWei: asWei(totalWei - claimedWei) };
 }
 
 export async function executorInfo(
   env: EvmEnv,
   claimSetupManager: string,
   executor: string
-): Promise<{ registered: boolean; feeWei: bigint }> {
+): Promise<{ registered: boolean; feeWei: Wei }> {
   const [registered, fee] = await call(env, claimSetupManager, "getExecutorInfo", [executor]);
-  return { registered: Boolean(registered), feeWei: BigInt(fee as bigint) };
+  return { registered: Boolean(registered), feeWei: asWei(BigInt(fee as bigint)) };
 }

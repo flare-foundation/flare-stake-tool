@@ -564,6 +564,8 @@ async function replayStep(golden: Golden): Promise<string | undefined> {
       submissions: () => server.submissions,
     });
     if (server.misses.length > 0) return `replay misses: ${server.misses.join(", ")}`;
+    const unused = server.unused();
+    if (unused.length > 0) return `recorded calls the command did not make in replay: ${unused.join(", ")}`;
     const expected = JSON.stringify(comparableOutcome(golden.outcome));
     const actual = JSON.stringify(comparableOutcome(outcome));
     return expected === actual

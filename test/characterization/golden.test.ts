@@ -53,6 +53,8 @@ describe("characterization goldens (offline replay)", function () {
         submissions: () => server.submissions,
       });
       expect(server.misses, "RPC calls without a recorded response").to.deep.equal([]);
+      // A removed check that reads the node leaves its recording unused, even when the output stays the same.
+      expect(server.unused(), "recorded RPC calls the command no longer makes").to.deep.equal([]);
       // The replay answers every submission with the recorded id whatever was sent, so check that the signed
       // bytes really have the id the command reported (a golden rewritten for new bytes keeps the old one).
       for (const submission of outcome.submissions) {

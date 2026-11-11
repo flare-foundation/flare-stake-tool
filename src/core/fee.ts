@@ -1,4 +1,5 @@
 import { utils as futils, type Context, type UnsignedTx } from "@flarenetwork/flarejs";
+import { asNFlr, type NFlr } from "../chain/units";
 
 type BurnableTx = Parameters<typeof futils.getBurnedAmountByTx>[0];
 
@@ -8,6 +9,6 @@ type BurnableTx = Parameters<typeof futils.getBurnedAmountByTx>[0];
  * transaction itself, so it is exactly what the chain burns, whether the fee
  * was given (`-f`) or estimated from the base fee or the P-chain fee state.
  */
-export function atomicTxFee(unsignedTx: UnsignedTx, context: Context.Context): bigint {
-  return futils.getBurnedAmountByTx(unsignedTx.getTx() as BurnableTx, context).get(context.avaxAssetID) ?? 0n;
+export function atomicTxFee(unsignedTx: UnsignedTx, context: Context.Context): NFlr {
+  return asNFlr(futils.getBurnedAmountByTx(unsignedTx.getTx() as BurnableTx, context).get(context.avaxAssetID) ?? 0n);
 }

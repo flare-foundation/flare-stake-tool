@@ -92,6 +92,8 @@ export class RpcReplayServer {
 
   private readonly queues = new Map<string, FixtureEntry[]>();
   private readonly cursors = new Map<string, number>();
+  /** Request keys a stub answered; their recordings (made in record mode) count as used. */
+  private readonly stubbed = new Set<string>();
 
   private constructor(
     private readonly server: http.Server,
@@ -202,6 +204,7 @@ export class RpcReplayServer {
     let response: FixtureEntry["response"];
     if (stub) {
       response = { result: stub.respond(params) };
+      this.stubbed.add(requestKey(reqPath, method, params));
       if (this.mode === "record") {
         this.fixture.entries.push({ path: reqPath, method, params, response });
       }
@@ -212,6 +215,17 @@ export class RpcReplayServer {
       response = this.lookup(reqPath, method, params);
     }
     return { jsonrpc: "2.0", id: request.id ?? null, ...response };
+  }
+
+  /**
+   * Recorded request keys that were never requested (replay mode). A key requested fewer times than recorded, such
+   * as a status poll, is not listed: polls depend on timing. So is `eth_blockNumber`, which ethers polls only while
+   * a receipt is not there yet. A key a stub answered counts as requested.
+   */
+  unused(): string[] {
+    return [...this.queues.keys()].filter(
+      (key) => !this.cursors.has(key) && !this.stubbed.has(key) && !key.includes("|eth_blockNumber|")
+    );
   }
 
   private lookup(reqPath: string, method: string, params: unknown): FixtureEntry["response"] {

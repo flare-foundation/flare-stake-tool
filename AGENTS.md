@@ -38,7 +38,7 @@ src/
   chain/network.ts          The single network table (ids, hrp, URLs, symbol) + node URL / API key overrides
   chain/clients.ts          flarejs APIs, ethers provider, cached Context, Helicon gate
   chain/keys.ts             Key/address derivation (flarejs secp256k1 + ethers), CB58 decoding with its checksum checked
-  chain/units.ts            parseFlr/formatFlr, percentages → shares, durations
+  chain/units.ts            NFlr/Wei amounts, parseFlr/formatFlr, percentages → shares, durations
   chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
   chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
   ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum)
@@ -56,8 +56,8 @@ test/integration/           Mocha integration tests against an externally runnin
 pnpm install
 pnpm build              # tsc -p tsconfig.build.json (rootDir=src, outDir=dist)
 pnpm test               # mocha unit tests
-pnpm test:coverage      # nyc + mocha
-pnpm test:integration   # docker-compose up -d, run CLI E2E, down -v
+pnpm test:coverage      # c8 + mocha
+pnpm test:integration   # CLI E2E against a running localflare (see below)
 pnpm lint:check         # eslint @flarenetwork/eslint-config-flare
 pnpm format:check       # prettier @flarenetwork/prettier-config-flare
 ```
@@ -99,6 +99,11 @@ recipient has contract code.
   P-chain/atomic requests and with `parseFlrToWei` to **wei** (18 decimals)
   for C-chain commands. Extra non-zero decimals and commas are errors, never
   silently dropped. Nothing downstream sees FLR.
+- Amounts are typed `NFlr` or `Wei` (`chain/units.ts`): plain bigints at
+  runtime, branded so the compiler refuses one where the other is expected.
+  Parsing returns the right type; a value read from the chain is marked with
+  `asNFlr` / `asWei` where it comes in. Arithmetic gives a plain bigint, so
+  mark the result again.
 - `-e`, `-s` and `--period` accept unix seconds or durations (`2d12h`);
   `parseEndTime` resolves a duration against now.
 - The `--env-path` file uses `PRIVATE_KEY_HEX` (hex) and/or `PRIVATE_KEY_CB58`
@@ -182,6 +187,10 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   Commander command like the others and takes the two flags the same way; it
   checks the URL before the banner and refuses the account and network options,
   which its menu asks for.
+- A skipped test fails the run (`forbid-pending` in `.mocharc.integration.yml`).
+  The Helicon suite skips when Helicon is not active, and the stake tests when
+  every node is validating, which a rerun within the 15-minute minimum stake
+  period hits. `pnpm test:integration --no-forbid-pending` allows skips.
 - The signing suites create a fresh account funded from the ewoq key for every
   run (`test/integration/accounts.ts`), so they are rerun-safe and independent
   of the max-three-validators rule, and all end times are relative to now.
@@ -213,6 +222,11 @@ sent, so an update that changes the submitted bytes must also change the
 fixture's submission, its id and the receipts or status queries for it: the
 goldens check that each reported id is the id of the bytes sent, and
 `fixtures.test.ts` that each recorded id is the id of its recorded bytes.
+A golden also fails when its recording has a call the command no longer makes
+(`RpcReplayServer.unused()`), so removing a check that asks the node fails
+even when the output stays the same; `eth_blockNumber` polls and calls a stub
+answers are exempt. A unit test that needs a call its scenario's command does
+not make passes a stub to `withReplay` instead of adding it to the recording.
 Re-record only when the scenario inputs change, never to make a failing
 golden pass. The printed output includes the warning for an end time that is
 not in the future, which depends on the clock: keep the recorded end times in

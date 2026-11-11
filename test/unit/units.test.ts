@@ -7,6 +7,8 @@ import {
   formatWei,
   MAX_TIME_SECONDS,
   isDurationInput,
+  asNFlr,
+  asWei,
   nFlrToWei,
   parseDecimal,
   parseDuration,
@@ -15,11 +17,41 @@ import {
   parseFlrToWei,
   parsePercentToShares,
 } from "../../src/chain/units";
+import type { executorInfo } from "../../src/chain/contracts";
+import type { Stake } from "../../src/chain/validators";
+import type { TxRequestOf } from "../../src/core/types";
 
 describe("chain/units", () => {
+  it("keeps nFLR and wei apart at compile time (`pnpm typecheck` fails if a line below compiles)", () => {
+    const nFlr = parseFlr("1");
+    const wei = parseFlrToWei("1");
+    // @ts-expect-error wei where nFLR is expected
+    formatFlr(wei);
+    // @ts-expect-error nFLR where wei is expected
+    formatWei(nFlr);
+    // @ts-expect-error a plain bigint is not an amount until it is marked
+    formatFlr(1n);
+    // @ts-expect-error a P-chain amount in a C-chain transaction
+    const withdrawal: TxRequestOf<"withdrawal">["amount"] = nFlr;
+    // @ts-expect-error a C-chain amount in a P-chain transaction
+    const transfer: TxRequestOf<"transfer">["amount"] = wei;
+    // @ts-expect-error nFLR as an executor fee, which is wei
+    const executorFee: Awaited<ReturnType<typeof executorInfo>>["feeWei"] = nFlr;
+    // @ts-expect-error wei as a stake amount, which is nFLR
+    const staked: Stake["amount"] = wei;
+    // at runtime all are plain bigints
+    expect([withdrawal, transfer, executorFee, staked]).to.deep.equal([
+      1_000_000_000n,
+      1_000_000_000_000_000_000n,
+      1_000_000_000n,
+      1_000_000_000_000_000_000n,
+    ]);
+    expect(nFlrToWei(nFlr)).to.equal(wei);
+  });
+
   it("formats a negative amount with a leading minus", () => {
     expect(formatDecimal(-1_500_000_000n, 9)).to.equal("-1.5");
-    expect(formatFlr(-1n)).to.equal("-0.000000001");
+    expect(formatFlr(asNFlr(-1n))).to.equal("-0.000000001");
   });
 
   describe("parseFlr / formatFlr", () => {
@@ -30,11 +62,11 @@ describe("chain/units", () => {
       expect(parseFlr("100000")).to.equal(100_000_000_000_000n);
       expect(parseFlr("0.000000001")).to.equal(1n);
       expect(parseFlr("12.345678901")).to.equal(12_345_678_901n);
-      expect(formatFlr(0n)).to.equal("0");
-      expect(formatFlr(1_000_000_000n)).to.equal("1");
-      expect(formatFlr(1_500_000_000n)).to.equal("1.5");
-      expect(formatFlr(123_456_789_012_345n)).to.equal("123456.789012345");
-      expect(formatFlr(1n)).to.equal("0.000000001");
+      expect(formatFlr(asNFlr(0n))).to.equal("0");
+      expect(formatFlr(asNFlr(1_000_000_000n))).to.equal("1");
+      expect(formatFlr(asNFlr(1_500_000_000n))).to.equal("1.5");
+      expect(formatFlr(asNFlr(123_456_789_012_345n))).to.equal("123456.789012345");
+      expect(formatFlr(asNFlr(1n))).to.equal("0.000000001");
     });
 
     it("refuses digits beyond the precision, which up to 4.x were dropped (0.0000000001 became 0)", () => {
@@ -43,8 +75,8 @@ describe("chain/units", () => {
       }
       expect(parseFlr("1.5000000000")).to.equal(1_500_000_000n); // trailing zeros change nothing
       expect(() => parsePercentToShares("33.33333")).to.throw(/at most 4 decimal places/);
-      expect(formatWei(1_000_000_000_000_000_000n)).to.equal("1");
-      expect(nFlrToWei(1_500_000_000n)).to.equal(1_500_000_000_000_000_000n);
+      expect(formatWei(asWei(1_000_000_000_000_000_000n))).to.equal("1");
+      expect(nFlrToWei(asNFlr(1_500_000_000n))).to.equal(1_500_000_000_000_000_000n);
     });
 
     it("parses C-chain amounts with the full 18 decimals of wei", () => {
@@ -55,7 +87,7 @@ describe("chain/units", () => {
       // an amount with up to 9 decimals gives the same wei as the nFLR route used up to 4.x
       fc.assert(
         fc.property(fc.bigInt({ min: 0n, max: 10n ** 20n }), (nFlr) => {
-          expect(parseFlrToWei(formatFlr(nFlr))).to.equal(nFlrToWei(nFlr));
+          expect(parseFlrToWei(formatFlr(asNFlr(nFlr)))).to.equal(nFlrToWei(asNFlr(nFlr)));
         })
       );
     });

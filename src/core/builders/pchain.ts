@@ -13,7 +13,7 @@ import {
   type UnsignedTx,
 } from "@flarenetwork/flarejs";
 import { pChainAddressBytes, type Account } from "../../chain/keys";
-import { formatFlr } from "../../chain/units";
+import { asNFlr, formatFlr, type NFlr } from "../../chain/units";
 import { currentValidators } from "../../chain/validators";
 import { atomicTxFee } from "../fee";
 import {
@@ -25,7 +25,7 @@ import {
   type UnsignedTxBundle,
 } from "../types";
 
-const NFLR_PER_GWEI_DIVISOR = 1_000_000_000n;
+const WEI_PER_GWEI = 1_000_000_000n;
 const PRIMARY_NETWORK = networkIDs.PrimaryNetworkID.toString();
 
 function bundle(txType: AtomicTxType, unsignedTx: UnsignedTx): UnsignedTxBundle {
@@ -39,7 +39,7 @@ function bundle(txType: AtomicTxType, unsignedTx: UnsignedTx): UnsignedTxBundle 
 }
 
 /** Base fee in gwei (nFLR), rounded up, as the flarejs `*FromBaseFee` builders expect. */
-const baseFeeGwei = (baseFeeWei: bigint): bigint => (baseFeeWei + NFLR_PER_GWEI_DIVISOR - 1n) / NFLR_PER_GWEI_DIVISOR;
+const baseFeeGwei = (baseFeeWei: bigint): bigint => (baseFeeWei + WEI_PER_GWEI - 1n) / WEI_PER_GWEI;
 
 /**
  * When the fee of exportCP/importPC is estimated (no `-f`), it covers this
@@ -61,7 +61,7 @@ const estimatedGasPriceGwei = (baseFeeWei: bigint): bigint =>
  * transaction must not each estimate a fee from the base fee of their moment.
  * Checked before any node call.
  */
-function requireFeeForPolicy(type: "exportCP" | "importPC", fee: bigint | undefined, policy: BuildPolicy): void {
+function requireFeeForPolicy(type: "exportCP" | "importPC", fee: NFlr | undefined, policy: BuildPolicy): void {
   if (fee === undefined && policy.requireExplicitFee) {
     throw new Error(`fee is required for ${type} transaction. Use --fee <fee> to specify the fee`);
   }
@@ -128,7 +128,7 @@ function spendableAlone(info: UtxoInfo, now: bigint): boolean {
 const nowSeconds = (): bigint => BigInt(Math.floor(Date.now() / 1000));
 
 /** AVAX the account can spend alone now. */
-export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: string, now: bigint): bigint {
+export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: string, now: bigint): NFlr {
   let total = 0n;
   for (const utxo of utxos) {
     const info = futils.getUtxoInfo(utxo);
@@ -136,10 +136,10 @@ export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: strin
       total += info.amount;
     }
   }
-  return total;
+  return asNFlr(total);
 }
 
-const exportPCTx = (inputs: PChainInputs, amount: bigint): UnsignedTx =>
+const exportPCTx = (inputs: PChainInputs, amount: NFlr): UnsignedTx =>
   pvm.newExportTx(
     {
       feeState: inputs.feeState,
@@ -151,33 +151,33 @@ const exportPCTx = (inputs: PChainInputs, amount: bigint): UnsignedTx =>
     inputs.context
   );
 
-const FEE_SHORTFALL_RE = /need (\d+) more unlocked nAVAX .*to cover fee/;
+/** The fee probe's gas capacity: no limit (uint64 max), since the probe is never sent. */
+const PROBE_GAS_CAPACITY = 2n ** 64n - 1n;
 
 /**
- * Exports the spendable total minus the fee of spending every UTXO. Exporting the
- * total first makes flarejs consume every UTXO and report the fee it is short by
- * (the P-chain fee depends on the inputs, so it cannot be a fixed value). flarejs
- * stops taking inputs once the amount and fee are covered, so a UTXO smaller than
- * the fee it adds can be left out. It stays on the P-chain, and so does the
- * change: the fee saved minus that UTXO.
+ * Exports the spendable total minus the fee of spending every UTXO. The P-chain
+ * fee depends on the inputs, so it cannot be a fixed value: a probe exporting the
+ * total at fee price 0 spends every UTXO, `pvm.calculateFee` prices it at the real
+ * price, and the export is built for the total minus that fee. The probe is never
+ * signed or sent, and is built on a copy of the fee state with no gas limit: with
+ * every UTXO it can be too big for the chain while the export is not. flarejs stops
+ * taking inputs once the amount and fee are covered, so a UTXO smaller than the fee
+ * it adds can be left out. It stays on the P-chain, and so does the change: the fee
+ * saved minus that UTXO. The export itself is checked against the real gas capacity.
  */
-function exportAllPC(inputs: PChainInputs): { amount: bigint; unsignedTx: UnsignedTx } {
+function exportAllPC(inputs: PChainInputs): { amount: NFlr; unsignedTx: UnsignedTx } {
   const total = spendableAmount(inputs.utxos, inputs.context.avaxAssetID, nowSeconds());
-  let fee = 0n;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const amount = total - fee;
-    if (amount <= 0n) {
-      throw new Error("Export amount is smaller than or equal to zero");
-    }
-    try {
-      return { amount, unsignedTx: exportPCTx(inputs, amount) };
-    } catch (error) {
-      const shortfall = FEE_SHORTFALL_RE.exec(error instanceof Error ? error.message : String(error))?.[1];
-      if (shortfall === undefined) throw error;
-      fee += BigInt(shortfall);
-    }
+  if (total <= 0n) {
+    throw new Error("Export amount is smaller than or equal to zero");
   }
-  throw new Error("Could not determine the fee of exporting the whole P-chain balance");
+  const probeFeeState = { ...inputs.feeState, price: 0n, capacity: PROBE_GAS_CAPACITY };
+  const probe = exportPCTx({ ...inputs, feeState: probeFeeState }, total);
+  const fee = pvm.calculateFee(probe.getTx(), inputs.context.platformFeeConfig.weights, inputs.feeState.price);
+  const amount = asNFlr(total - fee);
+  if (amount <= 0n) {
+    throw new Error("Export amount is smaller than or equal to zero");
+  }
+  return { amount, unsignedTx: exportPCTx(inputs, amount) };
 }
 
 function startTime(requested: bigint | undefined, policy: BuildPolicy): bigint {
@@ -252,7 +252,7 @@ export async function buildExportPC(
 }
 
 /** The amount `exportPC` without `-a` would export now (the interactive default); nothing is signed. */
-export async function maxExportPCAmount(env: Env, account: Account, policy: BuildPolicy): Promise<bigint> {
+export async function maxExportPCAmount(env: Env, account: Account, policy: BuildPolicy): Promise<NFlr> {
   return exportAllPC(await pChainInputs(env, account, policy)).amount;
 }
 

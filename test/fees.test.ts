@@ -168,11 +168,25 @@ describe("constants/fees", () => {
       );
     });
 
-    for (const bad of ["abc", "-5", "0", "1.5", "1e400"]) {
-      it(`rejects ${JSON.stringify(bad)} as a gas limit`, () => {
-        expect(() => resolveEvmFees("claim", { gasLimit: bad })).to.throw(/must be a positive integer/);
+    for (const bad of ["abc", "-5", "0", "1.5", "1e400", "0x5208", "2.1e4", "+25", "21 000", "99999999999999999999"]) {
+      it(`rejects ${JSON.stringify(bad)} as a gas limit, a max fee and a priority fee`, () => {
+        expect(() => resolveEvmFees("claim", { gasLimit: bad })).to.throw(/--gas-limit must be a positive integer/);
+        expect(() => resolveEvmFees("claim", { maxFeePerGas: bad })).to.throw(
+          /--max-fee-per-gas must be a positive integer/
+        );
+        expect(() => resolveEvmFees("claim", { priorityFeePerGas: bad })).to.throw(
+          /--priority-fee-per-gas must be a positive integer/
+        );
       });
     }
+
+    it("accepts plain digits, with surrounding spaces, as -a does", () => {
+      expect(resolveEvmFees("claim", { gasLimit: " 21000 " }).gasLimit).to.equal(21_000);
+      expect(resolveEvmFees("claim", { maxFeePerGas: "3000", priorityFeePerGas: "25" })).to.include({
+        maxFeePerGas: 3000 * 1e9,
+        maxPriorityFeePerGas: 25 * 1e9,
+      });
+    });
   });
 
   describe("address list gas limits", () => {

@@ -15,6 +15,7 @@ import {
   TransferableOutput,
   Utxo,
   avaxSerial,
+  pvm,
   pvmSerial,
   utils as futils,
 } from "@flarenetwork/flarejs";
@@ -22,6 +23,7 @@ import { expect } from "chai";
 import { getBytes } from "ethers";
 import { accountFromPrivateKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
+import { asNFlr } from "../../src/chain/units";
 import { buildTransaction } from "../../src/core/builders";
 import { UTXO_PAGE_SIZE, allUtxos, maxExportPCAmount, spendableAmount } from "../../src/core/builders/pchain";
 import { atomicTxFee } from "../../src/core/fee";
@@ -77,13 +79,117 @@ describe("core/builders/pchain", function () {
       expect(context.baseTxFee).to.equal(1_000_000n);
       expect(fee > context.baseTxFee, `fee ${fee} nFLR`).to.equal(true);
       await buildTransaction(
-        { type: "exportPC", amount: total - context.baseTxFee },
+        { type: "exportPC", amount: asNFlr(total - context.baseTxFee) },
         env,
         account,
         IMMEDIATE_SIGNER_POLICY
       ).then(
         () => expect.fail("the previous default amount should not be exportable"),
         (error: unknown) => expect(String(error)).to.match(/Insufficient funds/)
+      );
+    });
+
+    /** A P-chain UTXO of `amount` nFLR that the account can spend alone. */
+    async function owned(amount: bigint, index: number): Promise<Utxo> {
+      const { avaxAssetID } = await env.clients.context();
+      return new Utxo(
+        new avaxSerial.UTXOID(Id.fromHex(`0x${(index + 1).toString(16).padStart(64, "0")}`), new Int(index % 7)),
+        Id.fromString(avaxAssetID),
+        new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative([account.addressBytes], 0n, 1))
+      );
+    }
+
+    /** The recorded context and fee state, with `utxos` on the P-chain and the gas capacity set to `capacity`. */
+    function pChainEnv(utxos: Utxo[], capacity?: bigint): Env {
+      const clients = {
+        context: () => env.clients.context(),
+        pvm: {
+          getFeeState: async () => ({ ...(await env.clients.pvm.getFeeState()), ...(capacity && { capacity }) }),
+          getUTXOs: () => Promise.resolve({ numFetched: utxos.length, utxos, endIndex: { address: "", utxo: "" } }),
+        },
+      };
+      return { network: env.network, clients } as unknown as Env;
+    }
+
+    const POLICIES = [IMMEDIATE_SIGNER_POLICY, FILE_SIGNER_POLICY] as const;
+
+    /** Builds exportPC without -a; returns its parts and the fee flarejs requires of it at the policy's price. */
+    async function exportAll(utxos: Utxo[], policy: (typeof POLICIES)[number], capacity?: bigint) {
+      const context = await env.clients.context();
+      const bundle = await buildTransaction({ type: "exportPC" }, pChainEnv(utxos, capacity), account, policy);
+      if (bundle.kind !== "atomic") throw new Error("exportPC must be atomic");
+      const tx = bundle.unsignedTx.getTx() as pvmSerial.ExportTx;
+      const price = policy.feePrice === "chain" ? (await env.clients.pvm.getFeeState()).price : policy.feePrice;
+      const amountsOf = (outputs: readonly TransferableOutput[]) =>
+        outputs.map((o) => (o.output as TransferOutput).amount());
+      return {
+        spent: tx.baseTx.inputs.map((input) => input.utxoID.txID.toString()),
+        change: amountsOf(tx.baseTx.outputs),
+        exported: amountsOf(tx.outs),
+        fee: atomicTxFee(bundle.unsignedTx, context),
+        required: pvm.calculateFee(tx, context.platformFeeConfig.weights, price),
+      };
+    }
+
+    it("spends every UTXO and pays exactly the fee flarejs requires: 1, 6 and 200 inputs", async () => {
+      const sets = {
+        one: [await owned(5_000_000_000n, 0)],
+        six: await Promise.all([1n, 2n, 3n, 4n, 5n, 6n].map((n, i) => owned(n * 1_000_000_000n, i))),
+        "200": await Promise.all(Array.from({ length: 200 }, (_, i) => owned(BigInt(i + 1) * 10_000_000n, i))),
+      };
+      for (const [name, utxos] of Object.entries(sets)) {
+        const total = utxos.reduce((sum, u) => sum + (u.output as TransferOutput).amount(), 0n);
+        for (const policy of POLICIES) {
+          const built = await exportAll(utxos, policy);
+          const label = `${name} @${policy.feePrice}`;
+          expect(built.spent, label).to.have.length(utxos.length);
+          expect(built.change, `${label}: no change`).to.deep.equal([]);
+          expect(built.fee, `${label}: the fee required at this price, no more`).to.equal(built.required);
+          expect(built.exported, label).to.deep.equal([total - built.fee]);
+        }
+      }
+    });
+
+    it("leaves out a UTXO worth less than the fee of adding it; it stays on the P-chain with the change", async () => {
+      const big = await owned(100_000_000_000n, 0); // 100 FLR
+      const dust = await owned(200_000n, 1); // 0.0002 FLR
+      for (const policy of POLICIES) {
+        const built = await exportAll([big, dust], policy);
+        const label = `@${policy.feePrice}`;
+        expect(built.spent, `${label}: only the 100 FLR UTXO`).to.deep.equal([big.utxoId.txID.toString()]);
+        expect(built.fee, label).to.equal(built.required);
+        expect(built.change, `${label}: one change output`).to.have.length(1);
+        expect(built.exported[0]! + built.fee + built.change[0]!, label).to.equal(100_000_000_000n);
+      }
+    });
+
+    it("builds when spending every UTXO would exceed the gas capacity but the export does not", async () => {
+      const big = await owned(100_000_000_000n, 0); // 100 FLR
+      const dust = await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1n, i + 1))); // 400 × 1 nFLR
+      for (const policy of POLICIES) {
+        const built = await exportAll([big, ...dust], policy, 1_000_000n);
+        const label = `@${policy.feePrice}`;
+        expect(built.spent, `${label}: only the 100 FLR UTXO`).to.deep.equal([big.utxoId.txID.toString()]);
+        expect(built.fee, label).to.equal(built.required);
+        expect(built.exported[0]! + built.fee + built.change[0]!, label).to.equal(100_000_000_000n);
+      }
+    });
+
+    it("refuses an export that itself exceeds the gas capacity", async () => {
+      const utxos = await Promise.all(Array.from({ length: 400 }, (_, i) => owned(1_000_000_000n, i))); // 400 × 1 FLR
+      for (const policy of POLICIES) {
+        await buildTransaction({ type: "exportPC" }, pChainEnv(utxos, 1_000_000n), account, policy).then(
+          () => expect.fail(`@${policy.feePrice}: built an export over the gas capacity`),
+          (error: unknown) => expect(String(error)).to.match(/exceeds capacity \(1000000\)/)
+        );
+      }
+    });
+
+    it("refuses to export when the balance cannot pay the fee", async () => {
+      const utxos = [await owned(1n, 0)];
+      await buildTransaction({ type: "exportPC" }, pChainEnv(utxos), account, IMMEDIATE_SIGNER_POLICY).then(
+        () => expect.fail("exported from 1 nFLR"),
+        (error: unknown) => expect(String(error)).to.include("Export amount is smaller than or equal to zero")
       );
     });
 
@@ -112,7 +218,7 @@ describe("core/builders/pchain", function () {
     afterEach(() => replay.close());
 
     const other = accountFromPrivateKey(getBytes(`0x${"11".repeat(32)}`), "localflare");
-    const FEE = 10_000_000n; // 0.01 FLR
+    const FEE = asNFlr(10_000_000n); // 0.01 FLR
 
     /** A P→C export output of `amount` nFLR held by `owners`, `threshold` of them needed, locked until `locktime`. */
     async function exported(owners: Uint8Array[], threshold: number, amount: bigint, index: number, locktime = 0n) {
@@ -197,7 +303,7 @@ describe("core/builders/pchain", function () {
     it("pays the amount given to the recipient given, and only the change back to the account", () =>
       withReplay("transfer-pk", async (env) => {
         const recipient = accountFromPrivateKey(getBytes(`0x${"22".repeat(32)}`), "localflare").pAddress;
-        const amount = 1_234_567_891n;
+        const amount = asNFlr(1_234_567_891n);
         const built = await buildTransaction(
           { type: "transfer", amount, to: recipient },
           env,
@@ -242,7 +348,7 @@ describe("core/builders/pchain", function () {
           {
             type: "addAutoRenewedValidator",
             nodeId: "NodeID-P7oB2McjBGgW2NXXWVYjV8JEDFoW9xDE5",
-            amount: 10n ** 13n,
+            amount: asNFlr(10n ** 13n),
             period: 900n,
             delegationFeeShares: 100_000,
             blsPublicKey: getBytes(argOf("--pop-bls-public-key")),
@@ -348,13 +454,13 @@ describe("core/builders/pchain", function () {
       );
 
     it("transfer refuses a recipient of another network before asking the node", () =>
-      refused({ type: "transfer", amount: 1n, to: costwo }));
+      refused({ type: "transfer", amount: asNFlr(1n), to: costwo }));
 
     it("addAutoRenewedValidator refuses an owner of another network before asking the node", () =>
       refused({
         type: "addAutoRenewedValidator",
         nodeId: "NodeID-X",
-        amount: 1n,
+        amount: asNFlr(1n),
         period: 1n,
         delegationFeeShares: 0,
         blsPublicKey: new Uint8Array(48),

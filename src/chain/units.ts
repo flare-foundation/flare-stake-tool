@@ -1,7 +1,7 @@
 /**
  * Amounts and times at the CLI boundary. Strings come in, bigint goes out:
- * nFLR (9 decimals) on the P-chain, wei (18 decimals) on the C-chain, seconds
- * for durations. No floating point anywhere.
+ * nFLR (9 decimals, `NFlr`) on the P-chain, wei (18 decimals, `Wei`) on the
+ * C-chain, seconds for durations. No floating point anywhere.
  */
 export const NFLR_DECIMALS = 9;
 export const WEI_DECIMALS = 18;
@@ -47,13 +47,27 @@ export function formatDecimal(value: bigint, decimals: number): string {
   return fraction === "" ? whole : `${whole}.${fraction}`;
 }
 
+declare const unit: unique symbol;
+/**
+ * An amount in nFLR (9 decimals): P-chain and atomic amounts and fees. A plain bigint at runtime; the brand only
+ * keeps the compiler from mixing it with wei, which is 10^9 times smaller.
+ */
+export type NFlr = bigint & { readonly [unit]: "nFLR" };
+/** An amount in wei (18 decimals): C-chain EVM amounts. */
+export type Wei = bigint & { readonly [unit]: "wei" };
+
+/** Marks a bigint known to be nFLR, such as a value read from the P-chain or flarejs. */
+export const asNFlr = (value: bigint): NFlr => value as NFlr;
+/** Marks a bigint known to be wei, such as a value read from the C-chain. */
+export const asWei = (value: bigint): Wei => value as Wei;
+
 /** FLR → nFLR (P-chain and atomic amounts and fees). */
-export const parseFlr = (input: string): bigint => parseDecimal(input, NFLR_DECIMALS);
+export const parseFlr = (input: string): NFlr => asNFlr(parseDecimal(input, NFLR_DECIMALS));
 /** FLR → wei (C-chain EVM amounts), with the C-chain's full 18 decimals. */
-export const parseFlrToWei = (input: string): bigint => parseDecimal(input, WEI_DECIMALS);
-export const formatFlr = (nFlr: bigint): string => formatDecimal(nFlr, NFLR_DECIMALS);
-export const formatWei = (wei: bigint): string => formatDecimal(wei, WEI_DECIMALS);
-export const nFlrToWei = (nFlr: bigint): bigint => nFlr * 10n ** BigInt(WEI_DECIMALS - NFLR_DECIMALS);
+export const parseFlrToWei = (input: string): Wei => asWei(parseDecimal(input, WEI_DECIMALS));
+export const formatFlr = (amount: NFlr): string => formatDecimal(amount, NFLR_DECIMALS);
+export const formatWei = (amount: Wei): string => formatDecimal(amount, WEI_DECIMALS);
+export const nFlrToWei = (amount: NFlr): Wei => asWei(amount * 10n ** BigInt(WEI_DECIMALS - NFLR_DECIMALS));
 
 /** One million shares = 100 %; the P-chain expresses delegation fees in millionths. */
 export const SHARES_PER_PERCENT = 10_000;
