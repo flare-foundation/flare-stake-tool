@@ -40,6 +40,10 @@ also welcome.
 > gotchas. The behavioral spec for each command is in
 > [`docs/COMMANDS.md`](docs/COMMANDS.md).
 
+Reviewers and auditors: the security review scope (the TypeScript sources under
+`src/`, without the tests and the build output) is in
+[`SECURITY.md`](SECURITY.md#review-scope), as is how to report a vulnerability.
+
 ## Dev environment
 
 - [Node.js](https://nodejs.org/) >= 24.0.0

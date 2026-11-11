@@ -12,6 +12,8 @@
   <a href="SECURITY.md">Security</a>
   ·
   <a href="CHANGELOG.md">Changelog</a>
+  ·
+  <a href="LICENSE.md">License</a>
 </div>
 
 # Flare P-chain Staking Tool
