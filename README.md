@@ -267,7 +267,7 @@ Transaction finalization thus requires three steps:
 1. externally sign the hash and send the signature back to the app to finalize the export transaction,
 1. finalize the transaction with the signature and send it to a network node.
 
-The app-generated unsigned transaction json file respects the below format:
+The files are in `ForDefiTxnFiles/`: the unsigned one at `UnsignedTxns/<id>.unsignedTx.json`, the signed one at `SignedTxns/<id>.signedTx.json`. The unsigned file of a P-chain or C↔P (atomic) transaction has this format:
 
 ```json
 {
@@ -277,35 +277,37 @@ The app-generated unsigned transaction json file respects the below format:
     {
       "message": "",
       "signer": ""
-    }, ...
+    }
   ],
   "unsignedTransactionBuffer": "",
+  "forDefiHash": ""
 }
 ```
 
 > **Note**
 > The messages and signers inside `signatureRequests` should all be the same, so only one signature is required.
 
-The signed transaction json file that you should generate via raw signing is the same as unsigned, but with appended raw `message` signature. So, it respects the below format:
+The unsigned file of a C-chain transaction (`withdrawal`, `claim`, `setClaimExecutors`, `setAllowedClaimRecipients`, `customCChainTx`) has this one, `rawTx` holding the EIP-1559 transaction's fields (`chainId`, `nonce`, `to`, `value`, `data`, `gasLimit`, `maxFeePerGas`, `maxPriorityFeePerGas`):
 
 ```json
 {
-  "transactionType": "",
-  "serialization": "",
-  "signatureRequests": [
-    {
-      "message": "",
-      "signer": ""
-    }, ...
-  ],
-  "unsignedTransactionBuffer": "",
-  "signature": ""
+  "transactionType": "EVM",
+  "rawTx": {},
+  "message": "",
+  "signer": "",
+  "forDefiHash": ""
 }
 ```
 
+- `message` is the hash to sign, in hex without `0x`: the transaction's digest (for a C-chain transaction, the hash of its unsigned serialization).
+- `signer` is the account the file was built for: its P-chain address in an atomic file, its C-chain address in a C-chain one. `forDefi sign` and `send` refuse a file built for another account than the configured one.
+- `forDefiHash` is the same hash in base64, as ForDefi shows it, written when the file is built. `forDefi sign` adds `forDefiTxId`.
+
+The signed file is the unsigned one with one more field, `signature`: the raw signature of `message`. `forDefi fetch` writes it from ForDefi's answer; with another signer, write it yourself.
+
 An example signature is of the `r|s|v` format, e.g. `98f8c0d13bf2b5a5b2216894e503a721a099a1944116b802f2d84c0bd83a1bef3378e1b56d7ccd06de321913b8db0e97f4775e1885c86f6bcc583330d37cf5be01` where the last byte `v` is the recovery ID and can be either `00`/`01` or `1b`/`1c`.
 
-Unsigned transaction files are always in the form of `${id}.unsignedTx.json` and signed transaction files are always in the form of `${id}.signedTx.json`. To send a signed transaction named `${id}.signedTx.json`, use the following command:
+To send the transaction of a signed file `<id>.signedTx.json`, use the following command. It marks the file with `isSentToChain` as soon as the node takes the transaction, so that it isn't sent twice (see `send` in [docs/COMMANDS.md](docs/COMMANDS.md)):
 
 ```bash
 flare-stake-tool send -i <transaction-id>
