@@ -58,10 +58,29 @@ export function flareEvmSigningError(error: unknown): Error {
   return new Error(`Ledger signing error: ${reason}`, { cause: error });
 }
 
-export async function signEvmTransaction(bip44Path: string, txHex: string): Promise<string> {
+export type FlareEvmApp = Pick<FlareApp, "signEVMTransaction">;
+type EvmResolution = Parameters<FlareApp["signEVMTransaction"]>[2];
+
+/** What signing a C-chain transaction with the Flare app needs; tests pass a stand-in. */
+export interface FlareEvmDevice {
+  /** Ledger's clear-signing metadata for the transaction, which the app shows when it has some. */
+  resolve: (rawTx: string) => Promise<EvmResolution>;
+  withApp: <R>(use: (app: FlareEvmApp) => Promise<R>) => Promise<R>;
+}
+
+const FLARE_EVM_DEVICE: FlareEvmDevice = {
+  resolve: (rawTx) => ledgerService.resolveTransaction(rawTx, {}, {}),
+  withApp: withFlare,
+};
+
+export async function signEvmTransaction(
+  bip44Path: string,
+  txHex: string,
+  device: FlareEvmDevice = FLARE_EVM_DEVICE
+): Promise<string> {
   const rawTx = toHex(txHex, false);
-  const resolution = await ledgerService.resolveTransaction(rawTx, {}, {});
-  const signature = (await withFlare(async (app) => {
+  const resolution = await device.resolve(rawTx);
+  const signature = (await device.withApp(async (app) => {
     try {
       return await app.signEVMTransaction(bip44Path, rawTx, resolution);
     } catch (error) {
