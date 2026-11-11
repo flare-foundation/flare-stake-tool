@@ -43,7 +43,7 @@ Ledger support needs the USB module `node-hid`, whose install script fetches or 
 npm install @flarenetwork/flare-stake-tool --global --ignore-scripts=false --allow-scripts=node-hid
 ```
 
-For a copy already installed without it, run `npm rebuild node-hid --global --ignore-scripts=false`. Without the binary, every command works except those with a Ledger, which stop with "Could not locate the bindings file".
+For a copy already installed without it, run `npm rebuild node-hid --global --ignore-scripts=false`. Without the binary, every command works except those with a Ledger, which stop with "The Ledger USB module node-hid has no binary".
 
 ### Manually building the repository
 

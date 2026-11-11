@@ -11,6 +11,7 @@ import { splitAvalanchePath } from "../../src/ledger/avalanche";
 import { checkFlareResponse } from "../../src/ledger/flare";
 import { checkDerivationPath } from "../../src/ledger/path";
 import { ETHEREUM_APP_P_CHAIN, detectApp } from "../../src/ledger/index";
+import { NODE_HID_NOT_BUILT, openTransport, type HidTransport } from "../../src/ledger/transport";
 import { SigningKey, Transaction, computeAddress, getBytes, keccak256 } from "ethers";
 import {
   bundleFromUnsignedTxJson,
@@ -157,6 +158,40 @@ describe("ledger", () => {
       for (const bad of ["m/44'/60'/0'", "44'/60'/0'/0/0", "m/44'/60'/0'/0/0/1"]) {
         expect(() => splitAvalanchePath(bad), bad).to.throw(/Unsupported derivation path/);
       }
+    });
+  });
+
+  describe("openTransport", () => {
+    const transport = {} as HidTransport;
+
+    it("says how to build node-hid when its binary is missing, keeping the original error as cause", async () => {
+      const missing = new Error(
+        "Could not locate the bindings file. Tried:\n → /lib/node_modules/node-hid/build/HID.node\n → /lib/node_modules/node-hid/build/Release/HID.node"
+      );
+      await openTransport(() => Promise.reject(missing)).then(
+        () => expect.fail("opened without a binary"),
+        (error: unknown) => {
+          expect(error).to.be.instanceOf(Error);
+          expect((error as Error).message).to.equal(NODE_HID_NOT_BUILT);
+          expect((error as Error).message).to.include("npm rebuild node-hid --global --ignore-scripts=false");
+          expect((error as Error).message).not.to.include("HID.node");
+          expect((error as Error).cause).to.equal(missing);
+        }
+      );
+    });
+
+    it("passes any other error through unchanged, and an opened transport too", async () => {
+      const other = new Error("cannot open device with path IOService:/AppleARMPE/arm-io");
+      await openTransport(() => Promise.reject(other)).then(
+        () => expect.fail("opened"),
+        (error: unknown) => expect(error).to.equal(other)
+      );
+      const mentionsIt = new Error("Ledger: Could not locate the bindings file, said another layer");
+      await openTransport(() => Promise.reject(mentionsIt)).then(
+        () => expect.fail("opened"),
+        (error: unknown) => expect(error).to.equal(mentionsIt)
+      );
+      expect(await openTransport(() => Promise.resolve(transport))).to.equal(transport);
     });
   });
 
