@@ -52,7 +52,6 @@ export function chainOfAtomicTx(type: AtomicTxType): "P" | "C" {
 
 export const isAtomicTxType = (value: string): value is AtomicTxType =>
   (ATOMIC_TX_TYPES as readonly string[]).includes(value);
-export const isEvmTxType = (value: string): value is EvmTxType => (EVM_TX_TYPES as readonly string[]).includes(value);
 
 /** Amounts are nFLR on the P-chain and atomic side, wei on the C-chain side. Times are unix seconds. */
 export type TxRequest =

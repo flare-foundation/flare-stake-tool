@@ -67,10 +67,103 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
-  it("info with an unknown type exits 1 before looking for a context file", () => {
-    const result = runCli(["info", "foo", "--network", "costwo"], { cwd });
+  it("never prints a key in an invalid --rpc-url, even percent-encoded", () => {
+    const result = runCli(
+      [
+        "info",
+        "validators",
+        "--network",
+        "localflare",
+        "--rpc-url",
+        "https://host.example:bad/ext/info?x%2Dapikey=SECRET",
+      ],
+      { cwd }
+    );
     expect(result.exitCode).to.equal(1);
-    expect(result.stderr).to.include('Unknown information type "foo"; use addresses, balance, validators');
+    expect(result.stderr).to.include('Invalid node URL "https://host.example:bad/ext/info?…"');
+    expect(result.stderr + result.stdout).to.not.include("SECRET");
+  });
+
+  it("never prints the password of a node URL, which the fetch error repeats", () => {
+    const result = runCli(
+      ["info", "validators", "--network", "localflare", "--rpc-url", "https://user:SECRET@127.0.0.1:1"],
+      {
+        cwd,
+      }
+    );
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr + result.stdout).to.not.include("SECRET");
+    expect(result.stderr).to.include("https://***@127.0.0.1:1");
+  });
+
+  it("warns once on stderr, without the key, when an API key would go over plain http to another machine", () => {
+    const result = runCli(
+      [
+        "info",
+        "validators",
+        "--network",
+        "localflare",
+        "--rpc-url",
+        "http://node.invalid:9650",
+        "--api-key",
+        "SECRET-KEY",
+      ],
+      { cwd }
+    );
+    expect(result.exitCode).to.equal(1); // no such host
+    const warning = "Warning: the API key goes unencrypted to http://node.invalid:9650 over plain http";
+    expect(result.stderr.split(warning)).to.have.length(2);
+    expect(result.stderr + result.stdout).to.not.include("SECRET-KEY");
+  });
+
+  it("masks the API key in the http warning even where the node URL repeats it", () => {
+    const result = runCli(
+      [
+        "info",
+        "validators",
+        "--network",
+        "localflare",
+        "--rpc-url",
+        "http://node.invalid/TOPSECRET/ext/info",
+        "--api-key",
+        "TOPSECRET",
+      ],
+      { cwd }
+    );
+    expect(result.stderr).to.include(
+      "Warning: the API key goes unencrypted to http://node.invalid/*** over plain http"
+    );
+    expect(result.stderr + result.stdout).to.not.include("TOPSECRET");
+  });
+
+  it("refuses an unknown info, transaction or forDefi type with the allowed ones, before looking for a context file", () => {
+    for (const [args, choices] of [
+      [["info", "foo"], "addresses, balance, validators"],
+      [
+        ["transaction", "stakeAll"],
+        "exportCP, importCP, exportPC, importPC, stake, delegate, transfer, addAutoRenewedValidator, setAutoRenewedValidatorConfig",
+      ],
+      [["forDefi", "verify", "-i", "t1"], "sign, fetch"],
+    ] as const) {
+      const result = runCli([...args, "--network", "costwo"], { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.include(
+        `error: command-argument value '${args[1]}' is invalid for argument`
+      );
+      expect(result.stderr, args.join(" ")).to.include(`Allowed choices are ${choices}.`);
+    }
+    const help = runCli(["info", "--help"], { cwd });
+    expect(help.stdout).to.match(/\(choices: "addresses",\s+"balance",\s+"validators"\)/);
+  });
+
+  it("reports a missing transaction option before asking for a signer or a transaction id", () => {
+    // no -i, no --ledger and no key file: the signer would be refused, but the missing node id comes first
+    const result = runCli(["delegate", "-a", "1", "-e", "2d", "--network", "costwo"], { cwd });
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.not.include("A transaction id is required");
+    expect(result.stderr).to.equal(
+      "Error: nodeId is required for delegate transaction. Use --node-id <nodeId> to specify the nodeId\n"
+    );
   });
 
   it("an invalid --rpc-url is reported without the API key it carries", () => {
@@ -81,6 +174,30 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.exitCode).to.equal(1);
     expect(result.stderr).to.include("Invalid node URL");
     expect(result.stderr + result.stdout).to.not.include("SECRET-KEY");
+  });
+
+  it("warns on stderr about start and end times given in milliseconds", () => {
+    expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
+    const result = runCli(
+      [
+        "delegate",
+        "-n",
+        NODE_ID,
+        "-a",
+        "1",
+        "-s",
+        "1700000000000",
+        "-e",
+        "1800000000000",
+        "-i",
+        "ms1",
+        "--network",
+        "costwo",
+      ],
+      { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } }
+    );
+    expect(result.stderr).to.include("Warning: Start time 1700000000000 looks like milliseconds");
+    expect(result.stderr).to.include("Warning: End time 1800000000000 looks like milliseconds");
   });
 
   it("warns on stderr about an end time in the past, such as 14 days given as plain seconds", () => {
@@ -159,11 +276,7 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
-  it("forDefi refuses an unknown action, and fetching a signature once the transaction was sent", () => {
-    const unknown = runCli(["forDefi", "verify", "-i", "t1"], { cwd });
-    expect(unknown.exitCode).to.equal(1);
-    expect(unknown.stderr).to.include("Unknown forDefi action verify; use sign or fetch");
-
+  it("forDefi refuses fetching a signature once the transaction was sent", () => {
     const unsigned = readGolden("exportCP-file").outcome.unsignedTxJson as UnsignedTxJson;
     writeSignedTxJson({ ...unsigned, signature: "00".repeat(65) }, "t1", cwd);
     markSentToChain("t1", cwd);
@@ -214,7 +327,7 @@ describe("CLI errors (built CLI, no node)", function () {
     // no context file at all: the account is the one that signed, and the send gets as far as the node
     const relay = runCli(["send", "-i", "w1", "--network", "localflare"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
     expect(relay.exitCode).to.equal(1);
-    expect(relay.stderr).to.equal("Error: fetch failed\n");
+    expect(relay.stderr).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
   });
 
   it("refuses a given --ctx-file that does not exist whatever else selects the account, but init-ctx writes it", () => {

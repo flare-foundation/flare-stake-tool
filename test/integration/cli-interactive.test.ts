@@ -18,6 +18,45 @@ const pressDown = (session: { send: (data: string) => void }, times: number): vo
 
 const STAKE_DURATION_S = 60 * 60; // localflare minimum is 15 minutes
 
+describe("CLI interactive mode: exit codes (no network needed)", function () {
+  this.timeout(60_000);
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = makeTempDir();
+  });
+
+  afterEach(() => {
+    cleanupTempDir(cwd);
+  });
+
+  it("Ctrl-C at a list question ends the session with exit code 130", async () => {
+    const session = spawnInteractive(["interactive"], cwd);
+    await session.waitFor("How do you want to connect your wallet?");
+    session.send(KEYS.CTRL_C);
+    expect(await session.wait(10_000)).to.equal(130);
+  });
+
+  it("Ctrl-C at a text question ends the session with exit code 130", async () => {
+    const session = spawnInteractive(["interactive"], cwd);
+    await session.waitFor("How do you want to connect your wallet?");
+    pressDown(session, menuIndex(walletConstants, "privateKey"));
+    session.send(KEYS.ENTER);
+    await session.waitFor("Enter Path to Private Key file");
+    session.send("half an answer");
+    session.send(KEYS.CTRL_C);
+    expect(await session.wait(10_000)).to.equal(130);
+  });
+
+  it("Quit ends the session with exit code 0", async () => {
+    const session = spawnInteractive(["interactive"], cwd);
+    await session.waitFor("How do you want to connect your wallet?");
+    pressDown(session, menuIndex(walletConstants, "quit"));
+    session.send(KEYS.ENTER);
+    expect(await session.wait(10_000)).to.equal(0);
+  });
+});
+
 describe("CLI interactive mode (with network)", function () {
   this.timeout(300_000);
 

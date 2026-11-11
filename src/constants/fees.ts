@@ -128,7 +128,6 @@ export const LIST_OPERATIONS = ["setClaimExecutors", "setAllowedClaimRecipients"
 
 export type EvmOperation = keyof typeof DEFAULT_MAX_FEE_PER_GAS;
 export type ListOperation = (typeof LIST_OPERATIONS)[number];
-export type FixedOperation = Exclude<EvmOperation, ListOperation>;
 
 export interface EvmFees {
   type: 2;

@@ -68,17 +68,22 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Moves between the chains import only after their own export has arrived.
   * Connecting a Ledger no longer deletes `ctx.json`; another context is replaced only after confirmation and kept as a `.bak` file.
   * A failed action or wallet connection no longer ends the session, and the wallet menu has a Quit entry.
-  * Invalid amounts, fees, periods, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again.
+  * Ctrl-C at a question ends the session with exit code 130 instead of 0, so a script sees it was cancelled; Quit still exits with 0.
+  * Invalid amounts, fees, periods, end times, delegation fees, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again; a delegation fee of `10%` used to fail only after both BLS values were entered. The delegation fee prompt says that Enter accepts 20%.
   * `interactive --help` prints help instead of starting a session, and a bad node URL is reported before the banner.
 * Command line:
   * The shortcuts (`balance`, `exportCP`, …) and `interactive` work after global options, as in `--network costwo balance`.
   * An end time that is not in the future gets a warning (`-e 1209600` is a unix time, not 14 days).
+  * A start or end time that looks like milliseconds (`-e 1700000000000`, the year 55840 as seconds) gets a warning, on the command line and in interactive mode.
+  * An unknown `info`, `transaction` or `forDefi` type is refused with the allowed ones listed (also in `--help`), and a missing or invalid transaction option is reported before the signer, so `delegate` without `--node-id` says so instead of asking for `-i`.
+  * A failed node request names its cause and the node, as in `fetch failed (connect ECONNREFUSED …; node http://…)`, instead of only `fetch failed`. URL credentials and the API key are masked in every error.
 
 ### Changed
 
 * Without `-f`, `exportCP` and `importPC` pay twice the current C-chain base fee, since it can double in about a minute after Granite. That headroom costs about 0.0056 FLR at the 500 gwei floor. The unsigned-file path still requires `-f`.
 * Every transaction prints its id as soon as the node takes it, then waits until it is accepted. P-chain and atomic transactions print the fee they burn, also for unsigned files, so ForDefi signers see it before signing.
 * C-chain gas limits match actual use, because since Helicon a transaction pays for at least half of its limit. To an ordinary account: `withdrawal` 100,000 and `claim` 200,000. To a contract: 500,000 and 600,000. `claim --wrap` uses 600,000 and `customCChainTx` 300,000. `setClaimExecutors` and `setAllowedClaimRecipients` keep their 1,000,000 floor. Signed files from earlier versions keep their old limits; rebuild them to pay less.
+* An API key written into the node URL (`--rpc-url …?x-apikey=…` or `FLARE_RPC_URL`) is now used before `FLARE_API_KEY`, which may be left over for another node; `--api-key` still comes first. A key that would go over plain `http` to another machine gets a warning.
 * `stake` and `delegate` warn that `--start-time` doesn't delay the stake (the chain starts it when it accepts the transaction). The value still goes into the transaction, so ForDefi co-signers must pass the same one. The interactive menu no longer asks for a start time.
 * The interactive menu runs the same code as the commands.
 * `@flarenetwork/flarejs` 4.1.1 → 5.2.0 (pinned), using only the Etna builders. Built transactions are byte-identical.

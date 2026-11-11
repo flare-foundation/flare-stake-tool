@@ -121,7 +121,7 @@ TX {"type":"transfer","amount":"1500000000n","to":"P-localflare18jma8ppw3nhx5r4a
 > "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ"
 ? input "\u001b[35mEnter end time\u001b[39m \u001b[33m(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)\u001b[39m\u001b[35m:\u001b[39m"
 > "2d"
-? input "\u001b[35mEnter delegation fee\u001b[39m \u001b[33m(E.g. 10)\u001b[39m\u001b[35m:\u001b[39m"
+? input "\u001b[35mEnter delegation fee\u001b[39m \u001b[33m(E.g. 10; Enter accepts 20%)\u001b[39m\u001b[35m:\u001b[39m"
 > ""
 ? input "\u001b[35mPlease enter the popBLSPublicKey:\u001b[39m"
 > "zz"
@@ -154,7 +154,7 @@ TX {"type":"delegate","nodeId":"NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ","amoun
 > "abc"
   ! Invalid duration "abc": use seconds or units w/d/h/m/s in descending order without spaces, e.g. 2d12h or 90m
 > "14d"
-? input "\u001b[35mEnter delegation fee\u001b[39m \u001b[33m(E.g. 10)\u001b[39m\u001b[35m:\u001b[39m"
+? input "\u001b[35mEnter delegation fee\u001b[39m \u001b[33m(E.g. 10; Enter accepts 20%)\u001b[39m\u001b[35m:\u001b[39m"
 > "15"
 ? input "\u001b[35mPlease enter the popBLSPublicKey:\u001b[39m"
 > "0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"

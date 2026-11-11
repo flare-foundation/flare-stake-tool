@@ -3,7 +3,14 @@ import fs from "fs";
 import path from "path";
 import { createClients } from "../chain/clients";
 import { accountFromPublicKey, type Account } from "../chain/keys";
-import { DEFAULT_NETWORK, isNetworkName, networkConfig, type NodeOverrides } from "../chain/network";
+import {
+  DEFAULT_NETWORK,
+  insecureApiKeyWarning,
+  isNetworkName,
+  networkConfig,
+  type NodeOverrides,
+} from "../chain/network";
+import { logWarning } from "../output";
 import type { Env } from "../core/types";
 import { isJsonObject, parseJson } from "../core/json";
 
@@ -20,9 +27,20 @@ export interface ContextFile {
   derivationPath?: string | undefined;
 }
 
-/** The environment for a network name; `node` points it at a different node (see chain/network.ts). */
+/** Nodes already warned about, so that a session reconnecting to one warns once. */
+const warnedNodes = new Set<string>();
+
+/**
+ * The environment for a network name; `node` points it at a different node (see chain/network.ts). An API key that
+ * would go over plain http to another machine is warned about on stderr, once per node, before any request.
+ */
 export function createEnv(network: string, node: NodeOverrides = {}): Env {
   const config = networkConfig(network, process.env, node);
+  const warning = insecureApiKeyWarning(config);
+  if (warning !== undefined && !warnedNodes.has(config.apiUrl)) {
+    warnedNodes.add(config.apiUrl);
+    logWarning(warning);
+  }
   return { network: config, clients: createClients(config) };
 }
 

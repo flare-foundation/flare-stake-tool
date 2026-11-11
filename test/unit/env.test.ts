@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import {
   backupContextFile,
+  createEnv,
   readContextFile,
   resolveNetworkName,
   writeContextFile,
@@ -136,5 +137,22 @@ describe("app/env context file", () => {
         `Context file ${file} is missing publicKey or network`
       );
     });
+  });
+});
+
+describe("app/env createEnv", () => {
+  it("warns once per node about an API key going over plain http to another machine", () => {
+    const original = console.error;
+    const printed: string[] = [];
+    console.error = (message: string) => printed.push(message);
+    try {
+      for (let i = 0; i < 3; i++)
+        createEnv("localflare", { apiUrl: "http://warn-once.example:9650", apiKey: "k-e-y-1" });
+      createEnv("localflare", { apiUrl: "http://localhost:9650", apiKey: "k-e-y-1" });
+    } finally {
+      console.error = original;
+    }
+    expect(printed).to.have.length(1);
+    expect(printed[0]).to.include("the API key goes unencrypted to http://warn-once.example:9650 over plain http");
   });
 });

@@ -83,8 +83,9 @@ describe("core/builders/pchain", function () {
     it("exports everything spendable minus the exact fee, leaving nothing behind (chain price and file price)", async () => {
       const context = await env.clients.context();
       const { utxos } = await env.clients.pvm.getUTXOs({ addresses: [account.pAddress] });
-      const total = spendableAmount(utxos, context.avaxAssetID, now());
-      expect(total > 0n).to.equal(true);
+      // the recorded account's six UTXOs, all its own and unlocked: a fixed number, not the function under test
+      const total = 8_000_000_118_960_442_173n;
+      expect(spendableAmount(utxos, context.avaxAssetID, now())).to.equal(total);
       for (const policy of [IMMEDIATE_SIGNER_POLICY, FILE_SIGNER_POLICY]) {
         const bundle = await buildTransaction({ type: "exportPC" }, env, account, policy);
         if (bundle.kind !== "atomic") throw new Error("exportPC must be atomic");
@@ -93,7 +94,10 @@ describe("core/builders/pchain", function () {
         const inputs = futils.getInputAmounts(tx).get(context.avaxAssetID);
         const outputs = futils.getOutputAmounts(tx).get(context.avaxAssetID);
         expect(inputs, `${policy.feePrice}: every spendable UTXO is spent`).to.equal(total);
-        expect(outputs, `${policy.feePrice}: one exported output, no change`).to.equal(total - fee);
+        expect(outputs, `${policy.feePrice}: the export is the total minus the fee`).to.equal(total - fee);
+        const exportTx = bundle.unsignedTx.getTx() as pvmSerial.ExportTx;
+        expect(exportTx.baseTx.outputs, `${policy.feePrice}: no change output`).to.have.length(0);
+        expect(exportTx.outs, `${policy.feePrice}: one exported output`).to.have.length(1);
         expect(await maxExportPCAmount(env, account, policy), `${policy.feePrice}: interactive default`).to.equal(
           total - fee
         );
@@ -423,6 +427,26 @@ describe("core/builders/pchain", function () {
         ]);
       });
 
+      it("counts only AVAX the account can spend alone: not a UTXO needing two keys, nor another asset", async () => {
+        const { avaxAssetID } = await env.clients.context();
+        const other = accountFromPrivateKey(getBytes(`0x${"11".repeat(32)}`), "localflare");
+        const utxo = (index: number, assetId: string, owners: Uint8Array[], threshold: number, amount: bigint) =>
+          new Utxo(
+            new avaxSerial.UTXOID(Id.fromHex(`0x${(index + 100).toString(16).padStart(64, "0")}`), new Int(0)),
+            Id.fromString(assetId),
+            new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative(owners, 0n, threshold))
+          );
+        const otherAsset = Id.fromHex(`0x${"ab".repeat(32)}`).toString();
+        const both = [account.addressBytes, other.addressBytes];
+        const utxos = [
+          utxo(0, avaxAssetID, [account.addressBytes], 1, 1_000n),
+          utxo(1, avaxAssetID, both, 2, 20_000n), // needs both keys
+          utxo(2, avaxAssetID, both, 1, 300n), // either key
+          utxo(3, otherAsset, [account.addressBytes], 1, 4_000_000n),
+        ];
+        expect(spendableAmount(utxos, avaxAssetID, UNLOCK)).to.equal(1_300n);
+      });
+
       it("counts a UTXO as spendable from the second flarejs spends it, for owner and stakeable locks", async () => {
         const { avaxAssetID } = await env.clients.context();
         const ownerLocked = await owned(1_000n, 0, UNLOCK);
@@ -488,6 +512,28 @@ describe("core/builders/pchain", function () {
       expect(importedInputs(estimated)).to.equal(1);
       expect(atomicTxFee(given.unsignedTx, context)).to.equal(FEE); // flarejs alone built one that paid 0
       expect(atomicTxFee(estimated.unsignedTx, context) > 0n).to.equal(true);
+    });
+
+    it("refuses before signing a fee the import would not pay exactly, and an estimate that pays nothing", async () => {
+      const utxos = [await exported([account.addressBytes], 1, 1_000_000_000n, 0)];
+      // more than the import holds: flarejs builds one paying all of it, 1 LFLR, with no output
+      const tooMuch = { type: "importPC", fee: asNFlr(5_000_000_000n) } as const;
+      await buildTransaction(tooMuch, pendingEnv(utxos), account, IMMEDIATE_SIGNER_POLICY).then(
+        () => expect.fail("built an import paying another fee than -f"),
+        (error: unknown) =>
+          expect((error as Error).message).to.equal(
+            "The import would pay a fee of 1 LFLR instead of the 5 LFLR given; it is not signed"
+          )
+      );
+      // a base fee of 0 estimates a fee of 0
+      const zeroBaseFee = pendingEnv(utxos);
+      (zeroBaseFee.clients.evm as unknown as { getBaseFee: () => Promise<bigint> }).getBaseFee = () =>
+        Promise.resolve(0n);
+      await buildTransaction({ type: "importPC" }, zeroBaseFee, account, IMMEDIATE_SIGNER_POLICY).then(
+        () => expect.fail("built an import paying nothing"),
+        (error: unknown) =>
+          expect((error as Error).message).to.equal("The import would pay a fee of 0 LFLR; it is not signed")
+      );
     });
 
     it("leaves a time-locked UTXO pending even once its lock has passed, which flarejs cannot import", async () => {

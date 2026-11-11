@@ -4,7 +4,16 @@ import { getBytes, hexlify } from "ethers";
 import { utils as futils } from "@flarenetwork/flarejs";
 import { createEnv, writeContextFile } from "../../src/app/env";
 import { accountFromPrivateKey } from "../../src/chain/keys";
-import { evmFeeOverrides, parseBlsHex, parseNodeId, parseNonce, pastEndTimeWarning } from "../../src/cli/inputs";
+import {
+  endTimeWarnings,
+  evmFeeOverrides,
+  millisecondsWarning,
+  parseBlsHex,
+  parseNodeId,
+  parseNonce,
+  parseTime,
+  pastEndTimeWarning,
+} from "../../src/cli/inputs";
 import { globalOptions, resolveAccount, resolveSigner, type GlobalOptions } from "../../src/cli/options";
 import { parseAtomicTxRequest, parseEvmTxRequest } from "../../src/cli/requests";
 import { FAKE_LEDGER_KEY_ENV } from "../../src/signers/ledger";
@@ -236,6 +245,31 @@ describe("cli/inputs, cli/requests and cli/options", () => {
           "--value must be an integer amount of wei"
         );
       }
+    });
+  });
+
+  describe("times that look like milliseconds", () => {
+    const NOW_MS = Date.UTC(2026, 10, 7);
+
+    it("warns about an absolute time past the year 5138, with the value in seconds, and changes nothing", () => {
+      const time = parseTime("1700000000000");
+      expect(time.value).to.equal(1_700_000_000_000n);
+      expect(millisecondsWarning("Start time", time)).to.equal(
+        "Start time 1700000000000 looks like milliseconds: as unix seconds it is in the year 55840; " +
+          "in seconds it would be 1700000000"
+      );
+      expect(endTimeWarnings(time, NOW_MS)).to.deep.equal([
+        "End time 1700000000000 looks like milliseconds: as unix seconds it is in the year 55840; " +
+          "in seconds it would be 1700000000",
+      ]);
+    });
+
+    it("leaves seconds, past times and durations to the other checks", () => {
+      expect(millisecondsWarning("End time", parseTime("1800000000"))).to.equal(undefined);
+      expect(millisecondsWarning("End time", parseTime("99999999999"))).to.equal(undefined); // year 5138
+      expect(millisecondsWarning("End time", { value: 1_700_000_000_000n, relative: true })).to.equal(undefined);
+      expect(endTimeWarnings(parseTime("1209600"), NOW_MS)).to.have.length(1); // only "not in the future"
+      expect(endTimeWarnings(parseTime("1800000000"), NOW_MS)).to.deep.equal([]);
     });
   });
 

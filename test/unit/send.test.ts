@@ -34,6 +34,8 @@ interface ScriptedNode {
   markedAtFirstPoll?: boolean;
   /** When set, eth_sendRawTransaction answers without a transaction hash. */
   hashless?: boolean;
+  /** The reason the P-chain gives with its status. */
+  reason?: string;
 }
 
 function scriptedEnv(node: ScriptedNode, id: string, cwd: string): SendEnv {
@@ -50,7 +52,7 @@ function scriptedEnv(node: ScriptedNode, id: string, cwd: string): SendEnv {
   const issue = () => taken({ txID: "2TxIdFromTheScriptedNode" });
   const clients: SendEnv["clients"] = {
     verifyNetwork: () => Promise.resolve(),
-    pvm: { issueSignedTx: issue, getTxStatus: async () => ({ status: await poll(), reason: "" }) },
+    pvm: { issueSignedTx: issue, getTxStatus: async () => ({ status: await poll(), reason: node.reason ?? "" }) },
     evm: { issueSignedTx: issue, getAtomicTxStatus: async () => ({ status: await poll() }) },
     provider: {
       send: () => (node.hashless ? taken(null) : taken("0xEvmHashFromTheScriptedNode")),
@@ -192,29 +194,41 @@ describe("app/send: the isSentToChain mark", () => {
     expect(printed).to.include("Transaction 2TxIdFromTheScriptedNode submitted, waiting for the chain to accept it");
   });
 
-  it("is removed when the P-chain aborts or drops the transaction, which may then be sent again", async () => {
-    for (const status of ["Aborted", "Dropped"]) {
+  it("is removed when the P-chain aborts, drops or rejects the transaction, which can then be sent again", async () => {
+    for (const status of ["Aborted", "Dropped", "Rejected"]) {
       writeSigned("delegate-file", status, cwd);
+      const env = scriptedEnv({ statuses: ["Processing", status], reason: "the node's reason" }, status, cwd);
+      await sendSignedTransaction(status, env, undefined, cwd, FAST).then(
+        () => expect.fail(`${status} should fail`),
+        (error: unknown) => {
+          expect(error, status).to.be.instanceOf(TxNotAcceptedError);
+          expect((error as Error).message, status).to.equal(
+            `Transaction 2TxIdFromTheScriptedNode was ${status.toLowerCase()} by the P-chain: the node's reason`
+          );
+        }
+      );
+      expect(isAlreadySentToChain(status, cwd), status).to.equal(false);
+      // sent again, and accepted this time
+      await sendSignedTransaction(status, scriptedEnv({ statuses: ["Committed"] }, status, cwd), undefined, cwd, FAST);
+      expect(isAlreadySentToChain(status, cwd), `${status}: sent again`).to.equal(true);
+    }
+  });
+
+  it("is removed when the C-chain drops or rejects an atomic transaction", async () => {
+    for (const status of ["Dropped", "Rejected"]) {
+      writeSigned("exportCP-file", status, cwd);
       const env = scriptedEnv({ statuses: ["Processing", status] }, status, cwd);
       await sendSignedTransaction(status, env, undefined, cwd, FAST).then(
         () => expect.fail(`${status} should fail`),
         (error: unknown) => {
-          expect(error).to.be.instanceOf(TxNotAcceptedError);
-          expect(String(error)).to.include(`was ${status.toLowerCase()} by the P-chain`);
+          expect(error, status).to.be.instanceOf(TxNotAcceptedError);
+          expect((error as Error).message, status).to.equal(
+            `Transaction 2TxIdFromTheScriptedNode was ${status.toLowerCase()} by the C-chain`
+          );
         }
       );
       expect(isAlreadySentToChain(status, cwd), status).to.equal(false);
     }
-  });
-
-  it("is removed when the C-chain drops an atomic transaction", async () => {
-    writeSigned("exportCP-file", "c", cwd);
-    const env = scriptedEnv({ statuses: ["Processing", "Dropped"] }, "c", cwd);
-    await sendSignedTransaction("c", env, undefined, cwd, FAST).then(
-      () => expect.fail("Dropped should fail"),
-      (error: unknown) => expect(String(error)).to.include("was dropped by the C-chain")
-    );
-    expect(isAlreadySentToChain("c", cwd)).to.equal(false);
   });
 
   it("stays set when an EVM transaction is mined but reverted, since its nonce is used", async () => {
@@ -261,7 +275,7 @@ describe("app/send: the isSentToChain mark", () => {
     // the signature library refuses r = 0 itself, before the tool's own "Cannot recover the signer" check
     await sendSignedTransaction("e", env, undefined, cwd, FAST).then(
       () => expect.fail("an unrecoverable signature should fail"),
-      (error: unknown) => expect(error).to.be.instanceOf(Error)
+      (error: unknown) => expect(describeError(error)).to.equal("r must be 0 < r < CURVE.n")
     );
     expect(issued).to.deep.equal([]);
     expect(isAlreadySentToChain("e", cwd)).to.equal(false);

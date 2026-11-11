@@ -10,9 +10,8 @@ import {
   pvm,
   secp256k1,
   messageHashFromUnsignedTx,
-  utils,
 } from "@flarenetwork/flarejs";
-import { Transaction, getBytes } from "ethers";
+import { Transaction, getBytes, hexlify, sha256 } from "ethers";
 import { accountFromPrivateKey } from "../../src/chain/keys";
 import { attachSignature, isFullySigned, signatureSlots } from "../../src/core/signing/attach";
 import { chainOfAtomicTx, type UnsignedTxBundle } from "../../src/core/types";
@@ -147,7 +146,9 @@ describe("core/signing/attach", () => {
     const foreign = await secp256k1.signHash(bundle.digest, otherKey);
     expect(() => attachSignature(bundle, foreign, account)).to.throw(/does not belong to the configured account/);
     expect(() => attachSignature(bundle, "deadbeef", account)).to.throw(/Invalid signature length/);
-    expect(utils.bufferToHex(bundle.digest).length).to.equal(66);
+    // the digest every signer signs: sha256 of the unsigned transaction's bytes
+    if (bundle.kind !== "atomic") throw new Error("atomic expected");
+    expect(hexlify(bundle.digest)).to.equal(sha256(bundle.unsignedTx.toBytes()));
   });
 
   it("refuses the account's own signature when it owns no input of the transaction", async () => {

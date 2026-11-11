@@ -11,7 +11,6 @@ import {
   formatWei,
   parseFlrToWei,
   parseDuration,
-  parseEndTime,
   parseFlr,
   parsePercentToShares,
   type NFlr,
@@ -35,7 +34,13 @@ import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types
 import { describeError, log, logError, logInfo, logWarning, reportOutcome } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
-import { DEFAULT_DELEGATION_FEE_PERCENT, BASE_DERIVATION_PATH, parseBlsHex, pastEndTimeWarning } from "../cli/inputs";
+import {
+  DEFAULT_DELEGATION_FEE_PERCENT,
+  BASE_DERIVATION_PATH,
+  endTimeWarnings,
+  parseBlsHex,
+  parseTime,
+} from "../cli/inputs";
 import type { DerivationMode, TaskId } from "../constants/screen";
 import { prompts } from "./prompts";
 
@@ -177,10 +182,9 @@ async function execute(session: Session, request: TxRequest): Promise<Outcome> {
 
 /** Asks for an end time and warns (as the command line does) when it is not in the future. */
 async function askEndTime(): Promise<bigint> {
-  const endTime = parseEndTime(await prompts.unixTime("end"));
-  const warning = pastEndTimeWarning(endTime);
-  if (warning) logWarning(warning);
-  return endTime;
+  const endTime = parseTime(await prompts.unixTime("end"));
+  for (const warning of endTimeWarnings(endTime)) logWarning(warning);
+  return endTime.value;
 }
 
 async function askStake(): Promise<TxRequest> {

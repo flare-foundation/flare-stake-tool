@@ -74,6 +74,34 @@ export function redactApiKey(text: string): string {
   return text.replace(new RegExp(`([?&]${API_KEY_HEADER}=)[^&#\\s"]*`, "gi"), "$1***");
 }
 
+/** Secrets in use (the API key, URL credentials), masked wherever they turn up in a message. */
+const secrets = new Set<string>();
+
+/** Masks `value` in every message `redactSecrets` cleans from now on. */
+export function rememberSecret(value: string | undefined): void {
+  if (value !== undefined && value.length >= 4) secrets.add(value);
+}
+
+/**
+ * A message cleaned of credentials before it is printed: the `x-apikey` query parameter, the user and password of a
+ * URL (`https://user:SECRET@host`), and every remembered secret, wherever a library repeats them.
+ */
+export function redactSecrets(text: string): string {
+  let cleaned = redactApiKey(text).replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#@]*@/gi, "$1***@");
+  for (const secret of secrets) cleaned = cleaned.split(secret).join("***");
+  return cleaned;
+}
+
+/**
+ * A node URL as given, for an error about it: without its query and fragment, which may hold a key under any
+ * spelling (`x%2Dapikey=`), and with its credentials masked. It is refused before any key is remembered.
+ */
+function shownNodeUrlInput(input: string): string {
+  const text = input.trim();
+  const cut = text.search(/[?#]/);
+  return redactSecrets(cut < 0 ? text : `${text.slice(0, cut)}?…`);
+}
+
 /**
  * Turns a node URL into the base URL the clients are built on. A full endpoint
  * URL as copied from a node's documentation (`https://host/ext/info?x-apikey=KEY`)
@@ -86,11 +114,11 @@ export function parseNodeUrl(input: string): ParsedNodeUrl {
     url = new URL(input.trim());
   } catch {
     throw new Error(
-      `Invalid node URL "${redactApiKey(input)}"; expected a base URL such as https://coston2-api.flare.network`
+      `Invalid node URL "${shownNodeUrlInput(input)}"; expected a base URL such as https://coston2-api.flare.network`
     );
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`Invalid node URL "${redactApiKey(input)}"; only http and https are supported`);
+    throw new Error(`Invalid node URL "${shownNodeUrlInput(input)}"; only http and https are supported`);
   }
   const apiKey = nonEmpty(url.searchParams.get(API_KEY_HEADER) ?? undefined);
   url.search = "";
@@ -116,6 +144,24 @@ export function assertNodeNetwork(network: NetworkConfig, nodeNetworkId: number)
   );
 }
 
+/** Whether `hostname` (as `URL.hostname` gives it) is this machine: `localhost`, 127.0.0.0/8 or `[::1]`. */
+function isLoopback(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "[::1]" || /^127(\.\d{1,3}){3}$/.test(hostname);
+}
+
+/**
+ * The warning for an API key that would go unencrypted over plain http to another machine, or undefined. The key
+ * is masked even where the URL repeats it, and so are the URL's credentials.
+ */
+export function insecureApiKeyWarning(network: Pick<NetworkConfig, "apiUrl" | "apiKey">): string | undefined {
+  if (network.apiKey === undefined) return undefined;
+  const url = new URL(network.apiUrl);
+  if (url.protocol !== "http:" || isLoopback(url.hostname)) return undefined;
+  // the key itself is masked here: it is remembered for redactSecrets only once the clients are built
+  const shown = redactSecrets(network.apiUrl).split(network.apiKey).join("***");
+  return `the API key goes unencrypted to ${shown} over plain http; use an https URL, or no key for this node`;
+}
+
 /** The node `--rpc-url` (else `FLARE_RPC_URL`) selects, parsed, or undefined for the network's own; throws on a bad URL. */
 export function overriddenNode(
   overrides: NodeOverrides,
@@ -126,11 +172,10 @@ export function overriddenNode(
 }
 
 /**
- * Resolves a network by name. The node URL and API key come from the
- * overrides (`--rpc-url`, `--api-key`), else from `FLARE_RPC_URL` and
- * `FLARE_API_KEY` (or `env[...]`), else from the URL's own `x-apikey` query
- * parameter; the hrp, ids and symbol stay those of the network. That is how
- * staging deployments and private nodes are reached, and how the test harness
+ * Resolves a network by name. The node URL comes from `--rpc-url`, else `FLARE_RPC_URL` (or `env[...]`); the API key
+ * from `--api-key`, else the selected URL's own `x-apikey` query parameter, else `FLARE_API_KEY`: a key written into
+ * the URL belongs to that node, while the environment's may be left over for another one. The hrp, ids and symbol
+ * stay those of the network. That is how staging deployments and private nodes are reached, and how the test harness
  * points the tool at a replay server.
  */
 export function networkConfig(
@@ -151,7 +196,7 @@ export function networkConfig(
     chainId: definition.chainId,
     apiUrl,
     rpcUrl: `${apiUrl}/ext/bc/C/rpc`,
-    apiKey: nonEmpty(overrides.apiKey) ?? nonEmpty(env[API_KEY_ENV]) ?? node?.apiKey,
+    apiKey: nonEmpty(overrides.apiKey) ?? node?.apiKey ?? nonEmpty(env[API_KEY_ENV]),
     symbol: definition.symbol,
   };
 }

@@ -6,10 +6,16 @@
  */
 import crypto from "crypto";
 import fs from "fs";
-import { bundleFromConsistentTxJson, readUnsignedTxJson, saveSignedTxJson, writeUnsignedTxJson } from "../core/files";
+import {
+  bundleFromConsistentTxJson,
+  forDefiHashOf,
+  readUnsignedTxJson,
+  saveSignedTxJson,
+  writeUnsignedTxJson,
+} from "../core/files";
 import { normalizePublicKey } from "../chain/keys";
 import { isJsonObject } from "../core/json";
-import { SIGNATURE_LENGTH, equalBytes } from "../core/signing/signature";
+import { SIGNATURE_LENGTH, equalBytes, toHex } from "../core/signing/signature";
 import type { ContextFile } from "./env";
 
 export const FORDEFI_HOST = "api.fordefi.com";
@@ -94,7 +100,7 @@ export async function sendToForDefi(id: string, context: ContextFile, fetchImpl:
   if (!equalBytes(contextKey, publicKeyOf(vaultPublicKey, `The public key of ForDefi vault ${context.vaultId}`))) {
     throw new Error("public key does not match the vault");
   }
-  const hashBase64 = Buffer.from(digest).toString("base64");
+  const hashBase64 = forDefiHashOf(toHex(digest));
   const requestBody = JSON.stringify({
     vault_id: context.vaultId,
     signer_type: "api_signer",

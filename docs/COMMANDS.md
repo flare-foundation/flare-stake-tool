@@ -20,8 +20,8 @@ focuses on inputs / outputs / side effects / failure modes.
 | `--ctx-file <file>` | Context file written by `init-ctx` (default `ctx.json`, used when it exists). A file given with `--ctx-file` must exist, whatever else selects the account or network, also for `forDefi fetch`, which doesn't read it: a missing one is refused, not ignored (`init-ctx` writes it instead) |
 | `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58`. A `PRIVATE_KEY_CB58` whose checksum doesn't match (a typo) is refused |
 | `--get-hacked` | Use the env file's private key for direct in-process signing |
-| `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command |
-| `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes (or env `FLARE_API_KEY`) |
+| `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command. A failed request is reported with its cause and the node's URL, such as `fetch failed (connect ECONNREFUSED 127.0.0.1:9650; node http://localhost:9650)`; URL credentials and the API key are masked as `***` in every error |
+| `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes. Without it, the node URL's own `x-apikey` is used, then env `FLARE_API_KEY`. A key that would go over plain `http` to a host other than `localhost`, 127.x.x.x or `[::1]` gets a warning on stderr (the key itself is not printed) |
 
 Global options can come before or after the command. The transaction types
 (`exportCP`, `stake`, …) can be given without `transaction`, and `addresses`,
@@ -52,7 +52,9 @@ m, s); an end time given as a duration is added to now and the resolved value is
 printed. A time after the year 275760 (`8640000000000`) or a period above
 2^64−1 seconds is refused. A plain integer is a unix time, so an end time that is not in the
 future (such as `-e 1209600` meant as 14 days) gets a warning on stderr; the
-network then rejects the transaction. Every path prints the transaction id and
+network then rejects the transaction. A start or end time past the year 5138
+(such as `-e 1700000000000`, milliseconds) gets a warning too, with the value in
+seconds; the time is used as given. Every path prints the transaction id and
 waits until the transaction is accepted; P-chain and atomic transactions also
 print the fee they burn (`Fee paid: …`, or `Fee: …` for an unsigned file). The
 unsigned-file (ForDefi) path requires `-f` for `exportCP` and `importPC`.
@@ -438,7 +440,7 @@ or piped it refuses to start, with an error and exit code 1.
 | Inputs | stdin (a terminal) |
 | Side effects | Interactive prompts; ultimately calls the same action handlers. Connecting a Ledger writes `ctx.json`; an existing non-Ledger `ctx.json` (e.g. a ForDefi one) is replaced only after confirmation, and every replaced file is kept as `ctx.json.<time>.bak`. A Ledger `ctx.json` is reused only when the connected device has its key at its derivation path; otherwise the tool names both addresses and offers to replace it. The session starts only when the device has the key of the chosen address (the one saved in `ctx.json`), and another Ledger plugged in during the session is refused at the next transaction, which is neither built nor signed |
 | Output | Same as the underlying commands |
-| Failures | Same as the underlying commands; exit code 1 without a terminal |
+| Failures | Same as the underlying commands; exit code 1 without a terminal. Ctrl-C at a question ends the session with exit code 130 (Quit: 0); Ctrl-C while a transaction is being sent stops waiting, but the node may already have taken it |
 
 Tested via `node-pty` in `test/integration/cli-interactive.test.ts` (balance check
 and stake flows).
