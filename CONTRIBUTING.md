@@ -123,13 +123,30 @@ pass `--no-forbid-pending` to allow skips.
 
 ## Release process
 
-Development happens on GitLab, which mirrors to the public GitHub repo
+Development happens on GitLab, which mirrors `main` and the version tags to the
+public GitHub repo
 ([flare-foundation/flare-stake-tool](https://github.com/flare-foundation/flare-stake-tool)).
-Releases are published to npm from the GitHub mirror: pushing a semver git tag
-(e.g. `v4.2.3`) triggers [`.github/workflows/release.yaml`](.github/workflows/release.yaml),
-which runs the test suite, verifies the build, and publishes to the npm
-registry via [`flare-foundation/npm-release-action`](https://github.com/flare-foundation/npm-release-action)
-using OIDC trusted publishing and npm provenance attestation. The action
-enforces that the tag matches `package.json`'s version and picks the `latest`
-or `beta` dist-tag based on whether the tag is stable (`vX.Y.Z`) or a
-prerelease (`vX.Y.Z-rc.N` / `-alpha.N`).
+Releases are published to npm from the GitHub mirror, not from GitLab CI, which
+only runs the checks on the tag. Pushing a semver git tag (e.g. `v5.0.0`)
+triggers [`.github/workflows/release.yaml`](.github/workflows/release.yaml),
+which:
+
+1. builds, runs the tests (which need the build), and checks that `dist/run.js`
+   ships in the `npm pack` tarball;
+2. checks that the tag matches `package.json`'s `version`;
+3. publishes via
+   [`flare-foundation/npm-release-action`](https://github.com/flare-foundation/npm-release-action)
+   with OIDC trusted publishing and npm provenance attestation (no credentials
+   in the repository), under the dist-tag `latest` for a stable tag
+   (`vX.Y.Z`) or `beta` for a prerelease (`vX.Y.Z-rc.N` / `-alpha.N`).
+
+A release candidate is a prerelease of the next version: set `package.json` to
+`X.Y.Z-rc.N` and tag `vX.Y.Z-rc.N`. `npx @flarenetwork/flare-stake-tool` keeps
+installing `latest`; testers install `@flarenetwork/flare-stake-tool@X.Y.Z-rc.N`.
+Release candidates have no CHANGELOG section of their own: the `X.Y.Z` section
+collects their changes and gets its date at the final release.
+
+The version changes only in the commit that prepares a release, a
+`chore(release)` commit that also dates the CHANGELOG section of a final
+release; merge requests in between don't touch it. Tag `main` once that commit
+is merged.

@@ -353,20 +353,6 @@ ones.
 
 ## Release process
 
-Releases publish to npm from the GitHub mirror, not from GitLab CI (which
-only runs the checks on the tag). Pushing a git tag `vX.Y.Z` or
-`vX.Y.Z-rc.N` triggers `.github/workflows/release.yaml`, which:
-
-1. Builds, runs the tests (which need the build), and verifies `dist/run.js` ships in the `npm pack` tarball
-2. Checks that the tag matches the `package.json` `version`
-3. Publishes with OIDC trusted publishing and provenance (no credentials in repo)
-   under the dist-tag `latest` for `vX.Y.Z`, or `beta` for a prerelease
-
-A release candidate is a prerelease of the next version: set `package.json` to
-`X.Y.Z-rc.N` and tag `vX.Y.Z-rc.N`. `npx @flarenetwork/flare-stake-tool` keeps
-installing `latest`; testers install `@flarenetwork/flare-stake-tool@X.Y.Z-rc.N`.
-Release candidates have no CHANGELOG section of their own: the `X.Y.Z` section
-collects their changes and gets its date at the final release.
-
-Bump `package.json` version + `CHANGELOG.md` together when releasing. See also
-CONTRIBUTING.md.
+See CONTRIBUTING.md. In short: a version tag on `main` publishes to npm from
+the GitHub mirror, and the version changes only in a `chore(release)` commit,
+which also dates the CHANGELOG section of a final release.
