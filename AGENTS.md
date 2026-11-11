@@ -145,7 +145,6 @@ runs in CI and must stay clean.
 - `eslint` stays on 9.x until `@flarenetwork/eslint-config-flare` supports 10.
 - `typescript` stays on 5.x; TypeScript 7 (Go compiler) needs
   `typescript-eslint` support first.
-- `tsconfig.json` has `module: CommonJS` and **no `verbatimModuleSyntax`**.
 - `rootDir: "src"` is set in `tsconfig.build.json` only, not the base
   `tsconfig.json`. The base tsconfig includes both `src` and `test` for
   type-checking; setting `rootDir` there would cause TS6059 "file is not
@@ -280,12 +279,15 @@ it — both example-based and property-based where applicable.
 - **No `pre`/`post` scripts** in `package.json` (security policy from the
   Flare TypeScript handbook).
 - **Don't reintroduce `genesis.json`** — see "Local network" above.
-- **Don't bump `module` to `Node20`** without first verifying flarejs supports
-  ESM module resolution. Last check: it does not.
+- **Don't move `module` to `node20` or add `verbatimModuleSyntax`**, though the
+  Flare TypeScript handbook asks for both: flarejs' typings don't resolve under
+  `node16`/`nodenext` (see "Dependencies"), and `verbatimModuleSyntax` with
+  CommonJS output would need every import rewritten as `import x = require()`.
+  Check flarejs again before changing either.
 - **Don't add `preserveSymlinks: true` to tsconfig.** It blocks TypeScript from
-  resolving transitive types through pnpm's symlinked `node_modules` (e.g.
-  `web3-eth` from `web3`'s exports), producing hundreds of `no-unsafe-*` lint
-  errors in CI.
+  resolving transitive types through pnpm's symlinked `node_modules` (types a
+  dependency re-exports from its own dependencies), producing hundreds of
+  `no-unsafe-*` lint errors in CI.
 - **Don't change `FILE_SIGNER_POLICY`** (fee price 1000, start time 1, lock
   check time 1, explicit fee) without a CHANGELOG entry: ForDefi signers building the same
   transaction independently must keep getting the same hash.
@@ -327,10 +329,14 @@ it — both example-based and property-based where applicable.
   is asked again with the dashboard APDU before every operation, so the user
   can switch apps in between. The tests cover the signature helpers, the
   Avalanche path split, app detection with an injected answer, the
-  return-code check, and `LedgerSigner` with a fake device (every app, atomic
-  and EVM, blind signing and `confirmLedgerAccount`); the transport and the app clients run only
-  against a device, so check changes there on a real one (Flare, Avalanche and
-  Ethereum apps).
+  return-code check, `LedgerSigner` with a fake device (every app, atomic
+  and EVM, blind signing and `confirmLedgerAccount`), and with stand-ins
+  `withApp` (a missing node-hid binary, the transport always closed) and the
+  Flare app's C-chain signing (its refusals). The USB transport itself and the
+  app clients run only against a device, so check changes there on a real one
+  (Flare, Avalanche and Ethereum apps). On localflare the Flare app knows neither
+  the network nor the chain id and refuses everything: test there with the
+  Avalanche app (blind signing) and, for C-chain transactions, the Ethereum app.
 
 ## Commit messages
 
