@@ -173,14 +173,15 @@ checkout (`avalanchego/scripts/localflare.sh`: five nodes, HTTP ports
 9650/9652/9654/9656/9658, network ID 162, Helicon active at genesis):
 
 ```bash
-LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
+pnpm test:integration
 ```
 
-- `LOCALFLARE_RPC_URL` (default `http://localhost:9650`) is the node the CLI
-  talks to; `LOCALFLARE_NODE_URLS` lists all nodes so the stake tests can pick
-  one that is not validating yet (`test/integration/local-network.ts`).
-- The harness points the CLI at localflare with `FLARE_RPC_URL` (see "Node URL
-  and API key" below).
+- `LOCALFLARE_RPC_URL` (default `http://localhost:9650`) is the node the tests'
+  own checks query; `LOCALFLARE_NODE_URLS` lists all nodes so the stake tests
+  can pick one that is not validating yet (`test/integration/local-network.ts`).
+- The CLI the tests run uses localflare's default node, `http://localhost:9650`,
+  or `FLARE_RPC_URL`, which it inherits. For another node, set both to the same
+  URL: `LOCALFLARE_RPC_URL=<url> FLARE_RPC_URL=<url> pnpm test:integration`.
 - A skipped test fails the run (`forbid-pending` in `.mocharc.integration.yml`).
   The Helicon suite skips when Helicon is not active, and the stake tests when
   every node is validating, which a rerun within the 15-minute minimum stake

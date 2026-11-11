@@ -108,8 +108,12 @@ localflare network started from the go-flare checkout
 
 ```bash
 pnpm build
-LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
+pnpm test:integration
 ```
+
+They expect the node at `http://localhost:9650`. For another node, give its base
+URL both to the tests and to the CLI they run:
+`LOCALFLARE_RPC_URL=<url> FLARE_RPC_URL=<url> pnpm test:integration`.
 
 A skipped test fails the run: the stake tests skip when every node is already
 validating, as on a rerun within 15 minutes. Wait for the validations to end, or
