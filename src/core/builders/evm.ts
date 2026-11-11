@@ -9,7 +9,7 @@ import {
 } from "../../chain/contracts";
 import type { Account } from "../../chain/keys";
 import { defaultGasLimit, normalizeAddressList, type EvmFees } from "../../constants/fees";
-import type { Env, EvmTxType, TxRequestOf, UnsignedTxBundle } from "../types";
+import type { EvmEnv, EvmTxType, TxRequestOf, UnsignedTxBundle } from "../types";
 
 function evmBundle(txType: EvmTxType, rawTx: TransactionLike): UnsignedTxBundle {
   // Build exactly what gets signed. The builders always set the type (2, EIP-1559 fees); without one ethers would
@@ -19,7 +19,7 @@ function evmBundle(txType: EvmTxType, rawTx: TransactionLike): UnsignedTxBundle 
   return { kind: "evm", txType, tx, rawTx, digest: getBytes(tx.unsignedHash) };
 }
 
-async function nonceOf(env: Env, account: Account, requested: number | undefined): Promise<number> {
+async function nonceOf(env: EvmEnv, account: Account, requested: number | undefined): Promise<number> {
   return requested ?? (await env.clients.provider.getTransactionCount(account.cAddress));
 }
 
@@ -37,13 +37,13 @@ function feeFields(
 }
 
 /** Whether the recipient has contract code; asked only when the default gas limit depends on it. */
-async function contractRecipient(env: Env, fees: EvmFees, recipient: string): Promise<boolean> {
+async function contractRecipient(env: EvmEnv, fees: EvmFees, recipient: string): Promise<boolean> {
   return fees.gasLimit === undefined && (await hasContractCode(env, recipient));
 }
 
 export async function buildWithdrawal(
   req: TxRequestOf<"withdrawal">,
-  env: Env,
+  env: EvmEnv,
   account: Account
 ): Promise<UnsignedTxBundle> {
   const nonce = await nonceOf(env, account, req.nonce);
@@ -58,7 +58,7 @@ export async function buildWithdrawal(
   });
 }
 
-export async function buildClaim(req: TxRequestOf<"claim">, env: Env, account: Account): Promise<UnsignedTxBundle> {
+export async function buildClaim(req: TxRequestOf<"claim">, env: EvmEnv, account: Account): Promise<UnsignedTxBundle> {
   const recipient = getAddress(req.recipient);
   const rewardManager = await contractAddress(env, "ValidatorRewardManager");
   const nonce = await nonceOf(env, account, req.nonce);
@@ -83,7 +83,7 @@ export async function buildClaim(req: TxRequestOf<"claim">, env: Env, account: A
 
 export async function buildSetClaimExecutors(
   req: TxRequestOf<"setClaimExecutors">,
-  env: Env,
+  env: EvmEnv,
   account: Account
 ): Promise<UnsignedTxBundle> {
   const claimSetupManager = await contractAddress(env, "ClaimSetupManager");
@@ -109,7 +109,7 @@ export async function buildSetClaimExecutors(
 
 export async function buildSetAllowedClaimRecipients(
   req: TxRequestOf<"setAllowedClaimRecipients">,
-  env: Env,
+  env: EvmEnv,
   account: Account
 ): Promise<UnsignedTxBundle> {
   const claimSetupManager = await contractAddress(env, "ClaimSetupManager");
@@ -126,7 +126,7 @@ export async function buildSetAllowedClaimRecipients(
 
 export async function buildCustomCChainTx(
   req: TxRequestOf<"customCChainTx">,
-  env: Env,
+  env: EvmEnv,
   account: Account
 ): Promise<UnsignedTxBundle> {
   const nonce = await nonceOf(env, account, req.nonce);

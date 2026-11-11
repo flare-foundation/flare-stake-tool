@@ -3,10 +3,10 @@
  * resolves the environment and the signer, and calls the application layer;
  * no transaction logic lives here.
  */
-import { Command, type OptionValues } from "commander";
+import { Command } from "commander";
 import { accountFromPublicKey } from "./chain/keys";
 import { formatFlr, formatWei } from "./chain/units";
-import { ATOMIC_TX_TYPES, type Outcome } from "./core/types";
+import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
 import {
   contextFileExists,
@@ -25,22 +25,26 @@ import {
   END_TIME,
   START_TIME,
   START_TIME_NOT_USED_WARNING,
-  globalOptions,
   pastEndTimeWarning,
-  parseAtomicTxRequest,
-  parseEvmTxRequest,
-  resolveAccount,
-  resolveEnv,
-  resolveSigner,
-  type GlobalOptions,
   type ParsedTime,
-} from "./cli/options";
+} from "./cli/inputs";
+import { globalOptions, resolveAccount, resolveEnv, resolveSigner, type GlobalOptions } from "./cli/options";
+import { parseAtomicTxRequest, parseEvmTxRequest, type AtomicTxOptions, type EvmTxOptions } from "./cli/requests";
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION } from "./cli/node";
-import { describeFee, log, logInfo, logSuccess, logWarning } from "./output";
+import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
 import { FAKE_LEDGER_KEY_ENV, ledgerDevice } from "./signers/ledger";
 import * as ledger from "./ledger";
 
 const TRANSACTION_TYPES = ATOMIC_TX_TYPES.join("|");
+
+/** Options of `init-ctx`. */
+interface InitCtxOptions {
+  publicKey?: string;
+  vaultId?: string;
+}
+
+/** Options of `send` and `forDefi`. */
+type TransactionIdOptions = Pick<GlobalOptions, "transactionId">;
 
 export function cli(program: Command): void {
   program
@@ -55,7 +59,7 @@ export function cli(program: Command): void {
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option(
       "--max-fee-per-gas <gwei>",
-      "C-chain EVM max fee per gas, in gwei. A ceiling, not a price: the transaction pays base fee plus tip"
+      "C-chain EVM max fee per gas, in gwei. A cap, not a price: the transaction pays base fee plus tip, at most this"
     )
     .option("--priority-fee-per-gas <gwei>", "C-chain EVM priority fee (tip) per gas, in gwei")
     .option("--gas-limit <units>", "C-chain EVM gas limit")
@@ -80,7 +84,7 @@ export function cli(program: Command): void {
     .description("Initialize context file")
     .option("-p, --public-key <public-key>", "Public key of the account")
     .option("--vault-id <vault-id>", "ForDefi vault id to store in the context file")
-    .action(async (options: OptionValues) => {
+    .action(async (options: InitCtxOptions) => {
       await initCtx(globalOptions(program.opts(), options));
     });
 
@@ -122,7 +126,7 @@ export function cli(program: Command): void {
       "Transaction id of the auto-renewed validator to reconfigure (alternative to --node-id)"
     )
     .option("--threshold <threshold>", "Accepted for compatibility; has no effect", "1")
-    .action(async (type: string, options: OptionValues) => {
+    .action(async (type: string, options: AtomicTxOptions) => {
       await transaction(type, globalOptions(program.opts(), options));
     });
 
@@ -130,7 +134,7 @@ export function cli(program: Command): void {
     .command("send")
     .description("Send signed transaction json to the node")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to send to the network")
-    .action(async (options: OptionValues) => {
+    .action(async (options: TransactionIdOptions) => {
       await send(globalOptions(program.opts(), options));
     });
 
@@ -140,7 +144,7 @@ export function cli(program: Command): void {
     .argument("<sign|fetch>", "Type of a forDefi transaction")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("--evm-tx", "Accepted for compatibility; the transaction file tells the kind")
-    .action(async (type: string, options: OptionValues) => {
+    .action(async (type: string, options: TransactionIdOptions) => {
       await forDefi(type, globalOptions(program.opts(), options));
     });
 
@@ -151,7 +155,7 @@ export function cli(program: Command): void {
     .option("-a, --amount <amount>", "Amount to transfer (in FLR)")
     .option("-t, --to <to>", "Address to send funds to")
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
-    .action(async (options: OptionValues) => {
+    .action(async (options: EvmTxOptions) => {
       await evmTransaction("withdrawal", globalOptions(program.opts(), options));
     });
 
@@ -163,7 +167,7 @@ export function cli(program: Command): void {
     .option("-a, --amount <amount>", "Amount to claim (in FLR; default: all unclaimed)")
     .option("-r, --recipient <recipient>", "Address to send the rewards to")
     .option("-w, --wrap", "Wrap the rewards", false)
-    .action(async (options: OptionValues) => {
+    .action(async (options: EvmTxOptions) => {
       await evmTransaction("claim", globalOptions(program.opts(), options));
     });
 
@@ -176,7 +180,7 @@ export function cli(program: Command): void {
       "--executors <executors...>",
       "Addresses of the executors to set (space separated); empty string to remove all executors"
     )
-    .action(async (options: OptionValues) => {
+    .action(async (options: EvmTxOptions) => {
       await evmTransaction("setClaimExecutors", globalOptions(program.opts(), options));
     });
 
@@ -186,7 +190,7 @@ export function cli(program: Command): void {
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize (unsigned-file flow)")
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
     .option("--recipients <recipients...>", "Addresses of the allowed claim recipients (space separated)")
-    .action(async (options: OptionValues) => {
+    .action(async (options: EvmTxOptions) => {
       await evmTransaction("setAllowedClaimRecipients", globalOptions(program.opts(), options));
     });
 
@@ -198,20 +202,9 @@ export function cli(program: Command): void {
     .option("--data <data>", "Data to send in the transaction", "0x")
     .option("--to <to>", "Address to send the transaction to")
     .option("--value <value>", "Value to send in the transaction (in wei)", "0")
-    .action(async (options: OptionValues) => {
+    .action(async (options: EvmTxOptions) => {
       await evmTransaction("custom", globalOptions(program.opts(), options));
     });
-}
-
-function reportOutcome(outcome: Outcome, symbol: string): void {
-  if (outcome.status === "sent") {
-    logSuccess(`Transaction with hash ${outcome.txId} built and sent to the network`);
-  } else {
-    logSuccess(`Unsigned transaction ${outcome.id} constructed`);
-    logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
-  }
-  const fee = describeFee(outcome, symbol);
-  if (fee) logInfo(fee);
 }
 
 function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFlow: boolean): void {
@@ -233,7 +226,7 @@ function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFl
   }
 }
 
-async function transaction(type: string, options: GlobalOptions & OptionValues): Promise<void> {
+async function transaction(type: string, options: GlobalOptions & AtomicTxOptions): Promise<void> {
   const env = resolveEnv(options);
   const signer = await resolveSigner(options, env);
   const { request, resolvedTimes } = parseAtomicTxRequest(type, options);
@@ -243,14 +236,14 @@ async function transaction(type: string, options: GlobalOptions & OptionValues):
 
 async function evmTransaction(
   operation: "withdrawal" | "claim" | "setClaimExecutors" | "setAllowedClaimRecipients" | "custom",
-  options: GlobalOptions & OptionValues
+  options: GlobalOptions & EvmTxOptions
 ): Promise<void> {
   const env = resolveEnv(options);
   const signer = await resolveSigner(options, env);
   reportOutcome(await runTransaction(parseEvmTxRequest(operation, options), env, signer), env.network.symbol);
 }
 
-async function send(options: GlobalOptions & OptionValues): Promise<void> {
+async function send(options: GlobalOptions): Promise<void> {
   const id = options.transactionId;
   if (!id) {
     throw new Error("send needs the transaction id: -i <id>");
@@ -266,7 +259,7 @@ async function send(options: GlobalOptions & OptionValues): Promise<void> {
   logSuccess(`Signed transaction ${id} with hash ${txId} sent to the node`);
 }
 
-async function forDefi(type: string, options: GlobalOptions & OptionValues): Promise<void> {
+async function forDefi(type: string, options: GlobalOptions): Promise<void> {
   const id = options.transactionId;
   if (!id) {
     throw new Error("forDefi needs the transaction id: -i <id>");
@@ -285,10 +278,10 @@ async function forDefi(type: string, options: GlobalOptions & OptionValues): Pro
   }
 }
 
-async function initCtx(options: GlobalOptions & OptionValues): Promise<void> {
+async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
   const network = resolveNetworkName(options.network, options.ctxFile);
   const env = resolveEnv({ ...options, network });
-  const vaultId = typeof options["vaultId"] === "string" ? options["vaultId"] : undefined;
+  const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;
   let context: ContextFile;
   if (options.ledger) {
     const device = ledgerDevice();
@@ -306,8 +299,8 @@ async function initCtx(options: GlobalOptions & OptionValues): Promise<void> {
       derivationPath: options.derivationPath,
       ...(vaultId ? { vaultId } : {}),
     };
-  } else if (typeof options["publicKey"] === "string") {
-    const publicKey = options["publicKey"];
+  } else if (typeof options.publicKey === "string") {
+    const publicKey = options.publicKey;
     const account = accountFromPublicKey(publicKey, env.network.hrp); // throws on an invalid key: exit code 1
     context = {
       wallet: "publicKey",
@@ -326,7 +319,7 @@ async function initCtx(options: GlobalOptions & OptionValues): Promise<void> {
 
 const INFO_TYPES = ["addresses", "balance", "validators"];
 
-async function info(type: string, options: GlobalOptions & OptionValues): Promise<void> {
+async function info(type: string, options: GlobalOptions): Promise<void> {
   if (!INFO_TYPES.includes(type)) {
     throw new Error(`Unknown information type "${type}"; use ${INFO_TYPES.join(", ")}`);
   }

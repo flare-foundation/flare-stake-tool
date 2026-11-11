@@ -23,6 +23,6 @@ export async function executeTransaction(
     return { ...result, fee };
   }
   attachSignature(bundle, result.signature, account);
-  const { txId, chainStatus } = await submitAndConfirm(bundle, env, confirm);
+  const { txId, chainStatus } = await submitAndConfirm(bundle, env.clients, confirm);
   return { status: "sent", txId, chainStatus, fee };
 }

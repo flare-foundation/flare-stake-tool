@@ -27,8 +27,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nUnsigned transaction stake-file-fee2.5 constructed\nForDefi hash: ch/pmwPe2BtkgzydR3s08siwWtwBewdn5Jooja+LVDE=\n",
-    "stderr": "",
+    "stdout": "Unsigned transaction stake-file-fee2.5 constructed\nForDefi hash: ch/pmwPe2BtkgzydR3s08siwWtwBewdn5Jooja+LVDE=\nFee: 0.013691 LFLR (burned when the signed transaction is sent)\n",
+    "stderr": "Warning: End time 1793354884 (2026-10-30T10:08:04.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

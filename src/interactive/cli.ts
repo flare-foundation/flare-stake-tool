@@ -30,8 +30,8 @@ import {
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
 import { maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
-import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
-import { describeError, describeFee, log, logError, logInfo, logSuccess, logWarning } from "../output";
+import type { Env, Signer, TxRequest, TxRequestOf } from "../core/types";
+import { describeError, log, logError, logInfo, logWarning, reportOutcome } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
 import {
@@ -40,8 +40,9 @@ import {
   evmFeeOverridesFromArgv,
   parseBlsHex,
   pastEndTimeWarning,
-} from "../cli/options";
+} from "../cli/inputs";
 import { nodeOverridesFromArgv } from "../cli/node";
+import type { DerivationMode, TaskId } from "../constants/screen";
 import { prompts } from "./prompts";
 
 interface DerivedAddress {
@@ -68,14 +69,14 @@ export async function interactiveCli(baseArgv: string[]): Promise<void> {
   const evmFees = evmFeeOverridesFromArgv(baseArgv);
   const session: Session = { ...(await connectWalletWithRetry(node)), evmFees };
   for (;;) {
-    const { task } = await prompts.selectTask();
+    const task = await prompts.selectTask();
     if (task === "quit") {
       logInfo("Exiting interactive cli.");
       return;
     }
     // An action that fails must not end the session: report it and show the menu again.
     try {
-      await runTask(task, session);
+      await TASKS[task](session);
     } catch (error) {
       logError(`Error: ${describeError(error)}`);
     }
@@ -92,114 +93,91 @@ async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWal
   }
 }
 
-async function runTask(task: string, session: Session): Promise<void> {
-  switch (task) {
-    case "addresses":
-      log(`P-chain address: ${session.account.pAddress}`);
-      log(`C-chain address hex: ${session.account.cAddress}`);
-      log(`secp256k1 public key: 0x${session.account.publicKeyHex}`);
-      break;
-    case "balance": {
-      const balances = await getBalances(session.env, session.account);
-      logInfo(`Balances on the network "${session.env.network.name}"`);
-      log(`C-chain ${session.account.cAddress}: ${formatWei(balances.cChainWei)} ${session.env.network.symbol}`);
-      log(`P-chain ${session.account.pAddress}: ${formatFlr(balances.pChainNFlr)} ${session.env.network.symbol}`);
-      break;
-    }
-    case "validators": {
-      const validators = await getValidators(session.env);
-      log(JSON.stringify(validators, null, 2));
-      for (const validator of validators) {
-        const summary = describeAutoRenewal(validator);
-        if (summary) log(`${validator.nodeID}: ${summary}`);
-      }
-      break;
-    }
-    case "CP":
-      await moveCP(session);
-      break;
-    case "PC":
-      await movePC(session);
-      break;
-    case "import": {
-      const { type } = await prompts.importTrxType();
-      if (type === "P") {
-        report(session, await runTransaction({ type: "importCP" }, session.env, session.signer));
-      } else {
-        const fee = await askCChainFee(session, { type: "importPC" });
-        report(session, await runTransaction({ type: "importPC", fee }, session.env, session.signer));
-      }
-      break;
-    }
-    case "transfer": {
-      const { amount } = await prompts.amount("");
-      const { transferAddress } = await prompts.transferAddress();
-      report(
-        session,
-        await runTransaction(
-          { type: "transfer", amount: parseFlr(amount), to: transferAddress },
-          session.env,
-          session.signer
-        )
-      );
-      break;
-    }
-    case "stake":
-      report(session, await runTransaction(await askStake(), session.env, session.signer));
-      break;
-    case "delegate":
-      report(session, await runTransaction(await askDelegate(), session.env, session.signer));
-      break;
-    case "addAutoRenewedValidator":
-      report(session, await runTransaction(await askAutoRenewedValidator(), session.env, session.signer));
-      break;
-    case "setAutoRenewedValidatorConfig": {
-      const { id } = await prompts.nodeId();
-      const period = parseDuration((await prompts.period("change")).period);
-      if (period === 0n && !(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id))).stop) {
-        logInfo("Auto-renewal left unchanged.");
-        break;
-      }
-      report(
-        session,
-        await runTransaction({ type: "setAutoRenewedValidatorConfig", nodeId: id, period }, session.env, session.signer)
-      );
-      break;
-    }
-    case "claim":
-      await claim(session);
-      break;
-    default:
-      log("Task not supported");
+/** What each menu task does, in menu order; a task added to the menu without an entry here fails to compile. */
+const TASKS: Record<Exclude<TaskId, "quit">, (session: Session) => Promise<void> | void> = {
+  addresses: showAddresses,
+  balance: showBalances,
+  validators: showValidators,
+  CP: moveCP,
+  PC: movePC,
+  stake: async (session) => execute(session, await askStake()),
+  delegate: async (session) => execute(session, await askDelegate()),
+  import: importFunds,
+  transfer,
+  claim,
+  addAutoRenewedValidator: async (session) => execute(session, await askAutoRenewedValidator()),
+  setAutoRenewedValidatorConfig: setAutoRenewal,
+};
+
+function showAddresses(session: Session): void {
+  log(`P-chain address: ${session.account.pAddress}`);
+  log(`C-chain address hex: ${session.account.cAddress}`);
+  log(`secp256k1 public key: 0x${session.account.publicKeyHex}`);
+}
+
+async function showBalances(session: Session): Promise<void> {
+  const balances = await getBalances(session.env, session.account);
+  logInfo(`Balances on the network "${session.env.network.name}"`);
+  log(`C-chain ${session.account.cAddress}: ${formatWei(balances.cChainWei)} ${session.env.network.symbol}`);
+  log(`P-chain ${session.account.pAddress}: ${formatFlr(balances.pChainNFlr)} ${session.env.network.symbol}`);
+}
+
+async function showValidators(session: Session): Promise<void> {
+  const validators = await getValidators(session.env);
+  log(JSON.stringify(validators, null, 2));
+  for (const validator of validators) {
+    const summary = describeAutoRenewal(validator);
+    if (summary) log(`${validator.nodeID}: ${summary}`);
   }
 }
 
-function report(session: Session, outcome: Outcome): void {
-  if (outcome.status === "sent") {
-    logSuccess(`Transaction with hash ${outcome.txId} built and sent to the network`);
+/** Completes an export whose import did not happen, on the chain the user picks. */
+async function importFunds(session: Session): Promise<void> {
+  if ((await prompts.importTrxType()) === "P") {
+    await execute(session, { type: "importCP" });
   } else {
-    logSuccess(`Unsigned transaction ${outcome.id} constructed`);
-    logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
+    const fee = await askCChainFee(session, { type: "importPC" });
+    await execute(session, { type: "importPC", fee });
   }
-  const fee = describeFee(outcome, session.env.network.symbol);
-  if (fee) logInfo(fee);
+}
+
+async function transfer(session: Session): Promise<void> {
+  const amount = await prompts.amount();
+  const to = await prompts.transferAddress();
+  await execute(session, { type: "transfer", amount: parseFlr(amount), to });
+}
+
+/** A period of 0 stops auto-renewal, so it is sent only after a confirmation. */
+async function setAutoRenewal(session: Session): Promise<void> {
+  const id = await prompts.nodeId();
+  const period = parseDuration(await prompts.period("change"));
+  if (period === 0n && !(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id)))) {
+    logInfo("Auto-renewal left unchanged.");
+    return;
+  }
+  await execute(session, { type: "setAutoRenewedValidatorConfig", nodeId: id, period });
+}
+
+/** Builds, signs and sends (or writes) a transaction, and reports it as the command line does. */
+async function execute(session: Session, request: TxRequest): Promise<void> {
+  reportOutcome(await runTransaction(request, session.env, session.signer), session.env.network.symbol);
 }
 
 /** Asks for an end time and warns (as the command line does) when it is not in the future. */
 async function askEndTime(): Promise<bigint> {
-  const endTime = parseEndTime((await prompts.unixTime("end")).time);
+  const endTime = parseEndTime(await prompts.unixTime("end"));
   const warning = pastEndTimeWarning(endTime);
   if (warning) logWarning(warning);
   return endTime;
 }
 
 async function askStake(): Promise<TxRequest> {
-  const { amount } = await prompts.amount("");
-  const { id } = await prompts.nodeId();
+  const amount = await prompts.amount();
+  const id = await prompts.nodeId();
   const endTime = await askEndTime();
-  const { fee } = await prompts.delegationFee();
-  const { popBLSPublicKey } = await prompts.popBLSPublicKey();
-  const { popBLSSignature } = await prompts.popBLSSignature();
+  const fee = await prompts.delegationFee();
+  const popBLSPublicKey = await prompts.popBLSPublicKey();
+  const popBLSSignature = await prompts.popBLSSignature();
   return {
     type: "stake",
     nodeId: id,
@@ -212,19 +190,19 @@ async function askStake(): Promise<TxRequest> {
 }
 
 async function askDelegate(): Promise<TxRequest> {
-  const { amount } = await prompts.amount("");
-  const { id } = await prompts.nodeId();
+  const amount = await prompts.amount();
+  const id = await prompts.nodeId();
   const endTime = await askEndTime();
   return { type: "delegate", nodeId: id, amount: parseFlr(amount), endTime };
 }
 
 async function askAutoRenewedValidator(): Promise<TxRequest> {
-  const { amount } = await prompts.amount("");
-  const { id } = await prompts.nodeId();
-  const { period } = await prompts.period("add");
-  const { fee } = await prompts.delegationFee();
-  const { popBLSPublicKey } = await prompts.popBLSPublicKey();
-  const { popBLSSignature } = await prompts.popBLSSignature();
+  const amount = await prompts.amount();
+  const id = await prompts.nodeId();
+  const period = await prompts.period("add");
+  const fee = await prompts.delegationFee();
+  const popBLSPublicKey = await prompts.popBLSPublicKey();
+  const popBLSSignature = await prompts.popBLSSignature();
   return {
     type: "addAutoRenewedValidator",
     nodeId: id,
@@ -268,31 +246,30 @@ async function askCChainFee(
     estimate = undefined;
   }
   for (;;) {
-    const { fees } = await prompts.fees(estimate === undefined ? undefined : formatFlr(estimate), symbol);
-    if (fees.trim() === "") return undefined;
-    const fee = parseFlr(fees);
+    const answer = await prompts.fees(estimate === undefined ? undefined : formatFlr(estimate), symbol);
+    if (answer.trim() === "") return undefined;
+    const fee = parseFlr(answer);
     const warning = estimate === undefined ? undefined : underpricedFeeWarning(fee, estimate, symbol);
     if (!warning) return fee;
     logWarning(warning);
-    if ((await prompts.confirmLowFee()).send) return fee;
+    if (await prompts.confirmLowFee()) return fee;
   }
 }
 
 /** Export from the C-chain, wait for the UTXO to reach the P-chain, import. */
 async function moveCP(session: Session): Promise<void> {
-  const { amount } = await prompts.amount("");
+  const amount = await prompts.amount();
   const exportCP: TxRequestOf<"exportCP"> = { type: "exportCP", amount: parseFlr(amount) };
   const fee = await askCChainFee(session, exportCP);
   log("Please approve export transaction");
-  report(session, await runTransaction({ ...exportCP, fee }, session.env, session.signer));
+  await execute(session, { ...exportCP, fee });
   await waitForPendingImport(session, "P");
   log("Please approve import transaction");
-  report(session, await runTransaction({ type: "importCP" }, session.env, session.signer));
+  await execute(session, { type: "importCP" });
 }
 
-/** Export from the P-chain (default: everything minus the fee), wait, import on the C-chain. */
+/** Export from the P-chain, wait, import on the C-chain. The amount offered is what `exportPC` without -a exports. */
 async function movePC(session: Session): Promise<void> {
-  // Default: everything spendable minus the exact export fee, as `exportPC` without -a.
   let defaultAmount: string | undefined;
   try {
     await session.env.clients.verifyNetwork();
@@ -300,13 +277,13 @@ async function movePC(session: Session): Promise<void> {
   } catch {
     defaultAmount = undefined; // nothing to export, or the node is unreachable: no default
   }
-  const { amount } = await prompts.amount("", defaultAmount);
+  const amount = await prompts.amount(defaultAmount);
   log("Please approve export transaction");
-  report(session, await runTransaction({ type: "exportPC", amount: parseFlr(amount) }, session.env, session.signer));
+  await execute(session, { type: "exportPC", amount: parseFlr(amount) });
   await waitForPendingImport(session, "C");
   const fee = await askCChainFee(session, { type: "importPC" });
   log("Please approve import transaction");
-  report(session, await runTransaction({ type: "importPC", fee }, session.env, session.signer));
+  await execute(session, { type: "importPC", fee });
 }
 
 async function waitForPendingImport(session: Session, destination: "P" | "C"): Promise<void> {
@@ -341,34 +318,27 @@ async function claim(session: Session): Promise<void> {
     log(styleText("green", "Nothing to claim!"));
     return;
   }
-  const { claimAllUnclaimed } = await prompts.claimAllUnclaimed(formatWei(rewards.unclaimedWei), symbol);
-  const amount = claimAllUnclaimed ? undefined : parseFlrToWei(String((await prompts.claimAmount()).claimAmount));
-  const { wrapRewards } = await prompts.wrapRewards();
-  const { recipientAddress } = await prompts.recipientAddress(session.account.cAddress);
-  report(
-    session,
-    await runTransaction(
-      {
-        type: "claim",
-        recipient: recipientAddress,
-        amount,
-        wrap: wrapRewards,
-        fees: resolveEvmFees("claim", session.evmFees),
-      },
-      session.env,
-      session.signer
-    )
-  );
+  const claimAll = await prompts.claimAllUnclaimed(formatWei(rewards.unclaimedWei), symbol);
+  const amount = claimAll ? undefined : parseFlrToWei(await prompts.claimAmount());
+  const wrap = await prompts.wrapRewards();
+  const recipient = await prompts.recipientAddress(session.account.cAddress);
+  await execute(session, {
+    type: "claim",
+    recipient,
+    amount,
+    wrap,
+    fees: resolveEvmFees("claim", session.evmFees),
+  });
 }
 
 async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
-  const { wallet } = await prompts.connectWallet();
+  const wallet = await prompts.connectWallet();
   if (wallet === "privateKey") {
-    const { pvtKeyPath } = await prompts.pvtKeyPath();
+    const pvtKeyPath = await prompts.pvtKeyPath();
     if (!fs.existsSync(pvtKeyPath)) {
       throw new Error(`File ${pvtKeyPath} doesn't exist`);
     }
-    const { network } = await prompts.selectNetwork();
+    const network = await prompts.selectNetwork();
     const env = createEnv(network, node);
     const signer = PrivateKeySigner.fromEnvFile(pvtKeyPath, env.network.hrp);
     return { env, signer, account: await signer.account() };
@@ -380,7 +350,8 @@ async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
     const signer = new LedgerSigner(device, context.derivationPath ?? BASE_DERIVATION_PATH, env.network.hrp);
     return { env, signer, account: await signer.account() };
   }
-  throw new Error(`Unsupported wallet ${wallet}`);
+  const unsupported: never = wallet; // a wallet added to the menu without a branch here fails to compile
+  throw new Error(`Unsupported wallet ${String(unsupported)}`);
 }
 
 /**
@@ -407,19 +378,19 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
       if (existing.vaultId) log(`${styleText("yellow", "Vault Id:")} ${existing.vaultId}`);
     }
     if (existing?.wallet === "ledger") {
-      const { isContinue } = await prompts.ctxFile();
-      if (isContinue) return existing;
-    } else if (!(await prompts.replaceCtxFile(DEFAULT_CTX_FILE)).replace) {
+      if (await prompts.ctxFile()) return existing;
+    } else if (!(await prompts.replaceCtxFile(DEFAULT_CTX_FILE))) {
       throw new Error(`Kept ${DEFAULT_CTX_FILE}; choose another wallet, or move the file away to connect a Ledger`);
     }
   }
-  const { network } = await prompts.selectNetwork();
-  const { derivation } = await prompts.derivationType();
+  const network = await prompts.selectNetwork();
+  const derivation = await prompts.derivationType();
   log("Fetching Addresses...");
   const addresses = await derivedAddresses(device, network, derivation);
-  const { address } = await prompts.selectAddress(addresses.map((a, i) => `${i + 1}. ${a.ethAddress}`));
-  const chosen = addresses.find((a) => a.ethAddress === address);
-  if (!chosen) throw new Error("No address selected");
+  // The row itself, so that its derivation path is saved even when two rows show the same address.
+  const chosen = await prompts.selectAddress(
+    addresses.map((a, i) => ({ name: `${i + 1}. ${a.ethAddress}`, value: a }))
+  );
   const context: ContextFile = {
     wallet: "ledger",
     publicKey: chosen.publicKey,
@@ -439,7 +410,7 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
 async function derivedAddresses(
   device: LedgerDevice,
   network: string,
-  derivationMode: string
+  derivationMode: DerivationMode
 ): Promise<DerivedAddress[]> {
   const paths: string[] = [];
   for (let i = 0; i < 10; i++) {

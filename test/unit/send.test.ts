@@ -5,12 +5,10 @@
  */
 import { expect } from "chai";
 import fs from "fs";
-import { sendSignedTransaction } from "../../src/app/send";
-import type { Clients } from "../../src/chain/clients";
+import { sendSignedTransaction, type SendEnv } from "../../src/app/send";
 import { networkConfig } from "../../src/chain/network";
 import { isAlreadySentToChain, signedTxPath, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
-import type { Env } from "../../src/core/types";
 import { describeError } from "../../src/output";
 import { readGolden } from "../characterization/scenarios";
 import { cleanupTempDir, makeTempDir } from "../helpers/cli";
@@ -27,9 +25,11 @@ interface ScriptedNode {
   onIssue?: () => void;
   /** Whether the file was already marked when the first status poll came in. */
   markedAtFirstPoll?: boolean;
+  /** When set, eth_sendRawTransaction answers without a transaction hash. */
+  hashless?: boolean;
 }
 
-function scriptedEnv(node: ScriptedNode, id: string, cwd: string): Env {
+function scriptedEnv(node: ScriptedNode, id: string, cwd: string): SendEnv {
   const poll = (): Promise<string> => {
     node.markedAtFirstPoll ??= isAlreadySentToChain(id, cwd);
     if (node.pollError) return Promise.reject(new Error(node.pollError));
@@ -41,16 +41,20 @@ function scriptedEnv(node: ScriptedNode, id: string, cwd: string): Env {
     return Promise.resolve(value);
   };
   const issue = () => taken({ txID: "2TxIdFromTheScriptedNode" });
-  const clients = {
+  const clients: SendEnv["clients"] = {
     verifyNetwork: () => Promise.resolve(),
     pvm: { issueSignedTx: issue, getTxStatus: async () => ({ status: await poll(), reason: "" }) },
     evm: { issueSignedTx: issue, getAtomicTxStatus: async () => ({ status: await poll() }) },
     provider: {
-      send: () => taken("0xEvmHashFromTheScriptedNode"),
-      getTransactionReceipt: async () => ((await poll()) === "Committed" ? { status: 1 } : null),
+      send: () => (node.hashless ? taken(null) : taken("0xEvmHashFromTheScriptedNode")),
+      // "Committed": mined and executed; "Reverted": mined, but the call failed; anything else: not mined yet
+      getTransactionReceipt: async () => {
+        const status = await poll();
+        return status === "Committed" ? { status: 1 } : status === "Reverted" ? { status: 0 } : null;
+      },
     },
   };
-  return { network: networkConfig("localflare", {}), clients: clients as unknown as Clients };
+  return { network: networkConfig("localflare", {}), clients };
 }
 
 function writeSigned(scenario: string, id: string, cwd: string): void {
@@ -200,6 +204,56 @@ describe("app/send: the isSentToChain mark", () => {
       (error: unknown) => expect(String(error)).to.include("was dropped by the C-chain")
     );
     expect(isAlreadySentToChain("c", cwd)).to.equal(false);
+  });
+
+  it("stays set when an EVM transaction is mined but reverted, since its nonce is used", async () => {
+    writeSigned("withdrawal-file", "e", cwd);
+    const env = scriptedEnv({ statuses: ["Processing", "Reverted"] }, "e", cwd);
+    await sendSignedTransaction("e", env, undefined, cwd, FAST).then(
+      () => expect.fail("a reverted transaction should fail"),
+      (error: unknown) =>
+        expect(String(error)).to.include("Transaction 0xEvmHashFromTheScriptedNode was mined but reverted")
+    );
+    expect(isAlreadySentToChain("e", cwd)).to.equal(true);
+  });
+
+  it("stays set when an EVM or C-chain atomic transaction is not confirmed in time", async () => {
+    for (const [scenario, id, expected] of [
+      ["withdrawal-file", "e", "Transaction 0xEvmHashFromTheScriptedNode was submitted but not mined within 50ms"],
+      ["exportCP-file", "c", "Transaction 2TxIdFromTheScriptedNode was submitted but not accepted within 50ms"],
+    ] as const) {
+      writeSigned(scenario, id, cwd);
+      const env = scriptedEnv({ statuses: ["Processing"] }, id, cwd);
+      await sendSignedTransaction(id, env, undefined, cwd, FAST).then(
+        () => expect.fail(`${scenario}: the wait should have timed out`),
+        (error: unknown) => expect(String(error)).to.include(expected)
+      );
+      expect(isAlreadySentToChain(id, cwd), scenario).to.equal(true);
+    }
+  });
+
+  it("is never set when the node answers an EVM transaction without a hash", async () => {
+    writeSigned("withdrawal-file", "e", cwd);
+    const env = scriptedEnv({ statuses: ["Committed"], hashless: true }, "e", cwd);
+    await sendSignedTransaction("e", env, undefined, cwd, FAST).then(
+      () => expect.fail("a missing hash should fail"),
+      (error: unknown) => expect(String(error)).to.include("The node did not return a transaction hash")
+    );
+    expect(isAlreadySentToChain("e", cwd)).to.equal(false);
+  });
+
+  it("is never set when the signature of an EVM file recovers no signer, which is refused before sending", async () => {
+    const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson;
+    writeSignedTxJson({ ...unsigned, signature: "00".repeat(65) }, "e", cwd);
+    const issued: string[] = [];
+    const env = scriptedEnv({ statuses: ["Committed"], onIssue: () => issued.push("issued") }, "e", cwd);
+    // the signature library refuses r = 0 itself, before the tool's own "Cannot recover the signer" check
+    await sendSignedTransaction("e", env, undefined, cwd, FAST).then(
+      () => expect.fail("an unrecoverable signature should fail"),
+      (error: unknown) => expect(error).to.be.instanceOf(Error)
+    );
+    expect(issued).to.deep.equal([]);
+    expect(isAlreadySentToChain("e", cwd)).to.equal(false);
   });
 
   it("is never set when the node refuses to take the transaction", async () => {

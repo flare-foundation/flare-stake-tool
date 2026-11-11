@@ -6,16 +6,13 @@
 import { utils as futils, type Utxo } from "@flarenetwork/flarejs";
 import { expect } from "chai";
 import { getBytes } from "ethers";
-import { createEnv } from "../../src/app/env";
 import { accountFromPrivateKey } from "../../src/chain/keys";
 import { buildTransaction } from "../../src/core/builders";
 import { UTXO_PAGE_SIZE, allUtxos, maxExportPCAmount, spendableAmount } from "../../src/core/builders/pchain";
 import { atomicTxFee } from "../../src/core/fee";
-import { FILE_SIGNER_POLICY, IMMEDIATE_SIGNER_POLICY } from "../../src/core/types";
-import { localflareNetworkIdStub } from "../characterization/node-stubs";
-import { RpcReplayServer } from "../characterization/rpc-replay";
-import { fixturePath } from "../characterization/scenarios";
+import { FILE_SIGNER_POLICY, IMMEDIATE_SIGNER_POLICY, type Env } from "../../src/core/types";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
+import { startReplay, type Replay, type ReplayEnv } from "../helpers/replay";
 
 const account = accountFromPrivateKey(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), "localflare");
 const now = () => BigInt(Math.floor(Date.now() / 1000));
@@ -24,22 +21,15 @@ describe("core/builders/pchain", function () {
   this.timeout(20_000);
 
   describe("exportPC without -a", () => {
-    let server: RpcReplayServer;
-    let env: ReturnType<typeof createEnv>;
+    let replay: Replay;
+    let env: ReplayEnv;
 
     beforeEach(async () => {
-      server = await RpcReplayServer.start({
-        mode: "replay",
-        fixturePath: fixturePath("exportPC-pk"),
-        stubs: [localflareNetworkIdStub],
-      });
-      env = createEnv("localflare", { apiUrl: server.url });
+      replay = await startReplay("exportPC-pk");
+      env = replay.env;
     });
 
-    afterEach(async () => {
-      env.clients.provider.destroy();
-      await server.close();
-    });
+    afterEach(() => replay.close());
 
     it("exports everything spendable minus the exact fee, leaving nothing behind (chain price and file price)", async () => {
       const context = await env.clients.context();
@@ -78,6 +68,22 @@ describe("core/builders/pchain", function () {
       ).then(
         () => expect.fail("the previous default amount should not be exportable"),
         (error: unknown) => expect(String(error)).to.match(/Insufficient funds/)
+      );
+    });
+
+    it("refuses to export when nothing is spendable", async () => {
+      // the calls the P-chain builders gather their inputs with: here, no UTXOs at all
+      const clients = {
+        context: () => replay.env.clients.context(),
+        pvm: {
+          getFeeState: () => replay.env.clients.pvm.getFeeState(),
+          getUTXOs: () => Promise.resolve({ numFetched: 0, utxos: [], endIndex: { address: "", utxo: "" } }),
+        },
+      };
+      const empty = { network: replay.env.network, clients } as unknown as Env;
+      await buildTransaction({ type: "exportPC" }, empty, account, IMMEDIATE_SIGNER_POLICY).then(
+        () => expect.fail("exported from an empty account"),
+        (error: unknown) => expect(String(error)).to.include("Export amount is smaller than or equal to zero")
       );
     });
   });

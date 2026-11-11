@@ -39,7 +39,7 @@ export function evmSignatureHex(signature: Signature): string {
   }
   const recovery = recoveryV(typeof v === "number" ? v : parseInt(toHex(v, false), 16));
   if (recovery === undefined) {
-    // no signature has such a v; up to 5.0.0 it became a malformed signature
+    // no signature has such a v
     throw new Error(`Invalid signature v from the Ledger device: ${String(v)}`);
   }
   return toHex(r, false) + toHex(s, false) + recovery.toString(16);

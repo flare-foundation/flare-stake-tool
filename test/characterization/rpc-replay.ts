@@ -14,6 +14,8 @@
 import http from "http";
 import fs from "fs";
 import path from "path";
+import { createHash } from "crypto";
+import { utils } from "@flarenetwork/flarejs";
 import { stableStringify, type JsonRpcRequest, type JsonRpcResponse } from "../helpers/rpc";
 
 export type Mode = "replay" | "record";
@@ -45,6 +47,13 @@ export interface Stub {
 }
 
 export const SUBMISSION_METHODS = new Set(["platform.issueTx", "avax.issueTx", "eth_sendRawTransaction"]);
+export const ATOMIC_SUBMISSION_METHODS = new Set(["platform.issueTx", "avax.issueTx"]);
+
+/** The id of an atomic transaction as issueTx posts it: the signed bytes in hex, followed by a 4-byte checksum. */
+export function atomicTxId(txHex: string): string {
+  const signed = utils.hexToBuffer(txHex).slice(0, -4);
+  return utils.base58check.encode(createHash("sha256").update(signed).digest());
+}
 
 /** Hex strings (addresses, hashes) are case-insensitive: web3 sends checksummed addresses, ethers lowercase. */
 function normalizeParams(value: unknown): unknown {

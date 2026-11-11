@@ -17,7 +17,9 @@ install. Hardware-wallet support: Ledger (Flare, Avalanche and Ethereum apps).
 src/
   run.ts                    Entry script: alias rewrite (exportCP → transaction exportCP), banner in interactive mode, Commander dispatch
   cli.ts                    Commander definitions; each action parses options, resolves env + signer and calls app/
-  cli/options.ts            Typed option parsing (FLR → nFLR/wei bigint, durations, percentages), signer and env resolution
+  cli/requests.ts           Command options → TxRequest (FLR → nFLR/wei bigint, durations, percentages)
+  cli/inputs.ts             Input parsers shared with interactive mode (BLS hex, nonce, times, fee flags from argv)
+  cli/options.ts            Options every command shares; signer, env and account resolution
   app/env.ts                Network resolution (--network, else ctx.json, else flare) and the ctx.json file
   app/transactions.ts       Pre-flight checks (max 3 nodes, validator exists/period, Helicon gate) + the pipeline
   app/send.ts               send -i: attach an external signature to a stored transaction and submit
@@ -44,7 +46,7 @@ src/
   constants/fees.ts         Fixed EIP-1559 fees per C-chain operation
   constants/screen.ts       Menu labels
 test/unit/                  Mocha unit tests (pure functions, signers, builders without a node)
-test/characterization/      Record/replay goldens for every signing path (offline)
+test/characterization/      Record/replay goldens for every signing path, and the scripted interactive menu (offline)
 test/integration/           Mocha integration tests against an externally running localflare
 ```
 
@@ -92,7 +94,7 @@ recipient has contract code.
 
 ## Unit conventions (read carefully)
 
-- `-a` (amount) and `-f` (fee) are in **FLR** on every path; `cli/options.ts`
+- `-a` (amount) and `-f` (fee) are in **FLR** on every path; `cli/requests.ts`
   converts them with `parseFlr` to **nFLR** (bigint, 9 decimals) for
   P-chain/atomic requests and with `parseFlrToWei` to **wei** (18 decimals)
   for C-chain commands. Extra non-zero decimals and commas are errors, never
@@ -193,11 +195,26 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
 `pnpm test:record-fixtures` runs ~45 scenarios against a live localflare with
 all JSON-RPC traffic proxied through `rpc-replay.ts`, saving per-scenario
 fixtures (`test/fixtures/rpc/`) and goldens (`test/golden/`: unsigned tx
-bytes, message hash, ForDefi hash, submitted signed bytes, tx ids). `pnpm test`
-replays every golden offline; a difference means behaviour changed. An
-intentional change must update the golden **in the same commit** as the
-CHANGELOG and `docs/COMMANDS.md` entry. Re-record only when the scenario
-inputs change, never to make a failing golden pass.
+bytes, message hash, ForDefi hash, submitted signed bytes, tx ids, printed
+stdout and stderr). `pnpm test` replays every golden offline; a difference
+means behaviour changed. An intentional change must update the golden **in
+the same commit** as the CHANGELOG and `docs/COMMANDS.md` entry
+(`UPDATE_GOLDENS=<name>,…` or `all` rewrites goldens from the current code).
+The replay answers every submission with the recorded id whatever bytes are
+sent, so an update that changes the submitted bytes must also change the
+fixture's submission, its id and the receipts or status queries for it: the
+goldens check that each reported id is the id of the bytes sent, and
+`fixtures.test.ts` that each recorded id is the id of its recorded bytes.
+Re-record only when the scenario inputs change, never to make a failing
+golden pass. The printed output includes the warning for an end time that is
+not in the future, which depends on the clock: keep the recorded end times in
+the past so that it always prints.
+
+Interactive mode has its own golden, `test/golden/interactive-menu.txt`:
+`interactive-session.ts` answers the menu from a script with every node and
+device call replaced, and records each question, answer, printed line,
+request and written file. `interactive.test.ts` runs it against `dist/` and
+compares the transcript.
 
 ## Tests as executable specifications
 
@@ -250,8 +267,12 @@ it — both example-based and property-based where applicable.
 - `src/ledger/` talks to the device: `transport.ts` opens and always closes the
   USB transport (`withApp`), `bytes.ts` normalizes signatures (`rsvHex`,
   `evmSignatureHex`), and `index.ts` routes each call to the open app, which
-  is detected once with the dashboard APDU. None of it runs in the tests; check
-  changes on a real device (Flare, Avalanche and Ethereum apps).
+  is asked again with the dashboard APDU before every operation, so the user
+  can switch apps in between. The tests cover the signature helpers, the
+  Avalanche path split, app detection with an injected answer and
+  `LedgerSigner` with a fake device; the transport and the app clients run only
+  against a device, so check changes there on a real one (Flare, Avalanche and
+  Ethereum apps).
 
 ## Release process
 

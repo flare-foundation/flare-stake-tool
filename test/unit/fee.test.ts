@@ -20,28 +20,12 @@ import {
   type UnsignedTxBundle,
 } from "../../src/core/types";
 import { describeFee } from "../../src/output";
-import { localflareNetworkIdStub } from "../characterization/node-stubs";
-import { RpcReplayServer } from "../characterization/rpc-replay";
-import { fixturePath, readGolden } from "../characterization/scenarios";
+import { readGolden } from "../characterization/scenarios";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
+import { withReplay } from "../helpers/replay";
 
 const ONE_FLR = 1_000_000_000n;
 const account = accountFromPrivateKey(getBytes(`0x${EWOQ_PRIVATE_KEY_HEX}`), "localflare");
-
-async function withReplay<T>(scenario: string, run: (env: ReturnType<typeof createEnv>) => Promise<T>): Promise<T> {
-  const server = await RpcReplayServer.start({
-    mode: "replay",
-    fixturePath: fixturePath(scenario),
-    stubs: [localflareNetworkIdStub],
-  });
-  const env = createEnv("localflare", { apiUrl: server.url });
-  try {
-    return await run(env);
-  } finally {
-    env.clients.provider.destroy();
-    await server.close();
-  }
-}
 
 const atomicBytes = (bundle: UnsignedTxBundle): string =>
   bundle.kind === "atomic" ? Buffer.from(bundle.unsignedTx.toBytes()).toString("hex") : "";

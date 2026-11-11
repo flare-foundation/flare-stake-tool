@@ -16,6 +16,11 @@ import {
 } from "../../src/chain/units";
 
 describe("chain/units", () => {
+  it("formats a negative amount with a leading minus", () => {
+    expect(formatDecimal(-1_500_000_000n, 9)).to.equal("-1.5");
+    expect(formatFlr(-1n)).to.equal("-0.000000001");
+  });
+
   describe("parseFlr / formatFlr", () => {
     it("keeps the previous decimalToInteger / integerToDecimal semantics", () => {
       expect(parseFlr("0")).to.equal(0n);
@@ -100,6 +105,10 @@ describe("chain/units", () => {
       expect(parseDuration("1w")).to.equal(604_800n);
       expect(parseDuration("1w2d3h4m5s")).to.equal(604_800n + 172_800n + 10_800n + 240n + 5n);
       expect(parseDuration(" 90m ")).to.equal(5_400n);
+    });
+
+    it("refuses to format a negative duration", () => {
+      expect(() => formatDuration(-1n)).to.throw("Duration cannot be negative");
     });
 
     it("rejects ascending order, fractions, unknown units, repeats and empty input", () => {

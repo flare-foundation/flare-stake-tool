@@ -5,7 +5,7 @@
  */
 import fs from "fs";
 import path from "path";
-import { CLI_ENTRY, REPO_ROOT, runCli, runCliAsync, spawnAsync, writeEnvFile } from "../helpers/cli";
+import { CLI_ENTRY, REPO_ROOT, runCli, runCliAsync, writeEnvFile } from "../helpers/cli";
 import {
   EWOQ_PRIVATE_KEY_CB58,
   EWOQ_PRIVATE_KEY_HEX,
@@ -74,6 +74,15 @@ export function fixturePath(name: string): string {
 
 export function readGolden(name: string): Golden {
   return JSON.parse(fs.readFileSync(goldenPath(name), "utf8")) as Golden;
+}
+
+/** UPDATE_GOLDENS=name1,name2 (or "all") rewrites those goldens from the current code. */
+export function updateRequested(name: string): boolean {
+  const requested = (process.env["UPDATE_GOLDENS"] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return requested.includes("all") || requested.includes(name);
 }
 
 export function listGoldens(): string[] {
@@ -208,13 +217,15 @@ export async function runScenario(spec: ScenarioSpec, ctx: RunContext): Promise<
   return outcome;
 }
 
-/** The fields of an outcome that must be identical between runs / implementations. */
+/** The fields of an outcome that must be identical between runs: everything the command produced or printed. */
 export function comparableOutcome(outcome: ScenarioOutcome): unknown {
   return {
     exitCode: outcome.exitCode,
     txIds: outcome.txIds,
     unsignedTxJson: outcome.unsignedTxJson ?? null,
     submissions: outcome.submissions,
+    stdout: outcome.stdout,
+    stderr: outcome.stderr,
   };
 }
 

@@ -1,16 +1,17 @@
 import { expect } from "chai";
 import {
+  BASE_DERIVATION_PATH,
   evmFeeOverridesFromArgv,
-  parseAtomicTxRequest,
   parseBlsHex,
-  parseEvmTxRequest,
   parseNonce,
   pastEndTimeWarning,
-} from "../../src/cli/options";
+} from "../../src/cli/inputs";
+import { globalOptions } from "../../src/cli/options";
+import { parseAtomicTxRequest, parseEvmTxRequest } from "../../src/cli/requests";
 
 const TO = "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC";
 
-describe("cli/options", () => {
+describe("cli/inputs, cli/requests and cli/options", () => {
   describe("--nonce", () => {
     it("accepts non-negative integers and leaves an absent nonce to the chain", () => {
       expect(parseNonce(undefined)).to.equal(undefined);
@@ -111,6 +112,74 @@ describe("cli/options", () => {
       expect(() => evmFeeOverridesFromArgv(["node", "run.js", "interactive", "--gas-limit", "abc"])).to.throw(
         /--gas-limit must be a positive integer/
       );
+    });
+  });
+
+  describe("refused requests", () => {
+    const BLS = { popBlsPublicKey: "0x" + "a1".repeat(48), popBlsSignature: "0x" + "b2".repeat(96) };
+
+    it("names the missing option and its flag", () => {
+      expect(() => parseAtomicTxRequest("delegate", { amount: "1", endTime: "14d" })).to.throw(
+        "nodeId is required for delegate transaction. Use --node-id <nodeId> to specify the nodeId"
+      );
+      expect(() => parseEvmTxRequest("custom", { value: "1" })).to.throw(
+        "to is required for customCChainTx transaction. Use --to <address> to specify the to"
+      );
+    });
+
+    it("refuses auto-compound shares that are not an integer from 0 to 1000000", () => {
+      for (const autoCompoundShares of ["1000001", "-1", "0.5", "abc"]) {
+        const options = { amount: "10000", nodeId: "NodeID-X", period: "14d", ...BLS, autoCompoundShares };
+        expect(() => parseAtomicTxRequest("addAutoRenewedValidator", options), autoCompoundShares).to.throw(
+          "--auto-compound-shares must be an integer between 0 and 1000000 (millionths)"
+        );
+      }
+      const options = { amount: "10000", nodeId: "NodeID-X", period: "14d", ...BLS, autoCompoundShares: "1000000" };
+      expect(parseAtomicTxRequest("addAutoRenewedValidator", options).request).to.include({ autoCompoundShares: 1e6 });
+    });
+
+    it("needs the validator of an auto-renew config change, by node id or validation tx id", () => {
+      expect(() => parseAtomicTxRequest("setAutoRenewedValidatorConfig", { period: "0" })).to.throw(
+        "setAutoRenewedValidatorConfig needs the validator: use --node-id <nodeId> or --validator-tx-id <txID>"
+      );
+    });
+
+    it("refuses an unknown transaction type and a --value that is not an integer amount of wei", () => {
+      expect(() => parseAtomicTxRequest("stakeAll", {})).to.throw("Unknown transaction type: stakeAll");
+      for (const value of ["1.5", "1e18", "-1", "0x10"]) {
+        expect(() => parseEvmTxRequest("custom", { to: TO, value }), value).to.throw(
+          "--value must be an integer amount of wei"
+        );
+      }
+    });
+  });
+
+  describe("globalOptions", () => {
+    it("merges the program options with the command's, the command's winning", () => {
+      const merged = globalOptions(
+        { network: "costwo", transactionId: "from-program", ledger: true },
+        { transactionId: "from-command", amount: "5" }
+      );
+      expect(merged).to.deep.equal({
+        network: "costwo",
+        transactionId: "from-command",
+        ledger: true,
+        amount: "5",
+        derivationPath: BASE_DERIVATION_PATH,
+        ctxFile: "ctx.json",
+      });
+    });
+
+    it("defaults the derivation path and the context file only when they are not strings", () => {
+      expect(globalOptions({}, {})).to.include({ derivationPath: BASE_DERIVATION_PATH, ctxFile: "ctx.json" });
+      expect(globalOptions({ derivationPath: 3, ctxFile: true })).to.include({
+        derivationPath: BASE_DERIVATION_PATH,
+        ctxFile: "ctx.json",
+      });
+      expect(globalOptions({ derivationPath: "m/44'/60'/1'/0/0", ctxFile: "other.json" })).to.include({
+        derivationPath: "m/44'/60'/1'/0/0",
+        ctxFile: "other.json",
+      });
     });
   });
 });

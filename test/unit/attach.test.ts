@@ -12,7 +12,7 @@ import {
   messageHashFromUnsignedTx,
   utils,
 } from "@flarenetwork/flarejs";
-import { getBytes } from "ethers";
+import { Transaction, getBytes } from "ethers";
 import { accountFromPrivateKey } from "../../src/chain/keys";
 import { attachSignature, isFullySigned, signatureSlots } from "../../src/core/signing/attach";
 import { chainOfAtomicTx, type UnsignedTxBundle } from "../../src/core/types";
@@ -48,9 +48,9 @@ const context = {
 } as unknown as Parameters<typeof pvm.newBaseTx>[1];
 
 const feeState = { capacity: 1_000_000n, excess: 0n, price: 1n, timestamp: new Date().toISOString() };
-const utxoOf = (owner: Uint8Array) =>
+const utxoOf = (owner: Uint8Array, outputIndex = 0) =>
   new Utxo(
-    new avaxSerial.UTXOID(Id.fromString("2QGB9NgqRDs2XtWhLtoTFyyLNYDvpSFtwbFAP1vDM7uWiwqoib"), new Int(0)),
+    new avaxSerial.UTXOID(Id.fromString("2QGB9NgqRDs2XtWhLtoTFyyLNYDvpSFtwbFAP1vDM7uWiwqoib"), new Int(outputIndex)),
     Id.fromString(context.avaxAssetID),
     new TransferOutput(new BigIntPr(50_000_000_000n), OutputOwners.fromNative([owner]))
   );
@@ -77,22 +77,39 @@ function configTx(): UnsignedTxBundle {
   };
 }
 
-function baseTx(): UnsignedTxBundle {
+/** A transfer spending the given owners' 50 FLR UTXOs (one each); `amount` decides how many inputs it needs. */
+function baseTx(owners: Uint8Array[] = [account.addressBytes], amount = 1_000_000_000n): UnsignedTxBundle {
   const unsignedTx = pvm.newBaseTx(
     {
       feeState,
-      utxos: [utxoOf(account.addressBytes)],
-      fromAddressesBytes: [account.addressBytes],
+      utxos: owners.map((owner, i) => utxoOf(owner, i)),
+      fromAddressesBytes: owners,
       outputs: [
         new avaxSerial.TransferableOutput(
           Id.fromString(context.avaxAssetID),
-          new TransferOutput(new BigIntPr(1_000_000_000n), OutputOwners.fromNative([other.addressBytes]))
+          new TransferOutput(new BigIntPr(amount), OutputOwners.fromNative([other.addressBytes]))
         ),
       ],
     },
     context
   );
   return { kind: "atomic", chain: "P", txType: "transfer", unsignedTx, digest: messageHashFromUnsignedTx(unsignedTx) };
+}
+
+/** A C-chain withdrawal as the EVM builders make it (type 2), unsigned. */
+function evmTx(): UnsignedTxBundle {
+  const rawTx = {
+    type: 2,
+    chainId: 162n,
+    nonce: 0,
+    to: other.cAddress,
+    value: 10n ** 18n,
+    gasLimit: 21_000n,
+    maxFeePerGas: 300_000_000_000n,
+    maxPriorityFeePerGas: 20_000_000_000n,
+  };
+  const tx = Transaction.from(rawTx);
+  return { kind: "evm", txType: "withdrawal", tx, rawTx, digest: getBytes(tx.unsignedHash) };
 }
 
 describe("core/signing/attach", () => {
@@ -131,5 +148,38 @@ describe("core/signing/attach", () => {
     expect(() => attachSignature(bundle, foreign, account)).to.throw(/does not belong to the configured account/);
     expect(() => attachSignature(bundle, "deadbeef", account)).to.throw(/Invalid signature length/);
     expect(utils.bufferToHex(bundle.digest).length).to.equal(66);
+  });
+
+  it("refuses the account's own signature when it owns no input of the transaction", async () => {
+    const bundle = baseTx([other.addressBytes]);
+    if (bundle.kind !== "atomic") throw new Error("atomic expected");
+    const signature = await secp256k1.signHash(bundle.digest, privateKey);
+    expect(() => attachSignature(bundle, signature, account)).to.throw(
+      "The configured account does not own any input of this transaction"
+    );
+    expect(isFullySigned(bundle.unsignedTx)).to.equal(false);
+  });
+
+  it("refuses to leave a credential unsigned when another owner's input is spent too", async () => {
+    const bundle = baseTx([account.addressBytes, other.addressBytes], 60_000_000_000n); // needs both 50 FLR inputs
+    if (bundle.kind !== "atomic") throw new Error("atomic expected");
+    expect(bundle.unsignedTx.getCredentials().length).to.equal(2);
+    const signature = await secp256k1.signHash(bundle.digest, privateKey);
+    expect(() => attachSignature(bundle, signature, account)).to.throw(
+      "The transaction still has unsigned credentials"
+    );
+  });
+
+  it("attaches an EVM signature only when it recovers to the configured account", async () => {
+    const signed = evmTx();
+    if (signed.kind !== "evm") throw new Error("evm expected");
+    attachSignature(signed, await secp256k1.signHash(signed.digest, privateKey), account);
+    expect(signed.tx.from).to.equal(account.cAddress);
+
+    const foreign = evmTx();
+    const foreignSignature = await secp256k1.signHash(foreign.digest, otherKey);
+    expect(() => attachSignature(foreign, foreignSignature, account)).to.throw(
+      "The signature does not belong to the configured account (recovered address differs)"
+    );
   });
 });

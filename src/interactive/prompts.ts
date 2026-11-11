@@ -1,8 +1,38 @@
 import { styleText } from "node:util";
 import inquirer from "inquirer";
-import { parseDuration, parseFlr } from "../chain/units";
-import { parseBlsHex } from "../cli/options";
-import { taskConstants, networkConstants, walletConstants, derivationModeConstants } from "../constants/screen";
+import { parseDuration, parseFlr, parseFlrToWei } from "../chain/units";
+import { parseBlsHex } from "../cli/inputs";
+import {
+  derivationModeConstants,
+  networkConstants,
+  taskConstants,
+  walletConstants,
+  type DerivationMode,
+  type NetworkId,
+  type TaskId,
+  type WalletId,
+} from "../constants/screen";
+
+/** A list choice: inquirer shows `name` and answers `value`. */
+export interface Choice<T> {
+  name: string;
+  value: T;
+}
+
+/** The choices of a label table, in its order: each shows its label and answers its key. */
+function choicesOf<K extends string>(labels: Readonly<Record<K, string>>): Choice<K>[] {
+  return (Object.keys(labels) as K[]).map((value) => ({ name: labels[value], value }));
+}
+
+const YES_NO: Choice<boolean>[] = [
+  { name: "Yes", value: true },
+  { name: "No", value: false },
+];
+
+const ask = (text: string): string => styleText("magenta", text);
+
+/** A question with a hint in brackets: "<text> <hint>:". */
+const askWithHint = (text: string, hint: string): string => `${ask(text)} ${styleText("yellow", hint)}${ask(":")}`;
 
 /** inquirer `validate`: true when `parse` accepts the input, else its error message (the prompt asks again). */
 function validationOf(parse: () => unknown): true | string {
@@ -14,355 +44,140 @@ function validationOf(parse: () => unknown): true | string {
   }
 }
 
-/**
- * Provides various prompts used in the CLI for user interaction.
- */
-export const prompts = {
-  connectWallet: async () => {
-    const questions = [
-      {
-        type: "list",
-        name: "wallet",
-        message: styleText("magenta", "How do you want to connect your wallet?"),
-        choices: [...Object.values(walletConstants)],
-        filter: (val: string) => {
-          const key = Object.keys(walletConstants).find((key) => walletConstants[key] === val);
-          return key;
-        },
-      },
-    ];
-    return inquirer.prompt<{ wallet: string }>(questions);
-  },
-  derivationType: async () => {
-    const questions = [
-      {
-        type: "list",
-        name: "derivation",
-        message: styleText("magenta", "Choose derivation path..."),
-        choices: [...Object.values(derivationModeConstants)],
-        filter: (val: string) => {
-          const key = Object.keys(derivationModeConstants).find((key) => derivationModeConstants[key] === val);
-          return key;
-        },
-      },
-    ];
-    return inquirer.prompt<{ derivation: string }>(questions);
-  },
-  pvtKeyPath: async () => {
-    const questions = [
-      {
-        type: "input",
-        name: "pvtKeyPath",
-        message:
-          styleText("magenta", "Enter Path to Private Key file") +
-          " " +
-          styleText("yellow", "(E.g. /home/wallet/pvtKeyFile)") +
-          styleText("magenta", ":"),
-      },
-    ];
-    return inquirer.prompt<{ pvtKeyPath: string }>(questions);
-  },
+interface InputOptions {
+  /** Answered by Enter on an empty line. */
+  default?: string | undefined;
+  /** true accepts the answer; a message is shown and the question asked again. */
+  validate?: (value: string) => true | string;
+}
 
-  amount: async (amountPurpose: string = "", defaultAmount?: string) => {
-    const questions = [
-      {
-        type: "input",
-        default: defaultAmount,
-        name: "amount",
-        message: styleText("magenta", `Enter amount ${amountPurpose}`) + " " + styleText("magenta", `(in FLR):`),
-      },
-    ];
-    return inquirer.prompt<{ amount: string }>(questions);
-  },
+async function input(message: string, options: InputOptions = {}): Promise<string> {
+  const { answer } = await inquirer.prompt<{ answer: string }>([
+    { type: "input", name: "answer", message, ...options },
+  ]);
+  return answer;
+}
+
+async function select<T>(message: string, choices: Choice<T>[]): Promise<T> {
+  const { answer } = await inquirer.prompt<{ answer: T }>([{ type: "list", name: "answer", message, choices }]);
+  return answer;
+}
+
+/** A yes/no question; the default is no. */
+async function confirm(message: string): Promise<boolean> {
+  const { answer } = await inquirer.prompt<{ answer: boolean }>([
+    { type: "confirm", name: "answer", default: false, message },
+  ]);
+  return answer;
+}
+
+/** The questions of interactive mode; each resolves to the answer. */
+export const prompts = {
+  connectWallet: (): Promise<WalletId> =>
+    select(ask("How do you want to connect your wallet?"), choicesOf(walletConstants)),
+
+  derivationType: (): Promise<DerivationMode> =>
+    select(ask("Choose derivation path..."), choicesOf(derivationModeConstants)),
+
+  pvtKeyPath: (): Promise<string> =>
+    input(askWithHint("Enter Path to Private Key file", "(E.g. /home/wallet/pvtKeyFile)")),
+
+  amount: (defaultAmount?: string): Promise<string> =>
+    input(ask("Enter amount (in FLR):"), {
+      default: defaultAmount,
+      validate: (value) => validationOf(() => parseFlr(value)),
+    }),
 
   // exportCP and importPC fee: the default is the estimate from the current base fee, when there is one
-  fees: async (estimate: string | undefined, symbol: string) => {
+  fees: (estimate: string | undefined, symbol: string): Promise<string> => {
     const hint =
       estimate === undefined
         ? "(leave empty to estimate it at twice the current base fee)"
         : `(Enter accepts ${estimate} ${symbol}: twice the current base fee, headroom for a rise before it lands)`;
-    const questions = [
-      {
-        type: "input",
-        name: "fees",
-        default: estimate,
-        message:
-          styleText("magenta", "Enter fee (in FLR)") + " " + styleText("yellow", hint) + styleText("magenta", ":"),
-        validate: (value: string) => (value.trim() === "" ? true : validationOf(() => parseFlr(value))),
-      },
-    ];
-    return inquirer.prompt<{ fees: string }>(questions);
+    return input(askWithHint("Enter fee (in FLR)", hint), {
+      default: estimate,
+      validate: (value) => (value.trim() === "" ? true : validationOf(() => parseFlr(value))),
+    });
   },
 
-  nodeId: async () => {
-    const questions = [
-      {
-        type: "input",
-        name: "id",
-        message:
-          styleText("magenta", "Enter NodeId") +
-          " " +
-          styleText("yellow", "(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)") +
-          styleText("magenta", ":"),
-      },
-    ];
-    return inquirer.prompt<{ id: string }>(questions);
-  },
+  nodeId: (): Promise<string> => input(askWithHint("Enter NodeId", "(E.g. NodeID-FQKTLuZHEsjCxPeFTFgsojsucmdyNDsz1)")),
 
-  unixTime: async (timeType: string) => {
-    const questions = [
-      {
-        type: "input",
-        name: "time",
-        message:
-          styleText("magenta", `Enter ${timeType} time`) +
-          " " +
-          styleText("yellow", "(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)") +
-          styleText("magenta", ":"),
-      },
-    ];
-    return inquirer.prompt<{ time: string }>(questions);
-  },
+  unixTime: (timeType: string): Promise<string> =>
+    input(
+      askWithHint(`Enter ${timeType} time`, "(unix seconds, e.g. 1693185095, or a duration from now such as 2d12h)")
+    ),
 
   // No default: for a configuration change, a default of 0 would stop the validator on a stray Enter.
-  period: async (purpose: "add" | "change") => {
+  period: (purpose: "add" | "change"): Promise<string> => {
     const hint =
       purpose === "change"
         ? "(seconds or a duration such as 14d; 0 stops auto-renewal at the end of the current cycle)"
         : "(seconds or a duration such as 14d)";
-    const questions = [
-      {
-        type: "input",
-        name: "period",
-        message:
-          styleText("magenta", "Enter the validation period") +
-          " " +
-          styleText("yellow", hint) +
-          styleText("magenta", ":"),
-        validate: (value: string) => validationOf(() => parseDuration(value)),
-      },
-    ];
-    return inquirer.prompt<{ period: string }>(questions);
+    return input(askWithHint("Enter the validation period", hint), {
+      validate: (value) => validationOf(() => parseDuration(value)),
+    });
   },
 
-  confirmStopAutoRenewal: async (cycleEnd?: string) => {
-    const questions = [
-      {
-        type: "confirm",
-        name: "stop",
-        default: false,
-        message: styleText(
-          "magenta",
-          `A period of 0 stops auto-renewal: the validator leaves at the end of its current cycle` +
-            `${cycleEnd ? ` (${cycleEnd})` : ""} and the stake is returned. Stop auto-renewal?`
-        ),
-      },
-    ];
-    return inquirer.prompt<{ stop: boolean }>(questions);
-  },
+  confirmStopAutoRenewal: (cycleEnd?: string): Promise<boolean> =>
+    confirm(
+      ask(
+        `A period of 0 stops auto-renewal: the validator leaves at the end of its current cycle` +
+          `${cycleEnd ? ` (${cycleEnd})` : ""} and the stake is returned. Stop auto-renewal?`
+      )
+    ),
 
-  ctxFile: async () => {
-    const questions = [
-      {
-        type: "list",
-        name: "isContinue",
-        message: styleText("magenta", "Do you wish to continue with this?"),
-        choices: ["Yes", "No"],
-        filter: (val: string) => {
-          return val === "Yes" ? true : false;
-        },
-      },
-    ];
-    return inquirer.prompt<{ isContinue: boolean }>(questions);
-  },
+  ctxFile: (): Promise<boolean> => select(ask("Do you wish to continue with this?"), YES_NO),
 
   // a context file that is not a Ledger one (e.g. ForDefi) would be replaced
-  replaceCtxFile: async (file: string) => {
-    const questions = [
-      {
-        type: "confirm",
-        name: "replace",
-        default: false,
-        message: styleText(
-          "magenta",
-          `Replace ${file} with a Ledger context? The current file is kept as a ${file}.<time>.bak backup.`
-        ),
-      },
-    ];
-    return inquirer.prompt<{ replace: boolean }>(questions);
-  },
+  replaceCtxFile: (file: string): Promise<boolean> =>
+    confirm(ask(`Replace ${file} with a Ledger context? The current file is kept as a ${file}.<time>.bak backup.`)),
 
   // a typed C-chain fee below the cost at the current base fee; No asks for the fee again
-  confirmLowFee: async () => {
-    const questions = [
-      {
-        type: "confirm",
-        name: "send",
-        default: false,
-        message: styleText("magenta", "Send with this fee anyway?"),
-      },
-    ];
-    return inquirer.prompt<{ send: boolean }>(questions);
-  },
+  confirmLowFee: (): Promise<boolean> => confirm(ask("Send with this fee anyway?")),
 
-  selectNetwork: async () => {
-    const questions = [
-      {
-        type: "list",
-        name: "network",
-        message: styleText("magenta", "Which network do you want to connect to?"),
-        choices: [...Object.values(networkConstants)],
-        filter: (val: string) => {
-          const key = Object.keys(networkConstants).find((key) => networkConstants[key] === val);
-          return key;
-        },
-      },
-    ];
-    return inquirer.prompt<{ network: string }>(questions);
-  },
+  selectNetwork: (): Promise<NetworkId> =>
+    select(ask("Which network do you want to connect to?"), choicesOf(networkConstants)),
 
-  selectTask: async () => {
-    const questions = [
-      {
-        type: "list",
-        name: "task",
-        message: styleText("magenta", "What do you want to do?"),
-        choices: [...Object.values(taskConstants)],
-        filter: (val: string) => {
-          const key = Object.keys(taskConstants).find((key) => taskConstants[key] === val);
-          return key;
-        },
-      },
-    ];
-    return inquirer.prompt<{ task: string }>(questions);
-  },
+  selectTask: (): Promise<TaskId> => select(ask("What do you want to do?"), choicesOf(taskConstants)),
 
-  selectAddress: async (choiceList: string[]) => {
-    const questions = [
-      {
-        type: "list",
-        name: "address",
-        message: styleText("magenta", "Which address do you want to use?"),
-        choices: [...choiceList],
-        filter: (val: string) => {
-          const address = val.split(" ")[1];
-          return address;
-        },
-      },
-    ];
-    return inquirer.prompt<{ address: string }>(questions);
-  },
+  selectAddress: <T>(choices: Choice<T>[]): Promise<T> => select(ask("Which address do you want to use?"), choices),
 
-  delegationFee: async () => {
-    const questions = [
-      {
-        type: "input",
-        name: "fee",
-        message:
-          styleText("magenta", "Enter delegation fee") +
-          " " +
-          styleText("yellow", "(E.g. 10)") +
-          styleText("magenta", ":"),
-      },
-    ];
-    return inquirer.prompt<{ fee: string }>(questions);
-  },
+  delegationFee: (): Promise<string> => input(askWithHint("Enter delegation fee", "(E.g. 10)")),
 
-  importTrxType: async () => {
-    const questions = [
-      {
-        type: "list",
-        name: "type",
-        message: styleText("magenta", "Please select the destination chain to which you want to import your funds?"),
-        choices: ["P", "C"],
-      },
-    ];
-    return inquirer.prompt<{ type: string }>(questions);
-  },
-  popBLSPublicKey: async () => {
-    const questions = [
-      {
-        type: "input",
-        name: "popBLSPublicKey",
-        message: styleText("magenta", "Please enter the popBLSPublicKey:"),
-        validate: (value: string) => validationOf(() => parseBlsHex(value, "publicKey")),
-      },
-    ];
-    return inquirer.prompt<{ popBLSPublicKey: string }>(questions);
-  },
-  popBLSSignature: async () => {
-    const questions = [
-      {
-        type: "input",
-        name: "popBLSSignature",
-        message: styleText("magenta", "Please enter the popBLSSignature:"),
-        validate: (value: string) => validationOf(() => parseBlsHex(value, "signature")),
-      },
-    ];
-    return inquirer.prompt<{ popBLSSignature: string }>(questions);
-  },
-  transferAddress: async () => {
-    const questions = [
-      {
-        type: "input",
-        name: "transferAddress",
-        message: styleText("magenta", "Enter destination P-chain address:"),
-      },
-    ];
-    return inquirer.prompt<{ transferAddress: string }>(questions);
-  },
-  // wrap rewards when claiming staking rewards
-  wrapRewards: async () => {
-    const questions = [
-      {
-        type: "list",
-        name: "wrapRewards",
-        message: styleText("magenta", "Should claimed rewards be wrapped?"),
-        choices: ["Yes", "No"],
-        filter: (val: string) => {
-          return val === "Yes" ? true : false;
-        },
-      },
-    ];
-    return inquirer.prompt<{ wrapRewards: boolean }>(questions);
-  },
-  // recipient address to receive claimed staking rewards
-  recipientAddress: async (defaultAddress?: string) => {
-    const questions = [
-      {
-        type: "input",
-        default: defaultAddress,
-        name: "recipientAddress",
-        message: styleText("magenta", "Please enter the recipient address (default address is reward owner):"),
-      },
-    ];
-    return inquirer.prompt<{ recipientAddress: string }>(questions);
-  },
-  claimAmount: async () => {
-    const questions = [
-      {
-        type: "input",
-        name: "claimAmount",
-        message: styleText("magenta", "Please enter the amount to claim:"),
-      },
-    ];
-    return inquirer.prompt<{ claimAmount: number }>(questions);
-  },
-  claimAllUnclaimed: async (totalUnclaimed?: string, symbol?: string) => {
-    const questions = [
-      {
-        type: "list",
-        name: "claimAllUnclaimed",
-        message: styleText(
-          "magenta",
-          `Do you want to claim all unclaimed rewards? ${totalUnclaimed ? "(total unclaimed: " + totalUnclaimed + " " + symbol + ")" : ""}`
-        ),
-        choices: ["Yes", "No"],
-        filter: (val: string) => {
-          return val === "Yes" ? true : false;
-        },
-      },
-    ];
-    return inquirer.prompt<{ claimAllUnclaimed: boolean }>(questions);
-  },
+  importTrxType: (): Promise<"P" | "C"> =>
+    select(ask("Please select the destination chain to which you want to import your funds?"), [
+      { name: "P", value: "P" },
+      { name: "C", value: "C" },
+    ]),
+
+  popBLSPublicKey: (): Promise<string> =>
+    input(ask("Please enter the popBLSPublicKey:"), {
+      validate: (value) => validationOf(() => parseBlsHex(value, "publicKey")),
+    }),
+
+  popBLSSignature: (): Promise<string> =>
+    input(ask("Please enter the popBLSSignature:"), {
+      validate: (value) => validationOf(() => parseBlsHex(value, "signature")),
+    }),
+
+  transferAddress: (): Promise<string> => input(ask("Enter destination P-chain address:")),
+
+  wrapRewards: (): Promise<boolean> => select(ask("Should claimed rewards be wrapped?"), YES_NO),
+
+  recipientAddress: (defaultAddress?: string): Promise<string> =>
+    input(ask("Please enter the recipient address (default address is reward owner):"), { default: defaultAddress }),
+
+  // a C-chain amount: wei precision (18 decimals)
+  claimAmount: (): Promise<string> =>
+    input(ask("Please enter the amount to claim:"), {
+      validate: (value) => validationOf(() => parseFlrToWei(value)),
+    }),
+
+  claimAllUnclaimed: (totalUnclaimed?: string, symbol?: string): Promise<boolean> =>
+    select(
+      ask(
+        `Do you want to claim all unclaimed rewards? ${totalUnclaimed ? "(total unclaimed: " + totalUnclaimed + " " + symbol + ")" : ""}`
+      ),
+      YES_NO
+    ),
 };

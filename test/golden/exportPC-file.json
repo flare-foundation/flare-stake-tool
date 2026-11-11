@@ -17,7 +17,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "  _____ _                  ____  _        _           ____ _     ___ \n |  ___| | __ _ _ __ ___  / ___|| |_ __ _| | _____   / ___| |   |_ _|\n | |_  | |/ _` | '__/ _ \\ \\___ \\| __/ _` | |/ / _ \\ | |   | |    | | \n |  _| | | (_| | | |  __/  ___) | || (_| |   <  __/ | |___| |___ | | \n |_|   |_|\\__,_|_|  \\___| |____/ \\__\\__,_|_|\\_\\___|  \\____|_____|___|\n                                                                     \nVersion: 4.4.0\nUsing network: localflare\nUnsigned transaction exportPC-file constructed\nForDefi hash: roydPp3gdA02bPjSufX3VY+DUbUcvyM9HOD+PHbzLbk=\n",
+    "stdout": "Unsigned transaction exportPC-file constructed\nForDefi hash: roydPp3gdA02bPjSufX3VY+DUbUcvyM9HOD+PHbzLbk=\nFee: 0.008176 LFLR (burned when the signed transaction is sent)\n",
     "stderr": "",
     "txIds": [],
     "submissions": [],

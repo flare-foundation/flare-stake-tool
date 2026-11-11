@@ -9,10 +9,23 @@ import {
 } from "../core/files";
 import { attachSignature } from "../core/signing/attach";
 import { normalizeSignature, recoverPublicKey } from "../core/signing/signature";
-import { SubmittedTxError, TxNotAcceptedError, submitAndConfirm, type ConfirmOptions } from "../core/submit";
-import type { Env } from "../core/types";
+import {
+  SubmittedTxError,
+  TxNotAcceptedError,
+  submitAndConfirm,
+  type ConfirmOptions,
+  type SubmitClients,
+} from "../core/submit";
+import type { Clients } from "../chain/clients";
+import type { NetworkConfig } from "../chain/network";
 import { logIssued } from "../output";
 import { Transaction } from "ethers";
+
+/** What `send` uses of an Env: the address prefix, the network check and the submit calls. */
+export interface SendEnv {
+  readonly network: Pick<NetworkConfig, "hrp">;
+  readonly clients: SubmitClients & Pick<Clients, "verifyNetwork">;
+}
 
 /**
  * The file is marked as sent as soon as the node has taken the transaction, so
@@ -22,7 +35,7 @@ import { Transaction } from "ethers";
  */
 export async function sendSignedTransaction(
   id: string,
-  env: Env,
+  env: SendEnv,
   expectedAccount: Account | undefined,
   cwd: string = process.cwd(),
   confirm: ConfirmOptions = { onIssued: logIssued }
@@ -40,7 +53,7 @@ export async function sendSignedTransaction(
   attachSignature(bundle, signature, account);
   await env.clients.verifyNetwork();
   try {
-    return await submitAndConfirm(bundle, env, {
+    return await submitAndConfirm(bundle, env.clients, {
       ...confirm,
       onIssued: (txId) => {
         confirm.onIssued?.(txId); // the id first, so that it is known even if the file cannot be marked

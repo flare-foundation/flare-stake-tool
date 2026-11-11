@@ -48,6 +48,22 @@ describe("chain/keys", () => {
     }
   });
 
+  it("keeps the library's error as the cause of a key that is not on the curve", () => {
+    const notOnCurve = "02" + "00".repeat(32);
+    let library: unknown;
+    try {
+      SigningKey.computePublicKey("0x" + notOnCurve, true);
+    } catch (error) {
+      library = error;
+    }
+    expect(library).to.be.instanceOf(Error);
+    expect(() => normalizePublicKey(notOnCurve))
+      .to.throw(`Invalid public key: ${(library as Error).message}`)
+      .with.property("cause")
+      .that.is.instanceOf(Error)
+      .and.has.property("message", (library as Error).message);
+  });
+
   it("reads hex and cb58 private keys and checks they agree", () => {
     expect(parsePrivateKey({ hex: EWOQ_PRIVATE_KEY_HEX })).to.deep.equal(privateKey);
     expect(parsePrivateKey({ hex: "0x" + EWOQ_PRIVATE_KEY_HEX })).to.deep.equal(privateKey);
@@ -58,6 +74,8 @@ describe("chain/keys", () => {
     expect(() => parsePrivateKey({})).to.throw(/No private key/);
     expect(() => parsePrivateKey({ hex: "1234" })).to.throw(/32 bytes/);
     expect(() => parsePrivateKey({ cb58: "not-base58!" })).to.throw(/base58check/);
+    const short = futils.base58check.encode(new Uint8Array(31).fill(1));
+    expect(() => parsePrivateKey({ cb58: `PrivateKey-${short}` })).to.throw("PRIVATE_KEY_CB58 must decode to 32 bytes");
     expect(() => parsePrivateKey({ hex: "11".repeat(32), cb58: EWOQ_PRIVATE_KEY_CB58 })).to.throw(/different keys/);
   });
 });

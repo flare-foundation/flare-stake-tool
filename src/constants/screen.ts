@@ -1,11 +1,7 @@
 import { styleText } from "node:util";
 
-/**
- * @description Object that contains list of tasks user can perform as its keys and their corresponding CLI commands as values.
- */
-export type ScreenConstants = Record<string, string>;
-
-export const taskConstants: ScreenConstants = {
+/** The interactive menu: each task's id and its label, in menu order. */
+export const taskConstants = {
   addresses: "View chain addresses",
   balance: "Check on-chain balance",
   validators: "Get validator info",
@@ -19,31 +15,33 @@ export const taskConstants: ScreenConstants = {
   addAutoRenewedValidator: "Add an auto-renewed validator node",
   setAutoRenewedValidatorConfig: "Change the auto-renew period of a validator node",
   quit: "Quit",
-};
+} as const;
 
-/**
- * @description Constant object which contains the supported networks and their corresponding formatted output names as key-value pairs.
- */
-export const networkConstants: ScreenConstants = {
+export type TaskId = keyof typeof taskConstants;
+
+/** The supported networks and their menu labels. */
+export const networkConstants = {
   flare: "Flare " + styleText("green", "(mainnet)"),
   songbird: "Songbird " + styleText("green", "(canary)"),
   costwo: "Coston2 " + styleText("yellow", "(testnet)"),
   coston: "Coston " + styleText("yellow", "(testnet)"),
   localflare: "LocalHost " + styleText("red", "(devnet)"),
-};
+} as const;
 
-/**
- * @description Constant object which contains the supported wallets and their corresponding formatted output names as key-value pairs.
- */
-export const walletConstants: ScreenConstants = {
+export type NetworkId = keyof typeof networkConstants;
+
+/** The supported wallets and their menu labels. */
+export const walletConstants = {
   ledger: "Ledger",
   privateKey: "Private Key " + styleText("red", "(not recommended!)"),
-};
+} as const;
 
-/**
- * @description Constant object which contains the supported wallet derivation path modes and their corresponding formatted output names as key-value pairs.
- */
-export const derivationModeConstants: ScreenConstants = {
+export type WalletId = keyof typeof walletConstants;
+
+/** The Ledger derivation path modes and their menu labels. */
+export const derivationModeConstants = {
   bip44: "BIP44 (Default)",
   ledger_live: "Ledger Live",
-};
+} as const;
+
+export type DerivationMode = keyof typeof derivationModeConstants;

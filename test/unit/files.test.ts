@@ -82,4 +82,22 @@ describe("core/files", () => {
       fs.rmSync(cwd, { recursive: true, force: true });
     }
   });
+
+  it("refuses an atomic file of an unknown type, a missing unsigned file and a signed file without signature", () => {
+    expect(() => bundleFromUnsignedTxJson({ ...recordedAtomic, transactionType: "stakeAll" })).to.throw(
+      "Unknown transaction type: stakeAll"
+    );
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "files-test-"));
+    try {
+      expect(() => readUnsignedTxJson("t2", cwd)).to.throw(
+        `unsignedTx file ${path.join(cwd, "ForDefiTxnFiles", "UnsignedTxns", "t2.unsignedTx.json")} does not exist`
+      );
+      writeSignedTxJson({ ...recordedAtomic, signature: "" }, "t2", cwd);
+      expect(() => readSignedTxJson("t2", cwd)).to.throw(
+        `signedTx file ${path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "t2.signedTx.json")} does not contain signature`
+      );
+    } finally {
+      fs.rmSync(cwd, { recursive: true, force: true });
+    }
+  });
 });
