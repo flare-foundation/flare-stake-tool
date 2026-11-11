@@ -38,6 +38,35 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(fs.existsSync(path.join(cwd, "ctx.json"))).to.equal(false);
   });
 
+  it("init-ctx --ledger prints the address to check on the device and saves the device's key", () => {
+    const account = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "costwo");
+    const result = runCli(["init-ctx", "--ledger", "--network", "costwo"], {
+      cwd,
+      env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+    });
+    expect(result.exitCode, result.stderr).to.equal(0);
+    expect(result.stderr).to.include(`Check that the Ledger shows the address ${account.cAddress} at m/44'/60'/0'/0/0`);
+    expect(JSON.parse(fs.readFileSync(path.join(cwd, "ctx.json"), "utf8"))).to.deep.equal({
+      wallet: "ledger",
+      publicKey: EWOQ_PUBLIC_KEY_COMPRESSED,
+      ethAddress: account.cAddress,
+      flareAddress: account.pAddress,
+      network: "costwo",
+      derivationPath: "m/44'/60'/0'/0/0",
+    });
+  });
+
+  it("send and forDefi refuse an id that names a file outside ForDefiTxnFiles", () => {
+    for (const args of [
+      ["send", "-i", "../../escape"],
+      ["forDefi", "fetch", "-i", "../escape"],
+    ]) {
+      const result = runCli([...args, "--network", "costwo"], { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.include(`Invalid transaction id "${args.at(-1)!}"`);
+    }
+  });
+
   it("info with an unknown type exits 1 before looking for a context file", () => {
     const result = runCli(["info", "foo", "--network", "costwo"], { cwd });
     expect(result.exitCode).to.equal(1);
@@ -172,6 +201,52 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stderr).to.include(
       "--get-hacked requires --env-path <file> with PRIVATE_KEY_HEX or PRIVATE_KEY_CB58"
     );
+  });
+
+  it("send refuses a given --ctx-file that does not exist; without one, it goes on to the node", () => {
+    const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson & { message: string };
+    writeSignedTxJson({ ...unsigned, signature: signMessageHash(unsigned.message) }, "w1", cwd);
+    for (const file of ["missing.json", "ctx.json"]) {
+      const result = runCli(["send", "-i", "w1", "--ctx-file", file], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      expect(result.exitCode, file).to.equal(1);
+      expect(result.stderr, file).to.include(`Context file ${file} does not exist`);
+    }
+    // no context file at all: the account is the one that signed, and the send gets as far as the node
+    const relay = runCli(["send", "-i", "w1", "--network", "localflare"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+    expect(relay.exitCode).to.equal(1);
+    expect(relay.stderr).to.equal("Error: fetch failed\n");
+  });
+
+  it("refuses a given --ctx-file that does not exist whatever else selects the account, but init-ctx writes it", () => {
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    for (const selectors of [
+      ["--ledger", "--derivation-path", "m/44'/60'/0'/0/0"],
+      ["--get-hacked", "--env-path", envPath],
+      ["--env-path", envPath],
+    ]) {
+      const result = runCli(["info", "addresses", ...selectors, "--ctx-file", "missing.json", "--network", "costwo"], {
+        cwd,
+        env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+      });
+      expect(result.exitCode, selectors.join(" ")).to.equal(1);
+      expect(result.stderr, selectors.join(" ")).to.include(
+        "Context file missing.json does not exist (given with --ctx-file)"
+      );
+    }
+    for (const action of ["fetch", "sign"]) {
+      // fetch reads no context, and nothing is asked of ForDefi before the refusal
+      const result = runCli(["forDefi", action, "-i", "t1", "--ctx-file", "missing.json"], { cwd });
+      expect(result.exitCode, action).to.equal(1);
+      expect(result.stderr, action).to.include("Context file missing.json does not exist (given with --ctx-file)");
+    }
+    const created = runCli(
+      ["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo", "--ctx-file", "new.json"],
+      {
+        cwd,
+      }
+    );
+    expect(created.exitCode, created.stderr).to.equal(0);
+    expect(fs.existsSync(path.join(cwd, "new.json"))).to.equal(true);
   });
 
   it("send refuses a file signed by another key than ctx.json's, before it contacts the node", () => {

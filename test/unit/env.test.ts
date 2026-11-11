@@ -48,6 +48,61 @@ describe("app/env context file", () => {
     expect(readContextFile(file).vaultId).to.equal("vault-456");
   });
 
+  it("loads minimal and older contexts as written, cached addresses and unknown fields included", () => {
+    for (const context of [
+      { publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "costwo" },
+      {
+        // an older Ledger context: a C-chain address in flareAddress, and a field this version does not know
+        wallet: "ledger",
+        publicKey: `0x${EWOQ_PUBLIC_KEY_COMPRESSED}`,
+        network: "flare",
+        ethAddress: "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+        flareAddress: "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+        derivationPath: "m/44'/60'/0'/0/0",
+        createdBy: "v3",
+      },
+    ]) {
+      fs.writeFileSync(file, JSON.stringify(context));
+      expect(readContextFile(file)).to.deep.equal(context);
+    }
+  });
+
+  it("refuses a context file that is not JSON, not an object, or has a field it reads of the wrong type", () => {
+    for (const [content, refusal] of [
+      ["{", `Context file ${file} is not valid JSON (`],
+      ["null", `Context file ${file} is not a JSON object`],
+      ["[]", `Context file ${file} is not a JSON object`],
+      ['{"publicKey":"02aa"}', `Context file ${file} is missing publicKey or network`],
+      [
+        '{"publicKey":"02aa","network":"costwo","derivationPath":5}',
+        `Context file ${file} has a derivationPath that is not a string`,
+      ],
+      [
+        '{"publicKey":"02aa","network":"costwo","vaultId":7}',
+        `Context file ${file} has a vaultId that is not a string`,
+      ],
+      [
+        '{"publicKey":"02aa","network":"costwo","wallet":true}',
+        `Context file ${file} has a wallet that is not a string`,
+      ],
+    ]) {
+      fs.writeFileSync(file, content!);
+      expect(() => readContextFile(file), content).to.throw(refusal);
+    }
+  });
+
+  it("does not overwrite a context file that appears after its check", () => {
+    fs.writeFileSync(file, "the other writer's file");
+    const original = fs.existsSync;
+    fs.existsSync = () => false;
+    try {
+      expect(() => writeContextFile(FORDEFI_CONTEXT, file)).to.throw("ctx.json already exists");
+    } finally {
+      fs.existsSync = original;
+    }
+    expect(fs.readFileSync(file, "utf8")).to.equal("the other writer's file");
+  });
+
   it("refuses to read a missing context file and to overwrite an existing one", () => {
     expect(() => readContextFile(file)).to.throw(
       `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`

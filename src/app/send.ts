@@ -1,7 +1,7 @@
 /** `send -i`: attach an externally produced signature to a stored transaction and submit it. */
 import { accountFromPublicKey, type Account } from "../chain/keys";
 import {
-  bundleFromUnsignedTxJson,
+  bundleFromConsistentTxJson,
   clearSentToChain,
   isAlreadySentToChain,
   markSentToChain,
@@ -17,6 +17,7 @@ import {
   type SubmitClients,
 } from "../core/submit";
 import type { Clients } from "../chain/clients";
+import type { UnsignedTxBundle } from "../core/types";
 import type { NetworkConfig } from "../chain/network";
 import { logIssued } from "../output";
 import { Transaction } from "ethers";
@@ -47,7 +48,7 @@ export async function sendSignedTransaction(
     );
   }
   const signed = readSignedTxJson(id, cwd);
-  const bundle = bundleFromUnsignedTxJson(signed);
+  const bundle = bundleFromConsistentTxJson(signed);
   const signature = normalizeSignature(signed.signature);
   const account = expectedAccount ?? recoverAccount(bundle, signature, env.network.hrp);
   attachSignature(bundle, signature, account);
@@ -76,11 +77,7 @@ export async function sendSignedTransaction(
   }
 }
 
-function recoverAccount(
-  bundle: ReturnType<typeof bundleFromUnsignedTxJson>,
-  signature: Uint8Array,
-  hrp: string
-): Account {
+function recoverAccount(bundle: UnsignedTxBundle, signature: Uint8Array, hrp: string): Account {
   if (bundle.kind === "atomic") {
     return accountFromPublicKey(recoverPublicKey(bundle.digest, signature), hrp);
   }

@@ -1,5 +1,5 @@
 import { secp256k1 } from "@flarenetwork/flarejs";
-import { SigningKey, getBytes, hexlify, keccak256, sha256 } from "ethers";
+import { SigningKey, computeAddress, getAddress, getBytes, hexlify, keccak256, sha256 } from "ethers";
 import { accountFromPublicKey, type Account } from "../chain/keys";
 import { toHex } from "../core/signing/signature";
 import {
@@ -11,7 +11,7 @@ import {
 } from "../core/types";
 import type { NetworkName } from "../chain/network";
 import * as ledger from "../ledger";
-import { logInfo, logWarning } from "../output";
+import { logInfo, logProgress, logWarning } from "../output";
 
 export type LedgerApp = ledger.LedgerAppName;
 
@@ -26,6 +26,8 @@ export interface LedgerDevice {
   signTransaction(derivationPath: string, txHex: string): Promise<string>;
   /** Signs an unsigned EVM transaction serialization; returns r|s|v hex. */
   signEvmTransaction(derivationPath: string, unsignedSerializedHex: string): Promise<string>;
+  /** Shows the C-chain address on the device for the user to approve; returns the address it shows. */
+  showCAddress(derivationPath: string): Promise<string>;
 }
 
 /** Environment variable that substitutes a software key for the device (tests only). */
@@ -45,6 +47,13 @@ const isUnsupportedTransaction = (error: unknown): boolean =>
   typeof error.errorMessage === "string" &&
   error.errorMessage.includes("Data is invalid : Unrecognized error code");
 
+/**
+ * Before the device signs a hash: it shows only the hash, not the transaction, so the user compares it with the
+ * digest of the transaction this tool built.
+ */
+const announceBlindSigning = (digestHex: string): void =>
+  logProgress(`Blind signing: the Ledger signs the transaction hash ${digestHex}; approve only if it shows this hash`);
+
 export class LedgerSigner implements Signer {
   readonly kind = "ledger" as const;
   readonly policy: BuildPolicy = IMMEDIATE_SIGNER_POLICY;
@@ -55,12 +64,16 @@ export class LedgerSigner implements Signer {
    */
   private pinned: Account | undefined;
 
-  /** `expectedPublicKey`: the key the account was chosen by (a Ledger ctx.json's), which even the first read must answer. */
+  /**
+   * `expectedPublicKey`: the key the account was chosen by (a Ledger ctx.json's), which even the first read must
+   * answer. `mismatch`: what a refusal says after the expected address.
+   */
   constructor(
     private readonly device: LedgerDevice,
     private readonly derivationPath: string,
     private readonly hrp: string,
-    expectedPublicKey?: string
+    expectedPublicKey?: string,
+    private readonly mismatch = "as when it was connected; reconnect that Ledger"
   ) {
     if (expectedPublicKey !== undefined) {
       this.pinned = accountFromPublicKey(expectedPublicKey, hrp);
@@ -78,8 +91,8 @@ export class LedgerSigner implements Signer {
       this.pinned = current;
     } else if (current.publicKeyHex !== this.pinned.publicKeyHex) {
       throw new Error(
-        `The connected Ledger has ${current.cAddress} at ${this.derivationPath}, not ${this.pinned.cAddress} as ` +
-          "when it was connected; reconnect that Ledger"
+        `The connected Ledger has ${current.cAddress} at ${this.derivationPath}, not ${this.pinned.cAddress} ` +
+          this.mismatch
       );
     }
     return this.pinned;
@@ -101,6 +114,7 @@ export class LedgerSigner implements Signer {
       throw new Error(ledger.ETHEREUM_APP_P_CHAIN);
     }
     if (app === "Avalanche") {
+      announceBlindSigning(digestHex);
       return {
         status: "signed",
         signature: getBytes(`0x${await this.device.signHash(this.derivationPath, digestHex)}`),
@@ -118,12 +132,42 @@ export class LedgerSigner implements Signer {
       logInfo(
         `The Flare app does not recognise ${bundle.txType} transactions; signing the transaction hash instead (blind signing).`
       );
+      announceBlindSigning(digestHex);
       return {
         status: "signed",
         signature: getBytes(`0x${await this.device.signHash(this.derivationPath, digestHex)}`),
       };
     }
   }
+}
+
+/**
+ * The account at `derivationPath`, confirmed on the device for a new context: its C-chain address is printed, then
+ * shown on the device for the user to compare and approve, and the address the device shows must be the one computed
+ * from the public key it returned. `publicKey` is the key as the device returned it, which ctx.json stores.
+ */
+export async function confirmLedgerAccount(
+  device: LedgerDevice,
+  derivationPath: string,
+  hrp: string
+): Promise<{ publicKey: string; account: Account }> {
+  const publicKey = await device.getPublicKey(derivationPath, hrp);
+  const account = accountFromPublicKey(publicKey, hrp);
+  logProgress(`Check that the Ledger shows the address ${account.cAddress} at ${derivationPath}, then approve it`);
+  const shown = await device.showCAddress(derivationPath);
+  let shownAddress: string | undefined;
+  try {
+    shownAddress = getAddress(shown.toLowerCase());
+  } catch {
+    // not an address: refused below
+  }
+  if (shownAddress !== account.cAddress) {
+    throw new Error(
+      `The Ledger shows ${shown} at ${derivationPath}, not ${account.cAddress}, the address of the public key it ` +
+        "returned; no context file was written"
+    );
+  }
+  return { publicKey, account };
 }
 
 /** The connected Ledger, through src/ledger. */
@@ -134,6 +178,7 @@ export function realLedgerDevice(): LedgerDevice {
     signHash: (path, hashHex) => ledger.signHash(path, hashHex),
     signTransaction: (path, txHex) => ledger.sign(path, txHex),
     signEvmTransaction: (path, rawHex) => ledger.signEvmTransaction(path, rawHex),
+    showCAddress: (path) => ledger.verifyCAddress(path),
   };
 }
 
@@ -165,6 +210,7 @@ export function fakeLedgerDevice(privateKey: Uint8Array): LedgerDevice {
       const sig = new SigningKey(hexlify(privateKey)).sign(keccak256(`0x${rawHex}`));
       return Promise.resolve(sig.r.slice(2) + sig.s.slice(2) + (sig.yParity + 27).toString(16));
     },
+    showCAddress: () => Promise.resolve(computeAddress(new SigningKey(hexlify(privateKey)))),
   };
 }
 

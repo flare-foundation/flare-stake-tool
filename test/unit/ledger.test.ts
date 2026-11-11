@@ -1,20 +1,29 @@
 /**
  * The Ledger code that runs without a device: signature shapes, the Avalanche
  * app's path split, the software stand-in used by tests, how LedgerSigner
- * handles the Flare app's refusals, and how it holds on to the device's account.
+ * handles the Flare app's refusals, which device call each transaction kind and
+ * app goes to, and how it holds on to the device's account.
  */
 import { expect } from "chai";
 import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
-import { detectApp } from "../../src/ledger/index";
-import { SigningKey, getBytes } from "ethers";
-import { bundleFromUnsignedTxJson, type UnsignedTxJson } from "../../src/core/files";
+import { checkFlareResponse } from "../../src/ledger/flare";
+import { ETHEREUM_APP_P_CHAIN, detectApp } from "../../src/ledger/index";
+import { SigningKey, Transaction, computeAddress, getBytes, keccak256 } from "ethers";
+import {
+  bundleFromUnsignedTxJson,
+  type UnsignedAtomicTxJson,
+  type UnsignedEvmTxJson,
+  type UnsignedTxJson,
+} from "../../src/core/files";
 import {
   FAKE_LEDGER_KEY_ENV,
   LedgerSigner,
+  confirmLedgerAccount,
   fakeLedgerDevice,
   ledgerDevice,
+  type LedgerApp,
   type LedgerDevice,
 } from "../../src/signers/ledger";
 import { readGolden } from "../characterization/scenarios";
@@ -86,6 +95,18 @@ describe("ledger", () => {
     );
   });
 
+  it("checkFlareResponse accepts the success status whatever its text, and refuses any other status", () => {
+    for (const errorMessage of ["No errors", "", "unexpected"]) {
+      expect(() => checkFlareResponse({ returnCode: 0x9000, errorMessage }, "Failed"), errorMessage).not.to.throw();
+    }
+    expect(() =>
+      checkFlareResponse({ returnCode: 0x6986, errorMessage: "No errors" }, "Failed to sign message on ledger")
+    ).to.throw("Failed to sign message on ledger: No errors, code 27014");
+    expect(() => checkFlareResponse({ returnCode: 0x6984, errorMessage: "Data is invalid" }, "Failed")).to.throw(
+      "Failed: Data is invalid, code 27012"
+    );
+  });
+
   describe("splitAvalanchePath", () => {
     it("splits after the account level, whatever the number of digits", () => {
       expect(splitAvalanchePath("m/44'/60'/0'/0/0")).to.deep.equal({ accountPath: "m/44'/60'/0'", signPath: "0/0" });
@@ -138,6 +159,12 @@ describe("ledger", () => {
       }
     });
 
+    it("shows the C-chain address of its key, as a device that has it would", async () => {
+      expect(await fakeLedgerDevice(key).showCAddress("m/44'/60'/0'/0/0")).to.equal(
+        computeAddress(`0x${EWOQ_PUBLIC_KEY_COMPRESSED}`)
+      );
+    });
+
     it("is announced on stderr whenever it replaces the device", () => {
       const original = console.error;
       const printed: string[] = [];
@@ -174,6 +201,7 @@ describe("ledger", () => {
         },
         signTransaction: () => Promise.reject(refusal),
         signEvmTransaction: () => Promise.reject(new Error("not an EVM transaction")),
+        showCAddress: () => Promise.reject(new Error("not used")),
       };
       return { device, signedHashes };
     }
@@ -216,6 +244,27 @@ describe("ledger", () => {
       expect(printed).to.include("does not recognise delegate transactions; signing the transaction hash instead");
     });
 
+    it("prints the digest on stderr before the fallback has the device sign it", async () => {
+      const { device } = flareApp(invalidData("Unrecognized error code"));
+      const events: string[] = [];
+      const signHash = device.signHash.bind(device);
+      device.signHash = (path, hashHex) => {
+        events.push(`signHash ${hashHex}`);
+        return signHash(path, hashHex);
+      };
+      const original = console.error;
+      console.error = (message: unknown) => events.push(`stderr ${String(message)}`);
+      try {
+        await logged(() => new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare").sign(bundle));
+      } finally {
+        console.error = original;
+      }
+      const digest = Buffer.from(bundle.digest).toString("hex");
+      expect(events).to.have.length(2);
+      expect(events[0]).to.include(`Blind signing: the Ledger signs the transaction hash ${digest};`);
+      expect(events[1]).to.equal(`signHash ${digest}`);
+    });
+
     it("does not fall back on other invalid-data answers, which fail instead", async () => {
       const { device, signedHashes } = flareApp(invalidData("Value out of range"));
       await new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare").sign(bundle).then(
@@ -223,6 +272,148 @@ describe("ledger", () => {
         (error: unknown) => expect(String(error)).to.include("Ledger signing error")
       );
       expect(signedHashes).to.deep.equal([]);
+    });
+  });
+
+  describe("LedgerSigner routes by transaction kind and app", () => {
+    const PATH = "m/44'/60'/3'/0/7"; // not the default one, to see it reach every device call
+    const atomicJson = readGolden("delegate-file").outcome.unsignedTxJson as UnsignedAtomicTxJson;
+    const evmJson = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedEvmTxJson;
+    const SIGNATURE = "cd".repeat(65);
+    const SIGNED = { status: "signed", signature: getBytes(`0x${SIGNATURE}`) };
+
+    /** A device with `app` open that answers every signing call with SIGNATURE and records each call in `calls`. */
+    function deviceWith(app: LedgerApp, calls: string[][]): LedgerDevice {
+      const answer = (operation: string) => (path: string, argument: string) => {
+        calls.push([operation, path, argument]);
+        return Promise.resolve(SIGNATURE);
+      };
+      return {
+        detectApp: () => Promise.resolve(app),
+        getPublicKey: (path) => {
+          calls.push(["getPublicKey", path]);
+          return Promise.resolve(EWOQ_PUBLIC_KEY_COMPRESSED);
+        },
+        signHash: answer("signHash"),
+        signTransaction: answer("signTransaction"),
+        signEvmTransaction: answer("signEvmTransaction"),
+        showCAddress: (path) => {
+          calls.push(["showCAddress", path]);
+          return Promise.reject(new Error("showCAddress called while signing"));
+        },
+      };
+    }
+
+    /** Signs `json` with `app` open; device calls and stderr lines go to `calls` in the order they happen. */
+    async function signOn(app: LedgerApp, json: UnsignedTxJson, calls: string[][]): Promise<unknown> {
+      const original = console.error;
+      console.error = (message: unknown) => calls.push(["stderr", String(message)]);
+      try {
+        return await new LedgerSigner(deviceWith(app, calls), PATH, "localflare").sign(bundleFromUnsignedTxJson(json));
+      } finally {
+        console.error = original;
+      }
+    }
+
+    it("the Flare app parses and signs the atomic transaction's full unsigned bytes", async () => {
+      const calls: string[][] = [];
+      expect(await signOn("Flare", atomicJson, calls)).to.deep.equal(SIGNED);
+      expect(calls).to.deep.equal([
+        ["getPublicKey", PATH],
+        ["signTransaction", PATH, atomicJson.unsignedTransactionBuffer],
+      ]);
+    });
+
+    it("the Avalanche app signs the atomic transaction's digest, the message of its unsigned file, printed first", async () => {
+      const message = atomicJson.signatureRequests[0]!.message;
+      const calls: string[][] = [];
+      expect(await signOn("Avalanche", atomicJson, calls)).to.deep.equal(SIGNED);
+      expect(calls.map(([operation]) => operation)).to.deep.equal(["getPublicKey", "stderr", "signHash"]);
+      expect(calls[1]![1]).to.include(`Blind signing: the Ledger signs the transaction hash ${message};`);
+      expect(calls[2]).to.deep.equal(["signHash", PATH, message]);
+    });
+
+    it("the Ethereum app is refused for an atomic transaction, and nothing is signed", async () => {
+      const calls: string[][] = [];
+      await signOn("Ethereum", atomicJson, calls).then(
+        () => expect.fail("the Ethereum app signed an atomic transaction"),
+        (error: unknown) => expect((error as Error).message).to.equal(ETHEREUM_APP_P_CHAIN)
+      );
+      expect(calls).to.deep.equal([["getPublicKey", PATH]]);
+    });
+
+    it("every app signs an EVM transaction's unsigned serialization, whose keccak is the file's message", async () => {
+      const unsignedSerialized = Transaction.from(evmJson.rawTx).unsignedSerialized.slice(2);
+      expect(keccak256(`0x${unsignedSerialized}`)).to.equal(`0x${evmJson.message}`);
+      for (const app of ["Flare", "Avalanche", "Ethereum"] as const) {
+        const calls: string[][] = [];
+        expect(await signOn(app, evmJson, calls), app).to.deep.equal(SIGNED);
+        expect(calls, app).to.deep.equal([
+          ["getPublicKey", PATH],
+          ["signEvmTransaction", PATH, unsignedSerialized],
+        ]);
+      }
+    });
+  });
+
+  describe("confirmLedgerAccount, for init-ctx --ledger", () => {
+    const PATH = "m/44'/60'/0'/0/4";
+    const ewoqAddress = computeAddress(`0x${EWOQ_PUBLIC_KEY_COMPRESSED}`);
+
+    /** Confirms on a device with the ewoq key that shows `shown`; device calls and stderr lines go to `events`. */
+    async function confirm(shown: string, events: string[]): ReturnType<typeof confirmLedgerAccount> {
+      const device: LedgerDevice = {
+        detectApp: () => Promise.resolve("Flare"),
+        getPublicKey: (path) => {
+          events.push(`getPublicKey ${path}`);
+          return Promise.resolve(EWOQ_PUBLIC_KEY_COMPRESSED);
+        },
+        signHash: () => Promise.reject(new Error("not used")),
+        signTransaction: () => Promise.reject(new Error("not used")),
+        signEvmTransaction: () => Promise.reject(new Error("not used")),
+        showCAddress: (path) => {
+          events.push(`showCAddress ${path}`);
+          return Promise.resolve(shown);
+        },
+      };
+      const original = console.error;
+      console.error = (message: unknown) => events.push(`stderr ${String(message)}`);
+      try {
+        return await confirmLedgerAccount(device, PATH, "costwo");
+      } finally {
+        console.error = original;
+      }
+    }
+
+    it("prints the address before the device shows it, and returns the key as the device returned it", async () => {
+      const events: string[] = [];
+      const { publicKey, account } = await confirm(ewoqAddress, events);
+      expect(publicKey).to.equal(EWOQ_PUBLIC_KEY_COMPRESSED);
+      expect(account.cAddress).to.equal(ewoqAddress);
+      expect(events).to.have.length(3);
+      expect(events[0]).to.equal(`getPublicKey ${PATH}`);
+      expect(events[1]).to.include(
+        `Check that the Ledger shows the address ${ewoqAddress} at ${PATH}, then approve it`
+      );
+      expect(events[2]).to.equal(`showCAddress ${PATH}`);
+    });
+
+    it("accepts the address the device shows in lowercase", async () => {
+      expect((await confirm(ewoqAddress.toLowerCase(), [])).account.cAddress).to.equal(ewoqAddress);
+    });
+
+    it("refuses another address, or an answer that is not an address", async () => {
+      const otherAddress = computeAddress(new SigningKey(`0x${"11".repeat(32)}`));
+      for (const shown of [otherAddress, ewoqAddress.slice(0, -1), "", "not an address"]) {
+        await confirm(shown, []).then(
+          () => expect.fail(`accepted ${shown}`),
+          (error: unknown) =>
+            expect((error as Error).message, shown).to.equal(
+              `The Ledger shows ${shown} at ${PATH}, not ${ewoqAddress}, the address of the public key it returned; ` +
+                "no context file was written"
+            )
+        );
+      }
     });
   });
 
@@ -248,6 +439,7 @@ describe("ledger", () => {
           signed.push(txHex);
           return Promise.resolve("ab".repeat(65));
         },
+        showCAddress: () => Promise.reject(new Error("not used")),
       };
       return { device, signed };
     }

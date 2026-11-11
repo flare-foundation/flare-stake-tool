@@ -11,7 +11,7 @@ import { overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
-import { contextFileExists, readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
+import { createEnv, readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
 import { describeAutoRenewal, getBalances, getValidators } from "./app/info";
 import { sendSignedTransaction } from "./app/send";
@@ -26,7 +26,9 @@ import {
   type ParsedTime,
 } from "./cli/inputs";
 import {
+  contextFileApplies,
   globalOptions,
+  requireGivenContextFile,
   resolveAccount,
   resolveEnv,
   resolveSigner,
@@ -37,8 +39,7 @@ import { parseAtomicTxRequest, parseEvmTxRequest, type AtomicTxOptions, type Evm
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
 import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
-import { FAKE_LEDGER_KEY_ENV, ledgerDevice } from "./signers/ledger";
-import * as ledger from "./ledger";
+import { confirmLedgerAccount, ledgerDevice } from "./signers/ledger";
 import { version } from "../package.json";
 
 const TRANSACTION_TYPES = ATOMIC_TX_TYPES.join("|");
@@ -59,8 +60,11 @@ export function cli(program: Command): void {
     .option(API_KEY_OPTION, API_KEY_DESCRIPTION)
     .option("--ledger", "Use ledger to sign transactions")
     .option("--blind", "Blind signing (accepted for compatibility; signing mode is chosen automatically)", true)
-    .option("--derivation-path <derivation-path>", "Ledger address derivation path", BASE_DERIVATION_PATH)
-    .option("--ctx-file <file>", "Context file as returned by init-ctx", "ctx.json")
+    .option(
+      "--derivation-path <derivation-path>",
+      `Ledger address derivation path (default: a Ledger context file's, else ${BASE_DERIVATION_PATH})`
+    )
+    .option("--ctx-file <file>", "Context file as returned by init-ctx (default: ctx.json)")
     .option("--env-path <path>", "Path to the .env file")
     .option("--get-hacked", "Use the .env file with the exposed private key")
     .option(
@@ -262,10 +266,11 @@ async function send(options: GlobalOptions): Promise<void> {
     throw new Error("send needs the transaction id: -i <id>");
   }
   const env = resolveEnv(options);
-  // the signature is checked against the account the options select, as info and transactions choose it; with no
-  // selector and no context file there is nothing to check it against
+  // the signature is checked against the account the options select, as info and transactions choose it (a given
+  // --ctx-file must exist); with no selector and no context file there is nothing to check it against, and the
+  // account is the one that signed
   const expected =
-    selectsAccount(options) || contextFileExists(options.ctxFile) ? await resolveAccount(options, env) : undefined;
+    selectsAccount(options) || contextFileApplies(options) ? await resolveAccount(options, env) : undefined;
   const { txId } = await sendSignedTransaction(id, env, expected);
   logSuccess(`Signed transaction ${id} with hash ${txId} sent to the node`);
 }
@@ -275,6 +280,7 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
   if (!id) {
     throw new Error("forDefi needs the transaction id: -i <id>");
   }
+  requireGivenContextFile(options); // fetch does not read the context, but a given one must still exist
   if (type === "sign") {
     const forDefiTxId = await sendToForDefi(id, readContextFile(options.ctxFile));
     logSuccess(`Transaction ${id} sent to ForDefi (ForDefi transaction id ${forDefiTxId})`);
@@ -330,23 +336,19 @@ async function interactive(options: GlobalOptions, ignored: readonly string[]): 
 
 async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
   const network = resolveNetworkName(options.network, options.ctxFile);
-  const env = resolveEnv({ ...options, network });
+  const env = createEnv(network, nodeOverrides(options)); // not resolveEnv: --ctx-file is the file to write
   const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;
   let context: ContextFile;
   if (options.ledger) {
-    const device = ledgerDevice();
-    const publicKey = await device.getPublicKey(options.derivationPath, env.network.hrp);
-    const account = accountFromPublicKey(publicKey, env.network.hrp);
-    if (!process.env[FAKE_LEDGER_KEY_ENV]) {
-      await ledger.verifyCAddress(options.derivationPath);
-    }
+    const derivationPath = options.derivationPath ?? BASE_DERIVATION_PATH;
+    const { publicKey, account } = await confirmLedgerAccount(ledgerDevice(), derivationPath, env.network.hrp);
     context = {
       wallet: "ledger",
       publicKey,
       ethAddress: account.cAddress,
       flareAddress: account.pAddress,
       network,
-      derivationPath: options.derivationPath,
+      derivationPath,
       ...(vaultId ? { vaultId } : {}),
     };
   } else if (typeof options.publicKey === "string") {

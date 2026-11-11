@@ -10,19 +10,18 @@ import {
   saveUnsignedTxJson,
   type UnsignedAtomicTxJson,
 } from "../../src/core/files";
-import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+import { SigningKey } from "ethers";
+import { readGolden } from "../characterization/scenarios";
+import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 
 /** The ForDefi client reads ./token and ./private.pem from the working directory and talks to api.fordefi.com. */
 describe("app/fordefi", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "fordefi-test-"));
   const originalCwd = process.cwd();
   const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const unsigned: UnsignedAtomicTxJson = {
-    transactionType: "exportCP",
-    signatureRequests: [{ message: "e8b2557ea240f0265b2d1ec0cf9ca3b6689b5c392a7d9b98d43bb8f681635e44", signer: "" }],
-    unsignedTransactionBuffer: "0000",
-    serialization: "{}",
-  };
+  // a real unsigned file: forDefi sign refuses one whose message is not the hash of its transaction
+  const { forDefiHash: _hash, ...unsigned } = readGolden("exportCP-file").outcome
+    .unsignedTxJson as UnsignedAtomicTxJson;
   const vaultId = "1dafbe27-cdb1-4c8c-9ea6-fdf43f5d7242";
   const context = {
     wallet: "publicKey" as const,
@@ -93,19 +92,52 @@ describe("app/fordefi", () => {
     expect(readUnsignedTxJson("tx1").forDefiTxId).to.equal("fordefi-tx-42");
   });
 
-  it("refuses a vault whose key is not the context's public key", async () => {
-    const fetchImpl = fakeFetch({
+  /** A ForDefi answering the vault lookup with `vaultKeyHex` (base64, as ForDefi sends it) and the signature request. */
+  const vaultWith = (vaultKeyHex: string) =>
+    fakeFetch({
       [`GET /api/v1/vaults/${vaultId}`]: {
         id: vaultId,
-        public_key_compressed: Buffer.from("02" + "11".repeat(32), "hex").toString("base64"),
+        public_key_compressed: Buffer.from(vaultKeyHex, "hex").toString("base64"),
       },
+      "POST /api/v1/transactions": { id: "fordefi-tx-42" }, // the id the later tests fetch from tx1
     });
-    try {
-      await sendToForDefi("tx1", context, fetchImpl);
-      expect.fail("should have thrown");
-    } catch (error) {
-      expect((error as Error).message).to.match(/public key does not match the vault/);
+
+  it("refuses a file whose message is not the hash of its transaction, before any request to ForDefi", async () => {
+    const other = readGolden("delegate-file").outcome.unsignedTxJson as UnsignedAtomicTxJson;
+    saveUnsignedTxJson({ ...unsigned, signatureRequests: other.signatureRequests }, "tampered");
+    const requests = calls.length;
+    expect(await rejectedWith(sendToForDefi("tampered", context, fakeFetch({})))).to.match(
+      /^The file's message [0-9a-f]{64} is not the hash of its transaction \([0-9a-f]{64}\); rebuild the file$/
+    );
+    expect(calls.length).to.equal(requests);
+  });
+
+  it("refuses a vault whose key is another valid key than the context's", async () => {
+    const otherKey = new SigningKey(`0x${"11".repeat(32)}`).compressedPublicKey.slice(2);
+    expect(await rejectedWith(sendToForDefi("tx1", context, vaultWith(otherKey)))).to.equal(
+      "public key does not match the vault"
+    );
+  });
+
+  it("accepts the context's key uncompressed or with 0x, as the same key as the vault's compressed one", async () => {
+    const uncompressed = new SigningKey(`0x${EWOQ_PRIVATE_KEY_HEX}`).publicKey; // 0x04…
+    for (const publicKey of [uncompressed, uncompressed.slice(2), `0x${EWOQ_PUBLIC_KEY_COMPRESSED}`]) {
+      expect(await sendToForDefi("tx1", { ...context, publicKey }, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED))).to.equal(
+        "fordefi-tx-42"
+      );
     }
+  });
+
+  it("refuses a malformed key in the context or from the vault, naming which, before anything is posted", async () => {
+    const posted = () => calls.filter(({ init }) => init.method === "POST").length;
+    const before = posted();
+    expect(
+      await rejectedWith(sendToForDefi("tx1", { ...context, publicKey: "zz" }, vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED)))
+    ).to.equal("The context's publicKey is not a valid public key (Invalid public key: not a hex string)");
+    expect(await rejectedWith(sendToForDefi("tx1", context, vaultWith("02" + "00".repeat(32))))).to.match(
+      new RegExp(`^The public key of ForDefi vault ${vaultId} is not a valid public key \\(Invalid public key: `)
+    );
+    expect(posted()).to.equal(before);
   });
 
   it("fetches the signature and writes the signed file", async () => {
@@ -205,6 +237,44 @@ describe("app/fordefi", () => {
     expect(await rejectedWith(getVaultPublicKey(vaultId, fetchImpl))).to.equal(
       "public_key_compressed not found in vault response"
     );
+  });
+
+  it("refuses answers whose fields it uses are of the wrong type, and an answer that is not an object", async () => {
+    expect(
+      await rejectedWith(getVaultPublicKey(vaultId, fakeFetch({ [`GET /api/v1/vaults/${vaultId}`]: null })))
+    ).to.equal(`ForDefi vault lookup (${vaultId}) did not answer with a JSON object: null`);
+    const numericKey = fakeFetch({ [`GET /api/v1/vaults/${vaultId}`]: { id: vaultId, public_key_compressed: 5 } });
+    expect(await rejectedWith(getVaultPublicKey(vaultId, numericKey))).to.equal(
+      "public_key_compressed not found in vault response"
+    );
+    const numericId = vaultWith(EWOQ_PUBLIC_KEY_COMPRESSED);
+    const withNumericId: FetchLike = (url, init) =>
+      init?.method === "POST" ? Promise.resolve(new Response('{"id":42}', { status: 200 })) : numericId(url, init);
+    const before = readUnsignedTxJson("tx1").forDefiTxId;
+    expect(await rejectedWith(sendToForDefi("tx1", context, withNumericId))).to.equal(
+      'ForDefi did not return a transaction id: {"id":42}'
+    );
+    expect(readUnsignedTxJson("tx1").forDefiTxId).to.equal(before);
+  });
+
+  it("refuses a signature that is not 65 bytes of base64, and reads signatures that are not a list as none", async () => {
+    const lookup = "GET /api/v1/transactions/fordefi-tx-42";
+    for (const data of [5, Buffer.alloc(64, 1).toString("base64"), "not base64!"]) {
+      const fetchImpl = fakeFetch({ [lookup]: { id: "fordefi-tx-42", signatures: [{ data }] } });
+      expect(await rejectedWith(fetchForDefiSignature("tx1", fetchImpl)), String(data)).to.match(
+        /^ForDefi answered a signature that is not 65 bytes of base64: /
+      );
+    }
+    const notAList = fakeFetch({ [lookup]: { id: "fordefi-tx-42", signatures: { data: "x" } } });
+    expect(await rejectedWith(fetchForDefiSignature("tx1", notAList))).to.match(/^Transaction is not signed yet/);
+  });
+
+  it("puts the ForDefi id and the vault id into the request path as one path segment", async () => {
+    saveUnsignedTxJson({ ...unsigned, forDefiTxId: "../vaults/other" }, "odd-fordefi-id");
+    await rejectedWith(fetchForDefiSignature("odd-fordefi-id", fakeFetch({})));
+    expect(new URL(calls.at(-1)!.url).pathname).to.equal("/api/v1/transactions/..%2Fvaults%2Fother");
+    await rejectedWith(getVaultPublicKey("../transactions", fakeFetch({})));
+    expect(new URL(calls.at(-1)!.url).pathname).to.equal("/api/v1/vaults/..%2Ftransactions");
   });
 
   it("refuses a signature request answered without a transaction id, and records none", async () => {
