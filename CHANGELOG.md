@@ -38,6 +38,10 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `exportCP` exports exactly the amount given (the Ledger path added the P-chain fee).
   * `exportPC` without `-a` exports the spendable balance minus the fee; it always failed with insufficient funds. Small UTXOs may stay behind on the P-chain.
   * `importPC` imports only UTXOs the account can spend alone; a co-owned or time-locked UTXO made the node refuse the import. Time-locked UTXOs stay pending even after the lock ends (a flarejs limitation). An import with nothing to import is refused.
+  * P-chain transactions leave out UTXOs worth less than the fee of spending them (about 0.00074 FLR), stakeable-locked ones included, with a warning. Anyone can send such dust to any address, and flarejs spent it first when the node listed it first, so a few hundred made a transfer, stake or export go over the gas limit.
+  * `importPC` and `importCP` skip UTXOs worth less than the fee of importing them, and import the largest first up to the chain's gas limit: about 80 at a time on the C-chain, about 300 on the P-chain. Before, they took every pending UTXO, so dust or too many UTXOs made the import fail. A warning says what was left pending.
+  * Unsigned files treat every time-locked P-chain UTXO as still locked, so ForDefi co-signers building on either side of the second a lock ends get the same transaction. Such a UTXO isn't transferred, exported or used for a fee, even once its lock has passed (use `--ledger` or `--get-hacked`); stake and delegate can still stake a stakeable-locked one, and the stake keeps its lock.
+  * `exportPC` without `-a` checks time locks the way flarejs does; it failed in the second a lock ended.
   * UTXOs are read past the node's page of 1024, so large accounts see their whole balance.
   * `--delegation-fee` is converted exactly (`0.07` gave 700.0000000000001 shares).
 * C-chain transactions:

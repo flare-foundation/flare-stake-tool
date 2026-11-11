@@ -55,8 +55,16 @@ future (such as `-e 1209600` meant as 14 days) gets a warning on stderr; the
 network then rejects the transaction. Every path prints the transaction id and
 waits until the transaction is accepted; P-chain and atomic transactions also
 print the fee they burn (`Fee paid: …`, or `Fee: …` for an unsigned file). The
-unsigned-file (ForDefi) path requires `-f` for `exportCP` and `importPC`. Every
-error exits with code 1.
+unsigned-file (ForDefi) path requires `-f` for `exportCP` and `importPC`.
+P-chain transactions leave out UTXOs worth less than the fee of spending them
+(the gas of one input at the lowest P-chain price, about 0.00074 FLR on Flare),
+which anyone can send to any address and which flarejs would otherwise spend
+first when the node lists them first; a warning says how many were left out.
+This includes stakeable-locked UTXOs, which anyone can send as well; one whose
+lock still runs is measured by the slightly larger stakeable-locked input that
+spends it, one whose lock has ended by a plain input (an unsigned file counts
+every lock as running).
+Every error exits with code 1.
 
 ---
 
@@ -124,12 +132,21 @@ Move FLR from the C-chain to the P-chain (atomic export step).
 Complete the C→P transfer started by `exportCP`. Reads pending UTXOs from
 the C-chain source.
 
+A UTXO worth less than the fee its own input adds at the lowest P-chain price
+(250 nFLR per gas on Flare, about 0.00074 FLR) costs more to import than it
+brings, and is skipped. One import holds at most about 300 UTXOs (the
+P-chain's gas capacity, less one second of refill as headroom); with more, the
+largest are imported and the rest stay pending for the next import. Both rules
+use fixed values from the chain's fee config, so every ForDefi co-signer
+imports the same UTXOs. A warning says how many UTXOs were left out and what
+they hold.
+
 | Aspect | Detail |
 |---|---|
 | Inputs | None (uses configured key/context) |
 | Side effects | Submits an atomic import tx on the P-chain |
-| Output | Tx hash, "sent to the network" |
-| Failures | "no UTXOs available to import" if the export hasn't propagated yet (wait a few seconds) |
+| Output | Tx hash, "sent to the network"; a warning when UTXOs were skipped or left for the next import |
+| Failures | "no UTXOs available to import" if the export hasn't propagated yet (wait a few seconds), or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. A large import right after a burst of P-chain transactions can be refused with "Gas usage of transaction (…) exceeds capacity (…)"; the chain refills its capacity within seconds, so run it again |
 
 ---
 
@@ -139,7 +156,7 @@ Move FLR from the P-chain to the C-chain (reverse of exportCP).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-a <amount>` (FLR, optional on every path — defaults to the spendable P-chain balance minus the fee of the export; small UTXOs may stay behind on the P-chain) |
+| Inputs | `-a <amount>` (FLR, optional on every path — defaults to the spendable P-chain balance minus the fee of the export, without dust, see above; at the unsigned-file price a UTXO worth a little more can still stay behind, as flarejs leaves out an input that costs more than it adds) |
 | Side effects | Submits an atomic export tx on the P-chain |
 | Output | Tx hash, "sent to the network" |
 | Failures | "Export amount is smaller than or equal to zero" if the spendable P-chain balance does not cover the export fee |
@@ -154,12 +171,20 @@ imports those the account can spend alone: one that needs more signatures (a
 checks time locks against time 0, so a time-locked UTXO cannot be imported
 even once its lock has passed.
 
+A UTXO worth less than the fee its own input adds at the lowest C-chain base
+fee (500 gwei, about 0.00054 FLR) costs more to import than it brings, and is
+skipped. One import holds at most about 80 UTXOs (the C-chain's atomic gas
+limit of 100,000); with more, the largest are imported and the rest stay
+pending for the next import. Both rules use fixed values, so the same UTXOs
+are imported with or without `-f`, and by every ForDefi co-signer. A warning
+says how many UTXOs were left out and what they hold.
+
 | Aspect | Detail |
 |---|---|
 | Inputs | `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path). |
 | Side effects | Submits an atomic import tx on the C-chain |
-| Output | Tx hash, "sent to the network" |
-| Failures | "Nothing to import from the P-chain" if exportPC hasn't propagated to the C-chain yet (3s delay typically suffices on local), or "… that this account can spend alone" when only UTXOs it cannot spend alone are pending. Refused before signing if the built transaction would not pay exactly `-f` (or would pay nothing when estimated). |
+| Output | Tx hash, "sent to the network"; a warning when UTXOs were skipped or left for the next import |
+| Failures | "Nothing to import from the P-chain" if exportPC hasn't propagated to the C-chain yet (3s delay typically suffices on local), "… that this account can spend alone" when only UTXOs it cannot spend alone are pending, or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. Refused before signing if the built transaction would not pay exactly `-f` (or would pay nothing when estimated). |
 
 ---
 
@@ -268,8 +293,13 @@ Submit a previously-built signed transaction to the network.
 Co-signers who rebuild the transaction with the same command get the same
 hash only while the account's P-chain UTXOs are the same: the inputs are the
 UTXOs the node reports at build time, so funds arriving or leaving in between
-(a stake ending, a transfer, a timelocked UTXO unlocking) change the
-transaction. Rebuild and compare again in that case. Values left out of the
+(a stake ending, a transfer) change the transaction. Rebuild and compare again
+in that case. Unsigned files treat every time-locked UTXO as still locked, even
+once the lock has passed, so a lock ending between two builds doesn't change the
+inputs. Such a UTXO isn't transferred, exported or used for a fee in an unsigned
+file; once its lock has passed, use `--ledger` or `--get-hacked` for that. Stake
+and delegate can still stake a stakeable-locked UTXO, and the stake keeps its
+lock. Values left out of the
 command are read from the chain as well (`--nonce`, `claim -a`, `exportPC -a`,
 and the default `--gas-limit` of `claim`/`withdrawal`, which depends on whether
 the recipient has contract code); passing them pins them.

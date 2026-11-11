@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { describeError } from "../../src/output";
+import { describeError, reportOutcome } from "../../src/output";
 
 describe("output/describeError", () => {
   it("passes ordinary errors through", () => {
@@ -31,5 +31,25 @@ describe("output/describeError", () => {
   it("leaves other JSON parse errors alone", () => {
     const message = `Unexpected token '}', "{}}" is not valid JSON`;
     expect(describeError(new SyntaxError(message))).to.equal(message);
+  });
+});
+
+describe("output/reportOutcome", () => {
+  it("prints the outcome's notices as warnings on stderr, after the result", () => {
+    const printed: string[] = [];
+    const [log, error] = [console.log, console.error];
+    console.log = (line: string) => printed.push(`out: ${line}`);
+    console.error = (line: string) => printed.push(`err: ${line}`);
+    try {
+      reportOutcome(
+        { status: "sent", txId: "abc", chainStatus: "Accepted", notices: ["2 UTXO(s) (0.000002 FLR) skipped"] },
+        "FLR"
+      );
+    } finally {
+      [console.log, console.error] = [log, error];
+    }
+    expect(printed).to.have.length(2);
+    expect(printed[0]).to.match(/^out: .*Transaction with hash abc built and sent/);
+    expect(printed[1]).to.match(/^err: .*Warning: 2 UTXO\(s\) \(0\.000002 FLR\) skipped/);
   });
 });

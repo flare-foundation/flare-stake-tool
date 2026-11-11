@@ -124,6 +124,15 @@ export interface BuildPolicy {
    * "latest" is the same on every node at a height, so ForDefi co-signers build the same transaction.
    */
   readonly evmNonce: "pending" | "latest";
+  /**
+   * The time P-chain UTXO time locks are checked against (flarejs `minIssuanceTime`). "now" for a signer that sends
+   * right away. Unsigned files use 1, the earliest time at which a UTXO without a time lock can be spent, so
+   * co-signers building a few seconds apart pick the same inputs even when a lock ends in between: every time-locked
+   * UTXO counts as still locked, even once its lock has passed. It is never spent as unlocked funds (a transfer, an
+   * export, a fee); stake and delegate can still stake a stakeable-locked one without an owner lock, and the stake
+   * keeps its lock.
+   */
+  readonly lockCheckTime: bigint | "now";
 }
 
 export const IMMEDIATE_SIGNER_POLICY: BuildPolicy = {
@@ -131,12 +140,14 @@ export const IMMEDIATE_SIGNER_POLICY: BuildPolicy = {
   defaultStartTime: "now",
   requireExplicitFee: false,
   evmNonce: "pending",
+  lockCheckTime: "now",
 };
 export const FILE_SIGNER_POLICY: BuildPolicy = {
   feePrice: 1000n,
   defaultStartTime: 1n,
   requireExplicitFee: true,
   evmNonce: "latest",
+  lockCheckTime: 1n,
 };
 
 export type UnsignedTxBundle =
@@ -147,6 +158,8 @@ export type UnsignedTxBundle =
       unsignedTx: UnsignedTx;
       /** sha256 of the unsigned bytes: what every signer signs and what the file flow calls `message`. */
       digest: Uint8Array;
+      /** What the user should know about the build, such as UTXOs it left out; printed with the outcome. */
+      notices?: readonly string[] | undefined;
     }
   | {
       kind: "evm";
@@ -169,7 +182,23 @@ export interface Signer {
   sign(bundle: UnsignedTxBundle): Promise<SignResult>;
 }
 
-/** `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. */
+/**
+ * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs.
+ * `notices` are the bundle's.
+ */
 export type Outcome =
-  | { status: "sent"; txId: string; chainStatus: string; fee?: NFlr | undefined }
-  | { status: "pending"; id: string; forDefiHash: string; file: string; fee?: NFlr | undefined };
+  | {
+      status: "sent";
+      txId: string;
+      chainStatus: string;
+      fee?: NFlr | undefined;
+      notices?: readonly string[] | undefined;
+    }
+  | {
+      status: "pending";
+      id: string;
+      forDefiHash: string;
+      file: string;
+      fee?: NFlr | undefined;
+      notices?: readonly string[] | undefined;
+    };

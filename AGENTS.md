@@ -82,12 +82,15 @@ confirmed. The signer is chosen by flag:
    `SignedTxns/<id>.signedTx.json`, `send -i <id>` finishes the job.
 
 The file signer builds with `FILE_SIGNER_POLICY` (P-chain fee price pinned to
-1000, start time 1, explicit `-f` required) so that several ForDefi signers
-building independently get the same hash. Do not let other chain state or the
-clock leak into a file-path build. The account's UTXOs are the one inherent
-exception: builds agree only while the UTXO set is unchanged (flarejs also
-checks UTXO timelocks against the local clock, so a timelock expiring between
-two builds changes the inputs as well). Values a command leaves out are read
+1000, start time 1, UTXO time locks checked against time 1, explicit `-f`
+required) so that several ForDefi signers building independently get the same
+hash. Do not let other chain state or the clock leak into a file-path build.
+The account's UTXOs are the one inherent exception: builds agree only while the
+UTXO set is unchanged. Every flarejs P-chain builder gets the build's
+`minIssuanceTime` through `spending(inputs)`; without it flarejs checks time
+locks against the local clock. `pChainInputs` leaves dust out of the UTXOs (worth
+less than one input's fee at the fee config's `minPrice`), and each builder
+passes `inputs.notices` to `bundle()` so the user is told. Values a command leaves out are read
 from the chain and pinned by passing them: `--nonce`, `claim -a`, `exportPC -a`,
 and `--gas-limit` of `claim`/`withdrawal`, whose default depends on whether the
 recipient has contract code.
@@ -263,8 +266,8 @@ it — both example-based and property-based where applicable.
   resolving transitive types through pnpm's symlinked `node_modules` (e.g.
   `web3-eth` from `web3`'s exports), producing hundreds of `no-unsafe-*` lint
   errors in CI.
-- **Don't change `FILE_SIGNER_POLICY`** (fee price 1000, start time 1,
-  explicit fee) without a CHANGELOG entry: ForDefi signers building the same
+- **Don't change `FILE_SIGNER_POLICY`** (fee price 1000, start time 1, lock
+  check time 1, explicit fee) without a CHANGELOG entry: ForDefi signers building the same
   transaction independently must keep getting the same hash.
 - **Don't change the unsigned/signed JSON formats** in `core/files.ts`; they
   are a contract with external signers and old files must keep loading.
