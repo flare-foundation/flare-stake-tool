@@ -4,7 +4,14 @@
  */
 import { expect } from "chai";
 import inquirer from "inquirer";
-import { CANCELLED_EXIT_CODE, prompts, validateDelegationFee, validateEndTime } from "../../src/interactive/prompts";
+import { stripVTControlCharacters } from "util";
+import {
+  CANCELLED_EXIT_CODE,
+  prompts,
+  validateDelegationFee,
+  validateEndTime,
+  withCancelNotice,
+} from "../../src/interactive/prompts";
 
 describe("interactive prompt checks", () => {
   it("delegation fee: a percentage from 0 to 100, an empty answer for the default 20%", () => {
@@ -47,6 +54,33 @@ describe("interactive prompt checks", () => {
     }
     expect(asked.map((question) => question.validate)).to.deep.equal([validateEndTime, validateDelegationFee]);
     expect(asked.map((question) => question.default)).to.deep.equal([undefined, undefined]); // empty stays empty
+  });
+
+  it("the C-chain fee prompt takes a typed fee of at most 20 FLR, and the estimate it offers whatever it is", async () => {
+    const validates: ((value: string) => true | string)[] = [];
+    const original = inquirer.prompt;
+    Object.assign(inquirer, {
+      prompt: (questions: { validate?: (value: string) => true | string }[]) => {
+        validates.push(questions[0]!.validate!);
+        return Promise.resolve({ answer: "" });
+      },
+    });
+    try {
+      await prompts.fees("0.011", "LFLR");
+      await prompts.fees("25", "LFLR"); // a base fee spike: the estimate is above what may be typed
+      await prompts.fees(undefined, "LFLR");
+    } finally {
+      Object.assign(inquirer, { prompt: original });
+    }
+    for (const validate of validates) {
+      expect(validate("")).to.equal(true);
+      expect(validate("20")).to.equal(true);
+      expect(validate("20.000000001")).to.match(/^Invalid fee "20.000000001": at most 20 FLR/);
+      expect(validate("1000")).to.match(/^Invalid fee "1000": at most 20 FLR/);
+      expect(validate("0")).to.match(/^Invalid amount "0": must be more than 0/);
+    }
+    expect(validates[1]!("25")).to.equal(true);
+    expect(validates[0]!("25")).to.match(/^Invalid fee "25"/);
   });
 
   it("the transfer address prompt checks the address against the session's network", async () => {
@@ -101,6 +135,48 @@ describe("interactive prompt checks", () => {
     expect(exits).to.deep.equal([130]);
     expect(whileAsking).to.equal(before + 1);
     expect(process.stdin.listenerCount("keypress")).to.equal(before);
+  });
+
+  it("Ctrl-C prints the notice of the steps it cancels, and none once they are done, failed or not", async () => {
+    const printed: string[] = [];
+    const original = {
+      prompt: inquirer.prompt,
+      exit: process.exit.bind(process),
+      write: process.stdout.write.bind(process.stdout),
+      log: console.log,
+    };
+    Object.assign(inquirer, {
+      prompt: () => {
+        process.stdin.emit("keypress", "\x03", { ctrl: true, name: "c" });
+        return Promise.resolve({ answer: "" });
+      },
+    });
+    process.exit = ((code?: number) => {
+      printed.push(`exit ${code}`);
+    }) as typeof process.exit;
+    process.stdout.write = () => true;
+    console.log = (message: unknown) => printed.push(String(message));
+    const cancelled = async (): Promise<string[]> => {
+      printed.length = 0;
+      await prompts.delegationFee();
+      return printed.map((line) => stripVTControlCharacters(line));
+    };
+    try {
+      expect(await withCancelNotice("move 1", cancelled)).to.deep.equal(["move 1", "exit 130"]);
+      expect(await cancelled(), "after the steps").to.deep.equal(["exit 130"]);
+      await withCancelNotice("move 2", () => Promise.reject(new Error("import failed"))).catch(() => undefined);
+      expect(await cancelled(), "after steps that failed").to.deep.equal(["exit 130"]);
+      const nested = await withCancelNotice("outer", async () => [
+        ...(await withCancelNotice("inner", cancelled)),
+        ...(await cancelled()),
+      ]);
+      expect(nested).to.deep.equal(["inner", "exit 130", "outer", "exit 130"]);
+    } finally {
+      Object.assign(inquirer, { prompt: original.prompt });
+      process.exit = original.exit;
+      process.stdout.write = original.write;
+      console.log = original.log;
+    }
   });
 
   it("Ctrl-D on an empty answer ends the session like Ctrl-C; with text typed it only deletes, as in readline", async () => {

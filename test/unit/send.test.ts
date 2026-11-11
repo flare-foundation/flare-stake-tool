@@ -10,8 +10,11 @@ import { Transaction, getBytes } from "ethers";
 import { accountFromPrivateKey, accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import {
+  bundleFromUnsignedTxJson,
   isAlreadySentToChain,
+  messageOf,
   signedTxPath,
+  unsignedTxJsonFromBundle,
   writeSignedTxJson,
   type UnsignedAtomicTxJson,
   type UnsignedTxJson,
@@ -19,6 +22,7 @@ import {
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
 import { describeError } from "../../src/output";
 import { readGolden } from "../characterization/scenarios";
+import { Int, messageHashFromUnsignedTx } from "@flarenetwork/flarejs";
 import { cleanupTempDir, makeTempDir } from "../helpers/cli";
 import { EWOQ_PUBLIC_KEY_COMPRESSED, signMessageHash } from "../helpers/keys";
 
@@ -181,7 +185,7 @@ describe("app/send: the isSentToChain mark", () => {
       (error: unknown) =>
         expect(describeError(error)).to.equal(
           "Transaction 0xEvmHashFromTheScriptedNode was submitted, but its status could not be read: " +
-            "The node answered HTTP 403 Forbidden; check --rpc-url and the API key (--api-key or FLARE_API_KEY)"
+            "The node answered HTTP 403 Forbidden; check --rpc-url and the API key (--api-key or the URL's x-apikey; FLARE_API_KEY goes only to FLARE_RPC_URL or the default node)"
         )
     );
     expect(isAlreadySentToChain("e", cwd)).to.equal(true);
@@ -295,10 +299,20 @@ describe("app/send: the isSentToChain mark", () => {
     writeSignedTxJson({ ...unsigned, signature: "00".repeat(65) }, "e", cwd);
     const issued: string[] = [];
     const env = scriptedEnv({ statuses: ["Committed"], onIssue: () => issued.push("issued") }, "e", cwd);
-    // the signature library refuses r = 0 itself, before the tool's own "Cannot recover the signer" check
+    // r = 0 is refused when the signature is read, before any recovery
     await sendSignedTransaction("e", env, undefined, cwd, FAST).then(
       () => expect.fail("an unrecoverable signature should fail"),
-      (error: unknown) => expect(describeError(error)).to.equal("r must be 0 < r < CURVE.n")
+      (error: unknown) =>
+        expect(describeError(error)).to.equal("Invalid signature: its r is 0 or not below the curve order")
+    );
+    // r = 5 is in range, but no point on the curve has that x
+    writeSignedTxJson({ ...unsigned, signature: "05".padStart(64, "0") + "01".padStart(64, "0") + "00" }, "e5", cwd);
+    await sendSignedTransaction("e5", env, undefined, cwd, FAST).then(
+      () => expect.fail("an unrecoverable signature should fail"),
+      (error: unknown) =>
+        expect(describeError(error)).to.equal(
+          "The signature is not a valid signature of this transaction (no key recovers from it)"
+        )
     );
     expect(issued).to.deep.equal([]);
     expect(isAlreadySentToChain("e", cwd)).to.equal(false);
@@ -389,7 +403,76 @@ describe("app/send: the file's network must be the selected one", () => {
     cleanupTempDir(cwd);
   });
 
-  it("refuses a typed EVM file with chain id 0, and sends an unprotected legacy one, which has none", async () => {
+  it("sends valid Songbird files, whose C-chain chain id (19) is not the network id (5), atomic and EVM", async () => {
+    const rawTx = {
+      type: 2,
+      nonce: 1,
+      gasLimit: 21_000,
+      maxFeePerGas: 1,
+      maxPriorityFeePerGas: 1,
+      to: "0x2222222222222222222222222222222222222222",
+      value: "1",
+      chainId: 19,
+    };
+    const evmMessage = Transaction.from(rawTx).unsignedHash.slice(2);
+    writeSignedTxJson(
+      {
+        transactionType: "EVM",
+        rawTx,
+        message: evmMessage,
+        signature: signMessageHash(evmMessage),
+      },
+      "sgb-evm",
+      cwd
+    );
+    // the recorded transfer, rebuilt for network id 5
+    const bundle = bundleFromUnsignedTxJson(readGolden("transfer-file").outcome.unsignedTxJson as UnsignedTxJson);
+    if (bundle.kind !== "atomic") throw new Error("transfer must be a P-chain transaction");
+    (bundle.unsignedTx.getTx() as unknown as { baseTx: { NetworkId: Int } }).baseTx.NetworkId = new Int(5);
+    const songbird = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "songbird");
+    const atomic = unsignedTxJsonFromBundle(
+      { ...bundle, digest: messageHashFromUnsignedTx(bundle.unsignedTx) },
+      songbird
+    );
+    writeSignedTxJson({ ...atomic, signature: signMessageHash(messageOf(atomic)) }, "sgb-atomic", cwd);
+    for (const id of ["sgb-evm", "sgb-atomic"]) {
+      await sendSignedTransaction(
+        id,
+        scriptedEnv({ statuses: ["Committed"] }, id, cwd, "songbird"),
+        undefined,
+        cwd,
+        FAST
+      );
+      expect(isAlreadySentToChain(id, cwd), id).to.equal(true);
+    }
+  });
+
+  it("sends a file signed with a high s, as its low-s twin, atomic and EVM", async () => {
+    const n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+    for (const [scenario, id] of [
+      ["withdrawal-file", "high-s-evm"],
+      ["exportCP-file", "high-s-atomic"],
+    ] as const) {
+      const unsigned = readGolden(scenario).outcome.unsignedTxJson as UnsignedTxJson & {
+        signatureRequests?: { message: string }[];
+        message?: string;
+      };
+      const low = signMessageHash(unsigned.signatureRequests?.[0]?.message ?? unsigned.message!);
+      const highS = (n - BigInt(`0x${low.slice(64, 128)}`)).toString(16).padStart(64, "0");
+      const v = (parseInt(low.slice(128), 16) ^ 1).toString(16).padStart(2, "0");
+      writeSignedTxJson({ ...unsigned, signature: low.slice(0, 64) + highS + v }, id, cwd);
+      await sendSignedTransaction(
+        id,
+        scriptedEnv({ statuses: ["Accepted", "Committed"] }, id, cwd),
+        undefined,
+        cwd,
+        FAST
+      );
+      expect(isAlreadySentToChain(id, cwd), scenario).to.equal(true);
+    }
+  });
+
+  it("refuses an EVM file with chain id 0, typed or an unprotected legacy one, which every chain would take", async () => {
     const signedWith = (rawTx: object, id: string) => {
       const tx = Transaction.from(rawTx);
       const message = tx.unsignedHash.slice(2);
@@ -401,30 +484,25 @@ describe("app/send: the file's network must be the selected one", () => {
     };
     const base = { nonce: 1, gasLimit: 21_000, to: "0x2222222222222222222222222222222222222222", value: "1" };
     signedWith({ ...base, type: 2, maxFeePerGas: 1, maxPriorityFeePerGas: 1, chainId: 0 }, "typed");
-    let issued = false;
-    await sendSignedTransaction(
-      "typed",
-      scriptedEnv({ statuses: ["Committed"], onIssue: () => (issued = true) }, "typed", cwd),
-      undefined,
-      cwd,
-      FAST
-    ).then(
-      () => expect.fail("sent a typed transaction for chain id 0"),
-      (error: unknown) =>
-        expect(describeError(error)).to.equal(
-          "Transaction typed is for chain id 0, not localflare (162); select its network with --network"
-        )
-    );
-    expect(issued).to.equal(false);
     signedWith({ ...base, type: 0, gasPrice: 1 }, "legacy");
-    await sendSignedTransaction(
-      "legacy",
-      scriptedEnv({ statuses: ["Committed"] }, "legacy", cwd),
-      undefined,
-      cwd,
-      FAST
-    );
-    expect(isAlreadySentToChain("legacy", cwd)).to.equal(true);
+    for (const id of ["typed", "legacy"]) {
+      let issued = false;
+      await sendSignedTransaction(
+        id,
+        scriptedEnv({ statuses: ["Committed"], onIssue: () => (issued = true) }, id, cwd),
+        undefined,
+        cwd,
+        FAST
+      ).then(
+        () => expect.fail(`sent ${id} for chain id 0`),
+        (error: unknown) =>
+          expect(describeError(error)).to.equal(
+            `Transaction ${id} is for chain id 0, not localflare (162); select its network with --network`
+          )
+      );
+      expect(issued, id).to.equal(false);
+      expect(isAlreadySentToChain(id, cwd), id).to.equal(false);
+    }
   });
 
   it("refuses a file of another network before anything is sent: network id for atomic, chain id for EVM", async () => {

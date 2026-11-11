@@ -17,8 +17,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction importPC-file constructed\nForDefi hash: p1lqy/oQMiqjDUtis2YZIh7K3YSMA2N0DH+nnxOVM28=\nFee: 1 LFLR (burned when the signed transaction is sent)\n",
-    "stderr": "",
+    "stdout": "Unsigned transaction importPC-file constructed\nForDefi hash: p1lqy/oQMiqjDUtis2YZIh7K3YSMA2N0DH+nnxOVM28=\nAmount: 10 LFLR to the C-chain\nFee: 1 LFLR (burned when the signed transaction is sent)\n",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

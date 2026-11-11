@@ -152,23 +152,43 @@ describe("chain/network", () => {
         expect(message, input).to.not.include("SECRET");
       }
       expect(() => parseNodeUrl("https://host.example:bad/ext/info?x%2Dapikey=SECRET")).to.throw(
-        'Invalid node URL "https://host.example:bad/ext/info?…"; expected a base URL'
+        'Invalid node URL "https://…"; expected a base URL'
       );
-      // with an "@" anywhere, where credentials end can't be told: only the scheme is shown
-      for (const input of [
-        "https://alice:synthetic/SECRET@node.invalid",
-        "https://alice:SECRET?tail@node.invalid",
-        "https://host.invalid:bad/ext/info?x-apikey=public@SECRET",
-      ]) {
-        expect(() => parseNodeUrl(input), input).to.throw('Invalid node URL "https://***"; expected a base URL');
-      }
       expect(() => parseNodeUrl("ftp://user:SECRET@host.example")).to.throw(
-        'Invalid node URL "ftp://***"; only http and https are supported'
+        'Invalid node URL "ftp://…"; only http and https are supported'
       );
     });
 
+    it("shows only the scheme of a refused URL: what follows can hold a key no client has remembered yet", () => {
+      const token = "0123456789abcdef0123456789abcdef";
+      const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhdWRpdCJ9.Q8m7kW2rX9tLp4vN6sFz3cH0bY5eA1dJ7uI9oP2qR4s";
+      for (const [input, shown] of [
+        [`https://node.invalid:bad/${token}`, "https://…"], // a typo in the port
+        [`https://node.invalid:bad\\${token}`, "https://…"], // a backslash, which URL reads as /
+        [`wss://gateway.invalid/${token}/ext/bc/C/ws`, "wss://…"], // a pasted WebSocket URL
+        [`https://node.invalid:bad/flare/${token}?x-apikey=k`, "https://…"],
+        [`https://node.invalid:bad#${token}`, "https://…"],
+        [`https://${token}:bad`, "https://…"],
+        // a key given as the URL, read as the host, with dots (a JWT) or without
+        [token, "…"],
+        [jwt, "…"],
+        [`x-apikey:${token}`, "…"],
+        [`${token}/ext/info`, "…"],
+      ] as const) {
+        let message = "";
+        try {
+          parseNodeUrl(input);
+        } catch (error) {
+          message = (error as Error).message;
+        }
+        expect(message, input).to.include(`Invalid node URL "${shown}"`);
+        expect(message, input).to.not.include(token);
+        expect(message, input).to.not.include("Q8m7kW2rX9");
+      }
+    });
+
     it("rejects what is not an http(s) URL", () => {
-      expect(() => parseNodeUrl("coston2-api.flare.network")).to.throw(/Invalid node URL "coston2-api.flare.network"/);
+      expect(() => parseNodeUrl("coston2-api.flare.network")).to.throw('Invalid node URL "…"; expected a base URL');
       expect(() => parseNodeUrl("ftp://host.example")).to.throw(/only http and https/);
     });
   });
@@ -194,6 +214,10 @@ describe("chain/network", () => {
       apiUrl: "https://flag.example",
       apiKey: "from-flag",
     });
+    // --api-key before the key written into the --rpc-url
+    expect(
+      networkConfig("costwo", {}, { apiUrl: "https://flag.example/?x-apikey=from-url", apiKey: "from-flag" })
+    ).to.include({ apiUrl: "https://flag.example", apiKey: "from-flag" });
     // FLARE_API_KEY goes to the node of FLARE_RPC_URL or the network's own, never to one --rpc-url names, even with
     // an unused FLARE_RPC_URL set
     expect(networkConfig("costwo", env, { apiUrl: "https://flag.example" })).to.include({
@@ -222,7 +246,14 @@ describe("chain/network", () => {
   it("warns, without the key, when an API key would go over plain http to another machine", () => {
     const warning = (apiUrl: string, apiKey: string | undefined = "SECRET-KEY") =>
       insecureApiKeyWarning({ apiUrl, apiKey });
-    for (const apiUrl of ["http://node.example", "http://localhost.evil.example:9650", "http://192.168.1.10:9650"]) {
+    // names that start like a loopback address but are other hosts
+    for (const apiUrl of [
+      "http://node.example",
+      "http://localhost.evil.example:9650",
+      "http://192.168.1.10:9650",
+      "http://127.evil.example:9650",
+      "http://127.0.0.1.evil.example",
+    ]) {
       expect(warning(apiUrl), apiUrl).to.equal(
         `the API key goes unencrypted to ${apiUrl} over plain http; use an https URL, or no key for this node`
       );

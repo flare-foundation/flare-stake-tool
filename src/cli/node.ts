@@ -14,7 +14,9 @@ export const RPC_URL_DESCRIPTION =
   `Node base URL replacing the network's default (also ${RPC_URL_ENV}); ` +
   `a full endpoint URL such as https://host/ext/info?${API_KEY_HEADER}=KEY is accepted`;
 export const API_KEY_OPTION = `${API_KEY_FLAG} <key>`;
-export const API_KEY_DESCRIPTION = `API key sent as the ${API_KEY_HEADER} header with every request (also ${API_KEY_ENV})`;
+export const API_KEY_DESCRIPTION =
+  `API key sent as the ${API_KEY_HEADER} header with every request (also ${API_KEY_ENV}, ` +
+  `which goes only to the node of ${RPC_URL_ENV} or the default node)`;
 
 /** Node overrides from parsed Commander options. */
 export function nodeOverrides(options: { rpcUrl?: string | undefined; apiKey?: string | undefined }): NodeOverrides {

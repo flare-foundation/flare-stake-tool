@@ -8,6 +8,7 @@ import crypto from "crypto";
 import fs from "fs";
 import {
   bundleFromConsistentTxJson,
+  checkFileNetwork,
   forDefiHashOf,
   readUnsignedTxJson,
   saveSignedTxJson,
@@ -15,7 +16,9 @@ import {
   writeUnsignedTxJson,
 } from "../core/files";
 import { normalizePublicKey } from "../chain/keys";
+import { networkConfig, redactSecrets, rememberSecret, type NetworkConfig } from "../chain/network";
 import { isJsonObject } from "../core/json";
+import { recoverSigner } from "../core/signing/attach";
 import { SIGNATURE_LENGTH, equalBytes, toHex } from "../core/signing/signature";
 import type { ContextFile } from "./env";
 
@@ -37,7 +40,24 @@ interface VaultResponse {
   public_key_compressed?: unknown;
 }
 
-const readToken = (): string => fs.readFileSync(FORDEFI_TOKEN_FILE, "utf8").trim();
+/** The API token, remembered for masking as soon as it is read: a ForDefi answer may repeat it in an error body. */
+function readToken(): string {
+  const token = fs.readFileSync(FORDEFI_TOKEN_FILE, "utf8").trim();
+  rememberSecret(token);
+  return token;
+}
+
+/**
+ * The start of a ForDefi answer for an error message, masked before it is cut: a secret the answer repeats (the
+ * token) would no longer match once cut, and all of it but the last characters would print.
+ */
+const excerpt = (text: string, length: number): string => redactSecrets(text.trim()).slice(0, length);
+
+/**
+ * A ForDefi transaction id (a UUID), as saved in the unsigned file shared with co-signers and printed: another answer
+ * could hold a line break and a line of the tool's own, such as a false `ForDefi hash: …`.
+ */
+const FORDEFI_TX_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
 /**
  * The JSON body of a ForDefi answer. A refused request (expired token, unknown
@@ -46,7 +66,7 @@ const readToken = (): string => fs.readFileSync(FORDEFI_TOKEN_FILE, "utf8").trim
  */
 async function forDefiJson<T>(response: Response, what: string): Promise<T> {
   const text = await response.text();
-  const body = text.trim().slice(0, 300);
+  const body = excerpt(text, 300);
   if (!response.ok) {
     throw new Error(
       `ForDefi ${what} failed: HTTP ${response.status} ${response.statusText}`.trim() + (body ? `: ${body}` : "")
@@ -87,14 +107,25 @@ function publicKeyOf(hex: string, whose: string): Uint8Array {
   }
 }
 
-/** Posts the unsigned transaction's hash for signing and records the ForDefi transaction id in the unsigned file. */
-export async function sendToForDefi(id: string, context: ContextFile, fetchImpl: FetchLike = fetch): Promise<string> {
+/**
+ * Posts the unsigned transaction's hash for signing and records the ForDefi transaction id in the unsigned file; returns
+ * that id and the hash posted, to compare with the one printed at build time. The file must be for `network` (the
+ * selected one, by default the context's): a signature is valid on the file's network only.
+ */
+export async function sendToForDefi(
+  id: string,
+  context: ContextFile,
+  fetchImpl: FetchLike = fetch,
+  network: Pick<NetworkConfig, "name" | "networkId" | "chainId"> = networkConfig(context.network, {})
+): Promise<{ forDefiTxId: string; forDefiHash: string }> {
   if (!context.vaultId) {
     throw new Error("vaultId not found in context");
   }
   const unsigned = readUnsignedTxJson(id);
   // the hash ForDefi signs: the file's message, which must be the digest of the file's transaction
-  const { digest } = bundleFromConsistentTxJson(unsigned);
+  const bundle = bundleFromConsistentTxJson(unsigned);
+  checkFileNetwork(id, bundle, network);
+  const { digest } = bundle;
   const vaultPublicKey = await getVaultPublicKey(context.vaultId, fetchImpl);
   // compared as keys: a context may hold its key uncompressed or with 0x, the vault answers it compressed
   const contextKey = publicKeyOf(context.publicKey, "The context's publicKey");
@@ -133,10 +164,19 @@ export async function sendToForDefi(id: string, context: ContextFile, fetchImpl:
   });
   const json = await forDefiJson<ForDefiTransactionResponse>(response, "signature request");
   if (typeof json.id !== "string" || !json.id) {
-    throw new Error(`ForDefi did not return a transaction id: ${JSON.stringify(json).slice(0, 200)}`);
+    throw new Error(`ForDefi did not return a transaction id: ${excerpt(JSON.stringify(json), 200)}`);
+  }
+  // the id goes into the unsigned file, which is shared with co-signers
+  if (!FORDEFI_TX_ID.test(json.id)) {
+    throw new Error(
+      'ForDefi answered a transaction id that is not 1 to 128 letters, digits, "-" or "_"; it is not saved (the request may be waiting in ForDefi)'
+    );
+  }
+  if (redactSecrets(json.id) !== json.id) {
+    throw new Error("ForDefi answered a transaction id that holds a secret (such as the API token); it is not saved");
   }
   writeUnsignedTxJson({ ...unsigned, forDefiTxId: json.id }, id);
-  return json.id;
+  return { forDefiTxId: json.id, forDefiHash: hashBase64 };
 }
 
 /** Fetches the signature of a previously posted transaction and writes the signed file. */
@@ -154,13 +194,43 @@ export async function fetchForDefiSignature(id: string, fetchImpl: FetchLike = f
   const first: unknown = Array.isArray(json.signatures) ? json.signatures[0] : undefined;
   const data = isJsonObject(first) ? first["data"] : undefined;
   if (data === undefined || data === null || data === "") {
-    const state = typeof json["state"] === "string" ? ` (ForDefi state: ${json["state"]})` : "";
+    // a state is a word, such as waiting_for_approval; another answer is quoted as JSON, and cut, so no control
+    // character or line of its own prints
+    const answered = json["state"];
+    const shown =
+      typeof answered !== "string"
+        ? undefined
+        : /^\w{1,64}$/.test(answered)
+          ? answered
+          : excerpt(JSON.stringify(answered), 100);
+    const state = shown === undefined ? "" : ` (ForDefi state: ${shown})`;
     throw new Error(`Transaction is not signed yet${state}; run forDefi fetch again once it is`);
   }
   const bytes = typeof data === "string" ? Buffer.from(data, "base64") : undefined;
   if (bytes?.length !== SIGNATURE_LENGTH) {
     throw new Error(
-      `ForDefi answered a signature that is not ${SIGNATURE_LENGTH} bytes of base64: ${JSON.stringify(data).slice(0, 200)}`
+      `ForDefi answered a signature that is not ${SIGNATURE_LENGTH} bytes of base64: ${excerpt(JSON.stringify(data), 200)}`
+    );
+  }
+  // the signature must be over this file's transaction, by the account it was built for: a mixed-up or wrong answer
+  // would replace a good signature not sent yet, and send would refuse the file only later. The file is read first,
+  // so that a broken one fails with its own error, not as the signature's
+  const bundle = bundleFromConsistentTxJson(unsigned);
+  let signer: Uint8Array;
+  try {
+    signer = recoverSigner(bundle, bytes);
+  } catch (error) {
+    throw new Error(
+      `ForDefi answered a signature of no key for transaction ${id} (${error instanceof Error ? error.message : String(error)}); ` +
+        "the signed file is not written",
+      { cause: error }
+    );
+  }
+  const mismatch = signerMismatch(unsigned, signer);
+  if (mismatch) {
+    throw new Error(
+      `Transaction ${id} was built for ${mismatch.recorded}, but ForDefi answered a signature of ${mismatch.actual} ` +
+        "(over another transaction, or by another key); the signed file is not written"
     );
   }
   const signature = bytes.toString("hex");

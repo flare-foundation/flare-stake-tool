@@ -71,6 +71,8 @@ describe("app/env context file", () => {
   it("refuses a context file that is not JSON, not an object, or has a field it reads of the wrong type", () => {
     for (const [content, refusal] of [
       ["{", `Context file ${file} is not valid JSON (`],
+      // a raw key file given as the context: none of its characters are quoted
+      ["d133724945abcdef", `Context file ${file} is not valid JSON (Unexpected token 'd' in JSON)`],
       ["null", `Context file ${file} is not a JSON object`],
       ["[]", `Context file ${file} is not a JSON object`],
       ['{"publicKey":"02aa"}', `Context file ${file} is missing publicKey or network`],
@@ -101,7 +103,9 @@ describe("app/env context file", () => {
     const original = fs.existsSync;
     fs.existsSync = () => false;
     try {
-      expect(() => writeContextFile(FORDEFI_CONTEXT, file)).to.throw("ctx.json already exists");
+      expect(() => writeContextFile(FORDEFI_CONTEXT, file)).to.throw(
+        "The context file given with --ctx-file already exists"
+      );
     } finally {
       fs.existsSync = original;
     }
@@ -109,14 +113,39 @@ describe("app/env context file", () => {
   });
 
   it("refuses to read a missing context file and to overwrite an existing one", () => {
-    expect(() => readContextFile(file)).to.throw(
-      `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
-    );
+    // a given path is not repeated, as it may be a key given in its place; the default one is
+    expect(() => readContextFile(file))
+      .to.throw("The context file given with --ctx-file does not exist")
+      .with.property("message")
+      .that.does.not.include(file);
+    const cwd = process.cwd();
+    process.chdir(path.dirname(file));
+    try {
+      expect(() => readContextFile()).to.throw(
+        "Context file ctx.json does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path"
+      );
+    } finally {
+      process.chdir(cwd);
+    }
     writeContextFile(FORDEFI_CONTEXT, file);
-    expect(() => writeContextFile({ ...FORDEFI_CONTEXT, vaultId: "vault-456" }, file)).to.throw(
-      "ctx.json already exists"
-    );
+    expect(() => writeContextFile({ ...FORDEFI_CONTEXT, vaultId: "vault-456" }, file))
+      .to.throw("The context file given with --ctx-file already exists")
+      .with.property("message")
+      .that.does.not.include(file);
     expect(readContextFile(file).vaultId).to.equal("vault-123");
+    // nor in another write error; the default ctx.json is named
+    const unwritable = path.join(path.dirname(file), "no-such-dir", "f".repeat(64));
+    expect(() => writeContextFile(FORDEFI_CONTEXT, unwritable)).to.throw(
+      "The context file given with --ctx-file could not be written (ENOENT)"
+    );
+    process.chdir(path.dirname(file));
+    try {
+      fs.unlinkSync(file);
+      writeContextFile(FORDEFI_CONTEXT);
+      expect(() => writeContextFile(FORDEFI_CONTEXT)).to.throw("ctx.json already exists");
+    } finally {
+      process.chdir(cwd);
+    }
   });
 
   describe("the network to act on", () => {
@@ -135,7 +164,9 @@ describe("app/env context file", () => {
     });
 
     it("refuses an unknown --network, and a context file without a network", () => {
-      expect(() => resolveNetworkName("mainnet", file)).to.throw('Unknown network "mainnet"');
+      expect(() => resolveNetworkName("mainnet", file)).to.throw(
+        'Unknown network "mainnet"; expected one of flare, songbird, costwo, coston, localflare'
+      );
       fs.writeFileSync(file, JSON.stringify({ wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED }));
       expect(() => resolveNetworkName(undefined, file)).to.throw(
         `Context file ${file} is missing publicKey or network`

@@ -74,56 +74,96 @@ export function redactApiKey(text: string): string {
   return text.replace(new RegExp(`([?&]${API_KEY_HEADER}=)[^&#\\s"]*`, "gi"), "$1***");
 }
 
-/** Secrets in use (the API key, URL credentials), masked wherever they turn up in a message. */
+/** Secrets in use (the API key, URL passwords, the ForDefi token), masked wherever they turn up in a message. */
 const secrets = new Set<string>();
+/** URL usernames: masked in errors with the other credentials, but not in results, where they are no secret. */
+const usernames = new Set<string>();
+/**
+ * The shortest secret masked in results: a shorter one can match part of an address, a hash or an id (a 4-character
+ * URL username masked `0x8db9…` in the address `info addresses` printed, and an 8-character API key the next 8).
+ */
+const RESULT_SECRET_MIN_LENGTH = 16;
 
-/** Masks `value` in every message `redactSecrets` cleans from now on. */
-export function rememberSecret(value: string | undefined): void {
-  if (value !== undefined && value.length >= 4) secrets.add(value);
+/** Masks `value` in every message `redactSecrets` cleans from now on, and a secret in results as well. */
+export function rememberSecret(value: string | undefined, kind: "secret" | "username" = "secret"): void {
+  if (value !== undefined && value.length >= 4) (kind === "username" ? usernames : secrets).add(value);
 }
 
+/** Masks the `x-apikey` query parameter and the user and password of a URL (`https://user:SECRET@host`). */
+const redactUrlCredentials = (text: string): string =>
+  redactApiKey(text).replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#@]*@/gi, "$1***@");
+
 /**
- * A message cleaned of credentials before it is printed: the `x-apikey` query parameter, the user and password of a
- * URL (`https://user:SECRET@host`), and every remembered secret, wherever a library repeats them.
+ * An error message cleaned of credentials before it is printed: URL credentials, the `x-apikey` query parameter, and
+ * every remembered secret and URL username, wherever a library repeats them.
  */
 export function redactSecrets(text: string): string {
-  let cleaned = redactApiKey(text).replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/?#@]*@/gi, "$1***@");
-  for (const secret of secrets) cleaned = cleaned.split(secret).join("***");
+  let cleaned = redactUrlCredentials(text);
+  for (const secret of [...secrets, ...usernames]) cleaned = cleaned.split(secret).join("***");
   return cleaned;
 }
 
 /**
- * A node URL as given, for an error about it, refused before any key is remembered: without its query and fragment,
- * which may hold a key under any spelling (`x%2Dapikey=`). With an `@` anywhere, only its scheme is shown: a password
- * typed without escaping can hold `/`, `?` or `#`, and a query value an `@`, so where credentials end and the query
- * starts can't be told (`https://alice:SECRET?tail@host`, `https://host:bad/?x-apikey=a@SECRET`).
+ * A result cleaned of credentials before it is printed: URL credentials, the `x-apikey` query parameter, and the
+ * remembered secrets long enough not to match part of an address, a hash or an id (a node may repeat the API key in
+ * what it answers). Usernames and shorter secrets are masked in errors only, so that results stay whole.
+ */
+export function redactSecretsInResult(text: string): string {
+  let cleaned = redactUrlCredentials(text);
+  for (const secret of secrets) {
+    if (secret.length >= RESULT_SECRET_MIN_LENGTH) cleaned = cleaned.split(secret).join("***");
+  }
+  return cleaned;
+}
+
+/**
+ * The shortest path segment of a node URL masked as a token: some providers put the key in the path
+ * (`https://host/<token>/ext/…`), where neither the credential nor the `x-apikey` masking finds it. Shorter segments
+ * are names (`/rpc`, `/flare`), shown as they are.
+ */
+export const PATH_TOKEN_MIN_LENGTH = 16;
+
+/**
+ * A URL for a message with every path segment of PATH_TOKEN_MIN_LENGTH or more masked, where the clients have not
+ * remembered it: a redirect's target, parsed (`\` read as `/`). The host (the first segment without a scheme) is
+ * shown as it is.
+ */
+export function withoutPathTokens(url: string): string {
+  const start = (/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i.exec(url) ?? /^[^/]*/.exec(url))?.[0] ?? "";
+  const path = url
+    .slice(start.length)
+    .split("/")
+    .map((segment) => (segment.length >= PATH_TOKEN_MIN_LENGTH ? "***" : segment));
+  return start + path.join("/");
+}
+
+/**
+ * A node URL refused before any key is remembered, for the error about it: its scheme (`https://…`), else `…`. What
+ * follows can hold a key that nothing has remembered yet: a password, a token in the path, a query under any spelling
+ * (`x%2Dapikey=`), or a key pasted where the URL goes, read as the host whether it has dots (a JWT) or not. In text that
+ * didn't parse, where any of these starts can't be told, so none of it is shown; the user has the URL they typed.
  */
 function shownNodeUrlInput(input: string): string {
-  const text = input.trim();
-  if (text.includes("@")) {
-    return `${/^[a-z][a-z0-9+.-]*:\/\//i.exec(text)?.[0] ?? ""}***`;
-  }
-  const cut = text.search(/[?#]/);
-  return redactSecrets(cut < 0 ? text : `${text.slice(0, cut)}?…`);
+  const scheme = /^[a-z][a-z0-9+.-]*:\/\//i.exec(input.trim())?.[0];
+  return `${scheme ?? ""}…`;
 }
 
 /**
  * Turns a node URL into the base URL the clients are built on. A full endpoint
  * URL as copied from a node's documentation (`https://host/ext/info?x-apikey=KEY`)
  * is accepted: the `/ext/...` API path is dropped and an `x-apikey` query
- * parameter becomes the API key.
+ * parameter becomes the API key. `source` says in the error where the URL came from, as it shows little of it.
  */
-export function parseNodeUrl(input: string): ParsedNodeUrl {
+export function parseNodeUrl(input: string, source?: string): ParsedNodeUrl {
+  const invalid = `Invalid node URL "${shownNodeUrlInput(input)}"${source === undefined ? "" : ` ${source}`}`;
   let url: URL;
   try {
     url = new URL(input.trim());
   } catch {
-    throw new Error(
-      `Invalid node URL "${shownNodeUrlInput(input)}"; expected a base URL such as https://coston2-api.flare.network`
-    );
+    throw new Error(`${invalid}; expected a base URL such as https://coston2-api.flare.network`);
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(`Invalid node URL "${shownNodeUrlInput(input)}"; only http and https are supported`);
+    throw new Error(`${invalid}; only http and https are supported`);
   }
   const apiKey = nonEmpty(url.searchParams.get(API_KEY_HEADER) ?? undefined);
   url.search = "";
@@ -172,8 +212,10 @@ export function overriddenNode(
   overrides: NodeOverrides,
   env: NodeJS.ProcessEnv = process.env
 ): ParsedNodeUrl | undefined {
-  const urlInput = nonEmpty(overrides.apiUrl) ?? nonEmpty(env[RPC_URL_ENV]);
-  return urlInput === undefined ? undefined : parseNodeUrl(urlInput);
+  const given = nonEmpty(overrides.apiUrl);
+  if (given !== undefined) return parseNodeUrl(given, "given with --rpc-url");
+  const fromEnv = nonEmpty(env[RPC_URL_ENV]);
+  return fromEnv === undefined ? undefined : parseNodeUrl(fromEnv, `in ${RPC_URL_ENV}`);
 }
 
 /**

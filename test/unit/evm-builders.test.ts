@@ -28,6 +28,7 @@ import {
 } from "../../src/core/builders/evm";
 import { builtDetails, type BuiltDetails } from "../../src/core/details";
 import { executeTransaction } from "../../src/core/pipeline";
+import { runTransaction } from "../../src/app/transactions";
 import {
   FILE_SIGNER_POLICY,
   IMMEDIATE_SIGNER_POLICY,
@@ -448,8 +449,36 @@ describe("core/pipeline: the transaction approved is the one signed", () => {
     expect(shown?.claimed).to.equal(4n * 10n ** 18n);
     expect(amount, "the amount approved, not the rewards now").to.equal(shown?.claimed);
     expect(signed.tx.nonce).to.equal(shown?.nonce);
-    expect(outcome.evm).to.deep.equal({ nonce: shown?.nonce, claimed: shown?.claimed });
+    expect(outcome.evm).to.deep.equal({ nonce: shown?.nonce, gasLimit: signed.tx.gasLimit, claimed: shown?.claimed });
     expect(rewardsOf, "built once").to.have.length(1);
+  });
+});
+
+describe("app/transactions: interactive mode's confirmation reaches the pipeline", () => {
+  it("runTransaction hands beforeSign on: a hook that refuses stops the transaction before it is signed", async () => {
+    const { env } = chainEnv();
+    let signs = 0;
+    const signer: Signer = {
+      kind: "file",
+      policy: FILE_SIGNER_POLICY,
+      account: () => Promise.resolve(ACCOUNT),
+      sign: () => {
+        signs += 1;
+        return Promise.resolve({ status: "pending", id: "x", forDefiHash: "h", file: "f" });
+      },
+    };
+    const checked = { ...env, clients: { ...env.clients, verifyNetwork: () => Promise.resolve() } };
+    const claimAll = { type: "claim", recipient: CONTRACT, wrap: true, fees: resolveEvmFees("claim") } as const;
+    let asked = 0;
+    await runTransaction(claimAll, checked as unknown as Env, signer, {}, () => {
+      asked += 1;
+      return Promise.reject(new Error("declined"));
+    }).then(
+      () => expect.fail("signed though the confirmation refused"),
+      (error: unknown) => expect((error as Error).message).to.equal("declined")
+    );
+    expect(asked, "asked once").to.equal(1);
+    expect(signs, "nothing signed").to.equal(0);
   });
 });
 

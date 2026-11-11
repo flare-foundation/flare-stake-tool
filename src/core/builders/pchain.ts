@@ -138,6 +138,10 @@ function pChainInputGas(
  * C-chain, for importCP). When spending P-chain UTXOs, one worth less than the fee its own input adds at the lowest
  * price (the fee config's `minPrice`) costs more to spend than it brings at any price, and anyone can send such dust
  * to any address, plain or stakeable-locked with any lock (go-flare lets unlocked funds pay for a locked output).
+ * So is a UTXO the account can't spend alone at `minIssuanceTime` (flarejs `matchOwners`): one needing another key
+ * (threshold above 1) or whose owners' lock still runs. flarejs passes over such a plain UTXO, but takes a
+ * stakeable-locked one for a stake and then fails the whole transaction ("No addresses match UTXO owners"), so one
+ * sent by anyone blocked the account's stake, delegate and addAutoRenewedValidator.
  * flarejs spends UTXOs in the order given until the amount and fee are covered (a stake takes locked ones first), so
  * dust in front made a transaction pay more, and enough of it pushed the transaction over the gas capacity. It is
  * left out, of the inputs and of the balance exportPC without -a exports, and `notices` says so. The rest, locked or
@@ -165,12 +169,24 @@ async function pChainInputs(env: Env, account: Account, policy: BuildPolicy, sou
   const isDust = (utxo: PChainUtxo) =>
     (utxo.output instanceof TransferOutput || utxo.output instanceof pvmSerial.StakeableLockOut) &&
     amountOf(utxo) < pChainInputGas(utxo, weights, minIssuanceTime) * minPrice;
+  const needsOthers = (utxo: PChainUtxo) => {
+    if (!(utxo.output instanceof TransferOutput || utxo.output instanceof pvmSerial.StakeableLockOut)) return false;
+    const info = futils.getUtxoInfo(utxo);
+    return info.threshold > 1 || info.locktime > minIssuanceTime;
+  };
   const dust = utxos.filter(isDust);
-  if (dust.length === 0) {
+  const shared = utxos.filter((utxo) => !isDust(utxo) && needsOthers(utxo));
+  if (dust.length === 0 && shared.length === 0) {
     return inputs;
   }
-  const notice = `${describeUtxos(dust, env.network.symbol)} left out: each is worth less than the fee of spending it`;
-  return { ...inputs, utxos: utxos.filter((utxo) => !isDust(utxo)), notices: [notice] };
+  const { symbol } = env.network;
+  const notices = [
+    ...(dust.length ? [`${describeUtxos(dust, symbol)} left out: each is worth less than the fee of spending it`] : []),
+    ...(shared.length
+      ? [`${describeUtxos(shared, symbol)} left out: each needs another key, or its owners' lock still runs`]
+      : []),
+  ];
+  return { ...inputs, utxos: utxos.filter((utxo) => !isDust(utxo) && !needsOthers(utxo)), notices };
 }
 
 type PChainInputs = Awaited<ReturnType<typeof pChainInputs>>;
@@ -409,12 +425,20 @@ export async function buildImportCP(
       info.locktime <= inputs.minIssuanceTime
     );
   });
+  // anyone can export a co-owned or time-locked UTXO to the account's address; flarejs passes over it in silence
+  const symbol = env.network.symbol;
+  const unspendable = inputs.utxos.filter((utxo) => !importable.includes(utxo));
+  if (importable.length === 0 && unspendable.length > 0) {
+    throw new Error(
+      `Nothing to import from the C-chain that this account can spend alone (${describeUtxos(unspendable, symbol)} ` +
+        "need more signatures or have a time lock that still runs)"
+    );
+  }
   const inputGas = (utxo: PChainUtxo) => pChainInputGas(utxo, weights, inputs.minIssuanceTime);
   const probeFeeState = { ...inputs.feeState, price: 0n, capacity: PROBE_GAS_CAPACITY };
   const chosen = chooseImported(importable, inputGas, minPrice, maxCapacity - maxPerSecond, (utxos) =>
     pvm.calculateFee(build(utxos, probeFeeState).getTx(), weights, 1n)
   );
-  const symbol = env.network.symbol;
   if (chosen.taken.length === 0 && chosen.skipped.length > 0) {
     throw new Error(
       `Nothing worth importing from the C-chain: ${describeUtxos(chosen.skipped, symbol)}, each worth less than the fee of importing it`
@@ -422,8 +446,23 @@ export async function buildImportCP(
   }
   // with nothing importable at all, flarejs says so ("no UTXOs available to import")
   const unsignedTx = build(chosen.taken);
+  // flarejs got only the exported UTXOs: when they can't pay the fee, it spends one of them a second time as a
+  // P-chain UTXO, which doesn't exist, and the output looks paid for
+  const { ins, baseTx } = unsignedTx.getTx() as pvmSerial.ImportTx;
+  if (baseTx.inputs.length > 0) {
+    const imported = asNFlr(ins.reduce((sum, input) => sum + input.amount(), 0n));
+    throw new Error(
+      `The fee is more than the ${formatFlr(imported)} ${symbol} being imported, so nothing would arrive on the ` +
+        "P-chain; it is not signed, and the UTXOs stay pending for a later import"
+    );
+  }
   checkImportOutput(unsignedTx, context, "P-chain", symbol);
-  return bundle("importCP", unsignedTx, importNotices(chosen, symbol, "the P-chain's gas capacity"));
+  return bundle("importCP", unsignedTx, [
+    ...importNotices(chosen, symbol, "the P-chain's gas capacity"),
+    ...(unspendable.length > 0
+      ? [`${describeUtxos(unspendable, symbol)} left pending: each needs another key, or its time lock still runs`]
+      : []),
+  ]);
 }
 
 export async function buildExportPC(
@@ -522,7 +561,15 @@ export async function buildImportPC(
   }
   // an estimate above the imported value is cut to it by flarejs, leaving a 0-value output; so is -f equal to it
   checkImportOutput(unsignedTx, context, "C-chain", symbol);
-  return bundle("importPC", unsignedTx, importNotices(chosen, symbol, "the C-chain's atomic gas limit"));
+  const unspendable = pending.filter((utxo) => !importable.includes(utxo));
+  return bundle("importPC", unsignedTx, [
+    ...importNotices(chosen, symbol, "the C-chain's atomic gas limit"),
+    ...(unspendable.length > 0
+      ? [
+          `${describeUtxos(unspendable, symbol)} left pending: each needs another key or has a time lock, which cannot be imported even once it has passed`,
+        ]
+      : []),
+  ]);
 }
 
 export async function buildStake(

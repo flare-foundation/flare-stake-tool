@@ -14,38 +14,51 @@ focuses on inputs / outputs / side effects / failure modes.
 
 | Flag | Purpose |
 |---|---|
-| `--network <flare\|songbird\|costwo\|coston\|localflare>` | Network to act on |
+| `--network <flare\|songbird\|costwo\|coston\|localflare>` | Network to act on. Without it, the context file's network, else `flare` with a warning on stderr. Transactions, `send` and `forDefi sign` print `Using network: <name>` on stderr |
 | `--ledger` | Sign transactions on a connected Ledger device. The device must keep the key it had at the first read: another Ledger connected while the command runs is refused before anything is signed |
 | `--blind` | Accepted for compatibility and has no effect: the signing mode follows the open Ledger app (the Flare app parses the transaction and falls back to signing its hash only for a type it cannot parse; the Avalanche app signs the hash). Before signing a hash the tool prints it on stderr, to compare with the one the device shows |
-| `--derivation-path <path>` | Ledger derivation path. Without it, `--ledger` with a Ledger context file (`--ctx-file`, default `ctx.json`) uses the context's path and refuses a Ledger that doesn't have the context's key; otherwise `m/44'/60'/0'/0/0`. A path given or saved must be `m/` and decimal indices below 2^31, each optionally hardened with `'` |
+| `--derivation-path <path>` | Ledger derivation path. Without it, `--ledger` with a Ledger context file (`--ctx-file`, default `ctx.json`) uses the context's path and refuses a Ledger that doesn't have the context's key; otherwise `m/44'/60'/0'/0/0`. A path given or saved must be `m/` and decimal indices below 2^31, each optionally hardened with `'`. Without `--ledger` it is not read, and a warning says so |
 | `--ctx-file <file>` | Context file written by `init-ctx` (default `ctx.json`, used when it exists). A file given with `--ctx-file` must exist, whatever else selects the account or network, also for `forDefi fetch`, which doesn't read it: a missing one is refused, not ignored (`init-ctx` writes it instead) |
-| `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58`. A `PRIVATE_KEY_CB58` whose checksum doesn't match (a typo) is refused |
+| `--env-path <path>` | `.env` file containing `PRIVATE_KEY_HEX` and/or `PRIVATE_KEY_CB58`. A `PRIVATE_KEY_CB58` whose checksum doesn't match (a typo) is refused. A file with only `PUBLIC_KEY` gives the account for unsigned files, `info` and `send`'s signature check, but not for `--get-hacked` |
 | `--get-hacked` | Use the env file's private key for direct in-process signing; refused together with `--ledger` |
-| `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command. A failed request is reported with its cause and the node's URL, such as `fetch failed (connect ECONNREFUSED 127.0.0.1:9650; node http://localhost:9650)`; URL credentials and the API key are masked as `***` in every error |
+| `--rpc-url <url>` | Node base URL replacing the network's default (or env `FLARE_RPC_URL`); a full endpoint URL such as `https://host/ext/info?x-apikey=KEY` is accepted. The tool trusts the node for chain state (balances, UTXOs, nonces, fees, validators, contract addresses from the FlareContractRegistry): a node given here is your choice, so use one you trust. The node must be on the selected network: its network ID is checked before anything else and a mismatch stops the command. A failed request is reported with its cause and the node's URL, such as `fetch failed (connect ECONNREFUSED 127.0.0.1:9650; node http://localhost:9650)`, and a refusal (HTTP 401 or 403, an error page or another answer that is not JSON, or a JSON answer without a result) says to check `--rpc-url` and the API key; URL credentials, a token in the URL's path (a segment of 16 characters or more, as in `https://host/<token>`) and the API key are masked as `***` in every error; in other output, the API key, URL passwords, path tokens and the ForDefi token are masked when 16 characters or more, so that addresses and hashes are printed whole |
 | `--api-key <key>` | API key sent as the `x-apikey` header with every request, for staging deployments and private nodes. Without it, the node URL's own `x-apikey` is used, then env `FLARE_API_KEY`, which goes only to the node of `FLARE_RPC_URL` or the network's default node, never to one given with `--rpc-url`. A request carrying a key refuses a redirect, which would take the key to the host it names: give the URL it redirects to. A key that would go over plain `http` to a host other than `localhost`, 127.x.x.x or `[::1]` gets a warning on stderr (the key itself is not printed) |
 
-Global options can come before or after the command. Each `transaction` type
+Global options can come before or after the command. A long option takes two
+dashes: one written with one dash and a value, as go-flare's flags may be
+(`-api-key=KEY`), is refused, and not repeated; it would be read as `-a` with
+the rest as its value. An option's value is never taken for one, so an API key
+may start with `-`. Each `transaction` type
 takes only the options listed for it below: another one given on the command
 line is refused (a default, such as `--delegation-fee`'s, doesn't count), and
-so are the C-chain gas options, which only the C-chain commands use. `-i` and
+so are the C-chain gas options, which only the C-chain commands use (`send`,
+`forDefi`, `info` and `init-ctx` refuse them too). `-i` and
 `--threshold 1` are taken by every type. `-i` names the unsigned file of the
 file flow: with `--get-hacked` or `--ledger` the transaction is signed and sent
-at once, and `-i` is not used. The transaction types
+at once, and `-i` is not used. `withdrawal`, `setClaimExecutors`,
+`setAllowedClaimRecipients` and `customCChainTx`, which 4.x always wrote as a
+file, refuse `-i` together with `--get-hacked` or `--ledger`. The transaction types
 (`exportCP`, `stake`, …) can be given without `transaction`, and `addresses`,
 `balance` and `validators` without `info`, also after global options:
 `flare-stake-tool --network costwo balance` is
 `flare-stake-tool info balance --network costwo`.
 
 `-a`/`-f` (amount/fee) are in **FLR** on every signing path, written with `.`
-as the decimal separator; commas are refused (`1,5` and `10,000` are errors,
-write `1.5` and `10000`). P-chain and atomic amounts and fees take at most 9
+as the decimal separator (`.5` and `1.` are read as 0.5 and 1); commas are
+refused (`1,5` and `10,000` are errors, write `1.5` and `10000`). P-chain and atomic amounts and fees take at most 9
 decimals (nFLR) and at most 18446744073.709551615 FLR (2^64−1 nFLR, also as
 an amount plus its fee); the C-chain amounts of `withdrawal` and `claim` take
 up to 18 decimals (wei). More non-zero decimals are an error rather than being
-cut off.
-An empty value (`-a ""`) is refused for `-a`, `-f`, `--nonce`, `--value`,
+cut off. An `-a` or `-f` of 0 is refused for P-chain and atomic transactions,
+which the node would refuse. 4.4.0's `--ledger` path read `-f 0` as "estimate
+the fee" and `exportPC -a 0` as "the whole balance": leave the option out for
+that. The `-f` of `exportCP` and `importPC` is the total fee and at most 20 FLR:
+with `--get-hacked`, 4.4.0 read it as a gas price in nFLR, so `-f 1000` cost
+about 0.011 FLR, and would now burn 1000 FLR.
+An empty value (`-a ""`, or spaces only) is refused for `-a`, `-f`, `--nonce`, `--value`,
 `--data` (`--data 0x` sends no calldata), `--delegation-fee`, `--auto-compound-shares` and the gas and fee flags, whose
-absence means a default:
+absence means a default, and for `--env-path`, `--ctx-file`, `--rpc-url`, `--api-key` and `--vault-id`, whose absence
+selects another account, node or key:
 leave the option out to get the default. `--executors ""` and
 `--recipients ""` clear a list.
 `--gas-limit` (gas units), `--max-fee-per-gas` and `--priority-fee-per-gas`
@@ -56,16 +69,18 @@ with `--get-hacked` or `--ledger` takes the next nonce after the account's
 transactions still waiting in the node, so it neither reuses nor replaces one
 of them; an unsigned file and `exportCP` take the next nonce after the accepted
 ones. Times (`-e`,
-`-s`, `--period`) are unix seconds or durations such as `2d12h` (units w, d, h,
-m, s); an end time given as a duration is added to now and the resolved value is
-printed. A time after the year 275760 (`8640000000000`) or a period above
+`-s`) are unix times in seconds, or durations such as `2d12h` (units w, d, h,
+m, s), which are added to now; the resolved value is printed. `--period` is a
+number of seconds or a duration. A time after the year 275760 (`8640000000000`) or a period above
 2^64−1 seconds is refused. A plain integer is a unix time, so an end time that is not in the
 future (such as `-e 1209600` meant as 14 days) gets a warning on stderr; the
 network then rejects the transaction. A start or end time past the year 5138
 (such as `-e 1700000000000`, milliseconds) gets a warning too, with the value in
 seconds; the time is used as given. Every path prints the transaction id and
 waits until the transaction is accepted; P-chain and atomic transactions also
-print the fee they burn (`Fee paid: …`, or `Fee: …` for an unsigned file). The
+print the fee they burn (`Fee paid: …`, or `Fee: …` for an unsigned file), and
+`exportPC`, `importCP` and `importPC` the amount they move (`Amount: … to the
+C-chain`). The
 unsigned-file (ForDefi) path requires `-f` for `exportCP` and `importPC`.
 P-chain transactions leave out UTXOs worth less than the fee of spending them
 (the gas of one input at the lowest P-chain price, about 0.00074 FLR on Flare),
@@ -98,9 +113,11 @@ network. It does **not** contain the private key.
 
 ## info \<addresses\|balance\|validators\>
 
-Read-only queries against the configured network. Requires either a
-context file (`--ctx-file ctx.json`), `--ledger`, or
-`--get-hacked --env-path`. The account is chosen as transactions choose the
+Read-only queries against the configured network. `addresses` and `balance`
+need an account: a context file (`--ctx-file`, default `ctx.json`),
+`--ledger`, or a key file with `--env-path` (one holding only `PUBLIC_KEY` will
+do, except with `--get-hacked`, which needs its private key). `validators`
+needs none. The account is chosen as transactions choose the
 one they sign for (and `send` the one it checks the signature against): the
 key file with `--get-hacked --env-path`, else the Ledger with `--ledger`, else
 the key file of `--env-path`, else the context file.
@@ -119,7 +136,9 @@ addresses.
 ### info validators
 
 Output the list of current validators on the P-chain. Each entry includes
-nodeID, weight, start/end times, reward owner, delegators.
+nodeID, weight, start/end times, reward owner, delegators. Stdout holds a header
+line and the JSON; a line per auto-renewed validator, with its cycle end, next
+period, authority and auto-compound share, goes to stderr.
 
 ---
 
@@ -129,7 +148,7 @@ Move FLR from the C-chain to the P-chain (atomic export step).
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-a <amount>` (FLR, required), `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path) |
+| Inputs | `-a <amount>` (FLR, required), `-f <fee>` (FLR; total fee, at most 20. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path) |
 | Side effects | Submits an atomic export tx on the C-chain; exactly `amount` is exported and the fee is paid from the C-chain account. The P-chain import fee is paid from the imported funds on import. |
 | Output | Tx hash, "sent to the network" |
 | Failures | "insufficient funds" if C-chain balance < amount + fee. Network parse errors if amount serialization changes between go-flare versions. |
@@ -149,15 +168,17 @@ brings, and is skipped. One import holds at most about 300 UTXOs (the
 P-chain's gas capacity, less one second of refill as headroom); with more, the
 largest are imported and the rest stay pending for the next import. Both rules
 use fixed values from the chain's fee config, so every ForDefi co-signer
-imports the same UTXOs. A warning says how many UTXOs were left out and what
-they hold.
+imports the same UTXOs. A UTXO the account can't spend alone (a co-owned one,
+or one whose time lock still runs, which anyone can export to the address) is
+left pending too. A warning says how many UTXOs were left out and what they
+hold.
 
 | Aspect | Detail |
 |---|---|
 | Inputs | None (uses configured key/context) |
 | Side effects | Submits an atomic import tx on the P-chain |
-| Output | Tx hash, "sent to the network"; a warning when UTXOs were skipped or left for the next import |
-| Failures | "no UTXOs available to import" if the export hasn't propagated yet (wait a few seconds), or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. "The fee takes all of the … being imported" when the import's fee would leave no output (the UTXOs stay pending). A large import right after a burst of P-chain transactions can be refused with "Gas usage of transaction (…) exceeds capacity (…)"; the chain refills its capacity within seconds, so run it again |
+| Output | Tx hash, "sent to the network", and the amount arriving on the P-chain; a warning when UTXOs were skipped or left for the next import |
+| Failures | "no UTXOs available to import" if the export hasn't propagated yet (wait a few seconds), "… that this account can spend alone" when only UTXOs it cannot spend alone are pending, or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. "The fee takes all of the … being imported" when the import's fee would leave no output (the UTXOs stay pending). A large import right after a burst of P-chain transactions can be refused with "Gas usage of transaction (…) exceeds capacity (…)"; the chain refills its capacity within seconds, so run it again |
 
 ---
 
@@ -169,7 +190,7 @@ Move FLR from the P-chain to the C-chain (reverse of exportCP).
 |---|---|
 | Inputs | `-a <amount>` (FLR, optional on every path — defaults to the spendable P-chain balance minus the fee of the export, without dust, see above; at the unsigned-file price a UTXO worth a little more can still stay behind, as flarejs leaves out an input that costs more than it adds) |
 | Side effects | Submits an atomic export tx on the P-chain |
-| Output | Tx hash, "sent to the network" |
+| Output | Tx hash, "sent to the network", and the amount exported, which co-signers pass as `-a` |
 | Failures | "Export amount is smaller than or equal to zero" if the spendable P-chain balance does not cover the export fee |
 
 ---
@@ -192,9 +213,9 @@ says how many UTXOs were left out and what they hold.
 
 | Aspect | Detail |
 |---|---|
-| Inputs | `-f <fee>` (FLR; total fee. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path). |
+| Inputs | `-f <fee>` (FLR; total fee, at most 20. Optional for the private key and Ledger paths, where it is estimated at twice the current base fee when omitted; required for the unsigned-file path). |
 | Side effects | Submits an atomic import tx on the C-chain |
-| Output | Tx hash, "sent to the network"; a warning when UTXOs were skipped or left for the next import |
+| Output | Tx hash, "sent to the network", and the amount arriving on the C-chain; a warning when UTXOs were skipped or left for the next import |
 | Failures | "Nothing to import from the P-chain" if exportPC hasn't propagated to the C-chain yet (3s delay typically suffices on local), "… that this account can spend alone" when only UTXOs it cannot spend alone are pending, or "Nothing worth importing" when every pending UTXO is worth less than the fee of importing it. Refused before signing if the built transaction would not pay exactly `-f` (or would pay nothing when estimated), or if the fee takes all of the value imported (an estimate is cut to it); the UTXOs stay pending. |
 
 ---
@@ -291,7 +312,7 @@ Submit a previously-built signed transaction to the network.
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
 | Side effects | Submits the signed tx to the appropriate VM API and prints its id on stderr; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
 | Output | "Signed transaction <id> with hash <txId> sent to the node" |
-| Failures | "Tx already sent to chain" (the flag was already set). A missing signed tx file, or one that is not JSON or lacks a field the tool reads (the error names the file and the field; files from earlier versions load, unknown fields included). A file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is not the transaction in its `serialization` ("… rebuild the file"), refused before anything is sent. A file built for another network than the selected one ("Transaction … is for network id …" for P-chain and atomic transactions, "… chain id …" for C-chain ones; select its network with `--network`). A file that records the account it was built for (`signer`, written since 5.0.0) signed by another account: "Transaction … was built for …, but it is signed by …". The signature does not belong to the account the options select, in the order transactions use (`--get-hacked` with its `--env-path`, `--ledger`, `--env-path`, else the context file); `--get-hacked` without `--env-path` is refused, and so is a given `--ctx-file` that does not exist. |
+| Failures | "Tx already sent to chain" (the flag was already set). A missing signed tx file, or one that is not JSON or lacks a field the tool reads (the error names the file and the field; files from earlier versions load, unknown fields included). A file whose `message` is not the hash of its transaction, whose `unsignedTransactionBuffer` is not the transaction in its `serialization`, or whose `forDefiHash` is not that hash in base64 ("… rebuild the file"), refused before anything is sent. A file built for another network than the selected one ("Transaction … is for network id …" for P-chain and atomic transactions, "… chain id …" for C-chain ones; select its network with `--network`). A file that records the account it was built for (`signer`, written since 5.0.0) signed by another account: "Transaction … was built for …, but it is signed by …". The signature does not belong to the account the options select, in the order transactions use (`--get-hacked` with its `--env-path`, `--ledger`, `--env-path`, else the context file); `--get-hacked` without `--env-path` is refused, and so is a given `--ctx-file` that does not exist. |
 
 Unsigned files record the account they were built for: `signatureRequests[0].signer` holds its P-chain address, and C-chain (EVM) files have a top-level `signer` with its C-chain address. It is not part of the hash, and guards against a mixed-up context or vault, not against an edited file. Files written by earlier versions have it empty or missing and are not checked. Without it, and without `--ctx-file`, `ctx.json`, `--ledger` or `--env-path`, there is no account to check the signature against: `send` takes the account from the signature itself, so any validly signed file is sent, from whichever account signed it. It can't make a transaction from your account that you didn't sign. Keep a `ctx.json` (or pass `--ctx-file`) to have the signer checked.
 
@@ -317,8 +338,9 @@ lock. Values left out of the
 command are read from the chain as well (`--nonce`, `claim -a`, `exportPC -a`,
 and the default `--gas-limit` of `claim`/`withdrawal`, which depends on whether
 the recipient has contract code); passing them pins them. The C-chain commands
-print the nonce they used, and `claim` the amount it takes, so that co-signers
-can pass the same `--nonce` and `-a`.
+and `exportCP` print the nonce they used, the C-chain commands their gas limit,
+and `claim` the amount it takes, so that co-signers can pass the same
+`--nonce`, `--gas-limit` and `-a`; `exportPC` prints the amount, which co-signers pass as `-a`.
 
 ---
 
@@ -331,8 +353,8 @@ Custodial signing flow via the ForDefi API.
 | Inputs | `forDefi sign -i <id>` or `forDefi fetch -i <id>`. Optional `--evm-tx`. |
 | Reads | `private.pem` and `token` files in cwd, plus the unsigned tx JSON |
 | Side effects | `sign`: posts the unsigned tx to ForDefi's API. `fetch`: asks ForDefi once for the signature and writes the signed tx file; it does not wait, so run it again until the transaction is signed. Fetching the same signature again leaves the signed file as it is; a new one (signed again in ForDefi) replaces it, unless the file was already sent. Files are rewritten through a temporary file, so an interrupted write never leaves half a file. |
-| Output | `sign`: the ForDefi transaction id; `fetch`: the signature |
-| Failures | Missing `private.pem` / `token`. A refused ForDefi request is reported with its HTTP status and answer (`ForDefi vault lookup (…) failed: HTTP 401 Unauthorized: …`), as is an answer that is not JSON. Vault id mismatch, or a context key that is not the vault's (compared as keys, so a compressed, uncompressed or `0x`-prefixed form of the same key is accepted). `sign` refuses a file built for another account than the vault's ("Transaction … was built for …, but ForDefi vault … holds …"); files from earlier versions record none. `sign` refuses a file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is not the transaction in its `serialization`, before contacting ForDefi: ForDefi signs only the hash. `fetch` before the signature exists: "Transaction is not signed yet (ForDefi state: …)"; a ForDefi answer that is not a JSON object, or a signature that is not 65 bytes of base64, is refused. |
+| Output | `sign`: the ForDefi transaction id and the ForDefi hash it posted (the one printed when the file was built); `fetch`: the signature |
+| Failures | Missing `private.pem` / `token`. A refused ForDefi request is reported with its HTTP status and answer (`ForDefi vault lookup (…) failed: HTTP 401 Unauthorized: …`), as is an answer that is not JSON. Vault id mismatch, or a context key that is not the vault's (compared as keys, so a compressed, uncompressed or `0x`-prefixed form of the same key is accepted). `sign` refuses a file built for another account than the vault's ("Transaction … was built for …, but ForDefi vault … holds …"); files from earlier versions record none. `sign` refuses a file whose `message` is not the hash of its transaction, whose `unsignedTransactionBuffer` is not the transaction in its `serialization`, or whose `forDefiHash` is not that hash in base64, before contacting ForDefi: ForDefi signs only the hash. `sign` also refuses, before contacting ForDefi, a file built for another network than the selected one (`--network`, else the context's): "Transaction … is for network id …" or "… chain id …". `sign` refuses a ForDefi transaction id that is not 1 to 128 letters, digits, `-` or `_` (ForDefi's are UUIDs), or that holds the API token, and doesn't save it into the unsigned file; the request may then be waiting in ForDefi. `fetch` before the signature exists: "Transaction is not signed yet (ForDefi state: …)", with a state that is not a word quoted as JSON and cut to 100 characters; a ForDefi answer that is not a JSON object, or a signature that is not 65 bytes of base64, is refused. `fetch` refuses a signature of another account than the file was built for, which a signature over another transaction is too ("Transaction … was built for …, but ForDefi answered a signature of …"), and one no key recovers from, before it writes the signed file; files from earlier versions record no account, so only the second is checked for them. |
 
 Not exercised in the integration tests (requires real ForDefi credentials).
 
@@ -431,7 +453,7 @@ is chosen as for the other commands (`--rpc-url`, `--api-key` or the
 environment variables), the network from the menu. The C-chain fee prompt of
 an export or import offers the fee estimated at twice the current base fee,
 as `-f` omitted does, so Enter pays the fee shown. A fee typed in instead is
-paid exactly; one below the cost at the current base fee is sent only after a
+paid exactly, and is at most 20 FLR, as `-f`; one below the cost at the current base fee is sent only after a
 warning and a confirmation. When the fee cannot be estimated
 yet (nothing to import yet), an empty answer is estimated when the transaction
 is built. Invalid input (amounts, fees, periods, BLS keys) is refused at the

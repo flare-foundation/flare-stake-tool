@@ -1,30 +1,37 @@
 import { styleText } from "node:util";
 import { REDIRECT_REFUSED, nodeOfError } from "./chain/clients";
-import { API_KEY_ENV, redactSecrets } from "./chain/network";
+import { API_KEY_ENV, API_KEY_HEADER, RPC_URL_ENV, redactSecrets, redactSecretsInResult } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
+import { withoutQuotedInput } from "./core/json";
 import { SubmittedTxError } from "./core/submit";
 import type { Outcome } from "./core/types";
 import { API_KEY_FLAG, RPC_URL_FLAG } from "./cli/node";
 
+/*
+ * Every line printed is cleaned of the secrets in use (`redactSecretsInResult`), results as well as errors: a node may
+ * repeat the API key in what it answers, such as a field of a validator that `info validators` prints as it came.
+ * Errors are cleaned further by `describeError`.
+ */
+
 export function log(msg: string) {
-  console.log(msg);
+  console.log(redactSecretsInResult(msg));
 }
 
 export function logInfo(msg: string) {
-  console.log(styleText("blue", msg));
+  console.log(styleText("blue", redactSecretsInResult(msg)));
 }
 
 export function logError(msg: string) {
-  console.log(styleText("red", msg));
+  console.log(styleText("red", redactSecretsInResult(msg)));
 }
 
 export function logSuccess(msg: string) {
-  console.log(styleText("green", msg));
+  console.log(styleText("green", redactSecretsInResult(msg)));
 }
 
 /** Progress goes to stderr, like warnings, so that stdout holds only results. */
 export function logProgress(msg: string) {
-  console.error(styleText("blue", msg));
+  console.error(styleText("blue", redactSecretsInResult(msg)));
 }
 
 /** Printed as soon as the node takes a transaction, so that its id is known even if the wait for it fails. */
@@ -44,15 +51,16 @@ export function describeFee(outcome: Outcome, symbol: string): string | undefine
 }
 
 /**
- * The lines of a C-chain transaction's values that may come from the chain: its nonce, the amount a claim takes and
- * the executor fees setClaimExecutors pays. ForDefi co-signers pass the same `--nonce` and `-a` to build the same
- * transaction; the executor fees are the executors' current ones, to compare.
+ * The lines of a C-chain transaction's values that may come from the chain: its nonce (also exportCP's), its gas limit,
+ * the amount a claim takes and the executor fees setClaimExecutors pays. ForDefi co-signers pass the same `--nonce`,
+ * `--gas-limit` and `-a` to build the same transaction; the executor fees are the executors' current ones, to compare.
  */
 export function describeEvmValues(outcome: Outcome, symbol: string): string[] {
   if (outcome.evm === undefined) return [];
-  const { nonce, claimed, executorFees } = outcome.evm;
+  const { nonce, gasLimit, claimed, executorFees } = outcome.evm;
   return [
     `Nonce: ${nonce}`,
+    ...(gasLimit !== undefined ? [`Gas limit: ${gasLimit}`] : []),
     ...(claimed !== undefined ? [`Claim amount: ${formatWei(claimed)} ${symbol}`] : []),
     ...(executorFees !== undefined ? [`Executor fees: ${formatWei(executorFees)} ${symbol}`] : []),
   ];
@@ -66,6 +74,7 @@ export function reportOutcome(outcome: Outcome, symbol: string): void {
     logSuccess(`Unsigned transaction ${outcome.id} constructed`);
     logSuccess(`ForDefi hash: ${outcome.forDefiHash}`);
   }
+  if (outcome.moved) logInfo(`Amount: ${formatFlr(outcome.moved.amount)} ${symbol} to the ${outcome.moved.to}`);
   const fee = describeFee(outcome, symbol);
   if (fee) logInfo(fee);
   for (const line of describeEvmValues(outcome, symbol)) logInfo(line);
@@ -74,17 +83,21 @@ export function reportOutcome(outcome: Outcome, symbol: string): void {
 
 /** Warnings go to stderr so that stdout (transaction ids, hashes) stays parseable. */
 export function logWarning(msg: string) {
-  console.error(styleText("yellow", `Warning: ${msg}`));
+  console.error(styleText("yellow", `Warning: ${redactSecretsInResult(msg)}`));
 }
 
-const NODE_HINT = `; check ${RPC_URL_FLAG} and the API key (${API_KEY_FLAG} or ${API_KEY_ENV})`;
+/** Where the key of the node that failed comes from: `FLARE_API_KEY` never goes to a node given with --rpc-url. */
+const NODE_HINT =
+  `; check ${RPC_URL_FLAG} and the API key (${API_KEY_FLAG} or the URL's ${API_KEY_HEADER}; ` +
+  `${API_KEY_ENV} goes only to ${RPC_URL_ENV} or the default node)`;
 
 const REDIRECT_TEXT =
   "The node answered with a redirect, which a request carrying the API key does not follow (the key would go to " +
   `whatever host it names); give the URL it redirects to with ${RPC_URL_FLAG}`;
 
 /**
- * The message for the top-level error handlers, cleaned of credentials (`redactSecrets`). A gateway that refuses a
+ * The message for the top-level error handlers, cleaned of credentials (`redactSecrets`) and, message by message, of
+ * the input a JSON parse error quotes (`withoutQuotedInput`; flarejs passes on the one of a node's answer). A gateway that refuses a
  * request answers with an HTML error page: ethers reports the status, flarejs fails to parse the page as JSON. Both
  * get a hint instead of the raw dump. An error from a node request also gets its causes ("fetch failed" alone says
  * nothing) and the node's URL.
@@ -97,18 +110,31 @@ function describeUncleaned(error: unknown): string {
   if (error instanceof SubmittedTxError) {
     return `${error.context}: ${describeUncleaned(error.cause)}`;
   }
-  const message = error instanceof Error ? error.message : String(error);
+  const raw = error instanceof Error ? error.message : String(error);
+  const message = withoutQuotedInput(raw);
+  const node = nodeOfError(error);
   const refused = /server response (40[13]) ([^(]*?)\s*(?:\(|$)/.exec(message);
   // a refused redirect, worded by fetch ("fetch failed", caused by it) or by refuseRedirects (with its target)
   const redirect = [message, ...causeMessages(error)].find((text) => text.startsWith(REDIRECT_REFUSED));
+  // flarejs reads a JSON answer without a result, such as a gateway's 401 or 403 body, as a result, and fails on it;
+  // one with an `error` that is not a JSON-RPC error object (`{"error":"unauthorized"}`) it throws with no message
+  const noResult =
+    node !== undefined &&
+    ((error instanceof TypeError && /\bundefined\b/.test(message)) ||
+      (error instanceof Error && message.trim() === ""));
+  // flarejs parses any answer as JSON, whatever its HTTP status: a gateway's 401 with an empty or a text body fails there
+  const notJson = node !== undefined && error instanceof SyntaxError && /\bJSON\b/.test(raw);
   const text = refused
     ? `The node answered HTTP ${refused[1]} ${refused[2]}${NODE_HINT}`
     : redirect !== undefined
       ? REDIRECT_TEXT
-      : /Unexpected token '<'.*is not valid JSON/.test(message)
+      : /Unexpected token '<'[\s\S]*is not valid JSON/.test(raw) // the quoted start of a page may hold a line break
         ? `The node answered with an error page instead of JSON-RPC (${message})${NODE_HINT}`
-        : message;
-  const node = nodeOfError(error);
+        : noResult
+          ? `The node answered without a JSON-RPC result${message.trim() === "" ? "" : ` (${message})`}${NODE_HINT}`
+          : notJson
+            ? `The node answered with something other than JSON-RPC (${message})${NODE_HINT}`
+            : message;
   if (node === undefined) return text; // other wrappers (keys, Ledger) already carry their cause's message
   const causes = redirect !== undefined ? [redirect] : causeMessages(error).filter((cause) => !text.includes(cause));
   const details = [...causes, `node ${node}`];
@@ -125,7 +151,9 @@ function causeMessages(error: unknown, depth = 0, seen = new Set<unknown>([error
   for (const inner of below) {
     if (inner === undefined || inner === null || seen.has(inner)) continue;
     seen.add(inner);
-    const message = (inner instanceof Error ? inner.message : typeof inner === "string" ? inner : "").trim();
+    const message = withoutQuotedInput(
+      (inner instanceof Error ? inner.message : typeof inner === "string" ? inner : "").trim()
+    );
     if (message && !found.includes(message)) found.push(message);
     causeMessages(inner, depth + 1, seen, found);
   }

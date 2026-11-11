@@ -19,8 +19,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction exportCP-file constructed\nForDefi hash: 6LJVfqJA8CZbLR7Az5yjtmibXDkqfZuY1Du49oFjXkQ=\nFee: 1 LFLR (burned when the signed transaction is sent)\n",
-    "stderr": "",
+    "stdout": "Unsigned transaction exportCP-file constructed\nForDefi hash: 6LJVfqJA8CZbLR7Az5yjtmibXDkqfZuY1Du49oFjXkQ=\nFee: 1 LFLR (burned when the signed transaction is sent)\nNonce: 2\n",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

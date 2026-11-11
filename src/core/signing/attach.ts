@@ -4,10 +4,10 @@
  * behaves exactly like immediate signing.
  */
 import type { UnsignedTx } from "@flarenetwork/flarejs";
-import { Transaction, getAddress, hexlify } from "ethers";
+import { SigningKey, Transaction, getAddress, getBytes, hexlify } from "ethers";
 import type { Account } from "../../chain/keys";
 import type { UnsignedTxBundle } from "../types";
-import { equalBytes, normalizeSignature, recoverPublicKey } from "./signature";
+import { UNRECOVERABLE_SIGNATURE, equalBytes, normalizeSignature, recoverPublicKey } from "./signature";
 
 interface AuthorizedTx {
   /** Transactions carrying an authorization input (SetAutoRenewedValidatorConfigTx, subnet txs). */
@@ -70,6 +70,26 @@ export function attachSignature(bundle: UnsignedTxBundle, signature: Uint8Array 
   if (bundle.tx.from === null || getAddress(bundle.tx.from) !== account.cAddress) {
     throw new Error("The signature does not belong to the configured account (recovered address differs)");
   }
+}
+
+/**
+ * The compressed public key that made `signature` over the bundle's transaction: recovered from the digest of an
+ * atomic transaction, and from a signed copy of a C-chain one, which stays unsigned itself.
+ */
+export function recoverSigner(bundle: UnsignedTxBundle, signature: Uint8Array | string): Uint8Array {
+  if (bundle.kind === "atomic") return recoverPublicKey(bundle.digest, normalizeSignature(signature));
+  const probe = Transaction.from(bundle.tx.unsignedSerialized);
+  let publicKey: string | null;
+  try {
+    attachEvmSignature(probe, signature);
+    publicKey = probe.fromPublicKey;
+  } catch (error) {
+    throw new Error(UNRECOVERABLE_SIGNATURE, { cause: error });
+  }
+  if (!publicKey) {
+    throw new Error("Cannot recover the signer of the EVM transaction");
+  }
+  return getBytes(SigningKey.computePublicKey(publicKey, true));
 }
 
 /** Sets a 65-byte signature on an ethers Transaction; v may be 0/1 or 27/28. */

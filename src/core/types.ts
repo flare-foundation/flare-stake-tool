@@ -199,19 +199,27 @@ export interface Signer {
 }
 
 /**
- * Values of a C-chain transaction that may come from the chain, read from the transaction built: the nonce, the amount
- * a claim takes (all unclaimed rewards without -a) and the executor fees setClaimExecutors pays. They are printed, so
- * that ForDefi co-signers can pass the same nonce and amount, and compare the fees.
+ * Values of a C-chain transaction that may come from the chain, read from the transaction built: the nonce (also
+ * exportCP's), the gas limit (claim's and withdrawal's default depends on the recipient's code), the amount a claim
+ * takes (all unclaimed rewards without -a) and the executor fees setClaimExecutors pays. They are printed, so that
+ * ForDefi co-signers can pass the same nonce, gas limit and amount, and compare the fees.
  */
 export interface EvmOutcomeValues {
   nonce: number;
+  gasLimit?: bigint | undefined;
   claimed?: Wei | undefined;
   executorFees?: Wei | undefined;
 }
 
+/** What exportPC, importCP and importPC move to the other chain, read from the transaction: no option gives it. */
+export interface MovedAmount {
+  amount: NFlr;
+  to: "P-chain" | "C-chain";
+}
+
 /**
- * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. `evm` is
- * set for C-chain transactions. `notices` are the bundle's.
+ * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. `moved`
+ * is set for exportPC, importCP and importPC. `evm` is set for C-chain transactions. `notices` are the bundle's.
  */
 export type Outcome =
   | {
@@ -219,6 +227,7 @@ export type Outcome =
       txId: string;
       chainStatus: string;
       fee?: NFlr | undefined;
+      moved?: MovedAmount | undefined;
       evm?: EvmOutcomeValues | undefined;
       notices?: readonly string[] | undefined;
     }
@@ -228,6 +237,7 @@ export type Outcome =
       forDefiHash: string;
       file: string;
       fee?: NFlr | undefined;
+      moved?: MovedAmount | undefined;
       evm?: EvmOutcomeValues | undefined;
       notices?: readonly string[] | undefined;
     };

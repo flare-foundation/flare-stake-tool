@@ -9,9 +9,10 @@ import {
   SHARES_PER_PERCENT,
   asWei,
   parseDuration,
-  parseFlr,
   parseFlrToWei,
   parsePercentToShares,
+  parseAtomicFee,
+  parsePositiveFlr,
   type NFlr,
 } from "../chain/units";
 import { normalizeAddressList, resolveEvmFees, type EvmFeeOverrides, type EvmOperation } from "../constants/fees";
@@ -22,6 +23,7 @@ import {
   START_TIME,
   optionValue,
   optionalString,
+  checkProofOfPossession,
   parseBlsHex,
   parseNodeId,
   parseNonce,
@@ -166,14 +168,16 @@ export function parseAtomicTxRequest(
   if (options.threshold !== undefined && options.threshold !== "1") {
     throw new Error("--threshold accepts only 1: the validator authority is a single address (--owner-address)");
   }
-  const amount = (): NFlr => parseFlr(required(options.amount, "amount", "--amount <amount>", type));
+  const amount = (): NFlr => parsePositiveFlr(required(options.amount, "amount", "--amount <amount>", type));
   const optionalAmount = (): NFlr | undefined => {
     const text = optionValue(options.amount, "--amount");
-    return text === undefined ? undefined : parseFlr(text);
+    return text === undefined ? undefined : parsePositiveFlr(text, "leave -a out to export the spendable balance");
   };
   const fee = (): NFlr | undefined => {
     const text = optionValue(options.fee, "--fee");
-    return text === undefined ? undefined : parseFlr(text);
+    return text === undefined
+      ? undefined
+      : parseAtomicFee(text, "leave -f out to have the fee estimated (with --get-hacked or --ledger)");
   };
   const nodeId = (): string => parseNodeId(required(options.nodeId, "nodeId", "--node-id <nodeId>", type));
   const resolvedTimes: { name: string; time: ParsedTime }[] = [];
@@ -191,16 +195,18 @@ export function parseAtomicTxRequest(
   };
   const shares = (): number =>
     parsePercentToShares(optionValue(options.delegationFee, "--delegation-fee") ?? DEFAULT_DELEGATION_FEE_PERCENT);
-  const bls = () => ({
-    blsPublicKey: parseBlsHex(
+  const bls = () => {
+    const blsPublicKey = parseBlsHex(
       required(options.popBlsPublicKey, "popBlsPublicKey", "--pop-bls-public-key <popBlsPublicKey>", type),
       "publicKey"
-    ),
-    blsSignature: parseBlsHex(
+    );
+    const blsSignature = parseBlsHex(
       required(options.popBlsSignature, "popBlsSignature", "--pop-bls-signature <popBlsSignature>", type),
       "signature"
-    ),
-  });
+    );
+    checkProofOfPossession(blsPublicKey, blsSignature);
+    return { blsPublicKey, blsSignature };
+  };
   const period = (): bigint => parseDuration(required(options.period, "period", "--period <seconds|duration>", type));
 
   let request: TxRequest;

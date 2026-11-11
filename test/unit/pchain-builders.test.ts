@@ -433,6 +433,153 @@ describe("core/builders/pchain", function () {
         );
       }
 
+      it("stakes past a stakeable-locked UTXO the account can't spend alone, co-owned or owner-locked, which anyone can send", async () => {
+        const { avaxAssetID } = await env.clients.context();
+        const other = accountFromPrivateKey(getBytes(`0x${"11".repeat(32)}`), "localflare");
+        const lockedTo = (index: number, owners: OutputOwners) =>
+          new Utxo(
+            new avaxSerial.UTXOID(Id.fromHex(`0x${String(index).repeat(64)}`), new Int(0)),
+            Id.fromString(avaxAssetID),
+            new pvmSerial.StakeableLockOut(new BigIntPr(UNLOCK), new TransferOutput(new BigIntPr(1_000_000n), owners))
+          );
+        const coOwned = lockedTo(7, OutputOwners.fromNative([account.addressBytes, other.addressBytes], 0n, 2));
+        const ownerLocked = lockedTo(8, OutputOwners.fromNative([account.addressBytes], UNLOCK + 3_600n, 1));
+        // flarejs fails only when every stakeable-locked UTXO it could take is one the account can't spend: here the
+        // account's own funds are all unlocked
+        const free = await owned(51_000_000_000n, 1); // 51 FLR
+        const pop = readGolden("addAutoRenewedValidator-pk").spec.args;
+        const argOf = (flag: string) => getBytes(pop[pop.indexOf(flag) + 1]!);
+        const nodeId = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
+        const amount = asNFlr(50_000_000_000n);
+        const bls = { blsPublicKey: argOf("--pop-bls-public-key"), blsSignature: argOf("--pop-bls-signature") };
+        const times = { startTime: UNLOCK + 7_200n, endTime: UNLOCK + 86_400n };
+        const requests = [
+          { type: "delegate", nodeId, amount, ...times },
+          { type: "stake", nodeId, amount, ...times, delegationFeeShares: 100_000, ...bls },
+          { type: "addAutoRenewedValidator", nodeId, amount, period: 900n, delegationFeeShares: 100_000, ...bls },
+        ] as const;
+        Date.now = () => Number(UNLOCK - 1n) * 1000; // the stake locks still run
+        for (const policy of POLICIES) {
+          for (const request of requests) {
+            const label = `${request.type}, lock check ${String(policy.lockCheckTime)}`;
+            const bundle = await buildTransaction(request, pChainEnv([coOwned, ownerLocked, free]), account, policy);
+            if (bundle.kind !== "atomic") throw new Error(`${request.type} must be a P-chain transaction`);
+            const tx = bundle.unsignedTx.getTx() as unknown as {
+              baseTx: { inputs: TransferableInput[] };
+              stake: { output: unknown }[];
+            };
+            const spent = tx.baseTx.inputs.map((input) => input.utxoID.txID.toString());
+            expect(spent, label).to.deep.equal([free.utxoId.txID.toString()]);
+            expect(tx.stake.length, label).to.equal(1);
+            expect(bundle.notices, label).to.deep.equal([
+              "2 UTXO(s) (0.002 LFLR) left out: each needs another key, or its owners' lock still runs",
+            ]);
+          }
+        }
+      });
+
+      it("stakes a stakeable-locked UTXO whose owners' lock ends at the very second the build checks", async () => {
+        const { avaxAssetID } = await env.clients.context();
+        const free = await owned(1_000_000_000n, 1); // 1 FLR, for the fee
+        const now = UNLOCK - 3_600n; // the stake lock still runs
+        const nodeId = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
+        const request = {
+          type: "delegate",
+          nodeId,
+          amount: asNFlr(50_000_000_000n),
+          startTime: now + 60n,
+          endTime: UNLOCK + 86_400n,
+        } as const;
+        Date.now = () => Number(now) * 1000;
+        for (const policy of POLICIES) {
+          // flarejs spends a UTXO whose owners' lock is not after the check time (matchOwners), so it is not left out
+          const checked = policy.lockCheckTime === "now" ? now : policy.lockCheckTime;
+          const locked = new Utxo(
+            new avaxSerial.UTXOID(Id.fromHex(`0x${"9".repeat(64)}`), new Int(0)),
+            Id.fromString(avaxAssetID),
+            new pvmSerial.StakeableLockOut(
+              new BigIntPr(UNLOCK),
+              new TransferOutput(
+                new BigIntPr(50_000_000_000n),
+                OutputOwners.fromNative([account.addressBytes], checked, 1)
+              )
+            )
+          );
+          const label = `lock check ${String(policy.lockCheckTime)}`;
+          const bundle = await buildTransaction(request, pChainEnv([locked, free]), account, policy);
+          if (bundle.kind !== "atomic") throw new Error("delegate must be a P-chain transaction");
+          const { inputs } = (bundle.unsignedTx.getTx() as unknown as { baseTx: { inputs: TransferableInput[] } })
+            .baseTx;
+          expect(
+            inputs.map((input) => input.utxoID.txID.toString()),
+            label
+          ).to.include(locked.utxoId.txID.toString());
+          expect(bundle.notices ?? [], label).to.deep.equal([]);
+        }
+      });
+
+      it("unsigned files build the same stake, auto-renewed validator and config change on either side of a lock's end", async () => {
+        const locked = await stakeableLocked(50_000_000_000n); // 50 FLR
+        const free = await owned(1_000_000_000n, 1); // 1 FLR, for the fee
+        const pop = readGolden("addAutoRenewedValidator-pk").spec.args;
+        const argOf = (flag: string) => getBytes(pop[pop.indexOf(flag) + 1]!);
+        const bls = { blsPublicKey: argOf("--pop-bls-public-key"), blsSignature: argOf("--pop-bls-signature") };
+        const nodeId = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
+        const amount = asNFlr(50_000_000_000n);
+        const requests = [
+          { type: "stake", nodeId, amount, endTime: UNLOCK + 86_400n, delegationFeeShares: 100_000, ...bls },
+          { type: "addAutoRenewedValidator", nodeId, amount, period: 900n, delegationFeeShares: 100_000, ...bls },
+          { type: "setAutoRenewedValidatorConfig", nodeId, period: 0n },
+        ] as const;
+        const base = pChainEnv([locked, free]) as unknown as { network: unknown; clients: { pvm: object } };
+        const validator = {
+          nodeID: nodeId,
+          txID: Id.fromHex(`0x${"cd".repeat(32)}`).toString(),
+          validatorAuthority: { addresses: [account.pAddress], threshold: "1" },
+        };
+        const withValidator = {
+          ...base,
+          clients: {
+            ...base.clients,
+            pvm: { ...base.clients.pvm, getCurrentValidators: () => Promise.resolve({ validators: [validator] }) },
+          },
+        } as unknown as Env;
+        // flarejs takes the time from new Date() when the build leaves minIssuanceTime out: the clock is set for both
+        const RealDate = Date;
+        const buildAt = async (seconds: bigint, request: (typeof requests)[number]) => {
+          const ms = Number(seconds) * 1000;
+          class FakeDate extends RealDate {
+            constructor(...args: [] | [string | number | Date]) {
+              if (args.length === 0) super(ms);
+              else super(args[0]);
+            }
+            static override now(): number {
+              return ms;
+            }
+          }
+          globalThis.Date = FakeDate as DateConstructor;
+          try {
+            const bundle = await buildTransaction(request, withValidator, account, FILE_SIGNER_POLICY);
+            if (bundle.kind !== "atomic") throw new Error(`${request.type} must be a P-chain transaction`);
+            const tx = bundle.unsignedTx.getTx() as unknown as { stake?: { output: unknown }[] };
+            return {
+              bytes: Buffer.from(bundle.unsignedTx.toBytes()).toString("hex"),
+              stakedLocked: tx.stake?.map((output) => output.output instanceof pvmSerial.StakeableLockOut),
+            };
+          } finally {
+            globalThis.Date = RealDate;
+          }
+        };
+        for (const request of requests) {
+          const before = await buildAt(UNLOCK - 1n, request);
+          const after = await buildAt(UNLOCK + 3600n, request);
+          expect(after.bytes, `${request.type}: the same transaction an hour apart`).to.equal(before.bytes);
+          if (request.type !== "setAutoRenewedValidatorConfig") {
+            expect(after.stakedLocked, `${request.type}: the stake keeps its lock`).to.deep.equal([true]);
+          }
+        }
+      });
+
       it("unsigned files stake a stakeable-locked UTXO with its lock on either side of the lock's end, the fee paid from unlocked funds", async () => {
         const locked = await stakeableLocked(50_000_000_000n); // 50 FLR
         const free = await owned(1_000_000_000n, 1); // 1 FLR, for the fee
@@ -573,6 +720,9 @@ describe("core/builders/pchain", function () {
       if (given.kind !== "atomic" || estimated.kind !== "atomic") throw new Error("not an atomic transaction");
       expect(importedInputs(given)).to.equal(1);
       expect(importedInputs(estimated)).to.equal(1);
+      expect(given.notices, "the two left out, said").to.deep.equal([
+        `2 UTXO(s) (8 ${env.network.symbol}) left pending: each needs another key or has a time lock, which cannot be imported even once it has passed`,
+      ]);
       expect(atomicTxFee(given.unsignedTx, context)).to.equal(FEE); // flarejs alone built one that paid 0
       expect(atomicTxFee(estimated.unsignedTx, context) > 0n).to.equal(true);
     });
@@ -933,6 +1083,7 @@ describe("core/builders/pchain", function () {
       ]);
       expect(file.notices).to.deep.equal([
         `100 UTXO(s) (${formatFlr(asNFlr(100n * (worthImporting - 1n)))} ${symbol}) skipped: each is worth less than the fee of importing it, and stays pending`,
+        `1 UTXO(s) (50 ${symbol}) left pending: each needs another key, or its time lock still runs`,
       ]);
       const immediate = await importCP(exportedEnv(utxos), IMMEDIATE_SIGNER_POLICY);
       expect(immediate.amounts, "at the chain's price").to.deep.equal(file.amounts);
@@ -954,6 +1105,7 @@ describe("core/builders/pchain", function () {
       const left = 400 - taken;
       expect(built.notices).to.deep.equal([
         `${left} UTXO(s) (${formatFlr(asNFlr((BigInt(left * (left + 1)) / 2n) * ONE_FLR))} ${symbol}) stay pending for a later import: the P-chain's gas capacity fits only ${taken} in one`,
+        `1 UTXO(s) (1000 ${symbol}) left pending: each needs another key, or its time lock still runs`,
       ]);
       expect((await importCP(exportedEnv([...utxos].reverse()))).bytes, "node order").to.equal(built.bytes);
     });
@@ -1008,6 +1160,37 @@ describe("core/builders/pchain", function () {
       expect((await importCP(exportedEnv([await exported(4_500_000n, 0)]))).amounts).to.deep.equal([4_500_000n]);
     });
 
+    it("refuses an import its UTXOs can't pay the fee of, which flarejs paid with one of them a second time", async () => {
+      const context = await replay.env.clients.context();
+      // each worth importing, together less than the fee
+      const utxos = [await exported(20_000_000n, 0), ...(await many(10, () => 1_000_000n, 1))];
+      const direct = pvm.newImportTx(
+        {
+          feeState: { ...(await replay.env.clients.pvm.getFeeState()), price: FILE_SIGNER_POLICY.feePrice as bigint },
+          utxos,
+          fromAddressesBytes: [account.addressBytes],
+          minIssuanceTime: FILE_SIGNER_POLICY.lockCheckTime as bigint,
+          sourceChainId: context.cBlockchainID,
+          toAddressesBytes: [account.addressBytes],
+        },
+        context
+      );
+      const { ins, baseTx } = direct.getTx() as pvmSerial.ImportTx;
+      expect(ins.length, "flarejs imports all eleven").to.equal(11);
+      const local = baseTx.inputs.map((input) => input.utxoID.txID.toString());
+      expect(local, "and spends one of them again as a P-chain UTXO").to.have.length(1);
+      expect(ins.map((input) => input.utxoID.txID.toString())).to.include(local[0]);
+      expect(outputAmount(direct, context.avaxAssetID), "with an output, which looks paid for").not.to.equal(undefined);
+      await buildTransaction({ type: "importCP" }, exportedEnv(utxos), account, FILE_SIGNER_POLICY).then(
+        () => expect.fail("built an import that spends a UTXO twice"),
+        (error: unknown) =>
+          expect((error as Error).message).to.equal(
+            `The fee is more than the ${formatFlr(asNFlr(30_000_000n))} ${replay.env.network.symbol} being imported, ` +
+              "so nothing would arrive on the P-chain; it is not signed, and the UTXOs stay pending for a later import"
+          )
+      );
+    });
+
     it("leaves a time-locked UTXO pending, which flarejs would not import", async () => {
       const { avaxAssetID } = await replay.env.clients.context();
       const locked = new Utxo(
@@ -1019,10 +1202,18 @@ describe("core/builders/pchain", function () {
         )
       );
       const plain = await exported(ONE_FLR, 0);
-      expect((await importCP(exportedEnv([locked, plain]))).amounts).to.deep.equal([ONE_FLR]);
+      const symbol = replay.env.network.symbol;
+      const withPlain = await importCP(exportedEnv([locked, plain]));
+      expect(withPlain.amounts).to.deep.equal([ONE_FLR]);
+      expect(withPlain.notices, "said, not left out in silence").to.deep.equal([
+        `1 UTXO(s) (5 ${symbol}) left pending: each needs another key, or its time lock still runs`,
+      ]);
       await buildTransaction({ type: "importCP" }, exportedEnv([locked]), account, FILE_SIGNER_POLICY).then(
         () => expect.fail("built an import of a time-locked UTXO"),
-        (error: unknown) => expect(String(error)).to.include("no UTXOs available to import")
+        (error: unknown) =>
+          expect((error as Error).message).to.equal(
+            `Nothing to import from the C-chain that this account can spend alone (1 UTXO(s) (5 ${symbol}) need more signatures or have a time lock that still runs)`
+          )
       );
       // flarejs leaves it out of the transaction too, but counted among the UTXOs taken it would take the place of
       // one that fits: over the gas capacity, the import and what it says stays pending are as without it
@@ -1030,7 +1221,10 @@ describe("core/builders/pchain", function () {
       const without = await importCP(exportedEnv(many400));
       const withLocked = await importCP(exportedEnv([locked, ...many400]));
       expect(withLocked.bytes).to.equal(without.bytes);
-      expect(withLocked.notices).to.deep.equal(without.notices);
+      expect(withLocked.notices).to.deep.equal([
+        ...without.notices,
+        `1 UTXO(s) (5 ${symbol}) left pending: each needs another key, or its time lock still runs`,
+      ]);
     });
 
     it("refuses an import of UTXOs that each fit in uint64 but whose sum does not", async () => {
@@ -1175,6 +1369,8 @@ describe("core/builders/pchain", function () {
         expect(tx.delegationShares.value()).to.equal(100_000);
         expect(tx.period.value()).to.equal(900n);
         expect(bech32(tx.getValidatorRewardsOwner())).to.deep.equal([signer.pAddress]);
+        // the delegation fees go to the signer too, not to the owner given
+        expect(bech32(tx.getDelegatorRewardsOwner())).to.deep.equal([signer.pAddress]);
       }));
 
     it("setAutoRenewedValidatorConfig puts the auto-compound shares and period given into the transaction", () =>

@@ -29,7 +29,7 @@ export function signingSummary(
     case "exportPC":
       lines.push([
         "Amount",
-        `${request.amount === undefined ? "the spendable balance" : flr(request.amount)} from the P-chain to the C-chain`,
+        `${request.amount !== undefined ? flr(request.amount) : details.exported !== undefined ? flr(details.exported) : "the spendable balance"} from the P-chain to the C-chain`,
       ]);
       break;
     case "importCP":

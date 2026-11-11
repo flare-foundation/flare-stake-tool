@@ -19,8 +19,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction claim-file-amount-wrap constructed\nForDefi hash: pok91efSP64BWD79gQVcc7FguMFEw5JduEl6PKtjnAA=\nNonce: 9\nClaim amount: 1.5 LFLR\n",
-    "stderr": "",
+    "stdout": "Unsigned transaction claim-file-amount-wrap constructed\nForDefi hash: pok91efSP64BWD79gQVcc7FguMFEw5JduEl6PKtjnAA=\nNonce: 9\nGas limit: 600000\nClaim amount: 1.5 LFLR\n",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

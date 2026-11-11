@@ -9,8 +9,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Transaction with hash 2W7GT86ex169mdiyM57MjTMaBJKixatFzsUkvXLQSPdPe9Nj9w built and sent to the network\nFee paid: 1 LFLR\n",
-    "stderr": "Warning: FLARE_FAKE_LEDGER_KEY is set: --ledger signs with that software key, not with a Ledger device (tests only)\nTransaction 2W7GT86ex169mdiyM57MjTMaBJKixatFzsUkvXLQSPdPe9Nj9w submitted, waiting for the chain to accept it\n",
+    "stdout": "Transaction with hash 2W7GT86ex169mdiyM57MjTMaBJKixatFzsUkvXLQSPdPe9Nj9w built and sent to the network\nAmount: 9 LFLR to the C-chain\nFee paid: 1 LFLR\n",
+    "stderr": "Warning: FLARE_FAKE_LEDGER_KEY is set: --ledger signs with that software key, not with a Ledger device (tests only)\nUsing network: localflare\nTransaction 2W7GT86ex169mdiyM57MjTMaBJKixatFzsUkvXLQSPdPe9Nj9w submitted, waiting for the chain to accept it\n",
     "txIds": [
       "2W7GT86ex169mdiyM57MjTMaBJKixatFzsUkvXLQSPdPe9Nj9w"
     ],

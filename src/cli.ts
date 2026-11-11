@@ -7,11 +7,19 @@ import { Argument, Command } from "commander";
 import { styleText } from "node:util";
 import figlet from "figlet";
 import { accountFromPublicKey } from "./chain/keys";
-import { NETWORK_NAMES, overriddenNode } from "./chain/network";
+import { DEFAULT_NETWORK, NETWORK_NAMES, networkConfig, overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
-import { ATOMIC_TX_TYPES } from "./core/types";
+import { ATOMIC_TX_TYPES, type Env } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
-import { createEnv, readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
+import {
+  DEFAULT_CTX_FILE,
+  contextFileExists,
+  createEnv,
+  readContextFile,
+  resolveNetworkName,
+  writeContextFile,
+  type ContextFile,
+} from "./app/env";
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
 import { describeAutoRenewal, getBalances, getValidators } from "./app/info";
 import { sendSignedTransaction } from "./app/send";
@@ -25,6 +33,7 @@ import {
   evmFeeOverrides,
   endTimeWarnings,
   millisecondsWarning,
+  optionValue,
   type ParsedTime,
 } from "./cli/inputs";
 import {
@@ -47,7 +56,7 @@ import {
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
 import { checkDerivationPath } from "./ledger/path";
-import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
+import { log, logInfo, logProgress, logSuccess, logWarning, reportOutcome } from "./output";
 import { confirmLedgerAccount, ledgerDevice } from "./signers/ledger";
 import { version } from "../package.json";
 
@@ -73,13 +82,45 @@ function givenFlags(command: Command, only?: readonly string[]): string[] {
     .flatMap((option) => (option.long === undefined ? [] : [option.long]));
 }
 
+/**
+ * Refuses the C-chain fee options for a command that builds no C-chain transaction (`send` sends a signed one as it
+ * was signed): they were ignored, so a value the user meant to set wasn't.
+ */
+function refuseFeeOptions(program: Command, command: string): void {
+  const given = givenFlags(program, EVM_FEE_OPTIONS);
+  if (given.length === 0) return;
+  throw new Error(
+    `${command} doesn't use ${given.join(", ")}; leave ${given.length === 1 ? "it" : "them"} out ` +
+      "(the C-chain gas options are for the C-chain commands that build a transaction)"
+  );
+}
+
 /** Options of `send` and `forDefi`. */
 type TransactionIdOptions = Pick<GlobalOptions, "transactionId">;
 
+/**
+ * Commander's error with the value of every `--name=value` argument masked where it repeats it: a misspelled
+ * `--apikey=KEY` is reported as an unknown option, value included, before any key is remembered for masking. The
+ * arguments are matched as given, not found in the message, so a value holding a quote or a line break is masked
+ * whole; the longest first, so that one argument that starts another doesn't leave the other's tail.
+ */
+export function withoutOptionValues(text: string, argv: readonly string[] = process.argv): string {
+  const valued = argv
+    // a value is what follows the first "=", which may itself end in "=" (Base64 padding); only "--name=" has none
+    .filter((arg) => arg.startsWith("-") && arg.indexOf("=") > 0 && arg.indexOf("=") < arg.length - 1)
+    .sort((a, b) => b.length - a.length);
+  let masked = text;
+  for (const arg of valued) {
+    masked = masked.split(arg).join(`${arg.slice(0, arg.indexOf("=") + 1)}***`);
+  }
+  return masked;
+}
+
 export function cli(program: Command): void {
   // each command's help lists the program's options too (--network, --ledger, the fee options, ...), which it takes;
-  // the commands defined below inherit this
+  // the commands defined below inherit this, and the error output
   program.configureHelp({ showGlobalOptions: true });
+  program.configureOutput({ outputError: (text, write) => write(withoutOptionValues(text)) });
   program
     .option("--network <network>", `Network name (${NETWORK_NAMES.join("|")})`)
     .option(RPC_URL_OPTION, RPC_URL_DESCRIPTION)
@@ -104,9 +145,19 @@ export function cli(program: Command): void {
       "\nC-chain fee options are fixed values rather than chain estimates, so that every ForDefi\n" +
         "signer of a transaction arrives at the same hash. All signers of one transaction must\n" +
         "pass the same values.\n\n" +
-        "Times: --end-time, --start-time and --period accept unix seconds or a duration such as\n" +
-        "2d12h (units w, d, h, m, s); an end time given as a duration is added to now."
+        "Times: --end-time and --start-time take a unix time in seconds, or a duration such as\n" +
+        "2d12h (units w, d, h, m, s), which is added to now. --period takes a number of seconds\n" +
+        "or a duration."
     );
+  program.hook("preAction", (_program, action) => {
+    const given: Record<string, unknown> = { ...program.opts(), ...action.opts() };
+    for (const [key, flag] of NOT_EMPTY_OPTIONS) optionValue(given[key], flag);
+    // --derivation-path selects a Ledger address: without --ledger nothing reads it (interactive refuses it itself)
+    const { derivationPath, ledger } = program.opts<{ derivationPath?: string; ledger?: boolean }>();
+    if (derivationPath !== undefined && !ledger && action.name() !== "interactive") {
+      logWarning("--derivation-path is read only with --ledger; it is ignored here");
+    }
+  });
 
   program
     .command("interactive")
@@ -125,6 +176,7 @@ export function cli(program: Command): void {
     .option("-p, --public-key <public-key>", "Public key of the account")
     .option("--vault-id <vault-id>", "ForDefi vault id to store in the context file")
     .action(async (options: InitCtxOptions) => {
+      refuseFeeOptions(program, "init-ctx");
       await initCtx(globalOptions(program.opts(), options));
     });
 
@@ -133,6 +185,7 @@ export function cli(program: Command): void {
     .description("Relevant information")
     .addArgument(new Argument("<addresses|balance|validators>", "Type of information").choices(INFO_TYPES))
     .action(async (type: string) => {
+      refuseFeeOptions(program, `info ${type}`);
       await info(type, globalOptions(program.opts()));
     });
 
@@ -180,6 +233,7 @@ export function cli(program: Command): void {
     .description("Send signed transaction json to the node")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to send to the network")
     .action(async (options: TransactionIdOptions) => {
+      refuseFeeOptions(program, "send");
       await send(globalOptions(program.opts(), options));
     });
 
@@ -190,6 +244,7 @@ export function cli(program: Command): void {
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize")
     .option("--evm-tx", "Accepted for compatibility; the transaction file tells the kind")
     .action(async (type: string, options: TransactionIdOptions) => {
+      refuseFeeOptions(program, `forDefi ${type}`);
       await forDefi(type, globalOptions(program.opts(), options));
     });
 
@@ -274,11 +329,28 @@ function reportResolvedTimes(times: { name: string; time: ParsedTime }[], fileFl
   }
 }
 
+/**
+ * Names the network a transaction is built, signed or sent for, on stderr as 4.4.0 did ("Using network"), and warns
+ * when nothing chose it: without --network and a context file it is Flare mainnet.
+ */
+function announceNetwork(env: Env, options: GlobalOptions): void {
+  logProgress(`Using network: ${env.network.name}`);
+  warnOnDefaultNetwork(options);
+}
+
+/** Warns when resolveNetworkName falls back to Flare: no --network, and no context file to take the network from. */
+function warnOnDefaultNetwork(options: GlobalOptions): void {
+  if (options.network === undefined && !contextFileExists(options.ctxFile ?? DEFAULT_CTX_FILE)) {
+    logWarning(`No --network was given and there is no context file: using ${DEFAULT_NETWORK}`);
+  }
+}
+
 async function transaction(type: string, options: GlobalOptions & AtomicTxOptions): Promise<void> {
   const env = resolveEnv(options);
   // the request first: a missing or invalid option is reported as such, not as a missing signer or transaction id
   const { request, resolvedTimes } = parseAtomicTxRequest(type, options);
   const signer = await resolveSigner(options, env);
+  announceNetwork(env, options);
   reportResolvedTimes(resolvedTimes, signer.kind === "file");
   reportOutcome(await runTransaction(request, env, signer), env.network.symbol);
 }
@@ -289,8 +361,34 @@ async function evmTransaction(
 ): Promise<void> {
   const env = resolveEnv(options);
   const request = parseEvmTxRequest(operation, options); // before the signer, as for transactions
+  refuseIdWithImmediateSigner(operation, options);
   const signer = await resolveSigner(options, env);
+  announceNetwork(env, options);
   reportOutcome(await runTransaction(request, env, signer), env.network.symbol);
+}
+
+/**
+ * The C-chain commands for which 4.4.0 ignored --get-hacked and --ledger and always wrote an unsigned file. 5.0.0
+ * signs and sends them at once, so a 4.x command line meant to write a file for review would send instead: `-i`
+ * together with an immediate signer is refused for them. `claim` signed in 4.4.0 too and keeps taking both.
+ */
+const FILE_ONLY_IN_4X = {
+  withdrawal: "withdrawal",
+  setClaimExecutors: "setClaimExecutors",
+  setAllowedClaimRecipients: "setAllowedClaimRecipients",
+  custom: "customCChainTx",
+} as const;
+
+function refuseIdWithImmediateSigner(operation: string, options: GlobalOptions): void {
+  const command = FILE_ONLY_IN_4X[operation as keyof typeof FILE_ONLY_IN_4X];
+  // an empty -i counts as given: `-i "$TX_ID"` with the variable unset meant a file in 4.x as well
+  if (command === undefined || options.transactionId === undefined) return;
+  const flag = options.ledger ? "--ledger" : options.getHacked ? "--get-hacked" : undefined;
+  if (flag === undefined) return;
+  throw new Error(
+    `${command} with ${flag} signs and sends at once, where 4.x wrote the unsigned file -i names; ` +
+      `leave out -i to sign and send now, or ${flag} to write the unsigned file`
+  );
 }
 
 async function send(options: GlobalOptions): Promise<void> {
@@ -304,6 +402,7 @@ async function send(options: GlobalOptions): Promise<void> {
   // account is the one that signed
   const expected =
     selectsAccount(options) || contextFileApplies(options) ? await resolveAccount(options, env) : undefined;
+  announceNetwork(env, options);
   const { txId } = await sendSignedTransaction(id, env, expected);
   logSuccess(`Signed transaction ${id} with hash ${txId} sent to the node`);
 }
@@ -315,8 +414,12 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
   }
   requireGivenContextFile(options); // fetch does not read the context, but a given one must still exist
   if (type === "sign") {
-    const forDefiTxId = await sendToForDefi(id, readContextFile(options.ctxFile));
+    // the network as transactions choose it: --network, else the context's
+    const network = networkConfig(resolveNetworkName(options.network, options.ctxFile), {});
+    logProgress(`Using network: ${network.name}`);
+    const { forDefiTxId, forDefiHash } = await sendToForDefi(id, readContextFile(options.ctxFile), fetch, network);
     logSuccess(`Transaction ${id} sent to ForDefi (ForDefi transaction id ${forDefiTxId})`);
+    logSuccess(`ForDefi hash: ${forDefiHash}`);
   } else if (type === "fetch") {
     if (isAlreadySentToChain(id)) {
       throw new Error("Tx already sent to chain");
@@ -327,6 +430,19 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
     throw new Error(`Unknown forDefi action ${type}; use sign or fetch`);
   }
 }
+
+/**
+ * Options whose empty value is refused rather than taken as left out, which selects something else: with the variable
+ * unset, `send --env-path "$KEYFILE"` took whichever account signed the file, `--rpc-url "$NODE"` another node, and
+ * `init-ctx --vault-id "$VAULT"` saved a context without the vault.
+ */
+const NOT_EMPTY_OPTIONS = [
+  ["envPath", "--env-path"],
+  ["ctxFile", "--ctx-file"],
+  ["rpcUrl", "--rpc-url"],
+  ["apiKey", "--api-key"],
+  ["vaultId", "--vault-id"],
+] as const;
 
 /**
  * Global options interactive mode has no use for: it asks for the wallet and the network itself, and keeps a Ledger
@@ -373,6 +489,7 @@ async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
     throw new Error("init-ctx takes --ledger or --public-key, not both");
   }
   const network = resolveNetworkName(options.network, options.ctxFile);
+  warnOnDefaultNetwork(options); // the context written then takes Flare for every later command
   const env = createEnv(network, nodeOverrides(options)); // not resolveEnv: --ctx-file is the file to write
   const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;
   let context: ContextFile;
@@ -411,13 +528,15 @@ async function info(type: string, options: GlobalOptions): Promise<void> {
     throw new Error(`Unknown information type "${type}"; use ${INFO_TYPES.join(", ")}`);
   }
   const env = resolveEnv(options);
+  warnOnDefaultNetwork(options); // info names the network itself
   if (type === "validators") {
     const validators = await getValidators(env);
     logInfo(`Validators on the network "${env.network.name}"`);
     log(JSON.stringify(validators, null, 2));
+    // on stderr, so that stdout stays the header and the JSON, as 4.4.0 printed it
     for (const validator of validators) {
       const summary = describeAutoRenewal(validator);
-      if (summary) log(`${validator.nodeID}: ${summary}`);
+      if (summary) logProgress(`${validator.nodeID}: ${summary}`);
     }
     return;
   }

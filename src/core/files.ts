@@ -13,9 +13,10 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import { UnsignedTx, messageHashFromUnsignedTx, secp256k1, utils as futils } from "@flarenetwork/flarejs";
+import { UnsignedTx, messageHashFromUnsignedTx, secp256k1, utils as futils, type Int } from "@flarenetwork/flarejs";
 import { Transaction, computeAddress, getAddress, getBytes, hexlify, type TransactionLike } from "ethers";
 import type { Account } from "../chain/keys";
+import type { NetworkConfig } from "../chain/network";
 import { chainOfAtomicTx, isAtomicTxType, type UnsignedTxBundle } from "./types";
 import { toHex } from "./signing/signature";
 import { isJsonObject, parseJson } from "./json";
@@ -187,10 +188,44 @@ export function bundleFromUnsignedTxJson(json: UnsignedTxJson): UnsignedTxBundle
 }
 
 /**
+ * Refuses a file built for another network than the selected one, before it is signed or sent: the node would refuse
+ * it with a less clear error, and a signature for it is one for the other network. Atomic transactions carry the
+ * network id, EVM ones the chain id, which differ on Songbird and Coston. An EVM transaction without one (chain id 0:
+ * an unprotected legacy one, or a typed one naming 0) is refused as well: a signature for it is valid on every EVM
+ * chain, and no version of this tool wrote one.
+ */
+export function checkFileNetwork(
+  id: string,
+  bundle: UnsignedTxBundle,
+  network: Pick<NetworkConfig, "name" | "networkId" | "chainId">
+): void {
+  if (bundle.kind === "atomic") {
+    const tx = bundle.unsignedTx.getTx() as { baseTx?: { NetworkId: Int }; networkId?: Int };
+    const networkId = (tx.baseTx?.NetworkId ?? tx.networkId)?.value();
+    if (networkId !== network.networkId) {
+      throw new Error(
+        `Transaction ${id} is for network id ${String(networkId)}, not ${network.name} (${network.networkId}); ` +
+          "select its network with --network"
+      );
+    }
+    return;
+  }
+  const { chainId } = bundle.tx;
+  if (chainId !== BigInt(network.chainId)) {
+    throw new Error(
+      `Transaction ${id} is for chain id ${chainId}, not ${network.name} (${network.chainId}); ` +
+        "select its network with --network"
+    );
+  }
+}
+
+/**
  * The bundle of a file whose representations of the transaction agree: the message an external signer signs must be
  * the digest of the transaction in `serialization` (EVM: `rawTx`), and an atomic file's `unsignedTransactionBuffer`,
- * when present, must be that transaction's bytes. Otherwise a file could show one transaction and have another one's
- * hash signed. A file rewritten consistently still passes; co-signers rebuilding it and comparing the hash catch that.
+ * when present, must be that transaction's bytes, and its `forDefiHash`, when present, that digest in base64 (the
+ * value printed at build time for co-signers to compare). Otherwise a file could show one transaction and have another
+ * one's hash signed. A file rewritten consistently still passes; co-signers rebuilding it and comparing the hash catch
+ * that.
  */
 export function bundleFromConsistentTxJson(json: UnsignedTxJson): UnsignedTxBundle {
   const bundle = bundleFromUnsignedTxJson(json);
@@ -199,6 +234,12 @@ export function bundleFromConsistentTxJson(json: UnsignedTxJson): UnsignedTxBund
   if (message !== digest) {
     throw new Error(
       `The file's message ${messageOf(json)} is not the hash of its transaction (${digest}); rebuild the file`
+    );
+  }
+  if (json.forDefiHash && json.forDefiHash !== forDefiHashOf(digest)) {
+    throw new Error(
+      `The file's forDefiHash ${json.forDefiHash} is not the hash of its transaction (${forDefiHashOf(digest)}); ` +
+        "rebuild the file"
     );
   }
   if (bundle.kind === "atomic" && !isEvmTxJson(json) && json.unsignedTransactionBuffer) {

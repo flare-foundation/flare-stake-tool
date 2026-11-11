@@ -12,7 +12,13 @@ import { accountFromPublicKey } from "../../src/chain/keys";
 import { markSentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { readGolden } from "../characterization/scenarios";
 import { cleanupTempDir, makeTempDir, runCli, writeEnvFile } from "../helpers/cli";
-import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED, signMessageHash } from "../helpers/keys";
+import {
+  EWOQ_PRIVATE_KEY_CB58,
+  EWOQ_PRIVATE_KEY_HEX,
+  EWOQ_PUBLIC_KEY_COMPRESSED,
+  signMessageHash,
+} from "../helpers/keys";
+import { NODE_A_POP, NODE_B_POP } from "../helpers/bls";
 import { version } from "../../package.json";
 
 /** Nothing listens here, so a command that gets as far as the node fails fast. */
@@ -81,8 +87,27 @@ describe("CLI errors (built CLI, no node)", function () {
       { cwd }
     );
     expect(result.exitCode).to.equal(1);
-    expect(result.stderr).to.include('Invalid node URL "https://host.example:bad/ext/info?…"');
+    expect(result.stderr).to.include('Invalid node URL "https://…" given with --rpc-url;');
     expect(result.stderr + result.stdout).to.not.include("SECRET");
+  });
+
+  it("never prints a key pasted where the node URL goes, a JWT with its dots included", () => {
+    const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhdWRpdCJ9.Q8m7kW2rX9tLp4vN6sFz3cH0bY5eA1dJ7uI9oP2qR4s";
+    // the error says where the URL came from, as it shows nothing of it
+    for (const [args, env, source] of [
+      [["info", "validators", "--network", "localflare", "--rpc-url", jwt], {}, "given with --rpc-url"],
+      [["info", "validators", "--network", "localflare"], { FLARE_RPC_URL: jwt }, "in FLARE_RPC_URL"],
+      [
+        ["info", "validators", "--network", "localflare", "--rpc-url", jwt],
+        { FLARE_RPC_URL: "x" },
+        "given with --rpc-url",
+      ],
+    ] as const) {
+      const result = runCli([...args], { cwd, env });
+      expect(result.exitCode, JSON.stringify(env)).to.equal(1);
+      expect(result.stderr).to.include(`Invalid node URL "…" ${source}; expected a base URL`);
+      expect(result.stderr + result.stdout).to.not.include("eyJzdWIiOiJhdWRpdCJ9");
+    }
   });
 
   it("never prints the password of a node URL, which the fetch error repeats", () => {
@@ -135,6 +160,38 @@ describe("CLI errors (built CLI, no node)", function () {
       "Warning: the API key goes unencrypted to http://node.invalid/*** over plain http"
     );
     expect(result.stderr + result.stdout).to.not.include("TOPSECRET");
+  });
+
+  it("masks a token in the node URL's path in the node's errors and the http warning, and shows a short segment", () => {
+    const token = "0123456789abcdef0123456789abcdef";
+    for (const [rpcUrl, shown] of [
+      [`http://127.0.0.1:1/${token}`, "node http://127.0.0.1:1/***)"],
+      [`http://127.0.0.1:1/${token}/ext/bc/C/rpc`, "node http://127.0.0.1:1/***)"],
+      [`http://127.0.0.1:1/flare/${token}/`, "node http://127.0.0.1:1/flare/***)"],
+      ["http://127.0.0.1:1/flare", "node http://127.0.0.1:1/flare)"],
+    ] as const) {
+      const result = runCli(["info", "validators", "--network", "localflare", "--rpc-url", rpcUrl], { cwd });
+      expect(result.exitCode, rpcUrl).to.equal(1);
+      expect(result.stderr, rpcUrl).to.include(shown);
+      expect(result.stderr + result.stdout, rpcUrl).to.not.include(token);
+    }
+    // the boundary: a segment of 16 characters is masked, one of 15 shown
+    for (const [segment, shown] of [
+      ["0123456789abcdef", "***"],
+      ["0123456789abcde", "0123456789abcde"],
+    ] as const) {
+      const rpcUrl = `http://127.0.0.1:1/${segment}`;
+      const result = runCli(["info", "validators", "--network", "localflare", "--rpc-url", rpcUrl], { cwd });
+      expect(result.stderr, segment).to.include(`node http://127.0.0.1:1/${shown})`);
+    }
+    const warned = runCli(
+      ["info", "validators", "--network", "localflare", "--rpc-url", `http://node.invalid/${token}`, "--api-key", "k"],
+      { cwd }
+    );
+    expect(warned.stderr).to.include(
+      "Warning: the API key goes unencrypted to http://node.invalid/*** over plain http"
+    );
+    expect(warned.stderr + warned.stdout).to.not.include(token);
   });
 
   it("refuses an unknown info, transaction or forDefi type with the allowed ones, before looking for a context file", () => {
@@ -233,9 +290,34 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(result.stdout).to.not.include("Warning");
   });
 
+  it("refuses a BLS key and signature of two nodes before anything is built", () => {
+    const result = runCli(
+      [
+        "stake",
+        "-n",
+        NODE_ID,
+        "-a",
+        "10000",
+        "-e",
+        "14d",
+        "--pop-bls-public-key",
+        NODE_A_POP.publicKey,
+        "--pop-bls-signature",
+        NODE_B_POP.signature,
+        "-i",
+        "t1",
+        "--network",
+        "costwo",
+      ],
+      { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } }
+    );
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.include("is not the proof of possession of the BLS public key");
+  });
+
   it("refuses a mistyped --node-id before anything is built", () => {
     expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
-    const bls = ["--pop-bls-public-key", "ab".repeat(48), "--pop-bls-signature", "cd".repeat(96)];
+    const bls = ["--pop-bls-public-key", NODE_A_POP.publicKey, "--pop-bls-signature", NODE_A_POP.signature];
     const mistyped = `${NODE_ID.slice(0, -1)}Y`;
     const result = runCli(
       ["stake", "-n", mistyped, "-a", "10000", "-e", "14d", ...bls, "-i", "t1", "--network", "costwo"],
@@ -257,9 +339,33 @@ describe("CLI errors (built CLI, no node)", function () {
     }
   });
 
+  it("refuses an empty key file, context file, node, API key or vault id rather than using another one", () => {
+    expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
+    const empty = (flag: string): string => `Option ${flag} is empty; leave it out to use the default`;
+    for (const [args, flag] of [
+      // with ctx.json there, an empty --env-path took its account; send then checked the signature against none
+      [["send", "-i", "t1", "--env-path", ""], "--env-path"],
+      [["info", "addresses", "--env-path="], "--env-path"],
+      [["exportCP", "-a", "1", "-f", "1", "-i", "t1", "--ctx-file", ""], "--ctx-file"],
+      [["info", "balance", "--rpc-url", ""], "--rpc-url"],
+      [["info", "balance", "--api-key", ""], "--api-key"],
+      // spaces only: the network resolution reads them as no value, so the default node and FLARE_API_KEY were used
+      [["info", "balance", "--rpc-url", " "], "--rpc-url"],
+      [["info", "balance", "--api-key=\t"], "--api-key"],
+      [["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--vault-id", "", "--ctx-file", "vault.json"], "--vault-id"],
+      [["interactive", "--rpc-url", ""], "--rpc-url"],
+    ] as const) {
+      const result = runCli([...args, "--network", "costwo"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.include(empty(flag));
+      expect(result.stdout, args.join(" ")).to.equal("");
+    }
+    expect(fs.existsSync(path.join(cwd, "vault.json")), "no context saved without its vault").to.equal(false);
+  });
+
   it("refuses a time or period the chain can't hold, rather than building a malformed transaction or crashing", () => {
     expect(runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo"], { cwd }).exitCode).to.equal(0);
-    const bls = ["--pop-bls-public-key", "ab".repeat(48), "--pop-bls-signature", "cd".repeat(96)];
+    const bls = ["--pop-bls-public-key", NODE_A_POP.publicKey, "--pop-bls-signature", NODE_A_POP.signature];
     for (const [args, message] of [
       [["delegate", "-n", NODE_ID, "-a", "1", "-e", "15000000w"], 'Invalid time "15000000w"'], // was a RangeError
       [["delegate", "-n", NODE_ID, "-a", "1", "-e", "18446744073709551621"], 'Invalid time "18446744073709551621"'],
@@ -286,6 +392,143 @@ describe("CLI errors (built CLI, no node)", function () {
       expect(result.exitCode, args.join(" ")).to.equal(1);
       expect(result.stderr).to.include(message);
     }
+  });
+
+  it("warns that --derivation-path is ignored without --ledger", () => {
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const path5 = ["--derivation-path", "m/44'/60'/0'/0/5", "--network", "localflare"];
+    const warning = "Warning: --derivation-path is read only with --ledger; it is ignored here";
+    const keyFile = runCli(["info", "addresses", "--env-path", envPath, ...path5], { cwd });
+    expect(keyFile.exitCode, keyFile.stderr).to.equal(0);
+    expect(keyFile.stderr).to.include(warning);
+    const ledger = runCli(["info", "addresses", "--ledger", ...path5], {
+      cwd,
+      env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+    });
+    expect(ledger.exitCode, ledger.stderr).to.equal(0);
+    expect(ledger.stderr).not.to.include(warning);
+  });
+
+  it("refuses the C-chain fee options for send, forDefi, info and init-ctx, which ignored them", () => {
+    for (const [args, command] of [
+      [["send", "-i", "w1", "--max-fee-per-gas", "99999"], "send"],
+      [["forDefi", "fetch", "-i", "w1", "--gas-limit", "21000"], "forDefi fetch"],
+      [["balance", "--priority-fee-per-gas", "1"], "info balance"],
+      [["info", "addresses", "--gas-limit", "1", "--max-fee-per-gas", "2"], "info addresses"],
+      [["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--gas-limit", "1"], "init-ctx"],
+    ] as const) {
+      const result = runCli([...args, "--network", "localflare"], { cwd });
+      expect(result.exitCode, command).to.equal(1);
+      expect(result.stderr, command).to.match(
+        new RegExp(
+          `^Error: ${command} doesn't use --[a-z-]+(, --[a-z-]+)?; leave (it|them) out \\(the C-chain gas options`
+        )
+      );
+    }
+    expect(fs.existsSync(path.join(cwd, "ctx.json")), "init-ctx wrote nothing").to.equal(false);
+  });
+
+  it("names the network of a transaction on stderr, and warns when it is Flare because nothing chose one", () => {
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const withdrawal = ["withdrawal", "-a", "1", "-t", "0x2222222222222222222222222222222222222222", "-i", "w1"];
+    const fallback = "Warning: No --network was given and there is no context file: using flare";
+    const unchosen = runCli([...withdrawal, "--env-path", envPath, "--rpc-url", CLOSED_NODE], { cwd });
+    expect(unchosen.exitCode).to.equal(1); // at the node
+    expect(unchosen.stderr).to.include(`Using network: flare\n${fallback}\n`);
+    const chosen = runCli([...withdrawal, "--env-path", envPath, "--network", "costwo", "--rpc-url", CLOSED_NODE], {
+      cwd,
+    });
+    expect(chosen.stderr).to.include("Using network: costwo\n");
+    expect(chosen.stderr).not.to.include(fallback);
+    // info names the network itself, but warns as well
+    const info = runCli(["info", "addresses", "--env-path", envPath], { cwd });
+    expect(info.exitCode, info.stderr).to.equal(0);
+    expect(info.stderr).to.include(fallback);
+    expect(info.stdout).to.include('Addresses on the network "flare"');
+    // init-ctx writes a context every later command takes its network from; to a --ctx-file that doesn't exist yet too
+    for (const file of ["ctx.json", "other.json"]) {
+      const initCtx = runCli(["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--ctx-file", file], { cwd });
+      expect(initCtx.exitCode, initCtx.stderr).to.equal(0);
+      expect(initCtx.stderr, file).to.include(fallback);
+      expect(JSON.parse(fs.readFileSync(path.join(cwd, file), "utf8"))).to.include({ network: "flare" });
+    }
+    // a context file there gives the network: no warning
+    expect(runCli(["info", "addresses", "--env-path", envPath], { cwd }).stderr).not.to.include(fallback);
+  });
+
+  it("refuses -i with --get-hacked or --ledger on the four C-chain commands that wrote a file in 4.x, before signing", () => {
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const to = "0x2222222222222222222222222222222222222222";
+    const commands: [string, string[]][] = [
+      ["withdrawal", ["-a", "1", "-t", to]],
+      ["setClaimExecutors", ["--executors", to]],
+      ["setAllowedClaimRecipients", ["--recipients", to]],
+      ["customCChainTx", ["--to", to]],
+    ];
+    for (const [command, args] of commands) {
+      for (const [flag, signer] of [
+        ["--get-hacked", ["--get-hacked", "--env-path", envPath]],
+        ["--ledger", ["--ledger"]],
+      ] as const) {
+        // an empty -i too: `-i "$TX_ID"` with the variable unset
+        for (const id of ["-i w1", "-i ", "--transaction-id="]) {
+          const idArgs = id === "--transaction-id=" ? [id] : ["-i", id.slice(3)];
+          const result = runCli(
+            [command, ...args, ...idArgs, ...signer, "--network", "localflare", "--rpc-url", CLOSED_NODE],
+            {
+              cwd,
+              env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+            }
+          );
+          expect(result.exitCode, `${command} ${flag} ${id}`).to.equal(1);
+          expect(result.stderr, `${command} ${flag} ${id}`).to.include(
+            `${command} with ${flag} signs and sends at once, where 4.x wrote the unsigned file -i names; ` +
+              `leave out -i to sign and send now, or ${flag} to write the unsigned file`
+          );
+        }
+      }
+    }
+    // claim signed in 4.4.0 too: -i with an immediate signer goes on to the node
+    const claim = runCli(
+      [
+        "claim",
+        "-r",
+        to,
+        "-i",
+        "c1",
+        "--get-hacked",
+        "--env-path",
+        envPath,
+        "--network",
+        "localflare",
+        "--rpc-url",
+        CLOSED_NODE,
+      ],
+      { cwd }
+    );
+    expect(claim.exitCode).to.equal(1);
+    expect(claim.stderr).not.to.include("signs and sends at once");
+    expect(claim.stderr).to.include(`node ${CLOSED_NODE}`);
+  });
+
+  it("forDefi sign checks the file against --network, over the context's network, before reading the token", () => {
+    const { forDefiHash: _hash, ...unsigned } = readGolden("exportCP-file").outcome.unsignedTxJson as UnsignedTxJson;
+    fs.mkdirSync(path.join(cwd, "ForDefiTxnFiles", "UnsignedTxns"), { recursive: true });
+    fs.writeFileSync(path.join(cwd, "ForDefiTxnFiles", "UnsignedTxns", "t1.unsignedTx.json"), JSON.stringify(unsigned));
+    fs.writeFileSync(
+      path.join(cwd, "ctx.json"),
+      JSON.stringify({
+        wallet: "publicKey",
+        publicKey: EWOQ_PUBLIC_KEY_COMPRESSED,
+        network: "localflare",
+        vaultId: "v",
+      })
+    );
+    const result = runCli(["forDefi", "sign", "-i", "t1", "--network", "costwo"], { cwd });
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.include(
+      "Transaction t1 is for network id 162, not costwo (114); select its network with --network"
+    );
   });
 
   it("forDefi refuses fetching a signature once the transaction was sent", () => {
@@ -317,6 +560,64 @@ describe("CLI errors (built CLI, no node)", function () {
     );
   });
 
+  it("doesn't print a key given in place of the key file or the context file", () => {
+    for (const args of [
+      ["transaction", "exportCP", "-a", "1", "--get-hacked", "--env-path", EWOQ_PRIVATE_KEY_HEX],
+      ["transaction", "exportCP", "-a", "1", "--get-hacked", "--env-path", EWOQ_PRIVATE_KEY_CB58],
+      ["info", "balance", "--env-path", EWOQ_PRIVATE_KEY_HEX],
+      ["send", "-i", "t1", "--env-path", EWOQ_PRIVATE_KEY_HEX],
+      ["info", "balance", "--ctx-file", EWOQ_PRIVATE_KEY_HEX],
+    ]) {
+      const result = runCli([...args, "--network", "costwo"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      const label = args.join(" ");
+      expect(result.exitCode, label).to.equal(1);
+      expect(result.stderr, label).to.match(/The (key|context) file given with --(env-path|ctx-file) does not exist/);
+      expect(result.stdout + result.stderr, label).to.not.include(args[args.length - 1]);
+      expect(result.stdout + result.stderr, label).to.not.include(EWOQ_PRIVATE_KEY_HEX.slice(-16));
+    }
+  });
+
+  it("refuses an atomic -f above 20 FLR on every path before anything is signed: 4.4.0 read it as a gas price", () => {
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    for (const args of [
+      ["exportCP", "-a", "100", "-f", "1000", "--get-hacked", "--env-path", envPath],
+      ["importPC", "-f", "25", "--get-hacked", "--env-path", envPath],
+      ["exportCP", "-a", "1", "-f", "20.5", "--ledger"],
+      ["importPC", "-f", "500", "-i", "fee-file", "--env-path", envPath],
+    ]) {
+      const result = runCli([...args, "--network", "costwo"], {
+        cwd,
+        env: { FLARE_RPC_URL: CLOSED_NODE, FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+      });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(
+        `Error: Invalid fee "${args[args.indexOf("-f") + 1]}": at most 20 FLR, as it is the transaction's total fee, not a gas price (4.4.0 read -f with --get-hacked as nFLR per gas)\n`
+      );
+      expect(result.stdout, args.join(" ")).to.equal("");
+    }
+    expect(fs.existsSync(path.join(cwd, "ForDefiTxnFiles"))).to.equal(false);
+  });
+
+  it("init-ctx doesn't print a key given as the file to write, when it already exists", () => {
+    const args = [
+      "init-ctx",
+      "-p",
+      EWOQ_PUBLIC_KEY_COMPRESSED,
+      "--network",
+      "costwo",
+      "--ctx-file",
+      EWOQ_PRIVATE_KEY_HEX,
+    ];
+    const first = runCli(args, { cwd });
+    expect(first.exitCode).to.equal(0);
+    const again = runCli(args, { cwd });
+    expect(again.exitCode).to.equal(1);
+    expect(again.stderr).to.include("Error: The context file given with --ctx-file already exists\n");
+    for (const result of [first, again]) {
+      expect(result.stdout + result.stderr).to.not.include(EWOQ_PRIVATE_KEY_HEX.slice(-16));
+    }
+  });
+
   it("send needs the key file of --get-hacked too, rather than checking against the context file", () => {
     // the account in ctx.json is not the one --get-hacked selects, so it must not stand in for the missing key file
     const context = { wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "costwo" };
@@ -334,12 +635,12 @@ describe("CLI errors (built CLI, no node)", function () {
     for (const file of ["missing.json", "ctx.json"]) {
       const result = runCli(["send", "-i", "w1", "--ctx-file", file], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
       expect(result.exitCode, file).to.equal(1);
-      expect(result.stderr, file).to.include(`Context file ${file} does not exist`);
+      expect(result.stderr, file).to.include("The context file given with --ctx-file does not exist");
     }
     // no context file at all: the account is the one that signed, and the send gets as far as the node
     const relay = runCli(["send", "-i", "w1", "--network", "localflare"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
     expect(relay.exitCode).to.equal(1);
-    expect(relay.stderr).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
+    expect(relay.stderr).to.equal(`Using network: localflare\nError: fetch failed (bad port; node ${CLOSED_NODE})\n`);
   });
 
   it("refuses an option the transaction type doesn't read, given on the command line, whatever its position", () => {
@@ -451,15 +752,13 @@ describe("CLI errors (built CLI, no node)", function () {
         env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
       });
       expect(result.exitCode, selectors.join(" ")).to.equal(1);
-      expect(result.stderr, selectors.join(" ")).to.include(
-        "Context file missing.json does not exist (given with --ctx-file)"
-      );
+      expect(result.stderr, selectors.join(" ")).to.include("The context file given with --ctx-file does not exist");
     }
     for (const action of ["fetch", "sign"]) {
       // fetch reads no context, and nothing is asked of ForDefi before the refusal
       const result = runCli(["forDefi", action, "-i", "t1", "--ctx-file", "missing.json"], { cwd });
       expect(result.exitCode, action).to.equal(1);
-      expect(result.stderr, action).to.include("Context file missing.json does not exist (given with --ctx-file)");
+      expect(result.stderr, action).to.include("The context file given with --ctx-file does not exist");
     }
     const created = runCli(
       ["init-ctx", "-p", EWOQ_PUBLIC_KEY_COMPRESSED, "--network", "costwo", "--ctx-file", "new.json"],
@@ -494,12 +793,64 @@ describe("CLI errors (built CLI, no node)", function () {
       writeSignedTxJson({ ...file, signature }, "w1", cwd);
       const result = runCli(["send", "-i", "w1"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
       expect(result.exitCode).to.equal(1);
-      expect(result.stderr).to.equal(`Error: ${refusal}\n`);
+      expect(result.stderr).to.equal(`Using network: localflare\nError: ${refusal}\n`);
       const signed = JSON.parse(
         fs.readFileSync(path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "w1.signedTx.json"), "utf8")
       ) as { isSentToChain?: boolean };
       expect(signed.isSentToChain).to.equal(undefined);
     }
+  });
+
+  it("takes the account of a key file with only PUBLIC_KEY, as 4.4.0 did, but refuses to sign with it", () => {
+    const publicOnly = path.join(cwd, "public-key.txt");
+    fs.writeFileSync(publicOnly, `PUBLIC_KEY=${EWOQ_PUBLIC_KEY_COMPRESSED}\n`);
+    const info = runCli(["info", "addresses", "--env-path", publicOnly, "--network", "localflare"], { cwd });
+    expect(info.exitCode, info.stderr).to.equal(0);
+    expect(info.stdout).to.include("C-chain address hex: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC");
+    // --get-hacked signs with the file: refused, and info shows no account a transaction would refuse
+    for (const args of [
+      ["exportCP", "-a", "1"],
+      ["info", "addresses"],
+    ]) {
+      const signing = runCli([...args, "--get-hacked", "--env-path", publicOnly, "--network", "localflare"], {
+        cwd,
+        env: { FLARE_RPC_URL: CLOSED_NODE },
+      });
+      expect(signing.exitCode, args[0]).to.equal(1);
+      expect(signing.stderr, args[0]).to.include(
+        `Env file ${publicOnly} holds only a PUBLIC_KEY; signing needs PRIVATE_KEY_HEX`
+      );
+    }
+  });
+
+  it("send checks the signature against the account --env-path or --ledger selects, with no ctx.json", () => {
+    // a file of an earlier version, which records no account, signed by another key than the one selected
+    const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson & { message: string };
+    const signature = signMessageHash(unsigned.message, "22".repeat(32));
+    const older = { ...unsigned, signer: undefined };
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const publicOnly = path.join(cwd, "public-key.txt");
+    fs.writeFileSync(publicOnly, `PUBLIC_KEY=${EWOQ_PUBLIC_KEY_COMPRESSED}\n`);
+    for (const [label, selector, env] of [
+      ["--env-path", ["--env-path", envPath], {}],
+      ["--env-path with only PUBLIC_KEY", ["--env-path", publicOnly], {}],
+      ["--ledger", ["--ledger"], { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX }],
+    ] as const) {
+      writeSignedTxJson({ ...older, signature }, "w1", cwd);
+      const result = runCli(["send", "-i", "w1", ...selector, "--network", "localflare"], {
+        cwd,
+        env: { FLARE_RPC_URL: CLOSED_NODE, ...env },
+      });
+      expect(result.exitCode, label).to.equal(1);
+      expect(result.stderr, label).to.include(
+        "The signature does not belong to the configured account (recovered address differs)"
+      );
+      const signed = JSON.parse(
+        fs.readFileSync(path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "w1.signedTx.json"), "utf8")
+      ) as { isSentToChain?: boolean };
+      expect(signed.isSentToChain, label).to.equal(undefined);
+    }
+    expect(fs.existsSync(path.join(cwd, "ctx.json"))).to.equal(false);
   });
 
   it("setClaimExecutors and setAllowedClaimRecipients need their list before anything is signed", () => {
@@ -584,6 +935,48 @@ describe("CLI commands that need no node (built CLI)", function () {
     }
   });
 
+  it("refuses a long option written with one dash and a value, without the value, which -a or -r would print", () => {
+    const key = "k7Qz2LmN9pXy4RtV8wBcTAIL";
+    for (const args of [
+      ["transaction", "exportCP", "-a", "1", `-api-key=${key}`],
+      ["exportCP", `-api-key=${key}`, "-a", "1"],
+      ["claim", "-a", "1", `-rpc-url=https://audit:${key}@127.0.0.1:1`],
+      ["info", "balance", `-network=costwo`],
+      // after a misspelled option, the argument may be its value: it is not repeated either
+      ["info", "balance", "--apikey", "-kQzLmNpXyRtVwBcTAIL="],
+    ]) {
+      const result = runCli(args, { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(
+        "Error: a long option takes two dashes: --name=value, not -name=value\n"
+      );
+      expect(result.stdout, args.join(" ")).to.equal("");
+    }
+    // the value of an option that takes one is never taken for an option, whatever it looks like: an API key may
+    // start with "-" and end in "=" (Base64url), and a file name may hold "="
+    const dashKey = "-AbCdEfGhIjKlMnOpQrStUvWxYzabcA=";
+    for (const args of [
+      ["info", "validators", "--network", "localflare", "--rpc-url", CLOSED_NODE, "--api-key", dashKey],
+      ["info", "validators", "--api-key", dashKey, "--network", "localflare", "--rpc-url", CLOSED_NODE],
+    ]) {
+      const result = runCli(args, { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
+    }
+    const dashFile = runCli(["info", "addresses", "--ctx-file", "-local=ctx.json", "--network", "costwo"], { cwd });
+    expect(dashFile.stderr).to.equal("Error: The context file given with --ctx-file does not exist\n");
+    const dashId = runCli(["send", "-i", "-ab=c", "--network", "costwo"], { cwd }); // a short flag's value too
+    expect(dashId.stderr).to.match(/^Using network: costwo\nError: Invalid transaction id "-ab=c"/);
+    // a short option with its value, and a value after "=", are not long options
+    for (const args of [
+      ["exportCP", "-a", "-5", "--network", "costwo"],
+      ["exportCP", "-a=1", "--network", "costwo"],
+    ]) {
+      const result = runCli(args, { cwd });
+      expect(result.stderr, args.join(" ")).to.match(/^Error: Invalid amount "(-5|=1)"/);
+    }
+  });
+
   it("says where the id goes when -i <id> comes before a command, where -i starts interactive mode", () => {
     for (const args of [
       ["-i", "myid", "exportCP", "-a", "1"],
@@ -609,6 +1002,38 @@ describe("CLI commands that need no node (built CLI)", function () {
       expect(result.stdout, args.join(" ")).to.match(/^Usage: flare-stake-tool interactive \[options\]\n/);
       expect(result.stderr, args.join(" ")).to.equal("");
     }
+  });
+
+  it("doesn't echo the value of a misspelled --option=value, which may be a key", () => {
+    const key = "k7Qz2LmN9pXy4RtV8wBc";
+    for (const args of [
+      ["info", "balance", `--apikey=${key}`],
+      [`--apikey=${key}`, "info", "balance"],
+      ["exportCP", "-a", "1", "-f", "1", `--api-ky=${key}`],
+      ["interactive", `--apikey=${key}`],
+    ]) {
+      const result = runCli(args, { cwd, env: PLAIN });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.match(/unknown option '--api-?ke?y=\*\*\*'/);
+      expect(result.stderr + result.stdout, args.join(" ")).to.not.include(key);
+    }
+    // a value holding a quote, which Commander's message also quotes the option in, or a line break
+    for (const [arg, tail] of [
+      ["--rpc-ur=http://audit:r8W'fkP3Z6dxqG2tB@127.0.0.1:1", "fkP3Z6dxqG2tB"],
+      ["--apikey=k7Qz2LmN\n9pXy4RtV8wBcTAIL", "9pXy4RtV8wBcTAIL"],
+      // a Base64 key, whose padding ends the argument in "="
+      ["--apikey=c3ludGhldGljLWF1ZGl0LWtleQ==", "c3ludGhldGljLWF1ZGl0LWtleQ"],
+      ["--apikey=c3ludGhldGljLWF1ZGl0LWtleTE=", "c3ludGhldGljLWF1ZGl0LWtleTE"],
+    ] as const) {
+      const result = runCli(["info", "balance", arg], { cwd, env: PLAIN });
+      expect(result.exitCode, arg).to.equal(1);
+      expect(result.stderr, arg).to.match(/unknown option '--(rpc-ur|apikey)=\*\*\*'/);
+      expect(result.stderr + result.stdout, arg).to.not.include(tail);
+    }
+    // a misspelled option without a value is named as it was
+    expect(runCli(["info", "balance", "--apikey", key], { cwd, env: PLAIN }).stderr).to.include(
+      "error: unknown option '--apikey'"
+    );
   });
 
   it("interactive refuses an unknown option or a bad value before it looks for a terminal", () => {
@@ -642,14 +1067,14 @@ describe("CLI commands that need no node (built CLI)", function () {
       expect(result.stdout, flags).to.equal("");
     }
     // a bad node URL used to fail only after the wallet questions, and every wallet then failed again
-    for (const [args, env] of [
-      [["-i", "--rpc-url", "ftp://node"], PLAIN],
-      [["interactive"], { ...PLAIN, FLARE_RPC_URL: "ftp://node" }],
+    for (const [args, env, source] of [
+      [["-i", "--rpc-url", "ftp://node"], PLAIN, "given with --rpc-url"],
+      [["interactive"], { ...PLAIN, FLARE_RPC_URL: "ftp://node" }, "in FLARE_RPC_URL"],
     ] as const) {
       const result = runCli([...args], { cwd, env });
       expect(result.exitCode, args.join(" ")).to.equal(1);
       expect(result.stderr, args.join(" ")).to.equal(
-        'Error: Invalid node URL "ftp://node"; only http and https are supported\n'
+        `Error: Invalid node URL "ftp://…" ${source}; only http and https are supported\n`
       );
     }
   });

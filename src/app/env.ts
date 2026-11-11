@@ -1,10 +1,10 @@
 /** Environment resolution and the ctx.json context file. */
 import fs from "fs";
-import path from "path";
 import { createClients } from "../chain/clients";
 import { accountFromPublicKey, type Account } from "../chain/keys";
 import {
   DEFAULT_NETWORK,
+  NETWORK_NAMES,
   insecureApiKeyWarning,
   isNetworkName,
   networkConfig,
@@ -37,18 +37,23 @@ const warnedNodes = new Set<string>();
  */
 export function createEnv(network: string, node: NodeOverrides = {}): Env {
   const config = networkConfig(network, process.env, node);
+  // built first, asking the node nothing, so that the warning masks what they remember (a token in the URL's path)
+  const clients = createClients(config);
   const warning = insecureApiKeyWarning(config);
   if (warning !== undefined && !warnedNodes.has(config.apiUrl)) {
     warnedNodes.add(config.apiUrl);
     logWarning(warning);
   }
-  return { network: config, clients: createClients(config) };
+  return { network: config, clients };
 }
 
 export function readContextFile(file: string = DEFAULT_CTX_FILE): ContextFile {
   if (!fs.existsSync(file)) {
+    // a path given with --ctx-file is not repeated: a key given in its place would be printed
     throw new Error(
-      `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
+      file === DEFAULT_CTX_FILE
+        ? `Context file ${file} does not exist; run init-ctx first or pass --ledger / --get-hacked --env-path`
+        : "The context file given with --ctx-file does not exist"
     );
   }
   // only the fields the tool reads are checked, and the object is returned as it was: older files carry other fields
@@ -75,17 +80,23 @@ export function contextFileExists(file: string = DEFAULT_CTX_FILE): boolean {
   return fs.existsSync(file);
 }
 
-/** Writes ctx.json, refusing to overwrite an existing one, even one that appeared since the check ("wx"). */
+/**
+ * Writes ctx.json, refusing to overwrite an existing one, even one that appeared since the check ("wx"). A path given
+ * with --ctx-file is not repeated in an error, as when reading: a key given in its place would be printed.
+ */
 export function writeContextFile(context: ContextFile, file: string = DEFAULT_CTX_FILE): void {
-  const exists = new Error(`${path.basename(file)} already exists`);
+  const shown = file === DEFAULT_CTX_FILE ? DEFAULT_CTX_FILE : "The context file given with --ctx-file";
+  const exists = new Error(`${shown} already exists`);
   if (fs.existsSync(file)) {
     throw exists;
   }
   try {
     fs.writeFileSync(file, JSON.stringify(context, null, 2), { flag: "wx" });
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw exists;
-    throw error;
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EEXIST") throw exists;
+    if (file === DEFAULT_CTX_FILE) throw error;
+    throw new Error(`${shown} could not be written (${code ?? "unknown error"})`, { cause: error });
   }
 }
 
@@ -114,7 +125,7 @@ export function accountFromContextFile(context: ContextFile, hrp: string): Accou
 export function resolveNetworkName(explicit: string | undefined, ctxFile: string = DEFAULT_CTX_FILE): string {
   if (explicit !== undefined) {
     if (!isNetworkName(explicit)) {
-      throw new Error(`Unknown network "${explicit}"`);
+      throw new Error(`Unknown network "${explicit}"; expected one of ${NETWORK_NAMES.join(", ")}`);
     }
     return explicit;
   }

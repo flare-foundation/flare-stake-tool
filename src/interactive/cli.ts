@@ -45,7 +45,7 @@ import {
   parseTime,
 } from "../cli/inputs";
 import type { DerivationMode, TaskId } from "../constants/screen";
-import { prompts } from "./prompts";
+import { prompts, withCancelNotice } from "./prompts";
 
 interface DerivedAddress {
   ethAddress: string;
@@ -89,10 +89,15 @@ export async function interactiveCli(options: InteractiveOptions): Promise<void>
     try {
       await TASKS[task](session);
     } catch (error) {
-      if (error instanceof SigningDeclined) logInfo(error.message);
-      else logError(`Error: ${describeError(error)}`);
+      reportError(error);
     }
   }
+}
+
+/** Prints an action's error as the command line does (describeError), or the note of a transaction not signed. */
+function reportError(error: unknown): void {
+  if (error instanceof SigningDeclined) logInfo(error.message);
+  else logError(`Error: ${describeError(error)}`);
 }
 
 /** Asks again after an error, until a wallet is connected; undefined when the user quits. */
@@ -101,7 +106,7 @@ async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWal
     try {
       return await connectWallet(node);
     } catch (error) {
-      logError(`Error: ${describeError(error)}`);
+      reportError(error);
     }
   }
 }
@@ -187,16 +192,27 @@ class SigningDeclined extends Error {
   }
 }
 
+/** What a caller of execute learns as it goes: the user approved the summary; the node took the transaction. */
+interface ExecuteHooks {
+  onApproved?: () => void;
+  onIssued?: (txId: string) => void;
+}
+
 /**
  * Builds, signs and sends a transaction, and reports it as the command line does. What is about to be signed is shown
  * first, read from the built transaction, and signed only when the user confirms; No is the default.
  */
-async function execute(session: Session, request: TxRequest): Promise<Outcome> {
+async function execute(session: Session, request: TxRequest, hooks: ExecuteHooks = {}): Promise<Outcome> {
   const confirmSigning = async (details: BuiltDetails): Promise<void> => {
     for (const line of signingSummary(request, details, session.account, session.env.network)) log(line);
     if (!(await prompts.confirmSigning())) throw new SigningDeclined();
+    hooks.onApproved?.();
   };
-  const outcome = await runTransaction(request, session.env, session.signer, { onIssued: logIssued }, confirmSigning);
+  const issued = (txId: string): void => {
+    logIssued(txId);
+    hooks.onIssued?.(txId);
+  };
+  const outcome = await runTransaction(request, session.env, session.signer, { onIssued: issued }, confirmSigning);
   reportOutcome(outcome, session.env.network.symbol);
   return outcome;
 }
@@ -214,7 +230,7 @@ async function askStake(): Promise<TxRequest> {
   const endTime = await askEndTime();
   const fee = await prompts.delegationFee();
   const popBLSPublicKey = await prompts.popBLSPublicKey();
-  const popBLSSignature = await prompts.popBLSSignature();
+  const popBLSSignature = await prompts.popBLSSignature(popBLSPublicKey);
   return {
     type: "stake",
     nodeId: id,
@@ -239,7 +255,7 @@ async function askAutoRenewedValidator(): Promise<TxRequest> {
   const period = await prompts.period("add");
   const fee = await prompts.delegationFee();
   const popBLSPublicKey = await prompts.popBLSPublicKey();
-  const popBLSSignature = await prompts.popBLSSignature();
+  const popBLSSignature = await prompts.popBLSSignature(popBLSPublicKey);
   return {
     type: "addAutoRenewedValidator",
     nodeId: id,
@@ -300,9 +316,11 @@ async function moveCP(session: Session): Promise<void> {
   const fee = await askCChainFee(session, exportCP);
   log("Please approve export transaction");
   const exported = await execute(session, { ...exportCP, fee });
-  await waitForExport(session, "P", exported);
-  log("Please approve import transaction");
-  await execute(session, { type: "importCP" });
+  await afterExport(exported, "P", async (importHooks) => {
+    await waitForExport(session, "P", exported);
+    log("Please approve import transaction");
+    await execute(session, { type: "importCP" }, importHooks);
+  });
 }
 
 /** Export from the P-chain, wait, import on the C-chain. The amount offered is what `exportPC` without -a exports. */
@@ -317,10 +335,59 @@ async function movePC(session: Session): Promise<void> {
   const amount = await prompts.amount(defaultAmount);
   log("Please approve export transaction");
   const exported = await execute(session, { type: "exportPC", amount: parseFlr(amount) });
-  await waitForExport(session, "C", exported);
-  const fee = await askCChainFee(session, { type: "importPC" });
-  log("Please approve import transaction");
-  await execute(session, { type: "importPC", fee });
+  await afterExport(exported, "C", async (importHooks) => {
+    await waitForExport(session, "C", exported);
+    const fee = await askCChainFee(session, { type: "importPC" });
+    log("Please approve import transaction");
+    await execute(session, { type: "importPC", fee }, importHooks);
+  });
+}
+
+/**
+ * The steps of a move after its export: the wait for it, the import's questions and the import. Whatever stops them
+ * once the export was sent (No at the import, an error, a timeout, Ctrl-C or Ctrl-D at a question) leaves its funds
+ * waiting on `destination`, which the user must be told, not only the error or "nothing was sent". Once the user has
+ * approved the import, a failure (a lost answer to its submission, its status unread, a timeout) leaves them waiting
+ * only if the import did not land.
+ */
+async function afterExport(
+  exported: Outcome,
+  destination: "P" | "C",
+  steps: (importHooks: ExecuteHooks) => Promise<void>
+): Promise<void> {
+  let approved = false;
+  let importId: string | undefined;
+  const importHooks: ExecuteHooks = {
+    onApproved: () => {
+      approved = true;
+    },
+    onIssued: (txId) => {
+      importId = txId;
+    },
+  };
+  if (exported.status !== "sent") {
+    await steps(importHooks); // waitForExport refuses it
+    return;
+  }
+  const notice =
+    `Export ${exported.txId} was sent: its funds wait on the ${destination}-chain; ` +
+    'import them with "Import Funds".';
+  try {
+    await withCancelNotice(notice, () => steps(importHooks));
+  } catch (error) {
+    if (error instanceof SigningDeclined) {
+      logInfo(`The import was not signed. ${notice}`);
+      return;
+    }
+    reportError(error);
+    const imported = importId === undefined ? "its import approved" : `import ${importId} submitted`;
+    logInfo(
+      approved
+        ? `Export ${exported.txId} was sent and ${imported}, but the import is not confirmed: if it did not land, ` +
+            `the funds wait on the ${destination}-chain for "Import Funds".`
+        : notice
+    );
+  }
 }
 
 /**

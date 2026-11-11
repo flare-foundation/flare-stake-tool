@@ -47,6 +47,41 @@ function expandAliases(argv: string[], index: number): string[] {
   return group === undefined ? argv : [...argv.slice(0, index), group, ...argv.slice(index)];
 }
 
+/** The flags, of any command, whose value is the next argument (`--api-key KEY`, `-a 5`). */
+function flagsTakingValues(command: Command): Set<string> {
+  const flags = new Set<string>();
+  const visit = (c: Command): void => {
+    for (const option of c.options) {
+      if (!option.required) continue;
+      if (option.long !== undefined) flags.add(option.long);
+      if (option.short !== undefined) flags.add(option.short);
+    }
+    c.commands.forEach(visit);
+  };
+  visit(command);
+  return flags;
+}
+
+/**
+ * A long option written with one dash and a value, as go-flare's flags may be (`-api-key=KEY`): Commander reads it as
+ * the short option `-a` with the value `pi-key=KEY`, and the amount's error printed the key. Refused before parsing.
+ * An option's value is skipped, whatever it looks like (an API key may start with `-` and end in `=`), and the
+ * argument is not repeated: after a misspelled option, it may be that option's value.
+ */
+function singleDashLongOption(argv: readonly string[]): string | undefined {
+  const valued = flagsTakingValues(program);
+  for (let i = 2; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === undefined) break;
+    if (valued.has(arg)) {
+      i++; // the next argument is its value
+    } else if (/^-[A-Za-z][A-Za-z-]+=/.test(arg)) {
+      return "a long option takes two dashes: --name=value, not -name=value";
+    }
+  }
+  return undefined;
+}
+
 /**
  * `-i <id>` given before a command, as in `-i myid exportCP -a 1`: `-i` there is `interactive`, which takes no
  * arguments, and Commander would report `-a` as unknown. The id goes after the command.
@@ -61,9 +96,9 @@ function misplacedTransactionId(argv: readonly string[], index: number): string 
 }
 
 const index = commandIndex(process.argv);
-const misplaced = misplacedTransactionId(process.argv, index);
-if (misplaced !== undefined) {
-  console.error(styleText("red", `Error: ${misplaced}`));
+const refused = singleDashLongOption(process.argv) ?? misplacedTransactionId(process.argv, index);
+if (refused !== undefined) {
+  console.error(styleText("red", `Error: ${refused}`));
   process.exit(1);
 }
 

@@ -10,8 +10,9 @@ default:
 
 # Pipeline strategy:
 # * MRs and branch pushes → lint/typecheck/test
-# * Tag push → same jobs run as a gate; the actual npm publish + attestation
-#   happens from GitHub (see .github/workflows/release.yaml).
+# * Tag push → same jobs run; the actual npm publish + attestation happens from
+#   GitHub (see .github/workflows/release.yaml), which doesn't wait for them and
+#   runs its own tests and pnpm audit before publishing.
 # Integration tests are run locally only (see CONTRIBUTING.md).
 
 include:

@@ -6,7 +6,8 @@
 export const NFLR_DECIMALS = 9;
 export const WEI_DECIMALS = 18;
 
-const DECIMAL_RE = /^(\d+)(?:\.(\d+))?$/;
+/** Digits with an optional fraction; either side of the point may be empty, not both (`.5` and `1.` as 4.4.0 took). */
+const DECIMAL_RE = /^(?:(\d+)(?:\.(\d*))?|\.(\d+))$/;
 
 /**
  * Parses a non-negative decimal string into an integer with `decimals`
@@ -27,8 +28,8 @@ export function parseDecimal(input: string, decimals: number): bigint {
   if (!match) {
     throw new Error(`Invalid amount "${input}": expected a non-negative decimal number`);
   }
-  const whole = match[1]!;
-  const digits = match[2] ?? "";
+  const whole = match[1] ?? "0";
+  const digits = match[2] ?? match[3] ?? "";
   if (/[1-9]/.test(digits.slice(decimals))) {
     throw new Error(`Invalid amount "${input}": at most ${decimals} decimal places are supported`);
   }
@@ -77,6 +78,38 @@ export function parseFlr(input: string): NFlr {
 }
 /** FLR → wei (C-chain EVM amounts), with the C-chain's full 18 decimals. */
 export const parseFlrToWei = (input: string): Wei => asWei(parseDecimal(input, WEI_DECIMALS));
+
+/**
+ * An amount a P-chain or atomic transaction moves, or a fee it pays (-a, -f): 0 is refused before anything is built,
+ * as the node would refuse the transaction once signed ("output has no value", a fee below the base fee). `hint` says
+ * what to do instead, where 0 used to mean something (4.4.0's `-f 0`, an estimate, and `exportPC -a 0`, the balance).
+ */
+export function parsePositiveFlr(input: string, hint?: string): NFlr {
+  const amount = parseFlr(input);
+  if (amount === 0n) {
+    throw new Error(`Invalid amount "${input}": must be more than 0${hint === undefined ? "" : `; ${hint}`}`);
+  }
+  return amount;
+}
+/**
+ * The most a typed fee of an atomic transaction (exportCP, importPC: -f, or the interactive fee prompt) may be: 20 FLR,
+ * about 1,800 times the estimate at the 500 gwei floor. With --get-hacked, 4.4.0 read -f as a gas price in nFLR (when
+ * at least the base fee), so `-f 1000` paid about 0.011 FLR; as the total fee it is, it would burn 1000 FLR. 20 is
+ * below 25, the lowest base fee in gwei 4.4.0 saw, so every -f it read as a gas price is refused. Fixed, not taken
+ * from an estimate, so that every ForDefi co-signer builds the same transaction.
+ */
+export const MAX_ATOMIC_FEE = asNFlr(20_000_000_000n);
+
+/** A typed atomic fee: more than 0 (`zeroHint` says what to do instead) and at most MAX_ATOMIC_FEE. */
+export function parseAtomicFee(input: string, zeroHint?: string): NFlr {
+  const fee = parsePositiveFlr(input, zeroHint);
+  if (fee > MAX_ATOMIC_FEE) {
+    throw new Error(
+      `Invalid fee "${input}": at most ${formatFlr(MAX_ATOMIC_FEE)} FLR, as it is the transaction's total fee, not a gas price (4.4.0 read -f with --get-hacked as nFLR per gas)`
+    );
+  }
+  return fee;
+}
 export const formatFlr = (amount: NFlr): string => formatDecimal(amount, NFLR_DECIMALS);
 export const formatWei = (amount: Wei): string => formatDecimal(amount, WEI_DECIMALS);
 
@@ -167,6 +200,10 @@ export function formatDuration(seconds: bigint): string {
  */
 export function parseEndTime(input: string, nowMs: () => number = () => Date.now()): bigint {
   const text = input.trim();
+  // a plain number is a unix time here, not seconds from now: "use seconds" would lead to a 1970 date
+  if (!/^\d+$/.test(text) && (text === "" || !DURATION_RE.test(text))) {
+    throw new Error(`Invalid time "${input}": use a unix time in seconds, or a duration from now such as 2d12h or 90m`);
+  }
   const time = /^\d+$/.test(text) ? BigInt(text) : BigInt(Math.floor(nowMs() / 1000)) + parseDuration(text);
   if (time > MAX_TIME_SECONDS) {
     throw new Error(

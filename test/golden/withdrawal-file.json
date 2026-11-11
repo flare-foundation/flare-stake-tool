@@ -18,8 +18,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction withdrawal-file constructed\nForDefi hash: UqNp0KhN5tnHqoyZnGsfu3N8JT8UMdydj7EgeptOkts=\nNonce: 7\n",
-    "stderr": "",
+    "stdout": "Unsigned transaction withdrawal-file constructed\nForDefi hash: UqNp0KhN5tnHqoyZnGsfu3N8JT8UMdydj7EgeptOkts=\nNonce: 7\nGas limit: 100000\n",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

@@ -2,14 +2,15 @@
 import { accountFromPublicKey, type Account } from "../chain/keys";
 import {
   bundleFromConsistentTxJson,
+  checkFileNetwork,
   clearSentToChain,
   isAlreadySentToChain,
   markSentToChain,
   readSignedTxJson,
   signerMismatch,
 } from "../core/files";
-import { attachEvmSignature, attachSignature } from "../core/signing/attach";
-import { normalizeSignature, recoverPublicKey } from "../core/signing/signature";
+import { attachSignature, recoverSigner } from "../core/signing/attach";
+import { normalizeSignature } from "../core/signing/signature";
 import {
   SubmittedTxError,
   TxNotAcceptedError,
@@ -18,11 +19,8 @@ import {
   type SubmitClients,
 } from "../core/submit";
 import type { Clients } from "../chain/clients";
-import type { UnsignedTxBundle } from "../core/types";
 import type { NetworkConfig } from "../chain/network";
 import { logIssued } from "../output";
-import type { Int } from "@flarenetwork/flarejs";
-import { Transaction } from "ethers";
 
 /** What `send` uses of an Env: the network's ids and address prefix, the network check and the submit calls. */
 export interface SendEnv {
@@ -54,7 +52,7 @@ export async function sendSignedTransaction(
   checkFileNetwork(id, bundle, env.network);
   const signature = normalizeSignature(signed.signature);
   // who signed, whatever the context says: it must be the account the file was built for, when the file records it
-  const signer = recoverAccount(bundle, signature, env.network.hrp);
+  const signer = accountFromPublicKey(recoverSigner(bundle, signature), env.network.hrp);
   const mismatch = signerMismatch(signed, signer.publicKey);
   if (mismatch) {
     throw new Error(
@@ -87,43 +85,4 @@ export async function sendSignedTransaction(
     }
     throw error;
   }
-}
-
-/**
- * Refuses a file built for another network than the selected one, before anything is sent: the node would refuse it
- * with a less clear error. Atomic transactions carry the network id, EVM ones the chain id, which differ on Songbird
- * and Coston. Only an unprotected legacy transaction (type 0 without a chain id) has nothing to compare; a typed one
- * always carries its chain id, 0 included.
- */
-function checkFileNetwork(id: string, bundle: UnsignedTxBundle, network: SendEnv["network"]): void {
-  if (bundle.kind === "atomic") {
-    const tx = bundle.unsignedTx.getTx() as { baseTx?: { NetworkId: Int }; networkId?: Int };
-    const networkId = (tx.baseTx?.NetworkId ?? tx.networkId)?.value();
-    if (networkId !== network.networkId) {
-      throw new Error(
-        `Transaction ${id} is for network id ${String(networkId)}, not ${network.name} (${network.networkId}); ` +
-          "select its network with --network"
-      );
-    }
-    return;
-  }
-  const { chainId, type } = bundle.tx;
-  if (!(type === 0 && chainId === 0n) && chainId !== BigInt(network.chainId)) {
-    throw new Error(
-      `Transaction ${id} is for chain id ${chainId}, not ${network.name} (${network.chainId}); ` +
-        "select its network with --network"
-    );
-  }
-}
-
-function recoverAccount(bundle: UnsignedTxBundle, signature: Uint8Array, hrp: string): Account {
-  if (bundle.kind === "atomic") {
-    return accountFromPublicKey(recoverPublicKey(bundle.digest, signature), hrp);
-  }
-  const probe = Transaction.from(bundle.tx.unsignedSerialized); // a copy: the bundle itself stays unsigned
-  attachEvmSignature(probe, signature);
-  if (!probe.fromPublicKey) {
-    throw new Error("Cannot recover the signer of the EVM transaction");
-  }
-  return accountFromPublicKey(probe.fromPublicKey, hrp);
 }

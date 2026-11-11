@@ -16,8 +16,8 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction setAllowedClaimRecipients-file constructed\nForDefi hash: rW3kJBurUbHt6Wm3ZjLfh+VnXw+7hZgyiTTvIq2Cs94=\nNonce: 10\n",
-    "stderr": "",
+    "stdout": "Unsigned transaction setAllowedClaimRecipients-file constructed\nForDefi hash: rW3kJBurUbHt6Wm3ZjLfh+VnXw+7hZgyiTTvIq2Cs94=\nNonce: 10\nGas limit: 1000000\n",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

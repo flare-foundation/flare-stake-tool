@@ -21,6 +21,7 @@ import type InquirerModule from "inquirer";
 import type * as EnvModule from "../../src/app/env";
 import type * as InfoModule from "../../src/app/info";
 import type * as TransactionsModule from "../../src/app/transactions";
+import type * as ClientsModule from "../../src/chain/clients";
 import type * as ContractsModule from "../../src/chain/contracts";
 import type * as NetworkModule from "../../src/chain/network";
 import type { NFlr, Wei } from "../../src/chain/units";
@@ -33,6 +34,7 @@ import type * as LedgerSignerModule from "../../src/signers/ledger";
 import type { LedgerDevice } from "../../src/signers/ledger";
 import { SigningKey, computeAddress, keccak256, toUtf8Bytes } from "ethers";
 import { EWOQ_P_ADDRESS, EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
+import { NODE_A_POP, NODE_B_POP } from "../helpers/bls";
 
 const DIST = path.resolve(__dirname, "..", "..", "dist");
 const load = createRequire(__filename);
@@ -64,6 +66,16 @@ function stub<M extends object, K extends keyof M & string>(module: M, name: K, 
 interface Flags {
   /** runTransaction refuses the first request of each of these types. */
   failTx?: string[];
+  /** runTransaction has the node take the first request of each of these types, then fails to read its status. */
+  failAfterIssue?: string[];
+  /** runTransaction fails to build the first request of each of these types, before its summary is shown. */
+  failBuild?: string[];
+  /**
+   * Those refusals, and a failure of the first wallet connection, are a node's answer that starts with the API key
+   * and fails to parse as JSON (V8 quotes its start), noted with a node URL holding a password: what is printed must
+   * be cleaned of both, as describeError cleans it.
+   */
+  nodeErrors?: boolean;
   /** No fee estimate (nothing to estimate). */
   noEstimate?: boolean;
   /** No exportPC default (node unreachable). */
@@ -77,6 +89,8 @@ interface Flags {
   sameKey?: boolean;
   /** Another Ledger is plugged in when a question with this text is asked: from then on every path answers another key. */
   swapLedgerAt?: string;
+  /** Another Ledger is plugged in after this many reads of the device, between two reads no question separates. */
+  swapLedgerAfterReads?: number;
   /**
    * An earlier export is still pending on both chains, and a new export's UTXO shows up only on the second look,
    * so a move must wait for its own.
@@ -90,6 +104,7 @@ let flags: Flags = {};
 let exhausted = 0;
 let txCount = 0;
 let ledgerSwapped = false;
+let deviceReads = 0;
 /** How often the pending UTXOs were read since the last transaction. */
 let utxoReads = 0;
 
@@ -171,7 +186,24 @@ Object.assign(inquirer, { prompt });
 
 // ---- node and device ----
 
-const { networkConfig } = fromDist<typeof NetworkModule>("chain/network.js");
+const { networkConfig, rememberSecret } = fromDist<typeof NetworkModule>("chain/network.js");
+const { notingNode } = fromDist<typeof ClientsModule>("chain/clients.js");
+
+const API_KEY = "k7Qz2LmN9pXy4RtV";
+/** The error a node client throws for an answer that is not JSON and starts with the key, noted with the node. */
+function nodeAnswerError(): Error {
+  rememberSecret(API_KEY); // as createClients does with the key it sends
+  const node = notingNode(
+    { answer: () => JSON.parse(`${API_KEY} is not authorised`) as unknown },
+    `http://user:${API_KEY}@127.0.0.1:9650`
+  );
+  try {
+    node.answer();
+  } catch (error) {
+    return error as Error;
+  }
+  throw new Error("the answer parsed");
+}
 
 /** Only the client calls interactive mode makes itself; everything else goes through the stubs below. */
 const fakeClients = () => {
@@ -197,8 +229,10 @@ const fakeClients = () => {
 };
 
 const envModule = fromDist<typeof EnvModule>("app/env.js");
+let connections = 0;
 stub(envModule, "createEnv", (network, node = {}) => {
   record(`ENV ${network} ${show(node)}`);
+  if (flags.nodeErrors && connections++ === 0) throw nodeAnswerError();
   return { network: networkConfig(network, {}, node), clients: fakeClients() } as unknown as ReturnType<
     typeof EnvModule.createEnv
   >;
@@ -231,14 +265,24 @@ function builtDetailsOf(request: TxRequest): BuiltDetails {
 }
 
 const transactions = fromDist<typeof TransactionsModule>("app/transactions.js");
-stub(transactions, "runTransaction", async (request, _env, signer, _confirm, beforeSign) => {
+stub(transactions, "runTransaction", async (request, _env, signer, confirm, beforeSign) => {
   await signer.account(); // as runTransaction does before building
+  if (flags.failBuild?.includes(request.type)) {
+    flags.failBuild = flags.failBuild.filter((type) => type !== request.type);
+    throw new Error(`could not build ${request.type}`);
+  }
   const details = builtDetailsOf(request);
   await beforeSign?.(details); // between building and signing; No throws
   record(`TX ${show(request)} signer=${signer.kind}`);
   if (flags.failTx?.includes(request.type)) {
     flags.failTx = flags.failTx.filter((type) => type !== request.type);
-    throw new Error(`node refused ${request.type}`);
+    throw flags.nodeErrors ? nodeAnswerError() : new Error(`node refused ${request.type}`);
+  }
+  if (flags.failAfterIssue?.includes(request.type)) {
+    flags.failAfterIssue = flags.failAfterIssue.filter((type) => type !== request.type);
+    const txId = `tx${++txCount}`;
+    confirm?.onIssued?.(txId);
+    throw new Error(`Transaction ${txId} was submitted, but its status could not be read: fetch failed`);
   }
   txCount++;
   utxoReads = 0;
@@ -291,10 +335,12 @@ stub(fromDist<typeof ValidatorsModule>("chain/validators.js"), "currentValidator
 );
 
 /** The key the device has at a path: another one once another Ledger is plugged in, the same everywhere with sameKey. */
-const deviceKey = (derivationPath: string) =>
-  new SigningKey(
+function deviceKey(derivationPath: string): SigningKey {
+  if (flags.swapLedgerAfterReads !== undefined && deviceReads++ >= flags.swapLedgerAfterReads) ledgerSwapped = true;
+  return new SigningKey(
     keccak256(toUtf8Bytes((ledgerSwapped ? "another Ledger " : "") + (flags.sameKey ? "same" : derivationPath)))
   );
+}
 
 const fakeDevice: LedgerDevice = {
   detectApp: () => Promise.resolve("Flare"),
@@ -335,8 +381,8 @@ const PRIVATE_KEY = ["Private Key", "pk", "LocalHost"];
 /** The answer to "Sign and send this transaction?", asked after the summary of each built transaction. */
 const SIGN = true;
 const P_ADDRESS = EWOQ_P_ADDRESS;
-const BLS_PUBLIC_KEY = "0x" + "a1".repeat(48);
-const BLS_SIGNATURE = "0x" + "b2".repeat(96);
+const BLS_PUBLIC_KEY = NODE_A_POP.publicKey;
+const BLS_SIGNATURE = NODE_A_POP.signature;
 // node ids with valid checksums (the prompt refuses others), and one with its last character mistyped
 const NODE_X = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
 const NODE_Y = "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu";
@@ -371,7 +417,7 @@ const SCENARIOS: Scenario[] = [
       TASK.import, "P", SIGN,
       TASK.import, "C", "0.5", SIGN,
       TASK.transfer, "1.5", P_ADDRESS, SIGN,
-      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE, SIGN,
+      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", NODE_B_POP.signature, BLS_SIGNATURE, SIGN,
       TASK.delegate, "50", NODE_X, "1700000000", SIGN,
       TASK.addARV, "10000", NODE_Y, "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE, SIGN,
       TASK.setARV, NODE_Y, "0", false,
@@ -389,10 +435,17 @@ const SCENARIOS: Scenario[] = [
       "Private Key", "nofile",
       ...PRIVATE_KEY,
       TASK.transfer, "1", P_ADDRESS, SIGN,
-      TASK.transfer, "abc", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS, SIGN,
+      TASK.transfer, "abc", "0", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS, SIGN,
       TASK.setARV, NODE_Z, "0", true, SIGN,
       TASK.quit,
     ],
+  },
+  {
+    // the session prints errors as the command line does: without the input a JSON parse error quotes (the key's
+    // start, which masking can't match), with the node and its credentials masked
+    name: "private key: node errors are printed cleaned",
+    flags: { failTx: ["transfer"], nodeErrors: true },
+    script: [...PRIVATE_KEY, ...PRIVATE_KEY, TASK.transfer, "1", P_ADDRESS, SIGN, TASK.quit],
   },
   {
     // the rewards and the cycle end were read from the node, and shown, before any transaction checked its network
@@ -411,9 +464,26 @@ const SCENARIOS: Scenario[] = [
     script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, TASK.PC, "1", SIGN, TASK.quit],
   },
   {
+    // an import the node took may still land: the funds wait only if it does not
+    // approved, then taken by the node with its status unread, or failing with no answer: either may have landed
+    name: "private key: an import approved but not confirmed",
+    flags: { failAfterIssue: ["importCP"], failTx: ["importPC"] },
+    script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, SIGN, TASK.PC, "1", SIGN, "", SIGN, TASK.quit],
+  },
+  {
+    // the error, and that the export was sent and its funds wait for "Import Funds"
+    name: "private key: a failed import says the export was sent",
+    flags: { failBuild: ["importCP", "importPC"] },
+    script: [...PRIVATE_KEY, TASK.CP, "10", "0", "", SIGN, TASK.PC, "1", SIGN, "", TASK.quit],
+  },
+  {
     // No (also the default) signs nothing; a move whose export is not signed waits for nothing and imports nothing
     name: "private key: No to signing",
-    script: [...PRIVATE_KEY, TASK.delegate, "50", NODE_X, "14d", false, TASK.CP, "10", "", "", TASK.quit],
+    // and a move whose import is declined says that its export was sent
+    script: [
+      ...PRIVATE_KEY, TASK.delegate, "50", NODE_X, "14d", false, TASK.CP, "10", "", "",
+      TASK.CP, "10", "", SIGN, false, TASK.PC, "1.5", SIGN, "1", false, TASK.quit,
+    ],
   },
   {
     name: "private key: a move waits for its own export, not an earlier one",
@@ -444,6 +514,14 @@ const SCENARIOS: Scenario[] = [
     name: "ledger: a context with a stale cached address",
     ctx: "stale",
     script: ["Ledger", "Yes", TASK.addresses, TASK.quit],
+  },
+  {
+    // the device answers the context's key to the check, then another Ledger's to the session's signer: the session
+    // is refused rather than run for the other account (the signer is given the context's key to expect)
+    name: "ledger: another Ledger plugged in right after the context check",
+    ctx: "ledger",
+    flags: { swapLedgerAfterReads: 1 },
+    script: ["Ledger", "Yes", "Quit"],
   },
   {
     // the claim shows the first Ledger's account; the transaction is refused rather than built for the other one
@@ -513,8 +591,10 @@ async function main(): Promise<void> {
     script = [...scenario.script];
     flags = { ...scenario.flags };
     exhausted = 0;
+    connections = 0;
     txCount = 0;
     ledgerSwapped = false;
+    deviceReads = 0;
     utxoReads = 0;
     record(`\n===== ${scenario.name}`);
     try {

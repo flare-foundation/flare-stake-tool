@@ -1,13 +1,27 @@
 import { expect } from "chai";
+import http from "http";
+import type { AddressInfo } from "net";
 import { createClients, nodeOfError, notingNode } from "../../src/chain/clients";
 import { networkConfig, rememberSecret } from "../../src/chain/network";
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
 import { getBalances, getValidators } from "../../src/app/info";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { asNFlr, asWei } from "../../src/chain/units";
+import { parseJson } from "../../src/core/json";
 import type { Env } from "../../src/core/types";
-import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
-import { describeError, describeEvmValues, reportOutcome } from "../../src/output";
+import { EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+import {
+  describeError,
+  describeEvmValues,
+  log,
+  logError,
+  logInfo,
+  logProgress,
+  logSuccess,
+  logWarning,
+  reportOutcome,
+} from "../../src/output";
+import { cleanupTempDir, makeTempDir, runCli, runCliAsync, writeEnvFile } from "../helpers/cli";
 
 describe("output/describeError", () => {
   it("passes ordinary errors through", () => {
@@ -20,7 +34,7 @@ describe("output/describeError", () => {
       new Error("server response 403 Forbidden (request={ ... }, response={ ... }, code=SERVER_ERROR, version=6.17.0)")
     );
     expect(withDetails).to.equal(
-      "The node answered HTTP 403 Forbidden; check --rpc-url and the API key (--api-key or FLARE_API_KEY)"
+      "The node answered HTTP 403 Forbidden; check --rpc-url and the API key (--api-key or the URL's x-apikey; FLARE_API_KEY goes only to FLARE_RPC_URL or the default node)"
     );
     expect(describeError(new Error("server response 401 Unauthorized"))).to.match(
       /^The node answered HTTP 401 Unauthorized;/
@@ -33,12 +47,191 @@ describe("output/describeError", () => {
   it("explains an HTML error page reported by flarejs", () => {
     const text = describeError(new SyntaxError(`Unexpected token '<', "<!doctype " ... is not valid JSON`));
     expect(text).to.match(/^The node answered with an error page instead of JSON-RPC \(Unexpected token '<'/);
-    expect(text).to.include("--api-key or FLARE_API_KEY");
+    expect(text).to.include(
+      "(--api-key or the URL's x-apikey; FLARE_API_KEY goes only to FLARE_RPC_URL or the default node)"
+    );
   });
 
-  it("leaves other JSON parse errors alone", () => {
-    const message = `Unexpected token '}', "{}}" is not valid JSON`;
-    expect(describeError(new SyntaxError(message))).to.equal(message);
+  it("explains an error page whose quoted start holds a line break, as nginx's does (<html>\\r\\n)", () => {
+    let error: unknown;
+    try {
+      JSON.parse("<html>\r\n<head><title>403 Forbidden</title></head>\r\n");
+    } catch (thrown) {
+      error = thrown;
+    }
+    expect((error as Error).message).to.include("\r\n"); // V8 quotes the line break as it is
+    expect(describeError(error)).to.match(
+      /^The node answered with an error page instead of JSON-RPC \(Unexpected token '<' in JSON\); check /
+    );
+  });
+
+  it("leaves out the text other JSON parse errors quote", () => {
+    expect(describeError(new SyntaxError(`Unexpected token '}', "{}}" is not valid JSON`))).to.equal(
+      "Unexpected token '}' in JSON"
+    );
+    for (const quoted of [`"abcdefghij"...`, `..."abcdefghij"...`, `"abcdefghij"y"`, `"<!doctype " ...`]) {
+      expect(describeError(new SyntaxError(`Unexpected token 'a', ${quoted} is not valid JSON`)), quoted).to.equal(
+        "Unexpected token 'a' in JSON"
+      );
+    }
+    // an input of up to 20 characters is quoted whole, and may itself hold the suffix that ends V8's message
+    for (const input of ['x" is not valid JSON']) {
+      const thrown = (() => {
+        try {
+          parseJson(input, "Input");
+        } catch (error) {
+          return error;
+        }
+        return expect.fail("parsed");
+      })();
+      expect(String((thrown as Error).cause), "V8 quotes it whole").to.include(input);
+      expect(describeError(thrown), input).to.equal("Input is not valid JSON (Unexpected token 'x' in JSON)");
+    }
+  });
+
+  it("explains a gateway's JSON refusal, which flarejs reads as an answer without a result", async () => {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(401, { "content-type": "application/json" });
+      res.end('{"message":"No API key found in request"}');
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    try {
+      const clients = createClients(networkConfig("localflare", {}, { apiUrl: url }));
+      clients.provider.destroy();
+      for (const call of [
+        () => clients.verifyNetwork(),
+        () => clients.pvm.getFeeConfig(),
+        () => clients.pvm.getBalance({ addresses: ["P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v"] }),
+      ]) {
+        const error = await call().then(
+          () => expect.fail("should have thrown"),
+          (thrown: unknown) => thrown
+        );
+        expect(describeError(error)).to.match(
+          new RegExp(
+            "^The node answered without a JSON-RPC result \\(Cannot .* undefined.*\\); check --rpc-url and the API key " +
+              `\\(--api-key or the URL's x-apikey; FLARE_API_KEY goes only to FLARE_RPC_URL or the default node\\) \\(node ${url}\\)$`
+          )
+        );
+      }
+    } finally {
+      server.close();
+    }
+    // an `error` that is not a JSON-RPC error object: flarejs throws its missing message, an empty one
+    for (const body of ['{"error":"unauthorized"}', '{"error":{"code":-32000}}']) {
+      const refusing = http.createServer((_req, res) => {
+        res.writeHead(403, { "content-type": "application/json" });
+        res.end(body);
+      });
+      await new Promise<void>((resolve) => refusing.listen(0, "127.0.0.1", resolve));
+      const at = `http://127.0.0.1:${(refusing.address() as AddressInfo).port}`;
+      try {
+        const clients = createClients(networkConfig("localflare", {}, { apiUrl: at }));
+        clients.provider.destroy();
+        const error = await clients.pvm.getFeeConfig().then(
+          () => expect.fail("should have thrown"),
+          (thrown: unknown) => thrown
+        );
+        expect((error as Error).message, body).to.equal("");
+        expect(describeError(error), body).to.match(
+          new RegExp(`^The node answered without a JSON-RPC result; check --rpc-url .* \\(node ${at}\\)$`)
+        );
+      } finally {
+        refusing.close();
+      }
+    }
+    // a refusal with an empty or a text body, which flarejs fails to parse as JSON whatever the HTTP status
+    for (const body of ["", "Unauthorized"]) {
+      const refusing = http.createServer((_req, res) => {
+        res.writeHead(401, { "content-type": "text/plain" });
+        res.end(body);
+      });
+      await new Promise<void>((resolve) => refusing.listen(0, "127.0.0.1", resolve));
+      const at = `http://127.0.0.1:${(refusing.address() as AddressInfo).port}`;
+      try {
+        const clients = createClients(networkConfig("localflare", {}, { apiUrl: at }));
+        clients.provider.destroy();
+        for (const call of [() => clients.pvm.getFeeConfig(), () => clients.info.getNetworkId()]) {
+          const error = await call().then(
+            () => expect.fail("should have thrown"),
+            (thrown: unknown) => thrown
+          );
+          expect(error, body).to.be.instanceOf(SyntaxError);
+          expect(describeError(error), body).to.match(
+            new RegExp(
+              "^The node answered with something other than JSON-RPC \\((Unexpected end of JSON input|Unexpected token 'U' in JSON)\\); " +
+                `check --rpc-url and the API key .* \\(node ${at}\\)$`
+            )
+          );
+        }
+      } finally {
+        refusing.close();
+      }
+    }
+    // a JSON parse error of the tool's own, such as a file's, is left as it is, and so is another node error naming JSON
+    expect(describeError(new SyntaxError("Unexpected end of JSON input"))).to.equal("Unexpected end of JSON input");
+    const named = await notingNode(
+      { call: () => Promise.reject(new Error("invalid JSON-RPC version")) },
+      "http://127.0.0.1:9650"
+    )
+      .call()
+      .then(
+        () => expect.fail("should have thrown"),
+        (thrown: unknown) => thrown
+      );
+    expect(describeError(named)).to.equal("invalid JSON-RPC version (node http://127.0.0.1:9650)");
+    // a TypeError of the tool's own, with no node request below it, is left as it is
+    expect(describeError(new TypeError("Cannot read properties of undefined (reading 'x')"))).to.equal(
+      "Cannot read properties of undefined (reading 'x')"
+    );
+  });
+
+  it("doesn't print the start of a node's answer that repeats the API key, which V8 quotes cut", async () => {
+    const key = "SYNTHETIC-QUOTED-API-KEY-0042";
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end(`${String(req.headers["x-apikey"])} is not a JSON-RPC answer`);
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    try {
+      const clients = createClients(networkConfig("localflare", {}, { apiUrl: url, apiKey: key }));
+      clients.provider.destroy();
+      const error = await clients.info.getNetworkId().then(
+        () => expect.fail("should have thrown"),
+        (thrown: unknown) => thrown
+      );
+      expect(String((error as Error).message), "V8 quotes the answer's first characters").to.include('"SYNTHETIC-"');
+      expect(describeError(error)).to.match(
+        new RegExp(
+          `^The node answered with something other than JSON-RPC \\(Unexpected token 'S' in JSON\\); check .* \\(node ${url}\\)$`
+        )
+      );
+      expect(describeError(error)).to.not.include("SYNTHETIC");
+    } finally {
+      server.close();
+    }
+    // the same as the cause of a node error, which lists its causes
+    const wrapped = await notingNode(
+      {
+        call: () =>
+          Promise.reject(
+            new Error("request failed", {
+              cause: new SyntaxError(`Unexpected token 'S', "SYNTHETIC-"... is not valid JSON`),
+            })
+          ),
+      },
+      "http://127.0.0.1:9650"
+    )
+      .call()
+      .then(
+        () => expect.fail("should have thrown"),
+        (thrown: unknown) => thrown
+      );
+    expect(describeError(wrapped)).to.equal(
+      "request failed (Unexpected token 'S' in JSON; node http://127.0.0.1:9650)"
+    );
   });
 });
 
@@ -192,6 +385,143 @@ describe("output/describeError: a URL credential", () => {
       expect(describeError(new Error("refused p@ss and p%40ss"))).to.equal("refused *** and ***");
     } finally {
       clients.provider.destroy();
+    }
+  });
+});
+
+describe("output: what is printed", () => {
+  it("is cleaned of remembered secrets on stdout and stderr, results as well as errors", () => {
+    rememberSecret("SYNTHETIC-OUTPUT-KEY-5150");
+    const printed: string[] = [];
+    const [log0, error0] = [console.log, console.error];
+    console.log = (line: string) => printed.push(line);
+    console.error = (line: string) => printed.push(line);
+    try {
+      for (const print of [log, logInfo, logError, logSuccess, logProgress, logWarning]) {
+        print('{"nodeMessage": "SYNTHETIC-OUTPUT-KEY-5150"}');
+      }
+    } finally {
+      [console.log, console.error] = [log0, error0];
+    }
+    expect(printed).to.have.length(6);
+    for (const line of printed) expect(line).to.include('"***"').and.not.to.include("SYNTHETIC");
+  });
+
+  it("leaves addresses and hashes whole: a URL username and a secret under 16 characters are masked in errors only", () => {
+    const username = "uq7zuq7zuq7zuq7zuq7z"; // above the minimum: usernames stay whole in results whatever their length
+    const clients = createClients(
+      networkConfig("localflare", {}, { apiUrl: `https://${username}:SYNTHETIC-RESULT-PASSWORD@node.example` })
+    );
+    clients.provider.destroy();
+    const short = "zq7wzq7wzq7wzq7"; // 15 characters
+    rememberSecret(short);
+    rememberSecret("SIXTEEN-CHARS-16"); // the shortest masked in results
+    const printed: string[] = [];
+    const log0 = console.log;
+    console.log = (line: string) => printed.push(line);
+    try {
+      log(`P-localflare1${username}${short} and 0xab${short}, password SYNTHETIC-RESULT-PASSWORD, SIXTEEN-CHARS-16`);
+    } finally {
+      console.log = log0;
+    }
+    expect(printed).to.deep.equal([`P-localflare1${username}${short} and 0xab${short}, password ***, ***`]);
+    expect(describeError(new Error(`${username} ${short} SYNTHETIC-RESULT-PASSWORD`))).to.equal("*** *** ***");
+  });
+
+  it("prints an address that contains the URL username or the API key whole (info addresses)", () => {
+    const cwd = makeTempDir("output-test-");
+    try {
+      const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+      const result = runCli(
+        [
+          "info",
+          "addresses",
+          "--env-path",
+          envPath,
+          "--network",
+          "localflare",
+          "--rpc-url",
+          "http://8db97C7cEcE249c2b98b:SYNTHETIC-PASSWORD@127.0.0.1:9650",
+          "--api-key",
+          "DC0226Cc4C2A57B", // 15 characters of the address
+        ],
+        { cwd }
+      );
+      expect(result.exitCode, result.stderr).to.equal(0);
+      expect(result.stdout).to.include("C-chain address hex: 0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC");
+    } finally {
+      cleanupTempDir(cwd);
+    }
+  });
+
+  it("info validators prints the header and the JSON on stdout, and an auto-renewed validator's summary on stderr", async () => {
+    const validator = {
+      txID: "tx",
+      nodeID: "NodeID-auto",
+      startTime: "1700000000",
+      endTime: "1800000000",
+      validatorAuthority: { locktime: "0", threshold: "1", addresses: ["P-localflare1authority"] },
+      nextPeriod: "1209600",
+      autoCompoundRewardShares: "500000",
+    };
+    const server = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk: Buffer) => (body += chunk.toString()));
+      req.on("end", () => {
+        const { id, method } = JSON.parse(body) as { id: number; method: string };
+        const result = method === "info.getNetworkID" ? { networkID: "162" } : { validators: [validator] };
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ jsonrpc: "2.0", id, result }));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const cwd = makeTempDir("output-test-");
+    try {
+      const result = await runCliAsync(["info", "validators", "--network", "localflare", "--rpc-url", url], { cwd });
+      expect(result.exitCode, result.stderr).to.equal(0);
+      const [header, ...json] = result.stdout.trimEnd().split("\n");
+      expect(header).to.equal('Validators on the network "localflare"');
+      expect(JSON.parse(json.join("\n"))).to.deep.equal([validator]);
+      expect(result.stderr).to.include(
+        "NodeID-auto: auto-renewed: cycle ends 2027-01-15T08:00:00.000Z, next period 1209600s, " +
+          "authority P-localflare1authority, auto-compound 50%"
+      );
+    } finally {
+      cleanupTempDir(cwd);
+      server.close();
+    }
+  });
+
+  it("does not show an API key that a node repeats in a result (info validators)", async () => {
+    const key = "SYNTHETIC-REFLECTED-KEY-0042";
+    const server = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk: Buffer) => (body += chunk.toString()));
+      req.on("end", () => {
+        const { id, method } = JSON.parse(body) as { id: number; method: string };
+        const result =
+          method === "info.getNetworkID"
+            ? { networkID: "162" }
+            : { validators: [{ txID: "tx", nodeID: "NodeID-x", nodeMessage: String(req.headers["x-apikey"]) }] };
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ jsonrpc: "2.0", id, result }));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const cwd = makeTempDir("output-test-");
+    try {
+      const result = await runCliAsync(
+        ["info", "validators", "--network", "localflare", "--rpc-url", url, "--api-key", key],
+        { cwd }
+      );
+      expect(result.exitCode, result.stderr).to.equal(0);
+      expect(result.stdout).to.include('"nodeMessage": "***"');
+      expect(result.stdout + result.stderr).not.to.include(key);
+    } finally {
+      cleanupTempDir(cwd);
+      await new Promise<void>((done) => server.close(() => done()));
     }
   });
 });

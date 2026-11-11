@@ -16,7 +16,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Signed transaction stake-file with hash 92LoLKo9Kz13WPzZjJvyZFnoRnfVnPMC62xVeZKH18BytkAej sent to the node\n",
-    "stderr": "Transaction 92LoLKo9Kz13WPzZjJvyZFnoRnfVnPMC62xVeZKH18BytkAej submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nTransaction 92LoLKo9Kz13WPzZjJvyZFnoRnfVnPMC62xVeZKH18BytkAej submitted, waiting for the chain to accept it\n",
     "txIds": [
       "92LoLKo9Kz13WPzZjJvyZFnoRnfVnPMC62xVeZKH18BytkAej"
     ],

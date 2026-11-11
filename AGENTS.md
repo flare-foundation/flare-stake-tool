@@ -206,6 +206,10 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   The Helicon suite skips when Helicon is not active, and the stake tests when
   every node is validating, which a rerun within the 15-minute minimum stake
   period hits. `pnpm test:integration --no-forbid-pending` allows skips.
+- A committed `.only` fails the run (`forbid-only` in both mocha configs), and
+  so does a skipped unit test (`forbid-pending` in `.mocharc.yml` too):
+  `pnpm test` is the release workflow's only test gate. Run one test with
+  `npx mocha --grep "<title>"` instead.
 - The signing suites create a fresh account funded from the ewoq key for every
   run (`test/integration/accounts.ts`), so they are rerun-safe and independent
   of the max-three-validators rule, and all end times are relative to now.

@@ -5,9 +5,15 @@
 import { expect } from "chai";
 import fs from "fs";
 import path from "path";
+import { SigningKey } from "ethers";
 import { PrivateKeySigner } from "../../src/signers/privateKey";
 import { cleanupTempDir, makeTempDir } from "../helpers/cli";
-import { EWOQ_P_ADDRESS, EWOQ_PRIVATE_KEY_HEX, EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+import {
+  EWOQ_P_ADDRESS,
+  EWOQ_PRIVATE_KEY_CB58,
+  EWOQ_PRIVATE_KEY_HEX,
+  EWOQ_PUBLIC_KEY_COMPRESSED,
+} from "../helpers/keys";
 
 const OTHER_PUBLIC_KEY = "02" + "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"; // the generator: key 1
 
@@ -48,9 +54,53 @@ describe("signers/privateKey key file", () => {
     expect(Object.fromEntries(names.map((name) => [name, process.env[name]]))).to.deep.equal(before);
   });
 
-  it("refuses a file that does not exist", () => {
-    const missing = path.join(dir, "missing");
-    expect(() => PrivateKeySigner.fromEnvFile(missing, "localflare")).to.throw(`Env file ${missing} does not exist`);
+  it("refuses a file that does not exist, without repeating the path, which may be a key given in its place", () => {
+    for (const missing of [path.join(dir, "missing"), EWOQ_PRIVATE_KEY_HEX]) {
+      expect(() => PrivateKeySigner.fromEnvFile(missing, "localflare"))
+        .to.throw("The key file given with --env-path does not exist")
+        .with.property("message")
+        .that.does.not.include(missing);
+    }
+  });
+
+  it("gives the account of a file with only PUBLIC_KEY, as 4.4.0 did, but signs nothing with it", async () => {
+    const uncompressed = SigningKey.computePublicKey(`0x${EWOQ_PUBLIC_KEY_COMPRESSED}`, false);
+    for (const publicKey of [EWOQ_PUBLIC_KEY_COMPRESSED, `0x${EWOQ_PUBLIC_KEY_COMPRESSED}`, uncompressed]) {
+      const file = keyFile([`PUBLIC_KEY=${publicKey}`]);
+      expect((await PrivateKeySigner.accountOfEnvFile(file, "localflare")).pAddress, publicKey).to.equal(
+        EWOQ_P_ADDRESS
+      );
+      expect(() => PrivateKeySigner.fromEnvFile(file, "localflare"), publicKey).to.throw(
+        `Env file ${file} holds only a PUBLIC_KEY; signing needs PRIVATE_KEY_HEX or PRIVATE_KEY_CB58`
+      );
+    }
+    // with a private key, the account is the private key's, which PUBLIC_KEY must match
+    const both = keyFile([`PRIVATE_KEY_HEX=${EWOQ_PRIVATE_KEY_HEX}`, `PUBLIC_KEY=${EWOQ_PUBLIC_KEY_COMPRESSED}`]);
+    expect((await PrivateKeySigner.accountOfEnvFile(both, "localflare")).pAddress).to.equal(EWOQ_P_ADDRESS);
+    const mismatched = keyFile([`PRIVATE_KEY_HEX=${EWOQ_PRIVATE_KEY_HEX}`, `PUBLIC_KEY=${OTHER_PUBLIC_KEY}`]);
+    expect(() => PrivateKeySigner.accountOfEnvFile(mismatched, "localflare")).to.throw(
+      "provided private key does not match the public key"
+    );
+    const invalid = keyFile(["PUBLIC_KEY=02abcd"]);
+    expect(() => PrivateKeySigner.accountOfEnvFile(invalid, "localflare")).to.throw(
+      `PUBLIC_KEY in ${invalid} is not a valid public key`
+    );
+    const empty = keyFile(["PUBLIC_KEY="]);
+    expect(() => PrivateKeySigner.accountOfEnvFile(empty, "localflare")).to.throw(/No private key found/);
+  });
+
+  it("reads PUBLIC_KEY with a PRIVATE_KEY_CB58 as with a hex key: the private key signs, PUBLIC_KEY must match it", async () => {
+    const both = keyFile([`PRIVATE_KEY_CB58=${EWOQ_PRIVATE_KEY_CB58}`, `PUBLIC_KEY=${EWOQ_PUBLIC_KEY_COMPRESSED}`]);
+    expect((await PrivateKeySigner.fromEnvFile(both, "localflare").account()).pAddress).to.equal(EWOQ_P_ADDRESS);
+    expect((await PrivateKeySigner.accountOfEnvFile(both, "localflare")).pAddress).to.equal(EWOQ_P_ADDRESS);
+    // another PUBLIC_KEY is refused, not taken as the account of a file that holds only a public key
+    const mismatched = keyFile([`PRIVATE_KEY_CB58=${EWOQ_PRIVATE_KEY_CB58}`, `PUBLIC_KEY=${OTHER_PUBLIC_KEY}`]);
+    expect(() => PrivateKeySigner.fromEnvFile(mismatched, "localflare")).to.throw(
+      "provided private key does not match the public key"
+    );
+    expect(() => PrivateKeySigner.accountOfEnvFile(mismatched, "localflare")).to.throw(
+      "provided private key does not match the public key"
+    );
   });
 
   it("accepts the PUBLIC_KEY of the private key and refuses any other", () => {

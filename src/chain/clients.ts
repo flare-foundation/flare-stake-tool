@@ -4,7 +4,14 @@
  */
 import { Context, avm, evm, info, networkIDs, pvm } from "@flarenetwork/flarejs";
 import { FetchRequest, JsonRpcProvider } from "ethers";
-import { API_KEY_HEADER, assertNodeNetwork, rememberSecret, type NetworkConfig } from "./network";
+import {
+  API_KEY_HEADER,
+  PATH_TOKEN_MIN_LENGTH,
+  assertNodeNetwork,
+  rememberSecret,
+  withoutPathTokens,
+  type NetworkConfig,
+} from "./network";
 
 export type UpgradesInfo = Awaited<ReturnType<info.InfoApi["getUpgradesInfo"]>>;
 
@@ -151,10 +158,10 @@ export function notingNode<T extends object>(api: T, node: string): T {
  * Remembers a URL credential for masking, as written and decoded. Decoding is best effort: a `%` that starts no
  * escape is valid in a URL, and masking must not refuse a URL the clients accept.
  */
-function rememberCredential(serialized: string): void {
-  rememberSecret(serialized);
+function rememberCredential(serialized: string, kind: "secret" | "username"): void {
+  rememberSecret(serialized, kind);
   try {
-    rememberSecret(decodeURIComponent(serialized));
+    rememberSecret(decodeURIComponent(serialized), kind);
   } catch {
     // not decodable: the serialized form is what an error would show
   }
@@ -180,8 +187,9 @@ function refuseRedirects(request: FetchRequest): void {
 }
 
 /**
- * A redirect's target for the error, resolved against the request's URL and without credentials, query or fragment:
- * masking knows only `scheme://user:password@`, and a relative `//user:password@host` would be printed as it came.
+ * A redirect's target for the error, resolved against the request's URL and without credentials, query, fragment or
+ * path tokens: masking knows only `scheme://user:password@` and what the clients remembered, and a relative
+ * `//user:password@host` or a token of the target's own would be printed as it came.
  */
 function shownLocation(location: string | undefined, requestUrl: string): string {
   if (!location) return "";
@@ -191,7 +199,7 @@ function shownLocation(location: string | undefined, requestUrl: string): string
     url.password = "";
     url.search = "";
     url.hash = "";
-    return ` to ${url.href}`;
+    return ` to ${withoutPathTokens(url.href)}`;
   } catch {
     return "";
   }
@@ -199,8 +207,12 @@ function shownLocation(location: string | undefined, requestUrl: string): string
 
 export function createClients(network: NetworkConfig): Clients {
   rememberSecret(network.apiKey);
-  const { username, password } = new URL(network.apiUrl);
-  for (const credential of [username, password]) rememberCredential(credential);
+  const { username, password, pathname } = new URL(network.apiUrl);
+  rememberCredential(username, "username");
+  rememberCredential(password, "secret");
+  for (const segment of pathname.split("/")) {
+    if (segment.length >= PATH_TOKEN_MIN_LENGTH) rememberCredential(segment, "secret");
+  }
   // The API key travels as a header, never in the URL, so it stays out of logs and error messages. A request carrying
   // it refuses a redirect: fetch would send the header on to whatever host the redirect names, plain http included.
   const headers = network.apiKey === undefined ? undefined : { [API_KEY_HEADER]: network.apiKey };

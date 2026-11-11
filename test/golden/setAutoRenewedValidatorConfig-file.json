@@ -24,7 +24,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Unsigned transaction setAutoRenewedValidatorConfig-file constructed\nForDefi hash: u73KjgNj1DJbgJX29UNMB0/HzTa2QsLZ9OCV8HJ5CX4=\nFee: 0.007028 LFLR (burned when the signed transaction is sent)\n",
-    "stderr": "",
+    "stderr": "Using network: localflare\n",
     "txIds": [],
     "submissions": [],
     "unsignedTxJson": {

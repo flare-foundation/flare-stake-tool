@@ -4,6 +4,7 @@
  * or durations, percentages as decimals. Nothing here talks to a node or a
  * signer.
  */
+import { bls } from "@flarenetwork/flarejs";
 import { getBytes } from "ethers";
 import { decodeCb58 } from "../chain/keys";
 import { isDurationInput, parseEndTime } from "../chain/units";
@@ -28,22 +29,28 @@ export const optionalString = (value: unknown): string | undefined =>
   typeof value === "string" && value !== "" ? value : undefined;
 
 /**
- * The value of an option whose absence means a default, or undefined when it is absent. An empty value is refused
- * rather than taken as absent: `claim -a "$AMT"` with AMT unset claimed every reward.
+ * The value of an option whose absence means a default, or undefined when it is absent. An empty value, or one of
+ * spaces only, is refused rather than taken as absent: `claim -a "$AMT"` with AMT unset claimed every reward, and the
+ * network resolution reads a node URL or API key of spaces as none.
  */
 export function optionValue(value: unknown, flag: string): string | undefined {
-  if (value === "") {
+  if (typeof value === "string" && value.trim() === "") {
     throw new Error(`Option ${flag} is empty; leave it out to use the default`);
   }
   return typeof value === "string" ? value : undefined;
 }
+
+/** The infinity flag of a compressed BLS point's first byte (the ZCash encoding flarejs reads). */
+const BLS_INFINITY_FLAG = 0x40;
 
 /** Byte lengths of a BLS proof of possession: the compressed G1 public key and the G2 signature. */
 const BLS_LENGTHS = { publicKey: 48, signature: 96 } as const;
 
 /**
  * Parses the hex (0x optional) of a node's BLS public key or proof-of-possession
- * signature and checks its length, for the command line and the interactive menu.
+ * signature and checks its length and that it is a point of its curve group, for
+ * the command line and the interactive menu: flarejs failed only at build time,
+ * with "Cannot find square root".
  */
 export function parseBlsHex(value: string, part: keyof typeof BLS_LENGTHS): Uint8Array {
   const label = part === "publicKey" ? "BLS public key (--pop-bls-public-key)" : "BLS signature (--pop-bls-signature)";
@@ -57,7 +64,34 @@ export function parseBlsHex(value: string, part: keyof typeof BLS_LENGTHS): Uint
   if (bytes.length !== BLS_LENGTHS[part]) {
     throw new Error(`${label} must be ${BLS_LENGTHS[part]} bytes, got ${bytes.length}`);
   }
+  const invalid = new Error(
+    `${label} is not a valid BLS ${part === "publicKey" ? "key" : "signature"}; ${COPY_FROM_NODE}`
+  );
+  // the point at infinity (its flag set, as in c0 and zeros) decodes, but is no key or signature: the proof check then
+  // failed with "pairing is not available for ZERO point"
+  if (((bytes[0] ?? 0) & BLS_INFINITY_FLAG) !== 0) throw invalid;
+  try {
+    if (part === "publicKey") bls.publicKeyFromBytes(bytes);
+    else bls.signatureFromBytes(bytes);
+  } catch {
+    throw invalid;
+  }
   return bytes;
+}
+
+const COPY_FROM_NODE = "copy it from the node's info.getNodeID";
+
+/**
+ * Refuses a BLS signature that is not the proof of possession of the public key, as the P-chain does: a key and a
+ * signature copied from two nodes were refused only by the node.
+ */
+export function checkProofOfPossession(publicKey: Uint8Array, signature: Uint8Array): void {
+  if (!bls.verifyProofOfPossession(bls.publicKeyFromBytes(publicKey), bls.signatureFromBytes(signature), publicKey)) {
+    throw new Error(
+      "The BLS signature (--pop-bls-signature) is not the proof of possession of the BLS public key " +
+        "(--pop-bls-public-key); copy both from the same node's info.getNodeID"
+    );
+  }
 }
 
 const NODE_ID_PREFIX = "NodeID-";

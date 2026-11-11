@@ -51,11 +51,11 @@ export function globalOptions(programOptions: OptionValues, commandOptions: obje
 /**
  * A context file given with --ctx-file must exist, for every command but init-ctx (which writes it), whatever else
  * selects the account or the network, and also where the command does not read it: a mistyped one is reported, not
- * ignored.
+ * ignored. The path is not repeated, as for --env-path: a key given in its place would be printed.
  */
 export function requireGivenContextFile(options: GlobalOptions): void {
   if (options.ctxFile !== undefined && !contextFileExists(options.ctxFile)) {
-    throw new Error(`Context file ${options.ctxFile} does not exist (given with --ctx-file)`);
+    throw new Error("The context file given with --ctx-file does not exist");
   }
 }
 
@@ -143,7 +143,9 @@ export async function resolveSigner(options: GlobalOptions, env: Env): Promise<S
 export async function resolveAccount(options: GlobalOptions, env: Env): Promise<Account> {
   switch (accountSource(options)) {
     case "keyFile":
-      return keyFileSigner(options, env).account();
+      // without --get-hacked nothing is signed with the file, so one with only PUBLIC_KEY gives the account, as in 4.4.0
+      if (options.getHacked || !options.envPath) return keyFileSigner(options, env).account();
+      return PrivateKeySigner.accountOfEnvFile(options.envPath, env.network.hrp);
     case "ledger":
       return ledgerSigner(options, env).account();
     case "contextFile":

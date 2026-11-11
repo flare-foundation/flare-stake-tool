@@ -6,6 +6,40 @@ import os from "os";
 export const REPO_ROOT = path.resolve(__dirname, "..", "..");
 export const CLI_ENTRY = path.join(REPO_ROOT, "dist", "run.js");
 
+/** The newest of the `.ts` files under `dir`, with its modification time. */
+function newestSource(dir: string): { file: string; mtimeMs: number } {
+  let newest = { file: "", mtimeMs: 0 };
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    const candidate = entry.isDirectory()
+      ? newestSource(file)
+      : entry.name.endsWith(".ts")
+        ? { file, mtimeMs: fs.statSync(file).mtimeMs }
+        : newest;
+    if (candidate.mtimeMs > newest.mtimeMs) newest = candidate;
+  }
+  return newest;
+}
+
+let buildChecked = false;
+
+/**
+ * Refuses to run the built CLI (dist/) when it is missing or older than a source file: the CLI, golden and interactive
+ * tests would test the last build, not the code (a check removed from src/ still passed). `pnpm build` rewrites all
+ * of dist/; CI builds before it tests.
+ */
+export function requireCurrentBuild(): void {
+  if (buildChecked) return;
+  if (!fs.existsSync(CLI_ENTRY)) {
+    throw new Error(`${CLI_ENTRY} not found; run \`pnpm build\` first`);
+  }
+  const newest = newestSource(path.join(REPO_ROOT, "src"));
+  if (newest.mtimeMs > fs.statSync(CLI_ENTRY).mtimeMs) {
+    throw new Error(`dist/ is older than ${path.relative(REPO_ROOT, newest.file)}; run \`pnpm build\` first`);
+  }
+  buildChecked = true;
+}
+
 export interface CliResult {
   exitCode: number;
   stdout: string;
@@ -25,9 +59,7 @@ export interface RunCliOptions {
  * unchanged and no shell is involved.
  */
 export function runCli(args: string[], options: RunCliOptions = {}): CliResult {
-  if (!fs.existsSync(CLI_ENTRY)) {
-    throw new Error(`${CLI_ENTRY} not found; run \`pnpm build\` first`);
-  }
+  requireCurrentBuild();
   const result: SpawnSyncReturns<string> = spawnSync(process.execPath, [CLI_ENTRY, ...args], {
     cwd: options.cwd ?? REPO_ROOT,
     encoding: "utf-8",
@@ -75,9 +107,7 @@ export function spawnAsync(command: string, args: string[], options: RunCliOptio
 }
 
 export function runCliAsync(args: string[], options: RunCliOptions = {}): Promise<CliResult> {
-  if (!fs.existsSync(CLI_ENTRY)) {
-    throw new Error(`${CLI_ENTRY} not found; run \`pnpm build\` first`);
-  }
+  requireCurrentBuild();
   return spawnAsync(process.execPath, [CLI_ENTRY, ...args], options);
 }
 

@@ -69,7 +69,7 @@ To use this app in a less-secure manner, you can set your private key as an envi
 
 1. Obtain the private key (32 bytes either in hexadecimal or [cb58](https://support.avax.network/en/articles/4587395-what-is-cb58) format).
 2. Create a file to hold your private key.
-3. Paste this code in as follows and enter the private key in either hex or cb58 format within the quotation marks:
+3. Paste one of these lines and enter the private key within the quotation marks, in hex or in cb58 format; delete the other line (with both, they must hold the same key). The key is read from the file only, not from the shell's environment:
 
    ```bash
    PRIVATE_KEY_CB58="private key"
@@ -142,11 +142,11 @@ flare-stake-tool importCP --ledger --network <network>
 Where:
 
 - `amount` is the amount to export, in FLR.
-- `fee` is optional. It specifies a gas fee for a transaction in FLR.
-- --network is optional. It specifies the network to use. Without it, the network of the context file (`ctx.json`, or the one given with `--ctx-file`) is used, else `flare`; the others are `costwo`, `songbird`, `coston` and `localflare`.
+- `fee` is optional. It is the transaction's total fee in FLR, at most 20 (see the note below); it is not a gas price.
+- --network is optional. It specifies the network to use. Without it, the network of the context file (`ctx.json`, or the one given with `--ctx-file`) is used, else `flare`, with a warning; the others are `costwo`, `songbird`, `coston` and `localflare`. Transactions print the network they use on stderr (`Using network: …`).
 
 > **Note**
-> P-chain transactions (`importCP`, `exportPC`, staking) pay the P-chain's dynamic fee from the funds being moved; it cannot be set. C-chain atomic transactions (`exportCP` and `importPC`) take `-f <fee>` (total fee in FLR); when it is omitted the fee is estimated at twice the current base fee (headroom for a rise before the transaction lands; the whole fee is burned, about 0.011 FLR at the 500 gwei floor), except in the unsigned-file flow, where it is required so that every signer builds the same transaction.
+> P-chain transactions (`importCP`, `exportPC`, staking) pay the P-chain's dynamic fee from the funds being moved; it cannot be set. C-chain atomic transactions (`exportCP` and `importPC`) take `-f <fee>` (total fee in FLR, at most 20; with `--get-hacked`, 4.4.0 read it as a gas price in nFLR); when it is omitted the fee is estimated at twice the current base fee (headroom for a rise before the transaction lands; the whole fee is burned, about 0.011 FLR at the 500 gwei floor), except in the unsigned-file flow, where it is required so that every signer builds the same transaction.
 > The export fee is paid by the C-chain account and the import fee by the imported funds, so the amount arriving on the P-chain is the `amount` exported minus the P-chain import fee.
 
 Sample response:
@@ -214,9 +214,9 @@ Only the validator authority (by default the address that registered the
 validator) can change the configuration. `info validators` shows the current
 cycle end, the next period and the authority of every auto-renewed validator.
 
-Durations: `--period`, `--end-time` and `--start-time` accept unix seconds or
-a duration such as `2d12h` (units `w`, `d`, `h`, `m`, `s`); an end time given as
-a duration counts from now.
+Times and durations: `--end-time` and `--start-time` take a unix time in
+seconds, or a duration such as `2d12h` (units `w`, `d`, `h`, `m`, `s`), which
+counts from now. `--period` takes a number of seconds or a duration.
 
 ### Delegating
 
@@ -304,7 +304,7 @@ To use the app with the private key, you can copy the commands used with ledger 
 flare-stake-tool exportCP -a <amount> --env-path <path to your private key file> --get-hacked --network <flare|costwo|songbird|coston|localflare>
 ```
 
-`-i <transaction-id>` doesn't select the unsigned-file flow: with `--get-hacked` or `--ledger` the transaction is signed and sent at once, and `-i` is not used. Leave both out to get an unsigned file.
+`-i <transaction-id>` doesn't select the unsigned-file flow: with `--get-hacked` or `--ledger` the transaction is signed and sent at once, and `-i` is not used. Leave both out to get an unsigned file. `withdrawal`, `setClaimExecutors`, `setAllowedClaimRecipients` and `customCChainTx`, which 4.x always wrote as a file, refuse `-i` together with `--get-hacked` or `--ledger`.
 
 ## Interactive CLI
 

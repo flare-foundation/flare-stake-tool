@@ -61,5 +61,10 @@ describe("interactive/summary", () => {
       "  Amount: the spendable balance from the P-chain to the C-chain",
       "  Fee: 0.001 C2FLR",
     ]);
+    // the amount the built export takes, when it was read from it
+    const details = { fee: asNFlr(1_000_000n), exported: asNFlr(2_500_000_000n) };
+    expect(signingSummary({ type: "exportPC" }, details, account, network)).to.include(
+      "  Amount: 2.5 C2FLR from the P-chain to the C-chain"
+    );
   });
 });

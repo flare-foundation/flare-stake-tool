@@ -13,7 +13,12 @@ import { asNFlr, asWei } from "../../src/chain/units";
 import { resolveEvmFees } from "../../src/constants/fees";
 import type { Env, TxRequest } from "../../src/core/types";
 import { ExternalFileSigner } from "../../src/signers/file";
+import { cleanupTempDir, makeTempDir } from "../helpers/cli";
 import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
+
+/** Where the file signer would write, should a request get past the checks: not the repository's ForDefiTxnFiles. */
+const SIGNER_DIR = makeTempDir("preflight-test-");
+after(() => cleanupTempDir(SIGNER_DIR));
 
 const ACCOUNT = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
 const OTHER = "P-localflare1qqqsyqcyq5rqwzqfpg9scrgwpugpzysnlplpye";
@@ -50,7 +55,7 @@ function node(helicon = true, validators: object[] = VALIDATORS): Env {
 }
 
 const refusalOf = (req: TxRequest, env: Env): Promise<string> =>
-  runTransaction(req, env, new ExternalFileSigner(ACCOUNT, "t")).then(
+  runTransaction(req, env, new ExternalFileSigner(ACCOUNT, "t", SIGNER_DIR)).then(
     () => expect.fail(`${req.type} passed the checks`),
     (error: unknown) => String(error)
   );
@@ -81,6 +86,16 @@ describe("the node's network, checked before any request is built", () => {
 });
 
 describe("checks before a P-chain request is built", () => {
+  // the fixtures' stakes end at PERIOD_END, and the checks compare them with the clock: it is set to a time they run,
+  // whatever the date (with the real clock, the three-node limit had no stakes to count from 2027-01-16)
+  const realNow = Date.now;
+  beforeEach(() => {
+    Date.now = () => (PERIOD_END - 60 * 86_400) * 1000;
+  });
+  afterEach(() => {
+    Date.now = realNow;
+  });
+
   it("refuses a delegation to a node that is not a current validator", async () => {
     const req: TxRequest = {
       type: "delegate",

@@ -13,8 +13,10 @@ import {
   parseDuration,
   parseEndTime,
   parseFlr,
+  parseAtomicFee,
   parseFlrToWei,
   parsePercentToShares,
+  parsePositiveFlr,
 } from "../../src/chain/units";
 import type { executorInfo } from "../../src/chain/contracts";
 import type { Stake } from "../../src/chain/validators";
@@ -105,8 +107,41 @@ describe("chain/units", () => {
       expect(() => parsePercentToShares("2,5")).to.throw(/commas are not accepted/);
     });
 
+    it("takes a typed atomic fee of at most 20 FLR: 4.4.0's -f 1000, a gas price in nFLR, would burn 1000 FLR", () => {
+      for (const [fee, nFlr] of [
+        ["20", 20_000_000_000n],
+        ["20.000000000", 20_000_000_000n],
+        ["0.011", 11_000_000n],
+      ] as const) {
+        expect(parseAtomicFee(fee), fee).to.equal(nFlr);
+      }
+      for (const fee of ["20.000000001", "25", "1000"]) {
+        expect(() => parseAtomicFee(fee), fee).to.throw(
+          `Invalid fee "${fee}": at most 20 FLR, as it is the transaction's total fee, not a gas price (4.4.0 read -f with --get-hacked as nFLR per gas)`
+        );
+      }
+      expect(() => parseAtomicFee("0", "a hint")).to.throw('Invalid amount "0": must be more than 0; a hint');
+    });
+
+    it("refuses 0 as an amount a transaction moves or a fee it pays, however it is written", () => {
+      for (const zero of ["0", "0.0", ".0", "0.", "000"]) {
+        expect(() => parsePositiveFlr(zero), zero).to.throw(`Invalid amount "${zero}": must be more than 0`);
+      }
+      expect(parsePositiveFlr("0.000000001")).to.equal(1n);
+      expect(() => parsePositiveFlr("abc")).to.throw('Invalid amount "abc"');
+    });
+
+    it("reads a point with no digits on one side, as 4.4.0 did (bc prints .50)", () => {
+      expect(parseFlr(".5")).to.equal(500_000_000n);
+      expect(parseFlr(".50")).to.equal(500_000_000n);
+      expect(parseFlr("1.")).to.equal(1_000_000_000n);
+      expect(parseFlrToWei(".000000000000000001")).to.equal(1n);
+      expect(parsePercentToShares(".5")).to.equal(5_000);
+      expect(() => parseFlr(".0000000001")).to.throw(/at most 9 decimal places/);
+    });
+
     it("rejects negative, empty and non-numeric input", () => {
-      for (const bad of ["", "-1", "1e9", "abc", "1.2.3", "0x10"]) {
+      for (const bad of ["", ".", "-1", "1e9", "abc", "1.2.3", "0x10", "..5", "1..", "+1", " . "]) {
         expect(() => parseFlr(bad), bad).to.throw(/Invalid amount/);
       }
     });
@@ -153,6 +188,10 @@ describe("chain/units", () => {
     it("rejects ascending order, fractions, unknown units, repeats and empty input", () => {
       for (const bad of ["2h2d", "1.5d", "3mo", "1h1h", "", "d", "2d 12h", "-1d"]) {
         expect(() => parseDuration(bad), bad).to.throw(/Invalid duration/);
+        // an end or start time: a plain number is a unix time, so the error doesn't say "use seconds"
+        expect(() => parseEndTime(bad), bad).to.throw(
+          `Invalid time "${bad}": use a unix time in seconds, or a duration from now such as 2d12h or 90m`
+        );
       }
     });
 

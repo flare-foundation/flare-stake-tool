@@ -20,7 +20,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Transaction with hash ww4yPmAUCqp4RmUcMRsoTitAUafXgTPqxfoWsvGjqjeepNsfL built and sent to the network\nFee paid: 0.00129475 LFLR\n",
-    "stderr": "Transaction ww4yPmAUCqp4RmUcMRsoTitAUafXgTPqxfoWsvGjqjeepNsfL submitted, waiting for the chain to accept it\n",
+    "stderr": "Using network: localflare\nTransaction ww4yPmAUCqp4RmUcMRsoTitAUafXgTPqxfoWsvGjqjeepNsfL submitted, waiting for the chain to accept it\n",
     "txIds": [
       "ww4yPmAUCqp4RmUcMRsoTitAUafXgTPqxfoWsvGjqjeepNsfL"
     ],

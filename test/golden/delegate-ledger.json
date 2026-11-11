@@ -10,7 +10,7 @@
   "outcome": {
     "exitCode": 0,
     "stdout": "Transaction with hash yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA built and sent to the network\nFee paid: 0.002083049 LFLR\n",
-    "stderr": "Warning: FLARE_FAKE_LEDGER_KEY is set: --ledger signs with that software key, not with a Ledger device (tests only)\nWarning: --start-time does not delay the stake: the network starts it when it accepts the transaction (since the Durango upgrade), whatever start time the transaction carries\nWarning: End time 1793275684 (2026-10-29T12:08:04.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now\nTransaction yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA submitted, waiting for the chain to accept it\n",
+    "stderr": "Warning: FLARE_FAKE_LEDGER_KEY is set: --ledger signs with that software key, not with a Ledger device (tests only)\nUsing network: localflare\nWarning: --start-time does not delay the stake: the network starts it when it accepts the transaction (since the Durango upgrade), whatever start time the transaction carries\nWarning: End time 1793275684 (2026-10-29T12:08:04.000Z) is not in the future; a plain integer is a unix time, use a duration such as 14d for a period from now\nTransaction yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA submitted, waiting for the chain to accept it\n",
     "txIds": [
       "yBGwc6kNS9vRtpkdNWSpPbByHmVkGX8jLjon6vFpuR3nBw7fA"
     ],
