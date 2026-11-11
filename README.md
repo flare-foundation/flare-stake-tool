@@ -37,13 +37,14 @@ There are two ways to install the tool. Unless you plan to contribute to this re
 npm install @flarenetwork/flare-stake-tool --global
 ```
 
-Ledger support needs the USB module `node-hid`, whose install script fetches or builds its binary. npm runs it with its default settings (npm 11 warns that its script is not yet in `allowScripts`). If you have set `ignore-scripts=true`, allow that one script:
+Ledger support needs the USB module `node-hid`, whose install script fetches or builds its binary; npm runs it with its default settings. If you have set `ignore-scripts=true`, or want to run only that script, install without scripts and then build `node-hid` alone:
 
 ```bash
-npm install @flarenetwork/flare-stake-tool --global --ignore-scripts=false --allow-scripts=node-hid
+npm install @flarenetwork/flare-stake-tool --global --ignore-scripts=true
+npm rebuild node-hid --global --ignore-scripts=false
 ```
 
-For a copy already installed without it, run `npm rebuild node-hid --global --ignore-scripts=false`. Without the binary, every command works except those with a Ledger, which stop with "The Ledger USB module node-hid has no binary".
+The second command also fixes a copy already installed without it. Without the binary, every command works except those with a Ledger, which stop with "The Ledger USB module node-hid has no binary".
 
 ### Manually building the repository
 
