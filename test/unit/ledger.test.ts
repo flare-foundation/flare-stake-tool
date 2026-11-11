@@ -8,7 +8,7 @@ import { expect } from "chai";
 import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
-import { checkFlareResponse } from "../../src/ledger/flare";
+import { FLARE_APP_EVM_REFUSED, checkFlareResponse, flareEvmSigningError } from "../../src/ledger/flare";
 import { checkDerivationPath } from "../../src/ledger/path";
 import { ETHEREUM_APP_P_CHAIN, detectApp } from "../../src/ledger/index";
 import { NODE_HID_NOT_BUILT, openTransport, type HidTransport } from "../../src/ledger/transport";
@@ -158,6 +158,30 @@ describe("ledger", () => {
       for (const bad of ["m/44'/60'/0'", "44'/60'/0'/0/0", "m/44'/60'/0'/0/0/1"]) {
         expect(() => splitAvalanchePath(bad), bad).to.throw(/Unsupported derivation path/);
       }
+    });
+  });
+
+  describe("flareEvmSigningError, for a C-chain transaction the Flare app did not sign", () => {
+    /** What `@ledgerhq/errors`' TransportStatusError carries: the message it builds and the device status. */
+    const deviceStatus = (statusCode: number, text: string): Error =>
+      Object.assign(new Error(`Ledger device: ${text} (0x${statusCode.toString(16)})`), { statusCode });
+
+    it("says on 0x6984 that the Flare app refused it, and which apps sign on localflare", () => {
+      const refused = deviceStatus(0x6984, "UNKNOWN_ERROR");
+      const error = flareEvmSigningError(refused);
+      expect(error.message).to.equal(`Ledger signing error: ${FLARE_APP_EVM_REFUSED}`);
+      expect(error.message).to.include("on localflare, use the Avalanche or Ethereum app");
+      expect(error.cause).to.equal(refused);
+    });
+
+    it("names any other refusal as a signing error with its own text, the user's rejection included", () => {
+      const rejected = deviceStatus(0x6985, "Condition of use not satisfied (denied by the user?)");
+      expect(flareEvmSigningError(rejected).message).to.equal(`Ledger signing error: ${rejected.message}`);
+      expect(flareEvmSigningError(rejected).cause).to.equal(rejected);
+      // 0x6984 only as text, without the status, is not taken for it
+      const textOnly = new Error("Ledger device: UNKNOWN_ERROR (0x6984)");
+      expect(flareEvmSigningError(textOnly).message).to.equal(`Ledger signing error: ${textOnly.message}`);
+      expect(flareEvmSigningError("disconnected").message).to.equal("Ledger signing error: disconnected");
     });
   });
 
