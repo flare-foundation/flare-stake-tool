@@ -14,41 +14,25 @@ install. Hardware-wallet support: Ledger (Flare, Avalanche and Ethereum apps).
 ## Layout
 
 ```
-src/
-  run.ts                    Entry script: alias rewrite (exportCP → transaction exportCP, -i → interactive), Commander dispatch
-  cli.ts                    Commander definitions; each action parses options, resolves env + signer and calls app/ (interactive: terminal check, banner, menu)
-  cli/requests.ts           Command options → TxRequest (FLR → nFLR/wei bigint, durations, percentages)
-  cli/inputs.ts             Input parsers shared with interactive mode (BLS hex, node id, nonce, times, fee flags)
-  cli/options.ts            Options every command shares; signer, env and account resolution
-  app/env.ts                Network resolution (--network, else ctx.json, else flare) and the ctx.json file
-  app/transactions.ts       Pre-flight checks (max 3 nodes, validator exists/period, Helicon gate) + the pipeline
-  app/send.ts               send -i: attach an external signature to a stored transaction and submit
-  app/info.ts               addresses / balance / validators
-  app/fordefi.ts            ForDefi API client (sign/fetch); request shape and auth header are frozen
-  core/types.ts             TxRequest, UnsignedTxBundle, BuildPolicy, Signer, Outcome
-  core/pipeline.ts          build → sign → attach → submit → confirm; the only implementation
-  core/builders/pchain.ts   One builder per P-chain/atomic tx type (flarejs 5.2.0 object-style builders)
-  core/builders/evm.ts      C-chain EVM builders (claim, withdrawal, setClaim*, custom) with the frozen rawTx shape
-  core/signing/             Signature normalization (v 0/1/27/28/EIP-155) and credential attachment incl. the Helicon authority credential
-  core/files.ts             Frozen unsigned/signed JSON file formats under ForDefiTxnFiles/: checked ids, checked reads, replaceFile rewrites
-  core/json.ts              parseJson / isJsonObject for files and answers that come from outside
-  core/submit.ts            Issue + wait per chain (P: getTxStatus, C atomic: getAtomicTxStatus, EVM: receipt)
-  signers/privateKey.ts     --get-hacked --env-path: in-process signing
-  signers/ledger.ts         --ledger: LedgerSigner over a LedgerDevice (real device in src/ledger, fake via FLARE_FAKE_LEDGER_KEY for tests)
-  signers/file.ts           default + -i <id>: writes the unsigned file and stops (ForDefi / manual signing)
-  chain/network.ts          The single network table (ids, hrp, URLs, symbol) + node URL / API key overrides
-  chain/clients.ts          flarejs APIs, ethers provider, cached Context, Helicon gate
-  chain/keys.ts             Key/address derivation (flarejs secp256k1 + ethers), CB58 decoding with its checksum checked
-  chain/units.ts            NFlr/Wei amounts, parseFlr/formatFlr, percentages → shares, durations
-  chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
-  chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
-  ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum); path.ts checks derivation paths
-  interactive/              inquirer menu calling app/ (and chain/ and core/ for what it shows) directly; every question goes through askInquirer (Ctrl-C, and Ctrl-D on an empty answer, exit 130)
-  constants/fees.ts         Fixed EIP-1559 fees per C-chain operation
-  constants/screen.ts       Menu labels
-test/unit/                  Mocha unit tests (pure functions, signers, builders without a node)
-test/characterization/      Record/replay goldens for every signing path, and the scripted interactive menu (offline)
-test/integration/           Mocha integration tests against an externally running localflare
+src/run.ts, cli.ts     entry (alias rewrite: exportCP → transaction exportCP, -i → interactive) and the Commander commands
+src/cli/               options → TxRequest (requests.ts: FLR → nFLR/wei, durations, percentages), input parsers shared
+                       with interactive mode (inputs.ts), shared options and signer/account resolution (options.ts)
+src/app/               network and ctx.json (env.ts), pre-flight checks + the pipeline (transactions.ts), send -i (send.ts),
+                       info.ts, the ForDefi client (fordefi.ts: request shape and auth header frozen)
+src/core/              pipeline.ts (build → sign → attach → submit → confirm, the only implementation), types.ts,
+                       builders/ (pchain.ts: flarejs 5.2.0 object-style builders; evm.ts: the frozen rawTx shape),
+                       signing/ (signature normalization, credentials incl. the Helicon authority), files.ts (the frozen
+                       unsigned/signed JSON formats under ForDefiTxnFiles/), json.ts, submit.ts (issue + wait per chain)
+src/signers/           privateKey.ts (--get-hacked), ledger.ts (--ledger over a LedgerDevice; FLARE_FAKE_LEDGER_KEY for
+                       tests), file.ts (default + -i <id>: writes the unsigned file and stops)
+src/chain/             network.ts (the single network table, node URL / API key overrides), clients.ts (flarejs, ethers,
+                       cached Context, Helicon gate), keys.ts, units.ts (NFlr/Wei), contracts.ts, validators.ts
+src/ledger/            the USB transport (transport.ts) and signing per app (flare, avalanche, ethereum); path.ts (derivation paths)
+src/interactive/       inquirer menu calling app/ directly; every question goes through askInquirer (exit 130 on Ctrl-C)
+src/constants/         fixed EIP-1559 fees per C-chain operation (fees.ts), menu labels (screen.ts)
+test/unit/             unit tests (pure functions, signers, builders without a node)
+test/characterization/ record/replay goldens for every signing path, and the scripted interactive menu (offline)
+test/integration/      tests against an externally running localflare
 ```
 
 ## Build / test / lint
@@ -165,31 +149,15 @@ validators, go-flare v1.15) is the only fork gate: the two auto-renewed
 validator commands check `info.upgrades` (`heliconTime`) and refuse to build
 when it is missing or in the future (public nodes on 1.14 return no field).
 
-## Local network for integration tests
+## Integration tests
 
-Integration tests run against an **externally started** Helicon-capable
-localflare; they do not start or stop anything. Start it from the go-flare
-checkout (`avalanchego/scripts/localflare.sh`: five nodes, HTTP ports
-9650/9652/9654/9656/9658, network ID 162, Helicon active at genesis):
+How to start localflare and run them is in CONTRIBUTING.md ("Integration
+tests"). What to keep in mind:
 
-```bash
-pnpm test:integration
-```
-
-- `LOCALFLARE_RPC_URL` (default `http://localhost:9650`) is the node the tests'
-  own checks query; `LOCALFLARE_NODE_URLS` lists all nodes so the stake tests
-  can pick one that is not validating yet (`test/integration/local-network.ts`).
-- The CLI the tests run uses localflare's default node, `http://localhost:9650`,
-  or `FLARE_RPC_URL`, which it inherits. For another node, set both to the same
-  URL: `LOCALFLARE_RPC_URL=<url> FLARE_RPC_URL=<url> pnpm test:integration`.
-- A skipped test fails the run (`forbid-pending` in `.mocharc.integration.yml`).
-  The Helicon suite skips when Helicon is not active, and the stake tests when
-  every node is validating, which a rerun within the 15-minute minimum stake
-  period hits. `pnpm test:integration --no-forbid-pending` allows skips.
 - A committed `.only` fails the run (`forbid-only` in both mocha configs), and
-  so does a skipped unit test (`forbid-pending` in `.mocharc.yml` too):
-  `pnpm test` is the release workflow's only test gate. Run one test with
-  `npx mocha --grep "<title>"` instead.
+  so does a skipped test (`forbid-pending` in `.mocharc.yml` and
+  `.mocharc.integration.yml`): `pnpm test` is the release workflow's only test
+  gate. Run one test with `npx mocha --grep "<title>"` instead.
 - The signing suites create a fresh account funded from the ewoq key for every
   run (`test/integration/accounts.ts`), so they are rerun-safe and independent
   of the max-three-validators rule, and all end times are relative to now.
@@ -198,12 +166,10 @@ pnpm test:integration
   `claim`, `setClaimExecutors` and `setAllowedClaimRecipients` have no live
   test: localflare has none of Flare's reward contracts, so only the fixture
   recorder runs them, with those contract reads stubbed.
-- Funded test account: ewoq private key
-  `56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027` is
-  publicly known and funded on **both** the C-chain (huge balance) and the
-  P-chain. **Safe for local test networks only — never mainnet.**
-- `docker-compose.yml` (go-flare v1.13.0, no Helicon) is kept only as a
-  reference until a Helicon image is published; the harness no longer uses it.
+- The ewoq private key
+  `56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027` is public
+  and funded on localflare's C- and P-chains. **Local test networks only, never
+  mainnet.**
 
 ## Node URL and API key
 
@@ -231,35 +197,28 @@ code must keep:
 
 ## Characterization goldens (offline)
 
-`test/characterization/` locks the exact bytes every signing path produces.
-`pnpm test:record-fixtures` runs ~45 scenarios against a live localflare with
-all JSON-RPC traffic proxied through `rpc-replay.ts`, saving per-scenario
-fixtures (`test/fixtures/rpc/`) and goldens (`test/golden/`: unsigned tx
-bytes, message hash, ForDefi hash, submitted signed bytes, tx ids, printed
-stdout and stderr). `pnpm test` replays every golden offline; a difference
-means behaviour changed. An intentional change must update the golden **in
-the same commit** as the CHANGELOG and `docs/COMMANDS.md` entry
-(`UPDATE_GOLDENS=<name>,…` or `all` rewrites goldens from the current code).
-The replay answers every submission with the recorded id whatever bytes are
-sent, so an update that changes the submitted bytes must also change the
-fixture's submission, its id and the receipts or status queries for it: the
-goldens check that each reported id is the id of the bytes sent, and
-`fixtures.test.ts` that each recorded id is the id of its recorded bytes.
-A golden also fails when its recording has a call the command no longer makes
-(`RpcReplayServer.unused()`), so removing a check that asks the node fails
-even when the output stays the same; `eth_blockNumber` polls and calls a stub
-answers are exempt. A unit test that needs a call its scenario's command does
-not make passes a stub to `withReplay` instead of adding it to the recording.
-Re-record only when the scenario inputs change, never to make a failing
-golden pass. The printed output includes the warning for an end time that is
-not in the future, which depends on the clock: keep the recorded end times in
-the past so that it always prints.
+How they are recorded and replayed is in CONTRIBUTING.md ("Characterization
+goldens"). The rules:
 
-Interactive mode has its own golden, `test/golden/interactive-menu.txt`:
-`interactive-session.ts` answers the menu from a script with every node and
-device call replaced, and records each question, answer, printed line,
-request and written file. `interactive.test.ts` runs it against `dist/` and
-compares the transcript.
+- `pnpm test` replays every golden; a difference means behaviour changed. An
+  intentional change updates the golden (`UPDATE_GOLDENS=<name>,…`) **in the
+  same commit** as its CHANGELOG and `docs/COMMANDS.md` entry. Re-record
+  (`pnpm test:record-fixtures`) only when a scenario's inputs change, never to
+  make a failing golden pass.
+- The replay answers every submission with the recorded id whatever bytes are
+  sent, so an update that changes the submitted bytes must also change the
+  fixture's submission, its id and the receipts or status queries for it: the
+  goldens check that each reported id is the id of the bytes sent, and
+  `fixtures.test.ts` that each recorded id is the id of its recorded bytes.
+- A golden fails when its recording has a call the command no longer makes
+  (`RpcReplayServer.unused()`), so removing a check that asks the node fails
+  even when the output stays the same; `eth_blockNumber` polls and calls a stub
+  answers are exempt. A unit test that needs a call its scenario's command
+  doesn't make passes a stub to `withReplay` instead of adding it to the
+  recording.
+- The printed output includes the warning for an end time that is not in the
+  future, which depends on the clock: keep the recorded end times in the past
+  so that it always prints.
 
 ## Tests as executable specifications
 
@@ -279,7 +238,8 @@ it — both example-based and property-based where applicable.
 
 - **No `pre`/`post` scripts** in `package.json` (security policy from the
   Flare TypeScript handbook).
-- **Don't reintroduce `genesis.json`** — see "Local network" above.
+- **Don't reintroduce `genesis.json`**: the integration tests run against an
+  externally started localflare (CONTRIBUTING.md, "Integration tests").
 - **Don't move `module` to `node20` or add `verbatimModuleSyntax`**, though the
   Flare TypeScript handbook asks for both: flarejs' typings don't resolve under
   `node16`/`nodenext` (see "Dependencies"), and `verbatimModuleSyntax` with

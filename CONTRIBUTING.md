@@ -106,9 +106,11 @@ pnpm test:coverage
 
 ### Integration tests
 
-Integration tests exercise the CLI against a running Helicon-capable
-localflare network started from the go-flare checkout
-(`avalanchego/scripts/localflare.sh`). They need Node 24 and a built `dist/`.
+Integration tests exercise the CLI against a running Helicon-capable localflare
+started from the go-flare checkout (`avalanchego/scripts/localflare.sh`: five
+nodes on HTTP ports 9650/9652/9654/9656/9658, network ID 162, Helicon active at
+genesis); they don't start or stop anything. They need Node 24 and a built
+`dist/`.
 
 ```bash
 pnpm build
@@ -118,16 +120,42 @@ pnpm test:integration
 They expect the node at `http://localhost:9650`. For another node, give its base
 URL both to the tests and to the CLI they run:
 `LOCALFLARE_RPC_URL=<url> FLARE_RPC_URL=<url> pnpm test:integration`.
+`LOCALFLARE_NODE_URLS` (comma-separated) lists all the nodes, from which the
+stake tests pick one that isn't validating yet.
 
 A skipped test fails the run: the stake tests skip when every node is already
-validating, as on a rerun within 15 minutes. Wait for the validations to end, or
-pass `--no-forbid-pending` to allow skips.
+validating, as on a rerun within 15 minutes, and the Helicon suite when Helicon
+is not active. Wait for the validations to end, or pass `--no-forbid-pending` to
+allow skips.
+
+`docker-compose.yml` (go-flare v1.13.0, without Helicon) is kept only as a
+reference until a Helicon image is published; the tests don't use it.
 
 > [!NOTE]
 > Integration tests are run locally only, not in CI, because they need a
 > running node. Run them before opening an MR for any change touching signing
 > or RPC logic. The offline characterization goldens (`pnpm test`) run in CI
-> and catch most behaviour changes without a node; see AGENTS.md.
+> and catch most behaviour changes without a node.
+
+### Characterization goldens
+
+`test/characterization/` locks the exact bytes every signing path produces.
+`pnpm test:record-fixtures` runs about 45 scenarios against a live localflare
+with all JSON-RPC traffic proxied through `rpc-replay.ts`, and saves
+per-scenario fixtures (`test/fixtures/rpc/`) and goldens (`test/golden/`: the
+unsigned transaction bytes, message hash, ForDefi hash, submitted signed bytes,
+transaction ids, and printed stdout and stderr). `pnpm test` replays every
+golden offline. `UPDATE_GOLDENS=<name>,…` (or `all`) rewrites goldens from the
+current code.
+
+Interactive mode has its own golden, `test/golden/interactive-menu.txt`:
+`interactive-session.ts` answers the menu from a script with every node and
+device call replaced, and records each question, answer, printed line, request
+and written file; `interactive.test.ts` runs it against `dist/` and compares
+the transcript.
+
+When a golden may change, and what else must change with it, is in AGENTS.md
+("Characterization goldens").
 
 ## Release process
 
