@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [[v5.0.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.0.0)] - Unreleased
+## [[v5.0.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.0.0)] - 2026-11-12
 
 Every transaction type is now built once, signed by one of three signers (private key, Ledger, or the unsigned-file flow used by ForDefi), and sent and confirmed by the same code. The three paths used to be separate copies that behaved differently. Commands, flags and the transaction file formats are unchanged, except as listed under Breaking changes.
 
