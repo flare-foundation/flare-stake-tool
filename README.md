@@ -100,7 +100,23 @@ The key is sent as the `x-apikey` header with every request. A full endpoint URL
 
 ## App usage with ledger
 
-Below we describe the functionality offered by the app, when you have your ledger device connected to the computer, with Flare app running.
+Below we describe the functionality offered by the app, when you have your ledger device connected to the computer, with one of the apps below running.
+
+### Which Ledger app
+
+Open the app before running a command. The tool asks the device which app is open before every operation, so you can switch apps between commands.
+
+| App       | P-chain and C↔P transactions                                    | C-chain transactions            |
+| --------- | --------------------------------------------------------------- | ------------------------------- |
+| Flare     | shown decoded on the device (a type it doesn't know: its hash) | yes                             |
+| Avalanche | its hash (blind signing)                                        | yes                             |
+| Ethereum  | refused                                                         | yes                             |
+
+- Signing a hash needs blind signing enabled in the app's settings. The tool prints the hash first: approve only if the device shows the same one.
+- A C-chain contract call, such as `claim`, is blind-signed with every app: Ledger has no clear-signing data for Flare's contracts. Check the tool's summary before you approve.
+- On localflare the Flare app knows neither the network nor the chain id and refuses everything: use the Avalanche app there, or the Ethereum app for C-chain transactions.
+- The account is the one at `--derivation-path` (default `m/44'/60'/0'/0/0`), or at the path saved by `init-ctx --ledger` in the context file.
+- Ledger support needs `node-hid`'s binary: see [Installation](#installation) if you install with `ignore-scripts`.
 
 ### Address conversion
 
