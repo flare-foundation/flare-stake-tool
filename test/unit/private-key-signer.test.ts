@@ -33,6 +33,21 @@ describe("signers/privateKey key file", () => {
     expect((await signer.account()).pAddress).to.equal(EWOQ_P_ADDRESS);
   });
 
+  it("reads the key file without putting any of it into the environment", () => {
+    const names = ["PRIVATE_KEY_HEX", "FLARE_RPC_URL", "FLARE_API_KEY", "FLARE_FAKE_LEDGER_KEY"];
+    const before = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+    PrivateKeySigner.fromEnvFile(
+      keyFile([
+        `PRIVATE_KEY_HEX=${EWOQ_PRIVATE_KEY_HEX}`,
+        "FLARE_RPC_URL=https://from-the-key-file.example",
+        "FLARE_API_KEY=from-the-key-file",
+        `FLARE_FAKE_LEDGER_KEY=${EWOQ_PRIVATE_KEY_HEX}`,
+      ]),
+      "localflare"
+    );
+    expect(Object.fromEntries(names.map((name) => [name, process.env[name]]))).to.deep.equal(before);
+  });
+
   it("refuses a file that does not exist", () => {
     const missing = path.join(dir, "missing");
     expect(() => PrivateKeySigner.fromEnvFile(missing, "localflare")).to.throw(`Env file ${missing} does not exist`);

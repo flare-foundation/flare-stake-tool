@@ -10,6 +10,7 @@ import type { Account } from "../chain/keys";
 import type { NetworkConfig } from "../chain/network";
 import type { NFlr, Wei } from "../chain/units";
 import type { EvmFees } from "../constants/fees";
+import type { BuiltDetails } from "./details";
 
 export interface Env {
   readonly network: NetworkConfig;
@@ -45,9 +46,22 @@ export const EVM_TX_TYPES = [
 export type EvmTxType = (typeof EVM_TX_TYPES)[number];
 export type TxType = AtomicTxType | EvmTxType;
 
+/** Which chain each atomic transaction is issued to: a new type has to be given one. */
+const CHAIN_OF_ATOMIC_TX: Readonly<Record<AtomicTxType, "P" | "C">> = {
+  exportCP: "C",
+  importCP: "P",
+  exportPC: "P",
+  importPC: "C",
+  stake: "P",
+  delegate: "P",
+  transfer: "P",
+  addAutoRenewedValidator: "P",
+  setAutoRenewedValidatorConfig: "P",
+};
+
 /** Which chain an atomic transaction is issued to. exportCP/importPC are C-chain atomic transactions. */
 export function chainOfAtomicTx(type: AtomicTxType): "P" | "C" {
-  return type === "exportCP" || type === "importPC" ? "C" : "P";
+  return CHAIN_OF_ATOMIC_TX[type];
 }
 
 export const isAtomicTxType = (value: string): value is AtomicTxType =>
@@ -79,7 +93,7 @@ export type TxRequest =
       delegationFeeShares: number;
       blsPublicKey: Uint8Array;
       blsSignature: Uint8Array;
-      ownerAddresses?: string[] | undefined;
+      ownerAddress?: string | undefined;
       autoCompoundShares?: number | undefined;
     }
   | {
@@ -174,6 +188,9 @@ export type UnsignedTxBundle =
 export type SignResult =
   { status: "signed"; signature: Uint8Array } | { status: "pending"; id: string; forDefiHash: string; file: string };
 
+/** Shown the details of a built transaction before it is signed; throwing stops it (interactive confirmation). */
+export type BeforeSign = (details: BuiltDetails) => Promise<void>;
+
 export interface Signer {
   readonly kind: "privateKey" | "ledger" | "file";
   readonly policy: BuildPolicy;
@@ -182,8 +199,19 @@ export interface Signer {
 }
 
 /**
- * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs.
- * `notices` are the bundle's.
+ * Values of a C-chain transaction that may come from the chain, read from the transaction built: the nonce, the amount
+ * a claim takes (all unclaimed rewards without -a) and the executor fees setClaimExecutors pays. They are printed, so
+ * that ForDefi co-signers can pass the same nonce and amount, and compare the fees.
+ */
+export interface EvmOutcomeValues {
+  nonce: number;
+  claimed?: Wei | undefined;
+  executorFees?: Wei | undefined;
+}
+
+/**
+ * `fee` (nFLR) is set for atomic transactions: what the transaction burns, read from its inputs and outputs. `evm` is
+ * set for C-chain transactions. `notices` are the bundle's.
  */
 export type Outcome =
   | {
@@ -191,6 +219,7 @@ export type Outcome =
       txId: string;
       chainStatus: string;
       fee?: NFlr | undefined;
+      evm?: EvmOutcomeValues | undefined;
       notices?: readonly string[] | undefined;
     }
   | {
@@ -199,5 +228,6 @@ export type Outcome =
       forDefiHash: string;
       file: string;
       fee?: NFlr | undefined;
+      evm?: EvmOutcomeValues | undefined;
       notices?: readonly string[] | undefined;
     };

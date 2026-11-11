@@ -3,6 +3,7 @@ import http from "http";
 import type { AddressInfo } from "net";
 import { createClients, heliconActive } from "../../src/chain/clients";
 import { networkConfig } from "../../src/chain/network";
+import { describeError } from "../../src/output";
 
 interface SeenRequest {
   path: string;
@@ -61,11 +62,21 @@ function answer(method: string, params: unknown): unknown {
   }
 }
 
-/** A JSON-RPC node (single and batched requests) that records the x-apikey header of every request. */
-function startFakeNode(): Promise<FakeNode> {
+/**
+ * A JSON-RPC node (single and batched requests) that records the x-apikey header of every request. A path in
+ * `redirects` is answered with a 307 to the same path on the host it names.
+ */
+function startFakeNode(redirects: Record<string, () => string> = {}): Promise<FakeNode> {
   const seen: SeenRequest[] = [];
   const failing = new Set<string>();
   const server = http.createServer((req, res) => {
+    const redirect = redirects[req.url ?? ""];
+    if (redirect) {
+      req.resume();
+      res.writeHead(307, { location: `${redirect()}${req.url ?? ""}` });
+      res.end();
+      return;
+    }
     let body = "";
     req.setEncoding("utf8");
     req.on("data", (chunk: string) => (body += chunk));
@@ -101,10 +112,38 @@ function startFakeNode(): Promise<FakeNode> {
   });
 }
 
+/** A host that answers every request with a 307 to the same path on `target`, and counts the requests. */
+function startRedirector(
+  target: () => string
+): Promise<{ url: string; requests: () => number; close(): Promise<void> }> {
+  let requests = 0;
+  const server = http.createServer((req, res) => {
+    requests++;
+    req.resume();
+    res.writeHead(307, { location: `${target()}${req.url ?? ""}` });
+    res.end();
+  });
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address() as AddressInfo;
+      resolve({
+        url: `http://127.0.0.1:${port}`,
+        requests: () => requests,
+        close: () => new Promise((done) => server.close(() => done())),
+      });
+    });
+  });
+}
+
 describe("chain/clients", () => {
   it("treats a missing heliconTime (go-flare 1.14 nodes) as inactive", () => {
     expect(heliconActive({})).to.equal(false);
     expect(heliconActive({ heliconTime: undefined })).to.equal(false);
+  });
+
+  it("treats an unparseable heliconTime as inactive, rather than letting the requests through", () => {
+    expect(heliconActive({ heliconTime: "not a date" })).to.equal(false);
+    expect(heliconActive({ heliconTime: "" })).to.equal(false);
   });
 
   it("compares heliconTime with now", () => {
@@ -258,6 +297,106 @@ describe("chain/clients", () => {
         expect(node.seen.map((r) => r.method)).to.not.include("avm.getAssetDescription");
       } finally {
         clients.provider.destroy();
+      }
+    });
+
+    it("refuses a redirect on every request carrying the key: no further host is asked, over one hop or two", async () => {
+      // two hops on other ports (another origin), the node last
+      const second = await startRedirector(() => node.url);
+      const first = await startRedirector(() => second.url);
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: first.url, apiKey: "secret-key" }));
+      try {
+        const refusal = (error: unknown) => {
+          const text = describeError(error);
+          expect(text).to.match(
+            /^The node answered with a redirect, which a request carrying the API key does not follow \(the key would go to whatever host it names\); give the URL it redirects to with --rpc-url \(/
+          );
+          expect(text).to.include(`node ${first.url}`);
+          expect(text).not.to.include("secret-key");
+          return text;
+        };
+        const flarejs = await clients.info.getNetworkId().then(
+          () => expect.fail("flarejs followed the redirect"),
+          (error: unknown) => refusal(error)
+        );
+        expect(flarejs).to.include("unexpected redirect");
+        const ethers = await clients.provider.send("eth_chainId", []).then(
+          () => expect.fail("ethers followed the redirect"),
+          (error: unknown) => refusal(error)
+        );
+        expect(ethers).to.include(`unexpected redirect to ${second.url}/ext/bc/C/rpc`);
+        // the P-chain client, the EVM API's outer client (atomic transactions) and its inner C-chain client, which has
+        // fetch options of its own
+        for (const [name, request] of [
+          ["pvm", () => clients.pvm.getFeeConfig()],
+          ["evm (atomic transactions)", () => clients.evm.getAtomicTxStatus("synthetic-tx")],
+          ["evm (inner C-chain client)", () => clients.evm.getBaseFee()],
+        ] as const) {
+          await request().then(
+            () => expect.fail(`${name} followed the redirect`),
+            (error: unknown) => refusal(error)
+          );
+        }
+        expect(first.requests()).to.equal(5);
+        expect(second.requests(), "the redirect's target").to.equal(0);
+        expect(node.seen, "the host behind it").to.deep.equal([]);
+      } finally {
+        clients.provider.destroy();
+        await first.close();
+        await second.close();
+      }
+    });
+
+    it("refuses a redirect of the X-chain lookup the Context is assembled from", async () => {
+      const elsewhere = await startRedirector(() => "http://127.0.0.1:1");
+      const redirecting = await startFakeNode({ "/ext/bc/X": () => elsewhere.url });
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: redirecting.url, apiKey: "secret-key" }));
+      try {
+        await clients.context().then(
+          () => expect.fail("the Context was fetched through a redirect"),
+          (error: unknown) => expect(describeError(error)).to.match(/^The node answered with a redirect/)
+        );
+        expect(redirecting.seen.map((r) => r.method)).to.include("info.getNetworkID"); // asked before the X-chain
+        expect(elsewhere.requests(), "the redirect's target").to.equal(0);
+      } finally {
+        clients.provider.destroy();
+        await redirecting.close();
+        await elsewhere.close();
+      }
+    });
+
+    it("names a refused redirect's target without its credentials, query or fragment", async () => {
+      const server = http.createServer((req, res) => {
+        req.resume();
+        res.writeHead(302, { location: "//bob:DUMMY-PASSWORD@other.invalid/next?x-apikey=DUMMY-KEY#DUMMY-FRAGMENT" });
+        res.end();
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: url, apiKey: "secret-key" }));
+      try {
+        const text = await clients.provider.send("eth_chainId", []).then(
+          () => expect.fail("ethers followed the redirect"),
+          (error: unknown) => describeError(error)
+        );
+        expect(text).to.include("unexpected redirect to http://other.invalid/next;");
+        expect(text).not.to.match(/DUMMY|secret-key/);
+      } finally {
+        clients.provider.destroy();
+        await new Promise<void>((done) => server.close(() => done()));
+      }
+    });
+
+    it("follows a redirect when no key is configured, as before", async () => {
+      const redirector = await startRedirector(() => node.url);
+      const clients = createClients(networkConfig("costwo", {}, { apiUrl: redirector.url }));
+      try {
+        expect(String((await clients.info.getNetworkId()).networkID)).to.equal("114");
+        expect(await clients.provider.send("eth_chainId", [])).to.equal("0x72");
+        expect(node.seen.map((r) => r.apiKey)).to.deep.equal([undefined, undefined]);
+      } finally {
+        clients.provider.destroy();
+        await redirector.close();
       }
     });
 

@@ -2,7 +2,7 @@ import { expect } from "chai";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { Transaction } from "ethers";
+import { SigningKey, Transaction } from "ethers";
 import {
   bundleFromConsistentTxJson,
   bundleFromUnsignedTxJson,
@@ -16,6 +16,7 @@ import {
   replaceFile,
   saveSignedTxJson,
   saveUnsignedTxJson,
+  signerMismatch,
   signedTxPath,
   unsignedTxJsonFromBundle,
   unsignedTxPath,
@@ -25,7 +26,9 @@ import {
   type UnsignedEvmTxJson,
   type UnsignedTxJson,
 } from "../../src/core/files";
+import { accountFromPublicKey } from "../../src/chain/keys";
 import { toHex } from "../../src/core/signing/signature";
+import { EWOQ_PUBLIC_KEY_COMPRESSED } from "../helpers/keys";
 
 /** The unsigned file the previous release wrote for `transaction exportCP -i exportCP-file` (recorded golden). */
 const recordedAtomic = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "golden", "exportCP-file.json"), "utf8"))
@@ -53,11 +56,72 @@ describe("core/files", () => {
     if (bundle.kind !== "atomic") return;
     expect(bundle.chain).to.equal("C");
     expect(toHex(bundle.digest)).to.equal(messageOf(recordedAtomic));
-    const again = unsignedTxJsonFromBundle(bundle) as UnsignedAtomicTxJson;
+    // the recorded file was built for the test context, the ewoq key
+    const ewoq = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
+    const again = unsignedTxJsonFromBundle(bundle, ewoq) as UnsignedAtomicTxJson;
     expect(again.unsignedTransactionBuffer).to.equal(recordedAtomic.unsignedTransactionBuffer);
     expect(again.serialization).to.equal(recordedAtomic.serialization);
     expect(again.signatureRequests).to.deep.equal(recordedAtomic.signatureRequests);
     expect(forDefiHashOf(messageOf(again))).to.equal(recordedAtomic.forDefiHash);
+  });
+
+  describe("the account a file was built for (signer)", () => {
+    const golden = (name: string) =>
+      JSON.parse(fs.readFileSync(path.join(__dirname, "..", "golden", `${name}.json`), "utf8")).outcome
+        .unsignedTxJson as UnsignedTxJson;
+    const ewoq = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
+    const other = accountFromPublicKey(new SigningKey(`0x${"22".repeat(32)}`).compressedPublicKey, "localflare");
+    const atomic = golden("delegate-file") as UnsignedAtomicTxJson;
+    const evm = golden("withdrawal-file") as UnsignedEvmTxJson;
+    const withSigner = (signer: string | undefined): UnsignedAtomicTxJson => ({
+      ...atomic,
+      signatureRequests: [{ message: atomic.signatureRequests[0]!.message, signer: signer as string }],
+    });
+
+    it("is written as the P-chain address, or the C-chain address in an EVM file, outside the hash", () => {
+      expect(atomic.signatureRequests[0]!.signer).to.equal(ewoq.pAddress);
+      expect(evm.signer).to.equal(ewoq.cAddress);
+      expect(signerMismatch(atomic, ewoq.publicKey)).to.equal(undefined);
+      expect(signerMismatch(evm, ewoq.publicKey)).to.equal(undefined);
+    });
+
+    it("names both accounts when another key is to sign", () => {
+      expect(signerMismatch(atomic, other.publicKey)).to.deep.equal({
+        recorded: ewoq.pAddress,
+        actual: other.pAddress,
+      });
+      expect(signerMismatch(evm, other.publicKey)).to.deep.equal({ recorded: ewoq.cAddress, actual: other.cAddress });
+    });
+
+    it("compares address bytes, so the same key on another network's prefix matches, and any C-chain case", () => {
+      const costwo = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "costwo").pAddress;
+      expect(signerMismatch(withSigner(costwo), ewoq.publicKey)).to.equal(undefined);
+      expect(signerMismatch(withSigner(costwo), other.publicKey)).to.deep.equal({
+        recorded: costwo,
+        actual: accountFromPublicKey(other.publicKey, "costwo").pAddress,
+      });
+      expect(signerMismatch({ ...evm, signer: ewoq.cAddress.toLowerCase() }, ewoq.publicKey)).to.equal(undefined);
+    });
+
+    it("is not checked in files from earlier versions, where it is empty or missing", () => {
+      for (const json of [
+        withSigner(""),
+        withSigner(undefined),
+        { ...evm, signer: undefined },
+        { ...evm, signer: "" },
+      ]) {
+        expect(signerMismatch(json, other.publicKey)).to.equal(undefined);
+      }
+    });
+
+    it("refuses a signer that is not an address of the file's kind", () => {
+      expect(() => signerMismatch(withSigner(ewoq.cAddress), ewoq.publicKey)).to.throw(
+        `The file's signer "${ewoq.cAddress}" is not a P-chain address`
+      );
+      expect(() => signerMismatch({ ...evm, signer: ewoq.pAddress }, ewoq.publicKey)).to.throw(
+        `The file's signer "${ewoq.pAddress}" is not a C-chain address`
+      );
+    });
   });
 
   it("keeps a type-less EVM file from an older version on the envelope it was signed over", () => {
@@ -299,7 +363,7 @@ describe("core/files", () => {
       expect(recorded.length).to.be.greaterThan(15);
       const older = {
         ...delegate,
-        // a filled signer, a second request, and metadata earlier versions wrote
+        // a filled signer (as 5.0.0 writes), a second request, and metadata earlier versions wrote
         signatureRequests: [
           { message: messageOf(delegate), signer: "P-costwo18jma8ppw3nhx5r4ap8clazz0dps7rv5u6wmu4t" },
           { message: "00".repeat(32), signer: "" },
@@ -356,6 +420,14 @@ describe("core/files", () => {
         [
           JSON.stringify({ ...delegate, unsignedTransactionBuffer: 5 }),
           "is not a transaction file: unsignedTransactionBuffer is not a string",
+        ],
+        [
+          JSON.stringify({ ...delegate, signatureRequests: [{ message: "aa", signer: 5 }] }),
+          "is not a transaction file: signatureRequests[0].signer is not a string",
+        ],
+        [
+          '{"transactionType":"EVM","rawTx":{},"message":"aa","signer":5}',
+          "is not a transaction file: signer is not a string",
         ],
         [
           JSON.stringify({ ...delegate, forDefiTxId: 5 }),

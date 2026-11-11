@@ -7,6 +7,7 @@
 import { expect } from "chai";
 import fs from "fs";
 import path from "path";
+import { SigningKey } from "ethers";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { markSentToChain, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { readGolden } from "../characterization/scenarios";
@@ -153,7 +154,18 @@ describe("CLI errors (built CLI, no node)", function () {
       expect(result.stderr, args.join(" ")).to.include(`Allowed choices are ${choices}.`);
     }
     const help = runCli(["info", "--help"], { cwd });
-    expect(help.stdout).to.match(/\(choices: "addresses",\s+"balance",\s+"validators"\)/);
+    expect(help.stdout).to.match(/\(choices:\s+"addresses",\s+"balance",\s+"validators"\)/); // wrapped anywhere
+  });
+
+  it("lists the global options a command takes in its own help", () => {
+    for (const command of ["withdrawal", "transaction", "send"]) {
+      const help = runCli([command, "--help"], { cwd });
+      expect(help.exitCode, command).to.equal(0);
+      expect(help.stdout, command).to.include("Global Options:");
+      for (const flag of ["--network", "--ledger", "--get-hacked", "--gas-limit", "--rpc-url"]) {
+        expect(help.stdout, `${command} ${flag}`).to.include(flag);
+      }
+    }
   });
 
   it("reports a missing transaction option before asking for a signer or a transaction id", () => {
@@ -330,6 +342,103 @@ describe("CLI errors (built CLI, no node)", function () {
     expect(relay.stderr).to.equal(`Error: fetch failed (bad port; node ${CLOSED_NODE})\n`);
   });
 
+  it("refuses an option the transaction type doesn't read, given on the command line, whatever its position", () => {
+    for (const [args, refusal] of [
+      [["transaction", "importCP", "-a", "5"], "transaction importCP doesn't use --amount; leave it out"],
+      [["exportPC", "-a", "1", "-f", "1"], "transaction exportPC doesn't use --fee; leave it out"],
+      [
+        ["--gas-limit", "21000", "exportCP", "-a", "1", "-f", "1"],
+        "transaction exportCP doesn't use --gas-limit; leave it out (the C-chain gas options are for the C-chain " +
+          "commands; exportCP and importPC take --fee)",
+      ],
+    ] as const) {
+      const result = runCli([...args, "--network", "costwo"], { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(`Error: ${refusal}\n`);
+    }
+    // the defaults of --delegation-fee, --auto-compound-shares and --threshold are not given options
+    const defaults = runCli(["transaction", "importCP", "--threshold", "1", "--network", "costwo"], { cwd });
+    expect(defaults.stderr).to.include("A transaction id is required for the unsigned-file flow");
+  });
+
+  it("prints no part of a malformed FLARE_FAKE_LEDGER_KEY", () => {
+    const malformed = `${"5a".repeat(31)}zz`;
+    const result = runCli(["info", "addresses", "--ledger", "--network", "costwo"], {
+      cwd,
+      env: { FLARE_FAKE_LEDGER_KEY: malformed },
+    });
+    expect(result.exitCode).to.equal(1);
+    expect(result.stderr).to.include(
+      "FLARE_FAKE_LEDGER_KEY is not a private key (32 bytes of hex); its value is not shown"
+    );
+    expect(result.stderr).not.to.include("5a5a5a");
+  });
+
+  it("refuses two signers instead of letting one win, before the key file or the Ledger is opened", () => {
+    for (const [args, refusal] of [
+      [
+        ["info", "addresses", "--ledger", "--get-hacked", "--env-path", "missing.env"],
+        "--ledger and --get-hacked select different signers; pass one of them",
+      ],
+      [
+        ["transaction", "importCP", "--ledger", "--get-hacked", "--env-path", "missing.env"],
+        "--ledger and --get-hacked select different signers; pass one of them",
+      ],
+      [["init-ctx", "--ledger", "-p", EWOQ_PUBLIC_KEY_COMPRESSED], "init-ctx takes --ledger or --public-key, not both"],
+    ] as const) {
+      const result = runCli([...args, "--network", "costwo"], {
+        cwd,
+        env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX, FLARE_RPC_URL: CLOSED_NODE },
+      });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(`Error: ${refusal}\n`);
+    }
+    expect(fs.existsSync(path.join(cwd, "ctx.json")), "no context written").to.equal(false);
+    // a key file with --ledger is not a second signer: --ledger signs, as before
+    const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
+    const ledger = runCli(["info", "addresses", "--ledger", "--env-path", envPath, "--network", "costwo"], {
+      cwd,
+      env: { FLARE_FAKE_LEDGER_KEY: "22".repeat(32) },
+    });
+    expect(ledger.exitCode, ledger.stderr).to.equal(0);
+    expect(ledger.stdout).to.include(
+      accountFromPublicKey(new SigningKey(`0x${"22".repeat(32)}`).compressedPublicKey, "costwo").pAddress
+    );
+  });
+
+  it("refuses a derivation path an app would read as another index, before the Ledger is asked", () => {
+    const bad = "m/44'/60'/0'/0/1O";
+    for (const args of [
+      ["init-ctx", "--ledger", "--derivation-path", bad],
+      ["info", "addresses", "--ledger", "--derivation-path", bad],
+    ]) {
+      const result = runCli([...args, "--network", "costwo"], {
+        cwd,
+        env: { FLARE_FAKE_LEDGER_KEY: EWOQ_PRIVATE_KEY_HEX },
+      });
+      expect(result.exitCode, args[0]).to.equal(1);
+      expect(result.stderr, args[0]).to.include(`Invalid derivation path "${bad}" (--derivation-path)`);
+      expect(result.stderr, `${args[0]}: the fake device was not opened`).not.to.include("FLARE_FAKE_LEDGER_KEY");
+    }
+    expect(fs.existsSync(path.join(cwd, "ctx.json")), "no context written").to.equal(false);
+  });
+
+  it("prints the absolute end time a duration resolves to, and tells ForDefi co-signers to pass it", () => {
+    fs.writeFileSync(
+      path.join(cwd, "ctx.json"),
+      JSON.stringify({ wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "costwo" })
+    );
+    const args = ["delegate", "-n", "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ", "-a", "50000", "-e", "14d", "-i", "e1"];
+    // the node is closed: the times are reported before anything is asked of it
+    const result = runCli([...args, "--network", "costwo"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+    expect(result.exitCode).to.equal(1);
+    const printed = /End time: (\d+) \(([^)]+)\)/.exec(result.stdout);
+    expect(printed, result.stdout).to.not.equal(null);
+    expect(new Date(Number(printed![1]) * 1000).toISOString()).to.equal(printed![2]);
+    expect(Number(printed![1]) - Date.now() / 1000).to.be.within(14 * 86_400 - 60, 14 * 86_400 + 60);
+    expect(result.stdout).to.include("Every signer of this ForDefi transaction has to pass this absolute unix time");
+  });
+
   it("refuses a given --ctx-file that does not exist whatever else selects the account, but init-ctx writes it", () => {
     const envPath = writeEnvFile(cwd, EWOQ_PRIVATE_KEY_HEX);
     for (const selectors of [
@@ -363,20 +472,34 @@ describe("CLI errors (built CLI, no node)", function () {
   });
 
   it("send refuses a file signed by another key than ctx.json's, before it contacts the node", () => {
+    const ewoqCAddress = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare").cAddress;
     // without the check, an EVM transaction signed by any key is valid on its own and would be sent from that key
     const context = { wallet: "publicKey", publicKey: EWOQ_PUBLIC_KEY_COMPRESSED, network: "localflare" };
     fs.writeFileSync(path.join(cwd, "ctx.json"), JSON.stringify(context));
     const unsigned = readGolden("withdrawal-file").outcome.unsignedTxJson as UnsignedTxJson & { message: string };
-    writeSignedTxJson({ ...unsigned, signature: signMessageHash(unsigned.message, "22".repeat(32)) }, "w1", cwd);
-    const result = runCli(["send", "-i", "w1"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
-    expect(result.exitCode).to.equal(1);
-    expect(result.stderr).to.equal(
-      "Error: The signature does not belong to the configured account (recovered address differs)\n"
-    );
-    const signed = JSON.parse(
-      fs.readFileSync(path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "w1.signedTx.json"), "utf8")
-    ) as { isSentToChain?: boolean };
-    expect(signed.isSentToChain).to.equal(undefined);
+    const signature = signMessageHash(unsigned.message, "22".repeat(32));
+    const foreign = accountFromPublicKey(new SigningKey(`0x${"22".repeat(32)}`).compressedPublicKey, "localflare");
+    for (const [file, refusal] of [
+      // a file of an earlier version records no account: the context's is the one to check
+      [
+        { ...unsigned, signer: undefined },
+        "The signature does not belong to the configured account (recovered address differs)",
+      ],
+      // this version's records the account it was built for, ewoq
+      [
+        unsigned,
+        `Transaction w1 was built for ${ewoqCAddress}, but it is signed by ${foreign.cAddress}; it is not sent`,
+      ],
+    ] as const) {
+      writeSignedTxJson({ ...file, signature }, "w1", cwd);
+      const result = runCli(["send", "-i", "w1"], { cwd, env: { FLARE_RPC_URL: CLOSED_NODE } });
+      expect(result.exitCode).to.equal(1);
+      expect(result.stderr).to.equal(`Error: ${refusal}\n`);
+      const signed = JSON.parse(
+        fs.readFileSync(path.join(cwd, "ForDefiTxnFiles", "SignedTxns", "w1.signedTx.json"), "utf8")
+      ) as { isSentToChain?: boolean };
+      expect(signed.isSentToChain).to.equal(undefined);
+    }
   });
 
   it("setClaimExecutors and setAllowedClaimRecipients need their list before anything is signed", () => {
@@ -458,6 +581,20 @@ describe("CLI commands that need no node (built CLI)", function () {
       const result = runCli(args, { cwd, env: PLAIN });
       expect(result.exitCode, args.join(" ")).to.equal(0);
       expect(result.stdout, args.join(" ")).to.equal(`${version}\n`);
+    }
+  });
+
+  it("says where the id goes when -i <id> comes before a command, where -i starts interactive mode", () => {
+    for (const args of [
+      ["-i", "myid", "exportCP", "-a", "1"],
+      ["--network", "costwo", "-i", "myid", "exportCP"],
+    ]) {
+      const result = runCli(args, { cwd });
+      expect(result.exitCode, args.join(" ")).to.equal(1);
+      expect(result.stderr, args.join(" ")).to.equal(
+        'Error: -i before a command starts interactive mode, which takes no arguments ("myid" given); to name a ' +
+          "transaction, give -i <id> after the command, as in: exportCP -a 1 -f 0.001 -i myid\n"
+      );
     }
   });
 

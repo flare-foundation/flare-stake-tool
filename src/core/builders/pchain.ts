@@ -1,7 +1,9 @@
 /**
  * One builder per P-chain / atomic transaction type, over flarejs'
- * object-style builders. Builders only build; validation that needs chain
- * state (stake limits, validator existence, fork gates) lives in app/.
+ * object-style builders. The checks that need chain state before a request is
+ * built (stake limits, validator existence, fork gates) live in app/; the
+ * builders check what the chain data they read must satisfy (UTXOs, the
+ * validator authority of a config change).
  */
 import {
   TransferableInput,
@@ -18,7 +20,7 @@ import {
   type UnsignedTx,
 } from "@flarenetwork/flarejs";
 import { pChainAddressBytes, type Account } from "../../chain/keys";
-import { asNFlr, formatFlr, type NFlr } from "../../chain/units";
+import { UINT64_MAX, asNFlr, formatFlr, nowSeconds, type NFlr } from "../../chain/units";
 import { currentValidators } from "../../chain/validators";
 import { atomicTxFee } from "../fee";
 import {
@@ -103,8 +105,6 @@ export async function allUtxos(getPage: (query: UtxoQuery) => Promise<UtxoPage>,
     page = await getPage({ ...query, startIndex: page.endIndex });
   }
 }
-
-const nowSeconds = (): bigint => BigInt(Math.floor(Date.now() / 1000));
 
 type PChainUtxo = Awaited<ReturnType<typeof allUtxos>>[number];
 
@@ -197,6 +197,18 @@ function spendableAlone(utxo: PChainUtxo, time: bigint): boolean {
   return info.threshold <= 1 && ownLock < time && info.locktime <= time;
 }
 
+/**
+ * Refuses an amount above uint64 before it is signed (see UINT64_MAX). Typed amounts are bounded when parsed; this
+ * catches the sums: an amount plus its fee, or an export or import of UTXOs that each fit.
+ */
+function refuseOverUint64(amount: bigint, what: string, symbol: string, hint = ""): void {
+  if (amount <= UINT64_MAX) return;
+  throw new Error(
+    `${what} of ${formatFlr(asNFlr(amount))} ${symbol} is more than a transaction can hold ` +
+      `(${formatFlr(asNFlr(UINT64_MAX))} ${symbol}); it is not signed${hint}`
+  );
+}
+
 /** AVAX the account can spend alone at `time` (the build's `minIssuanceTime`). */
 export function spendableAmount(utxos: PChainInputs["utxos"], avaxAssetID: string, time: bigint): NFlr {
   let total = 0n;
@@ -220,7 +232,7 @@ const exportPCTx = (inputs: PChainInputs, amount: NFlr): UnsignedTx =>
   );
 
 /** The fee probe's gas capacity: no limit (uint64 max), since the probe is never sent. */
-const PROBE_GAS_CAPACITY = 2n ** 64n - 1n;
+const PROBE_GAS_CAPACITY = UINT64_MAX;
 
 /**
  * Exports the spendable total minus the fee of spending every UTXO. The P-chain
@@ -233,7 +245,7 @@ const PROBE_GAS_CAPACITY = 2n ** 64n - 1n;
  * it adds can be left out. It stays on the P-chain, and so does the change: the fee
  * saved minus that UTXO. The export itself is checked against the real gas capacity.
  */
-function exportAllPC(inputs: PChainInputs): { amount: NFlr; unsignedTx: UnsignedTx } {
+function exportAllPC(inputs: PChainInputs, symbol: string): { amount: NFlr; unsignedTx: UnsignedTx } {
   const total = spendableAmount(inputs.utxos, inputs.context.avaxAssetID, inputs.minIssuanceTime);
   if (total <= 0n) {
     throw new Error("Export amount is smaller than or equal to zero");
@@ -245,12 +257,13 @@ function exportAllPC(inputs: PChainInputs): { amount: NFlr; unsignedTx: Unsigned
   if (amount <= 0n) {
     throw new Error("Export amount is smaller than or equal to zero");
   }
+  refuseOverUint64(amount, "The export", symbol, "; export part of it with -a");
   return { amount, unsignedTx: exportPCTx(inputs, amount) };
 }
 
 function startTime(requested: bigint | undefined, policy: BuildPolicy): bigint {
   if (requested !== undefined) return requested;
-  return policy.defaultStartTime === "now" ? BigInt(Math.floor(Date.now() / 1000)) : policy.defaultStartTime;
+  return policy.defaultStartTime === "now" ? nowSeconds() : policy.defaultStartTime;
 }
 
 export async function buildExportCP(
@@ -264,33 +277,29 @@ export async function buildExportCP(
   // "latest", whatever the signer: the C-chain checks an atomic transaction's nonce against the accepted state,
   // without the transactions waiting in the node
   const nonce = req.nonce ?? BigInt(await env.clients.provider.getTransactionCount(account.cAddress, "latest"));
-  if (req.fee === undefined) {
-    const baseFee = await env.clients.evm.getBaseFee();
-    return bundle(
-      "exportCP",
-      evm.newExportTxFromBaseFee(
-        context,
-        estimatedGasPriceGwei(baseFee),
-        req.amount,
-        context.pBlockchainID,
-        account.cAddressBytes,
-        [account.addressBytes],
-        nonce
-      )
-    );
-  }
-  return bundle(
-    "exportCP",
-    evm.newExportTx(
-      context,
-      req.amount,
-      context.pBlockchainID,
-      account.cAddressBytes,
-      [account.addressBytes],
-      req.fee,
-      nonce
-    )
-  );
+  const unsignedTx =
+    req.fee === undefined
+      ? evm.newExportTxFromBaseFee(
+          context,
+          estimatedGasPriceGwei(await env.clients.evm.getBaseFee()),
+          req.amount,
+          context.pBlockchainID,
+          account.cAddressBytes,
+          [account.addressBytes],
+          nonce
+        )
+      : evm.newExportTx(
+          context,
+          req.amount,
+          context.pBlockchainID,
+          account.cAddressBytes,
+          [account.addressBytes],
+          req.fee,
+          nonce
+        );
+  // the C-chain input holds the amount and the fee, given or estimated: each can fit and their sum not
+  refuseOverUint64(req.amount + atomicTxFee(unsignedTx, context), "The amount plus the fee", env.network.symbol);
+  return bundle("exportCP", unsignedTx);
 }
 
 /** Largest first, equal amounts by UTXO id in plain string order, which unlike localeCompare is the same everywhere. */
@@ -327,6 +336,28 @@ function chooseImported(
   }
   const taken = new Set(ranked.slice(0, count));
   return { taken: utxos.filter((utxo) => taken.has(utxo)), skipped, later: ranked.slice(count) };
+}
+
+type OutputsTx = Parameters<typeof futils.getOutputAmounts>[0];
+
+/**
+ * Refuses an import whose fee takes everything it imports. Nothing would arrive: importPC gets a 0-value C-chain
+ * output, which the chain refuses, and importCP no output at all, which the P-chain accepts, burning the UTXOs. Left
+ * pending, they can go into a later, larger import. Also refuses an output above uint64, from UTXOs that each fit.
+ * Read from the built transaction only, so co-signers agree.
+ */
+function checkImportOutput(unsignedTx: UnsignedTx, context: Context.Context, destination: string, symbol: string) {
+  const tx = unsignedTx.getTx() as OutputsTx;
+  const received = futils.getOutputAmounts(tx).get(context.avaxAssetID) ?? 0n;
+  if (received > 0n) {
+    refuseOverUint64(received, "The import", symbol);
+    return;
+  }
+  const imported = asNFlr(futils.getInputAmounts(tx).get(context.avaxAssetID) ?? 0n);
+  throw new Error(
+    `The fee takes all of the ${formatFlr(imported)} ${symbol} being imported, so nothing would arrive on the ` +
+      `${destination}; it is not signed, and the UTXOs stay pending for a later import`
+  );
 }
 
 /** The warnings for what an import left out; `capacity` names the limit that kept the later ones out. */
@@ -390,7 +421,9 @@ export async function buildImportCP(
     );
   }
   // with nothing importable at all, flarejs says so ("no UTXOs available to import")
-  return bundle("importCP", build(chosen.taken), importNotices(chosen, symbol, "the P-chain's gas capacity"));
+  const unsignedTx = build(chosen.taken);
+  checkImportOutput(unsignedTx, context, "P-chain", symbol);
+  return bundle("importCP", unsignedTx, importNotices(chosen, symbol, "the P-chain's gas capacity"));
 }
 
 export async function buildExportPC(
@@ -400,13 +433,14 @@ export async function buildExportPC(
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
   const inputs = await pChainInputs(env, account, policy);
-  const unsignedTx = req.amount === undefined ? exportAllPC(inputs).unsignedTx : exportPCTx(inputs, req.amount);
+  const unsignedTx =
+    req.amount === undefined ? exportAllPC(inputs, env.network.symbol).unsignedTx : exportPCTx(inputs, req.amount);
   return bundle("exportPC", unsignedTx, inputs.notices);
 }
 
 /** The amount `exportPC` without `-a` would export now (the interactive default); nothing is signed. */
 export async function maxExportPCAmount(env: Env, account: Account, policy: BuildPolicy): Promise<NFlr> {
-  return exportAllPC(await pChainInputs(env, account, policy)).amount;
+  return exportAllPC(await pChainInputs(env, account, policy), env.network.symbol).amount;
 }
 
 /**
@@ -486,6 +520,8 @@ export async function buildImportPC(
         "; it is not signed"
     );
   }
+  // an estimate above the imported value is cut to it by flarejs, leaving a 0-value output; so is -f equal to it
+  checkImportOutput(unsignedTx, context, "C-chain", symbol);
   return bundle("importPC", unsignedTx, importNotices(chosen, symbol, "the C-chain's atomic gas limit"));
 }
 
@@ -573,10 +609,11 @@ export async function buildAddAutoRenewedValidator(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
-  const ownerBytes = (req.ownerAddresses ?? []).map((a) => pChainAddressBytes(a, env.network.hrp));
+  const ownerBytes =
+    req.ownerAddress === undefined ? undefined : [pChainAddressBytes(req.ownerAddress, env.network.hrp)];
   const inputs = await pChainInputs(env, account, policy);
   const { context, from } = inputs;
-  const owners = ownerBytes.length > 0 ? ownerBytes : from;
+  const owners = ownerBytes ?? from;
   return bundle(
     "addAutoRenewedValidator",
     pvm.newAddAutoRenewedValidatorTx(

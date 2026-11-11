@@ -17,7 +17,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction setClaimExecutors-file constructed\nForDefi hash: 6ionkME26YbfqzZ57d6P2hDh4d16jIKa+NnujhlqeZQ=\n",
+    "stdout": "Unsigned transaction setClaimExecutors-file constructed\nForDefi hash: 6ionkME26YbfqzZ57d6P2hDh4d16jIKa+NnujhlqeZQ=\nNonce: 10\nExecutor fees: 0.2 LFLR\n",
     "stderr": "",
     "txIds": [],
     "submissions": [],
@@ -35,6 +35,7 @@
         "value": "200000000000000000"
       },
       "message": "ea2a2790c136e986dfab3679edde8fda10e1e1dd7a8c829af8d9ee8e196a7994",
+      "signer": "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
       "forDefiHash": "6ionkME26YbfqzZ57d6P2hDh4d16jIKa+NnujhlqeZQ="
     }
   }

@@ -42,8 +42,8 @@ src/
   chain/units.ts            NFlr/Wei amounts, parseFlr/formatFlr, percentages → shares, durations
   chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
   chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
-  ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum)
-  interactive/              inquirer menu calling app/ directly; every question goes through askInquirer (Ctrl-C exits 130)
+  ledger/                   Ledger device transports and signing per app (flare/avalanche/ethereum); path.ts checks derivation paths
+  interactive/              inquirer menu calling app/ (and chain/ and core/ for what it shows) directly; every question goes through askInquirer (Ctrl-C, and Ctrl-D on an empty answer, exit 130)
   constants/fees.ts         Fixed EIP-1559 fees per C-chain operation
   constants/screen.ts       Menu labels
 test/unit/                  Mocha unit tests (pure functions, signers, builders without a node)
@@ -70,7 +70,11 @@ Node 24+ required (enforced via `engines`).
 Every transaction goes through `core/pipeline.ts`: the request is built once
 (`core/builders`), signed by the selected signer, the signature is attached to
 every credential the account owns, and the transaction is submitted and
-confirmed. The signer is chosen by flag:
+confirmed. Between building and signing, `executeTransaction` calls an optional
+`beforeSign` with the details read from the built transaction
+(`core/details.ts`: fee, imported amount, nonce, value, gas cost, claimed
+amount); interactive mode shows them and stops when the user declines, so the
+transaction approved is the one signed. The signer is chosen by flag:
 
 1. **`--get-hacked --env-path <file>`** — `PrivateKeySigner`, signs in process.
 2. **`--ledger`** — `LedgerSigner`; Flare app signs the full transaction and
@@ -118,8 +122,7 @@ recipient has contract code.
   100,000 / 10,000. Verify against the chain rather than this file:
   `platform.getMinStake` on `<api>/ext/bc/P`.
 - C-chain balances are in wei (1e18 per FLR), P-chain in nFLR (1e9 per FLR).
-  See `dateToDateTimeLocalString`/`integerToDecimal` for display formatting
-  (offset 18 for C-chain, 9 for P-chain).
+  `formatWei` and `formatFlr` (`chain/units.ts`) print them.
 
 ## Dependencies: real constraints
 
@@ -189,7 +192,11 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   itself, because `Context.getContextFromURI` would build keyless clients), and
   a copied endpoint URL with `?x-apikey=` works as the URL (its key comes before
   `FLARE_API_KEY`; `createEnv` warns about a key over plain http to another
-  machine). Every client notes its node on the errors it throws (`notingNode`),
+  machine). `FLARE_API_KEY` goes only to the node of `FLARE_RPC_URL` or the
+  network's own, never to one `--rpc-url` names. A request carrying the key
+  refuses a redirect (flarejs fetch options `redirect: "error"`, the ethers
+  connection's `getUrlFunc`), since both libraries send the header on to the
+  redirect's target. Every client notes its node on the errors it throws (`notingNode`),
   and `describeError` adds the causes and the node and masks credentials
   (`redactSecrets`): print errors through it. `interactive` is a
   Commander command like the others and takes the two flags the same way; it
@@ -280,6 +287,10 @@ it — both example-based and property-based where applicable.
   was: requiring another field would refuse older files. Anything that signs or
   sends a file goes through `bundleFromConsistentTxJson`, which refuses a
   `message` or `unsignedTransactionBuffer` that isn't the file's transaction.
+  Since 5.0.0 a file records the account it was built for (`signer`: the
+  P-chain address in `signatureRequests[0]`, the C-chain address at the top of
+  an EVM file); `forDefi sign` and `send` refuse another account
+  (`signerMismatch`), and files without it (empty or missing) are not checked.
 - **`--derivation-path` and `--ctx-file` have no Commander default**, so that a
   given one can be told apart: `options.derivationPath` / `options.ctxFile` are
   undefined when not given. A given `--ctx-file` must exist; without

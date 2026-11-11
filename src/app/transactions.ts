@@ -4,13 +4,20 @@
  */
 import type { Account } from "../chain/keys";
 import { currentValidators, stakesOf, type CurrentValidator } from "../chain/validators";
-import { asNFlr, formatFlr, type NFlr } from "../chain/units";
+import { asNFlr, formatFlr, nowSeconds, type NFlr } from "../chain/units";
 import { buildTransaction } from "../core/builders";
 import { ESTIMATED_FEE_BASE_FEE_MULTIPLIER } from "../core/builders/pchain";
 import { atomicTxFee } from "../core/fee";
 import { executeTransaction } from "../core/pipeline";
 import type { ConfirmOptions } from "../core/submit";
-import { IMMEDIATE_SIGNER_POLICY, type Env, type Outcome, type Signer, type TxRequest } from "../core/types";
+import {
+  IMMEDIATE_SIGNER_POLICY,
+  type BeforeSign,
+  type Env,
+  type Outcome,
+  type Signer,
+  type TxRequest,
+} from "../core/types";
 import { logIssued } from "../output";
 
 /** A P-chain account may stake to at most this many distinct nodes in overlapping periods. */
@@ -20,11 +27,12 @@ export async function runTransaction(
   req: TxRequest,
   env: Env,
   signer: Signer,
-  confirm: ConfirmOptions = { onIssued: logIssued }
+  confirm: ConfirmOptions = { onIssued: logIssued },
+  beforeSign?: BeforeSign
 ): Promise<Outcome> {
   await env.clients.verifyNetwork();
   await preflight(req, env, await signer.account());
-  return executeTransaction(req, env, signer, confirm);
+  return executeTransaction(req, env, signer, confirm, beforeSign);
 }
 
 /**
@@ -85,8 +93,22 @@ async function preflight(req: TxRequest, env: Env, account: Account): Promise<vo
     case "setAutoRenewedValidatorConfig":
       await requireHelicon(env);
       return;
-    default:
+    // no checks that need the chain before building; listed, so that a new type has to be placed here or above
+    case "exportCP":
+    case "importCP":
+    case "exportPC":
+    case "importPC":
+    case "transfer":
+    case "claim":
+    case "withdrawal":
+    case "setClaimExecutors":
+    case "setAllowedClaimRecipients":
+    case "customCChainTx":
       return;
+    default: {
+      const unchecked: never = req;
+      throw new Error(`No pre-flight checks for ${String((unchecked as TxRequest).type)}`);
+    }
   }
 }
 
@@ -109,7 +131,7 @@ export function checkNodeLimit(
   account: Account,
   nodeId: string,
   endTime: bigint | undefined,
-  nowSeconds: bigint = BigInt(Math.floor(Date.now() / 1000))
+  now: bigint = nowSeconds()
 ): void {
   const unlisted = validators.find((v) => BigInt(v.delegatorCount ?? "0") > BigInt(v.delegators?.length ?? 0));
   if (unlisted) {
@@ -120,7 +142,7 @@ export function checkNodeLimit(
     );
   }
   const overlapping = stakesOf(validators, account.pAddress).filter(
-    (stake) => stake.endTime >= nowSeconds && (endTime === undefined || stake.startTime <= endTime)
+    (stake) => stake.endTime >= now && (endTime === undefined || stake.startTime <= endTime)
   );
   const nodeIds = new Set(overlapping.map((stake) => stake.nodeId.toLowerCase()));
   if (nodeIds.size >= MAX_NODES_PER_ACCOUNT && !nodeIds.has(nodeId.toLowerCase())) {

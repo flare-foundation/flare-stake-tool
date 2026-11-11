@@ -16,7 +16,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction claim-file constructed\nForDefi hash: PpjoenKUWHQgh3To0A0K9huteDEdjcL3plWuqK4NPlE=\n",
+    "stdout": "Unsigned transaction claim-file constructed\nForDefi hash: PpjoenKUWHQgh3To0A0K9huteDEdjcL3plWuqK4NPlE=\nNonce: 9\nClaim amount: 4 LFLR\n",
     "stderr": "",
     "txIds": [],
     "submissions": [],
@@ -33,6 +33,7 @@
         "chainId": 162
       },
       "message": "3e98e87a72945874208774e8d00d0af61bad78311d8dc2f7a655aea8ae0d3e51",
+      "signer": "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
       "forDefiHash": "PpjoenKUWHQgh3To0A0K9huteDEdjcL3plWuqK4NPlE="
     }
   }

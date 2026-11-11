@@ -15,6 +15,7 @@ import {
   resolveNetworkName,
 } from "../app/env";
 import { ExternalFileSigner } from "../signers/file";
+import { checkDerivationPath } from "../ledger/path";
 import { LedgerSigner, ledgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
 import { BASE_DERIVATION_PATH } from "./inputs";
@@ -72,6 +73,10 @@ export function resolveEnv(options: GlobalOptions): Env {
 type AccountSource = "keyFile" | "ledger" | "contextFile";
 
 function accountSource(options: GlobalOptions): AccountSource {
+  // refused before either is opened; the key file used to win silently
+  if (options.getHacked && options.ledger) {
+    throw new Error("--ledger and --get-hacked select different signers; pass one of them");
+  }
   if (options.getHacked) return "keyFile";
   if (options.ledger) return "ledger";
   return options.envPath ? "keyFile" : "contextFile";
@@ -101,7 +106,8 @@ export function contextFileApplies(options: GlobalOptions): boolean {
  */
 function ledgerSigner(options: GlobalOptions, env: Env): LedgerSigner {
   if (options.derivationPath !== undefined) {
-    return new LedgerSigner(ledgerDevice(), options.derivationPath, env.network.hrp);
+    const derivationPath = checkDerivationPath(options.derivationPath, "--derivation-path");
+    return new LedgerSigner(ledgerDevice(), derivationPath, env.network.hrp);
   }
   const context = contextFileApplies(options) ? readContextFile(options.ctxFile) : undefined;
   if (context?.wallet === "ledger") {

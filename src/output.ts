@@ -1,7 +1,7 @@
 import { styleText } from "node:util";
-import { nodeOfError } from "./chain/clients";
+import { REDIRECT_REFUSED, nodeOfError } from "./chain/clients";
 import { API_KEY_ENV, redactSecrets } from "./chain/network";
-import { formatFlr } from "./chain/units";
+import { formatFlr, formatWei } from "./chain/units";
 import { SubmittedTxError } from "./core/submit";
 import type { Outcome } from "./core/types";
 import { API_KEY_FLAG, RPC_URL_FLAG } from "./cli/node";
@@ -43,6 +43,21 @@ export function describeFee(outcome: Outcome, symbol: string): string | undefine
     : `Fee: ${formatFlr(outcome.fee)} ${symbol} (burned when the signed transaction is sent)`;
 }
 
+/**
+ * The lines of a C-chain transaction's values that may come from the chain: its nonce, the amount a claim takes and
+ * the executor fees setClaimExecutors pays. ForDefi co-signers pass the same `--nonce` and `-a` to build the same
+ * transaction; the executor fees are the executors' current ones, to compare.
+ */
+export function describeEvmValues(outcome: Outcome, symbol: string): string[] {
+  if (outcome.evm === undefined) return [];
+  const { nonce, claimed, executorFees } = outcome.evm;
+  return [
+    `Nonce: ${nonce}`,
+    ...(claimed !== undefined ? [`Claim amount: ${formatWei(claimed)} ${symbol}`] : []),
+    ...(executorFees !== undefined ? [`Executor fees: ${formatWei(executorFees)} ${symbol}`] : []),
+  ];
+}
+
 /** What the command line and interactive mode print once a transaction is sent or its unsigned file written. */
 export function reportOutcome(outcome: Outcome, symbol: string): void {
   if (outcome.status === "sent") {
@@ -53,6 +68,7 @@ export function reportOutcome(outcome: Outcome, symbol: string): void {
   }
   const fee = describeFee(outcome, symbol);
   if (fee) logInfo(fee);
+  for (const line of describeEvmValues(outcome, symbol)) logInfo(line);
   for (const notice of outcome.notices ?? []) logWarning(notice);
 }
 
@@ -62,6 +78,10 @@ export function logWarning(msg: string) {
 }
 
 const NODE_HINT = `; check ${RPC_URL_FLAG} and the API key (${API_KEY_FLAG} or ${API_KEY_ENV})`;
+
+const REDIRECT_TEXT =
+  "The node answered with a redirect, which a request carrying the API key does not follow (the key would go to " +
+  `whatever host it names); give the URL it redirects to with ${RPC_URL_FLAG}`;
 
 /**
  * The message for the top-level error handlers, cleaned of credentials (`redactSecrets`). A gateway that refuses a
@@ -79,14 +99,19 @@ function describeUncleaned(error: unknown): string {
   }
   const message = error instanceof Error ? error.message : String(error);
   const refused = /server response (40[13]) ([^(]*?)\s*(?:\(|$)/.exec(message);
+  // a refused redirect, worded by fetch ("fetch failed", caused by it) or by refuseRedirects (with its target)
+  const redirect = [message, ...causeMessages(error)].find((text) => text.startsWith(REDIRECT_REFUSED));
   const text = refused
     ? `The node answered HTTP ${refused[1]} ${refused[2]}${NODE_HINT}`
-    : /Unexpected token '<'.*is not valid JSON/.test(message)
-      ? `The node answered with an error page instead of JSON-RPC (${message})${NODE_HINT}`
-      : message;
+    : redirect !== undefined
+      ? REDIRECT_TEXT
+      : /Unexpected token '<'.*is not valid JSON/.test(message)
+        ? `The node answered with an error page instead of JSON-RPC (${message})${NODE_HINT}`
+        : message;
   const node = nodeOfError(error);
   if (node === undefined) return text; // other wrappers (keys, Ledger) already carry their cause's message
-  const details = [...causeMessages(error).filter((cause) => !text.includes(cause)), `node ${node}`];
+  const causes = redirect !== undefined ? [redirect] : causeMessages(error).filter((cause) => !text.includes(cause));
+  const details = [...causes, `node ${node}`];
   return `${text} (${details.join("; ")})`;
 }
 

@@ -28,7 +28,8 @@ export class ExternalFileSigner implements Signer {
   }
 
   sign(bundle: UnsignedTxBundle): Promise<SignResult> {
-    const { file, forDefiHash } = saveUnsignedTxJson(unsignedTxJsonFromBundle(bundle), this.id, this.cwd);
+    const json = unsignedTxJsonFromBundle(bundle, this.knownAccount);
+    const { file, forDefiHash } = saveUnsignedTxJson(json, this.id, this.cwd);
     return Promise.resolve({ status: "pending", id: this.id, forDefiHash, file });
   }
 }

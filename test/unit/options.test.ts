@@ -15,7 +15,12 @@ import {
   pastEndTimeWarning,
 } from "../../src/cli/inputs";
 import { globalOptions, resolveAccount, resolveSigner, type GlobalOptions } from "../../src/cli/options";
-import { parseAtomicTxRequest, parseEvmTxRequest } from "../../src/cli/requests";
+import {
+  ATOMIC_TX_OPTIONS,
+  parseAtomicTxRequest,
+  parseEvmTxRequest,
+  refuseUnusedOptions,
+} from "../../src/cli/requests";
 import { FAKE_LEDGER_KEY_ENV } from "../../src/signers/ledger";
 import { cleanupTempDir, makeTempDir, writeEnvFile } from "../helpers/cli";
 import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
@@ -46,6 +51,70 @@ describe("cli/inputs, cli/requests and cli/options", () => {
     });
   });
 
+  describe("the options each transaction type reads", () => {
+    // every option of `transaction`, with a base value and another one, both valid
+    const VALUES: Record<string, [string, unknown, unknown]> = {
+      amount: ["--amount", "10000", "20000"],
+      fee: ["--fee", "0.001", "0.002"],
+      nodeId: ["--node-id", NODE_ID, "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu"],
+      startTime: ["--start-time", "1900000000", "1900000001"],
+      endTime: ["--end-time", "1900086400", "1900086401"],
+      nonce: ["--nonce", "1", "2"],
+      delegationFee: ["--delegation-fee", "10", "12"],
+      popBlsPublicKey: ["--pop-bls-public-key", "a1".repeat(48), "a2".repeat(48)],
+      popBlsSignature: ["--pop-bls-signature", "b1".repeat(96), "b2".repeat(96)],
+      transferAddress: ["--transfer-address", "P-costwo1a", "P-costwo1b"],
+      period: ["--period", "14d", "7d"],
+      autoCompoundShares: ["--auto-compound-shares", "0", "5"],
+      ownerAddress: ["--owner-address", ["P-costwo1a"], ["P-costwo1b"]],
+      validatorTxId: ["--validator-tx-id", "tx1", "tx2"],
+    };
+    const REQUIRED: Record<string, string[]> = {
+      exportCP: ["amount"],
+      importCP: [],
+      exportPC: [],
+      importPC: [],
+      stake: ["nodeId", "amount", "endTime", "popBlsPublicKey", "popBlsSignature"],
+      delegate: ["nodeId", "amount", "endTime"],
+      transfer: ["amount", "transferAddress"],
+      addAutoRenewedValidator: ["nodeId", "amount", "period", "popBlsPublicKey", "popBlsSignature"],
+      setAutoRenewedValidatorConfig: ["nodeId", "period"],
+    };
+
+    it("are exactly the ones the parser reads, so that none it reads is refused and none it ignores is taken", () => {
+      for (const [type, required] of Object.entries(REQUIRED)) {
+        const base = Object.fromEntries(required.map((key) => [key, VALUES[key]![1]]));
+        const request = (options: object) =>
+          JSON.stringify(parseAtomicTxRequest(type, options).request, (_k, v: unknown) =>
+            typeof v === "bigint" ? v.toString() : v instanceof Uint8Array ? Buffer.from(v).toString("hex") : v
+          );
+        const read = Object.entries(VALUES)
+          .filter(([key, [, first, other]]) => {
+            const value = key in base ? other : first;
+            return request({ ...base, [key]: value }) !== request(base);
+          })
+          .map(([, [flag]]) => flag);
+        expect([...read].sort(), type).to.deep.equal([...ATOMIC_TX_OPTIONS[type]!].sort());
+      }
+      expect(Object.keys(ATOMIC_TX_OPTIONS).sort()).to.deep.equal(Object.keys(REQUIRED).sort());
+    });
+
+    it("refuses one given that the type doesn't read, the C-chain gas options included; -i and --threshold pass", () => {
+      expect(() => refuseUnusedOptions("importCP", ["--amount"])).to.throw(
+        "transaction importCP doesn't use --amount; leave it out"
+      );
+      expect(() => refuseUnusedOptions("exportPC", ["--amount", "--fee", "--nonce"])).to.throw(
+        "transaction exportPC doesn't use --fee, --nonce; leave them out"
+      );
+      expect(() => refuseUnusedOptions("exportCP", ["--amount", "--gas-limit"])).to.throw(
+        "transaction exportCP doesn't use --gas-limit; leave it out (the C-chain gas options are for the C-chain " +
+          "commands; exportCP and importPC take --fee)"
+      );
+      expect(() => refuseUnusedOptions("delegate", ["--transaction-id", "--threshold", "--amount"])).not.to.throw();
+      expect(() => refuseUnusedOptions("unknownType", ["--amount"]), "left to the parser").not.to.throw();
+    });
+  });
+
   describe("an empty option value", () => {
     const empty = (flag: string): string => `Option ${flag} is empty; leave it out to use the default`;
 
@@ -72,6 +141,7 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       const evm: [Parameters<typeof parseEvmTxRequest>[0], Record<string, string>, string][] = [
         ["claim", { recipient: TO, amount: "" }, "--amount"], // would claim every reward
         ["custom", { to: TO, value: "" }, "--value"],
+        ["custom", { to: TO, value: "1", data: "" }, "--data"], // would send the value with no call
         ["withdrawal", { to: TO, amount: "1", nonce: "" }, "--nonce"],
         ["withdrawal", { to: TO, amount: "1", gasLimit: "" }, "--gas-limit"],
         ["withdrawal", { to: TO, amount: "1", maxFeePerGas: "" }, "--max-fee-per-gas"],
@@ -80,6 +150,11 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       for (const [operation, options, flag] of evm) {
         expect(() => parseEvmTxRequest(operation, options), `${operation} ${flag}`).to.throw(empty(flag));
       }
+    });
+
+    it("leaves 0x as the way to send no calldata", () => {
+      expect(parseEvmTxRequest("custom", { to: TO, value: "1", data: "0x" })).to.include({ data: "0x" });
+      expect(parseEvmTxRequest("custom", { to: TO, value: "1" })).to.include({ data: "0x" });
     });
 
     it("still clears the stored list of setClaimExecutors and setAllowedClaimRecipients", () => {
@@ -161,6 +236,27 @@ describe("cli/inputs, cli/requests and cli/options", () => {
     });
   });
 
+  describe("--start-time 0", () => {
+    it("is no start time, as for a stake that starts when the chain accepts it", () => {
+      for (const type of ["delegate", "stake"]) {
+        const options = {
+          nodeId: NODE_ID,
+          amount: "10000",
+          endTime: "1900086400",
+          startTime: "0",
+          popBlsPublicKey: "ab".repeat(48),
+          popBlsSignature: "cd".repeat(96),
+        };
+        const { request, resolvedTimes } = parseAtomicTxRequest(type, options);
+        expect(request, type).to.include({ startTime: undefined });
+        expect(
+          resolvedTimes.map((time) => time.name),
+          type
+        ).to.not.include("Start time");
+      }
+    });
+  });
+
   describe("pastEndTimeWarning", () => {
     const now = Date.parse("2026-11-02T12:00:00Z");
 
@@ -230,6 +326,36 @@ describe("cli/inputs, cli/requests and cli/options", () => {
       }
       const options = { amount: "10000", nodeId: NODE_ID, period: "14d", ...BLS, autoCompoundShares: "1000000" };
       expect(parseAtomicTxRequest("addAutoRenewedValidator", options).request).to.include({ autoCompoundShares: 1e6 });
+    });
+
+    it("takes one --owner-address and no --threshold but 1: the authority is a single address", () => {
+      const options = { amount: "10000", nodeId: NODE_ID, period: "14d", ...BLS };
+      const owner = "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u6wmu4t";
+      const request = (extra: Record<string, unknown>) =>
+        parseAtomicTxRequest("addAutoRenewedValidator", { ...options, ...extra }).request;
+      expect(request({ ownerAddress: [owner], threshold: "1" })).to.include({ ownerAddress: owner });
+      expect(request({})).to.include({ ownerAddress: undefined });
+      // two made a 1-of-2 authority, which either key controlled alone
+      expect(request({ ownerAddress: [owner], autoCompoundShares: "500000" })).to.include({
+        ownerAddress: owner,
+        autoCompoundShares: 500_000,
+      });
+      expect(
+        parseAtomicTxRequest("setAutoRenewedValidatorConfig", {
+          nodeId: NODE_ID,
+          period: "14d",
+          autoCompoundShares: "500000",
+        }).request
+      ).to.include({ autoCompoundShares: 500_000, period: 1_209_600n });
+      expect(() => request({ ownerAddress: [owner, owner] })).to.throw(
+        "--owner-address takes one address (the validator authority is a single address with threshold 1), got 2"
+      );
+      expect(() => request({ ownerAddress: [""] })).to.throw("Option --owner-address is empty");
+      for (const type of ["addAutoRenewedValidator", "delegate"]) {
+        expect(() => parseAtomicTxRequest(type, { ...options, endTime: "14d", threshold: "2" }), type).to.throw(
+          "--threshold accepts only 1: the validator authority is a single address (--owner-address)"
+        );
+      }
     });
 
     it("needs the validator of an auto-renew config change, by node id or validation tx id", () => {
@@ -335,7 +461,6 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         // info and send took the key file here, while transactions signed with the Ledger
         ["--ledger --env-path", { ledger: true, envPath }, ledger.pAddress],
         ["--get-hacked --env-path", { getHacked: true, envPath }, keyFile.pAddress],
-        ["--get-hacked --env-path --ledger", { getHacked: true, envPath, ledger: true }, keyFile.pAddress],
         ["no selector", {}, context.pAddress],
       ];
       for (const [flags, selectors, expected] of cases) {
@@ -343,6 +468,28 @@ describe("cli/inputs, cli/requests and cli/options", () => {
         const signer = await resolveSigner(options, env);
         expect((await signer.account()).pAddress, `${flags}: signer`).to.equal(expected);
         expect((await resolveAccount(options, env)).pAddress, `${flags}: account`).to.equal(expected);
+      }
+      // the signer itself, not only its account: --env-path alone selects the account and writes a file, and only
+      // --get-hacked signs with the key file
+      const kinds: [Partial<GlobalOptions>, string][] = [
+        [{ envPath }, "file"],
+        [{ ledger: true, envPath }, "ledger"],
+        [{ getHacked: true, envPath }, "privateKey"],
+        [{}, "file"],
+      ];
+      for (const [selectors, kind] of kinds) {
+        expect((await resolveSigner({ ...base, ...selectors }, env)).kind, JSON.stringify(selectors)).to.equal(kind);
+      }
+      // two signers: the key file used to win silently
+      const both = { ...base, getHacked: true, envPath, ledger: true };
+      for (const resolve of [resolveSigner, resolveAccount]) {
+        await resolve(both, env).then(
+          () => expect.fail("--get-hacked --ledger resolved an account"),
+          (error: unknown) =>
+            expect((error as Error).message).to.equal(
+              "--ledger and --get-hacked select different signers; pass one of them"
+            )
+        );
       }
     });
 

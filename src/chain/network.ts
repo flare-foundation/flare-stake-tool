@@ -93,11 +93,16 @@ export function redactSecrets(text: string): string {
 }
 
 /**
- * A node URL as given, for an error about it: without its query and fragment, which may hold a key under any
- * spelling (`x%2Dapikey=`), and with its credentials masked. It is refused before any key is remembered.
+ * A node URL as given, for an error about it, refused before any key is remembered: without its query and fragment,
+ * which may hold a key under any spelling (`x%2Dapikey=`). With an `@` anywhere, only its scheme is shown: a password
+ * typed without escaping can hold `/`, `?` or `#`, and a query value an `@`, so where credentials end and the query
+ * starts can't be told (`https://alice:SECRET?tail@host`, `https://host:bad/?x-apikey=a@SECRET`).
  */
 function shownNodeUrlInput(input: string): string {
   const text = input.trim();
+  if (text.includes("@")) {
+    return `${/^[a-z][a-z0-9+.-]*:\/\//i.exec(text)?.[0] ?? ""}***`;
+  }
   const cut = text.search(/[?#]/);
   return redactSecrets(cut < 0 ? text : `${text.slice(0, cut)}?…`);
 }
@@ -174,7 +179,9 @@ export function overriddenNode(
 /**
  * Resolves a network by name. The node URL comes from `--rpc-url`, else `FLARE_RPC_URL` (or `env[...]`); the API key
  * from `--api-key`, else the selected URL's own `x-apikey` query parameter, else `FLARE_API_KEY`: a key written into
- * the URL belongs to that node, while the environment's may be left over for another one. The hrp, ids and symbol
+ * the URL belongs to that node, while the environment's may be left over for another one. `FLARE_API_KEY` goes only to
+ * the node of `FLARE_RPC_URL` or the network's own, never to one `--rpc-url` names, which takes `--api-key` or its own
+ * `x-apikey`: the environment's key would otherwise go to any host a command line names. The hrp, ids and symbol
  * stay those of the network. That is how staging deployments and private nodes are reached, and how the test harness
  * points the tool at a replay server.
  */
@@ -196,7 +203,10 @@ export function networkConfig(
     chainId: definition.chainId,
     apiUrl,
     rpcUrl: `${apiUrl}/ext/bc/C/rpc`,
-    apiKey: nonEmpty(overrides.apiKey) ?? node?.apiKey ?? nonEmpty(env[API_KEY_ENV]),
+    apiKey:
+      nonEmpty(overrides.apiKey) ??
+      node?.apiKey ??
+      (nonEmpty(overrides.apiUrl) === undefined ? nonEmpty(env[API_KEY_ENV]) : undefined),
     symbol: definition.symbol,
   };
 }

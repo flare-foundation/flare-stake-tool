@@ -7,7 +7,7 @@ import { Argument, Command } from "commander";
 import { styleText } from "node:util";
 import figlet from "figlet";
 import { accountFromPublicKey } from "./chain/keys";
-import { overriddenNode } from "./chain/network";
+import { NETWORK_NAMES, overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
@@ -18,6 +18,7 @@ import { sendSignedTransaction } from "./app/send";
 import { runTransaction } from "./app/transactions";
 import {
   BASE_DERIVATION_PATH,
+  DEFAULT_DELEGATION_FEE_PERCENT,
   END_TIME,
   START_TIME,
   START_TIME_NOT_USED_WARNING,
@@ -36,9 +37,16 @@ import {
   selectsAccount,
   type GlobalOptions,
 } from "./cli/options";
-import { parseAtomicTxRequest, parseEvmTxRequest, type AtomicTxOptions, type EvmTxOptions } from "./cli/requests";
+import {
+  parseAtomicTxRequest,
+  parseEvmTxRequest,
+  refuseUnusedOptions,
+  type AtomicTxOptions,
+  type EvmTxOptions,
+} from "./cli/requests";
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
+import { checkDerivationPath } from "./ledger/path";
 import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
 import { confirmLedgerAccount, ledgerDevice } from "./signers/ledger";
 import { version } from "../package.json";
@@ -54,12 +62,26 @@ interface InitCtxOptions {
   vaultId?: string;
 }
 
+/** The program's C-chain fee options, which only the C-chain commands read. */
+const EVM_FEE_OPTIONS = ["maxFeePerGas", "priorityFeePerGas", "gasLimit"];
+
+/** The long flags of the options of `command` given on the command line, of those named in `only` when given. */
+function givenFlags(command: Command, only?: readonly string[]): string[] {
+  return command.options
+    .filter((option) => only === undefined || only.includes(option.attributeName()))
+    .filter((option) => command.getOptionValueSource(option.attributeName()) === "cli")
+    .flatMap((option) => (option.long === undefined ? [] : [option.long]));
+}
+
 /** Options of `send` and `forDefi`. */
 type TransactionIdOptions = Pick<GlobalOptions, "transactionId">;
 
 export function cli(program: Command): void {
+  // each command's help lists the program's options too (--network, --ledger, the fee options, ...), which it takes;
+  // the commands defined below inherit this
+  program.configureHelp({ showGlobalOptions: true });
   program
-    .option("--network <network>", "Network name (flare|songbird|costwo|coston|localflare)")
+    .option("--network <network>", `Network name (${NETWORK_NAMES.join("|")})`)
     .option(RPC_URL_OPTION, RPC_URL_DESCRIPTION)
     .option(API_KEY_OPTION, API_KEY_DESCRIPTION)
     .option("--ledger", "Use ledger to sign transactions")
@@ -125,7 +147,11 @@ export function cli(program: Command): void {
     .option("-s, --start-time <start-time>", "Start time (unix seconds or duration from now)")
     .option("-e, --end-time <end-time>", "End time (unix seconds or duration from now, e.g. 2d12h)")
     .option("--nonce <nonce>", "C-chain nonce of the constructed transaction (exportCP)")
-    .option("--delegation-fee <delegation-fee>", "Delegation fee in percent charged by the validator", "20")
+    .option(
+      "--delegation-fee <delegation-fee>",
+      "Delegation fee in percent charged by the validator",
+      DEFAULT_DELEGATION_FEE_PERCENT
+    )
     .option("--pop-bls-public-key <popBlsPublicKey>", "BLS Public Key")
     .option("--pop-bls-signature <popBlsSignature>", "BLS Signature")
     .option("--transfer-address <transfer-address>", "P-chain address to transfer funds to")
@@ -137,14 +163,15 @@ export function cli(program: Command): void {
     )
     .option(
       "--owner-address <address...>",
-      "P-chain address(es) allowed to change the auto-renew config (default: own address)"
+      "P-chain address allowed to change the auto-renew config (one address; default: own address)"
     )
     .option(
       "--validator-tx-id <txID>",
       "Transaction id of the auto-renewed validator to reconfigure (alternative to --node-id)"
     )
-    .option("--threshold <threshold>", "Accepted for compatibility; has no effect", "1")
-    .action(async (type: string, options: AtomicTxOptions) => {
+    .option("--threshold <threshold>", "Accepted for compatibility; only 1", "1")
+    .action(async (type: string, options: AtomicTxOptions, command: Command) => {
+      refuseUnusedOptions(type, [...givenFlags(command), ...givenFlags(program, EVM_FEE_OPTIONS)]);
       await transaction(type, globalOptions(program.opts(), options));
     });
 
@@ -341,12 +368,16 @@ async function interactive(options: GlobalOptions, ignored: readonly string[]): 
 }
 
 async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
+  if (options.ledger && typeof options.publicKey === "string") {
+    // the Ledger's key used to be saved silently
+    throw new Error("init-ctx takes --ledger or --public-key, not both");
+  }
   const network = resolveNetworkName(options.network, options.ctxFile);
   const env = createEnv(network, nodeOverrides(options)); // not resolveEnv: --ctx-file is the file to write
   const vaultId = typeof options.vaultId === "string" ? options.vaultId : undefined;
   let context: ContextFile;
   if (options.ledger) {
-    const derivationPath = options.derivationPath ?? BASE_DERIVATION_PATH;
+    const derivationPath = checkDerivationPath(options.derivationPath ?? BASE_DERIVATION_PATH, "--derivation-path");
     const { publicKey, account } = await confirmLedgerAccount(ledgerDevice(), derivationPath, env.network.hrp);
     context = {
       wallet: "ledger",

@@ -18,7 +18,7 @@
   },
   "outcome": {
     "exitCode": 0,
-    "stdout": "Unsigned transaction withdrawal-file constructed\nForDefi hash: UqNp0KhN5tnHqoyZnGsfu3N8JT8UMdydj7EgeptOkts=\n",
+    "stdout": "Unsigned transaction withdrawal-file constructed\nForDefi hash: UqNp0KhN5tnHqoyZnGsfu3N8JT8UMdydj7EgeptOkts=\nNonce: 7\n",
     "stderr": "",
     "txIds": [],
     "submissions": [],
@@ -35,6 +35,7 @@
         "chainId": 162
       },
       "message": "52a369d0a84de6d9c7aa8c999c6b1fbb737c253f1431dc9d8fb1207a9b4e92db",
+      "signer": "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
       "forDefiHash": "UqNp0KhN5tnHqoyZnGsfu3N8JT8UMdydj7EgeptOkts="
     }
   }

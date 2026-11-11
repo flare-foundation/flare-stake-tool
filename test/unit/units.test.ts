@@ -9,7 +9,6 @@ import {
   isDurationInput,
   asNFlr,
   asWei,
-  nFlrToWei,
   parseDecimal,
   parseDuration,
   parseEndTime,
@@ -46,7 +45,6 @@ describe("chain/units", () => {
       1_000_000_000n,
       1_000_000_000_000_000_000n,
     ]);
-    expect(nFlrToWei(nFlr)).to.equal(wei);
   });
 
   it("formats a negative amount with a leading minus", () => {
@@ -69,6 +67,15 @@ describe("chain/units", () => {
       expect(formatFlr(asNFlr(1n))).to.equal("0.000000001");
     });
 
+    it("refuses more than the chain's uint64 holds, which shifted the later fields of the transaction", () => {
+      expect(parseFlr("18446744073.709551615")).to.equal(2n ** 64n - 1n);
+      for (const bad of ["18446744073.709551616", "18446744074", "100000000000000000000"]) {
+        expect(() => parseFlr(bad), bad).to.throw(
+          `Invalid amount "${bad}": at most 18446744073.709551615 (2^64−1 nFLR)`
+        );
+      }
+    });
+
     it("refuses digits beyond the precision, which up to 4.x were dropped (0.0000000001 became 0)", () => {
       for (const bad of ["1.9999999999", "0.0000000001", "12.3456789012"]) {
         expect(() => parseFlr(bad), bad).to.throw(/Invalid amount .*at most 9 decimal places/);
@@ -76,7 +83,6 @@ describe("chain/units", () => {
       expect(parseFlr("1.5000000000")).to.equal(1_500_000_000n); // trailing zeros change nothing
       expect(() => parsePercentToShares("33.33333")).to.throw(/at most 4 decimal places/);
       expect(formatWei(asWei(1_000_000_000_000_000_000n))).to.equal("1");
-      expect(nFlrToWei(asNFlr(1_500_000_000n))).to.equal(1_500_000_000_000_000_000n);
     });
 
     it("parses C-chain amounts with the full 18 decimals of wei", () => {
@@ -87,7 +93,7 @@ describe("chain/units", () => {
       // an amount with up to 9 decimals gives the same wei as the nFLR route used up to 4.x
       fc.assert(
         fc.property(fc.bigInt({ min: 0n, max: 10n ** 20n }), (nFlr) => {
-          expect(parseFlrToWei(formatFlr(asNFlr(nFlr)))).to.equal(nFlrToWei(asNFlr(nFlr)));
+          expect(parseFlrToWei(formatFlr(asNFlr(nFlr)))).to.equal(nFlr * 10n ** 9n);
         })
       );
     });

@@ -26,10 +26,12 @@ import type * as NetworkModule from "../../src/chain/network";
 import type { NFlr, Wei } from "../../src/chain/units";
 import type * as ValidatorsModule from "../../src/chain/validators";
 import type * as PchainModule from "../../src/core/builders/pchain";
+import type { BuiltDetails } from "../../src/core/details";
+import type { TxRequest } from "../../src/core/types";
 import type * as InteractiveModule from "../../src/interactive/cli";
 import type * as LedgerSignerModule from "../../src/signers/ledger";
 import type { LedgerDevice } from "../../src/signers/ledger";
-import { SigningKey, keccak256, toUtf8Bytes } from "ethers";
+import { SigningKey, computeAddress, keccak256, toUtf8Bytes } from "ethers";
 import { EWOQ_P_ADDRESS, EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 
 const DIST = path.resolve(__dirname, "..", "..", "dist");
@@ -69,6 +71,8 @@ interface Flags {
   zeroRewards?: boolean;
   /** The validator's cycle end cannot be looked up. */
   noCycle?: boolean;
+  /** The node is on another network than the one chosen. */
+  wrongNetwork?: boolean;
   /** The Ledger answers one key whatever the path, like the FLARE_FAKE_LEDGER_KEY stand-in. */
   sameKey?: boolean;
   /** Another Ledger is plugged in when a question with this text is asked: from then on every path answers another key. */
@@ -181,7 +185,12 @@ const fakeClients = () => {
     return Promise.resolve({ numFetched: txIds.length, utxos: txIds.map(utxo), endIndex: { address: "", utxo: "" } });
   };
   return {
-    verifyNetwork: () => (flags.noMax ? Promise.reject(new Error("unreachable")) : Promise.resolve()),
+    verifyNetwork: () => {
+      record("NODE verifyNetwork");
+      return flags.wrongNetwork
+        ? Promise.reject(new Error("The node is on network 14 (flare), not on localflare (162)"))
+        : Promise.resolve();
+    },
     pvm: { getUTXOs: getUTXOs("P") },
     evm: { getUTXOs: getUTXOs("C") },
   };
@@ -195,9 +204,37 @@ stub(envModule, "createEnv", (network, node = {}) => {
   >;
 });
 
+/** What the pipeline would read from the built transaction, for the summary shown before signing. */
+function builtDetailsOf(request: TxRequest): BuiltDetails {
+  switch (request.type) {
+    case "exportCP":
+      return { fee: request.fee ?? (1_234_000n as NFlr) };
+    case "importPC":
+      return { fee: request.fee ?? (1_234_000n as NFlr), imported: 2_998_766_000n as NFlr };
+    case "importCP":
+      return { fee: 1_234_000n as NFlr, imported: 2_998_766_000n as NFlr };
+    case "claim":
+      return {
+        nonce: 7,
+        value: 0n as Wei,
+        maxGasCost: 75_000_000_000_000_000n as Wei,
+        claimed: request.amount ?? ((5n * 10n ** 18n) as Wei),
+      };
+    case "withdrawal":
+    case "setClaimExecutors":
+    case "setAllowedClaimRecipients":
+    case "customCChainTx":
+      return { nonce: 7, value: 0n as Wei, maxGasCost: 75_000_000_000_000_000n as Wei };
+    default:
+      return { fee: 1_234_000n as NFlr };
+  }
+}
+
 const transactions = fromDist<typeof TransactionsModule>("app/transactions.js");
-stub(transactions, "runTransaction", async (request, _env, signer) => {
+stub(transactions, "runTransaction", async (request, _env, signer, _confirm, beforeSign) => {
   await signer.account(); // as runTransaction does before building
+  const details = builtDetailsOf(request);
+  await beforeSign?.(details); // between building and signing; No throws
   record(`TX ${show(request)} signer=${signer.kind}`);
   if (flags.failTx?.includes(request.type)) {
     flags.failTx = flags.failTx.filter((type) => type !== request.type);
@@ -205,13 +242,8 @@ stub(transactions, "runTransaction", async (request, _env, signer) => {
   }
   txCount++;
   utxoReads = 0;
-  const atomic = /^(export|import)/.test(request.type);
-  return {
-    status: "sent" as const,
-    txId: `tx${txCount}`,
-    chainStatus: "Committed",
-    ...(atomic ? { fee: 1_234_000n as NFlr } : {}),
-  };
+  // the fee the summary showed, as the pipeline reports the one it read from the transaction
+  return { status: "sent" as const, txId: `tx${txCount}`, chainStatus: "Committed", fee: details.fee };
 });
 stub(transactions, "estimateAtomicFee", (request) => {
   record(`ESTIMATE ${show(request)}`);
@@ -258,17 +290,25 @@ stub(fromDist<typeof ValidatorsModule>("chain/validators.js"), "currentValidator
   )
 );
 
+/** The key the device has at a path: another one once another Ledger is plugged in, the same everywhere with sameKey. */
+const deviceKey = (derivationPath: string) =>
+  new SigningKey(
+    keccak256(toUtf8Bytes((ledgerSwapped ? "another Ledger " : "") + (flags.sameKey ? "same" : derivationPath)))
+  );
+
 const fakeDevice: LedgerDevice = {
   detectApp: () => Promise.resolve("Flare"),
   getPublicKey: (derivationPath) => {
     record(`LEDGER getPublicKey ${derivationPath}`);
-    const seed = (ledgerSwapped ? "another Ledger " : "") + (flags.sameKey ? "same" : derivationPath);
-    return Promise.resolve(new SigningKey(keccak256(toUtf8Bytes(seed))).compressedPublicKey.slice(2));
+    return Promise.resolve(deviceKey(derivationPath).compressedPublicKey.slice(2));
   },
   signHash: () => Promise.reject(new Error("not used")),
   signTransaction: () => Promise.reject(new Error("not used")),
   signEvmTransaction: () => Promise.reject(new Error("not used")),
-  showCAddress: () => Promise.reject(new Error("not used")),
+  showCAddress: (derivationPath) => {
+    record(`LEDGER showCAddress ${derivationPath}`);
+    return Promise.resolve(computeAddress(deviceKey(derivationPath)));
+  },
 };
 stub(fromDist<typeof LedgerSignerModule>("signers/ledger.js"), "ledgerDevice", () => fakeDevice);
 
@@ -292,6 +332,8 @@ const TASK = {
   quit: "Quit",
 };
 const PRIVATE_KEY = ["Private Key", "pk", "LocalHost"];
+/** The answer to "Sign and send this transaction?", asked after the summary of each built transaction. */
+const SIGN = true;
 const P_ADDRESS = EWOQ_P_ADDRESS;
 const BLS_PUBLIC_KEY = "0x" + "a1".repeat(48);
 const BLS_SIGNATURE = "0x" + "b2".repeat(96);
@@ -307,7 +349,7 @@ interface Scenario {
   options?: Partial<InteractiveModule.InteractiveOptions>;
   flags?: Flags;
   /** The ctx.json present at the start: the Ledger one an earlier scenario wrote, a ForDefi one, or an unusable one. */
-  ctx?: "ledger" | "fordefi" | "unusable";
+  ctx?: "ledger" | "fordefi" | "unusable" | "stale";
   /** Keep the ctx.json this scenario writes for later scenarios. */
   keepLedgerCtx?: boolean;
   script: Answer[];
@@ -323,20 +365,20 @@ const SCENARIOS: Scenario[] = [
       TASK.addresses,
       TASK.balance,
       TASK.validators,
-      TASK.CP, "10", "",
-      TASK.PC, "", "0.00000001", false, "0.00000001", true,
-      TASK.PC, "1.5", "1",
-      TASK.import, "P",
-      TASK.import, "C", "0.5",
-      TASK.transfer, "1.5", P_ADDRESS,
-      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE,
-      TASK.delegate, "50", NODE_X, "1700000000",
-      TASK.addARV, "10000", NODE_Y, "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE,
+      TASK.CP, "10", "", SIGN, SIGN,
+      TASK.PC, "", SIGN, "0.00000001", false, "0.00000001", true, SIGN,
+      TASK.PC, "1.5", SIGN, "1", SIGN,
+      TASK.import, "P", SIGN,
+      TASK.import, "C", "0.5", SIGN,
+      TASK.transfer, "1.5", P_ADDRESS, SIGN,
+      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE, SIGN,
+      TASK.delegate, "50", NODE_X, "1700000000", SIGN,
+      TASK.addARV, "10000", NODE_Y, "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE, SIGN,
       TASK.setARV, NODE_Y, "0", false,
-      TASK.setARV, NODE_Y, "0", true,
-      TASK.setARV, NODE_Y, "7d",
-      TASK.claim, "Yes", "No", "",
-      TASK.claim, "No", "1,25", "0.0000000000000000001", "1.25", "Yes", "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
+      TASK.setARV, NODE_Y, "0", true, SIGN,
+      TASK.setARV, NODE_Y, "7d", SIGN,
+      TASK.claim, "Yes", "No", "", SIGN,
+      TASK.claim, "No", "1,25", "0.0000000000000000001", "1.25", "Yes", "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC", SIGN,
       TASK.quit,
     ],
   },
@@ -346,11 +388,17 @@ const SCENARIOS: Scenario[] = [
     script: [
       "Private Key", "nofile",
       ...PRIVATE_KEY,
-      TASK.transfer, "1", P_ADDRESS,
-      TASK.transfer, "abc", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS,
-      TASK.setARV, NODE_Z, "0", true,
+      TASK.transfer, "1", P_ADDRESS, SIGN,
+      TASK.transfer, "abc", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS, SIGN,
+      TASK.setARV, NODE_Z, "0", true, SIGN,
       TASK.quit,
     ],
+  },
+  {
+    // the rewards and the cycle end were read from the node, and shown, before any transaction checked its network
+    name: "private key: a node on another network",
+    flags: { wrongNetwork: true },
+    script: [...PRIVATE_KEY, TASK.claim, TASK.setARV, NODE_Y, "0", TASK.quit],
   },
   {
     // connecting used to ask again after every error, with no way out but Ctrl-C
@@ -360,18 +408,30 @@ const SCENARIOS: Scenario[] = [
   {
     name: "private key: a failed export is not imported",
     flags: { failTx: ["exportCP", "exportPC"] },
-    script: [...PRIVATE_KEY, TASK.CP, "10", "", TASK.PC, "1", TASK.quit],
+    script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, TASK.PC, "1", SIGN, TASK.quit],
+  },
+  {
+    // No (also the default) signs nothing; a move whose export is not signed waits for nothing and imports nothing
+    name: "private key: No to signing",
+    script: [...PRIVATE_KEY, TASK.delegate, "50", NODE_X, "14d", false, TASK.CP, "10", "", "", TASK.quit],
   },
   {
     name: "private key: a move waits for its own export, not an earlier one",
     flags: { earlierExport: true },
-    script: [...PRIVATE_KEY, TASK.CP, "10", "", TASK.PC, "1", "", TASK.quit],
+    script: [...PRIVATE_KEY, TASK.CP, "10", "", SIGN, SIGN, TASK.PC, "1", SIGN, "", SIGN, TASK.quit],
   },
   {
     name: "private key: no estimates, nothing to claim",
     flags: { noEstimate: true, noMax: true, zeroRewards: true },
     options: { node: { apiUrl: "http://127.0.0.1:1" }, evmFees: { gasLimit: "250000" } },
-    script: [...PRIVATE_KEY, TASK.CP, "1", "", TASK.PC, "2", "", TASK.import, "C", "", TASK.claim, TASK.quit],
+    script: [
+      ...PRIVATE_KEY,
+      TASK.CP, "1", "", SIGN, SIGN,
+      TASK.PC, "2", SIGN, "", SIGN,
+      TASK.import, "C", "", SIGN,
+      TASK.claim,
+      TASK.quit,
+    ],
   },
   {
     name: "ledger: new context",
@@ -380,6 +440,12 @@ const SCENARIOS: Scenario[] = [
   },
   { name: "ledger: keep the context", ctx: "ledger", script: ["Ledger", "Yes", TASK.addresses, TASK.quit] },
   {
+    // the address shown is the one of the saved key, which the session uses, not the cached ethAddress
+    name: "ledger: a context with a stale cached address",
+    ctx: "stale",
+    script: ["Ledger", "Yes", TASK.addresses, TASK.quit],
+  },
+  {
     // the claim shows the first Ledger's account; the transaction is refused rather than built for the other one
     name: "ledger: another Ledger plugged in during the session",
     ctx: "ledger",
@@ -387,13 +453,13 @@ const SCENARIOS: Scenario[] = [
     script: ["Ledger", "Yes", TASK.claim, "Yes", "No", "", TASK.quit],
   },
   {
-    // the addresses listed are the first Ledger's: the session does not start on the other one, whose key does not
-    // match the saved context either, until it is chosen by replacing the context
+    // the addresses listed are the first Ledger's: the device then shows the other one's, and nothing is saved
+    // until an address of the Ledger now plugged in is chosen
     name: "ledger: another Ledger plugged in while choosing the address",
     flags: { swapLedgerAt: "Which address do you want to use?" },
     script: [
       "Ledger", "Coston2", "BIP44", { index: 0 },
-      "Ledger", "Yes", true, "Coston2", "BIP44", { index: 0 }, TASK.addresses, TASK.quit,
+      "Ledger", "Coston2", "BIP44", { index: 0 }, TASK.addresses, TASK.quit,
     ],
   },
   {
@@ -432,6 +498,13 @@ async function main(): Promise<void> {
     process.chdir(dir);
     fs.writeFileSync("pk", `PRIVATE_KEY_HEX=${EWOQ_PRIVATE_KEY_HEX}\n`);
     if (scenario.ctx === "ledger" && ledgerCtx) fs.writeFileSync("ctx.json", ledgerCtx);
+    if (scenario.ctx === "stale" && ledgerCtx) {
+      const context = {
+        ...(JSON.parse(ledgerCtx) as object),
+        ethAddress: "0x000000000000000000000000000000000000dEaD",
+      };
+      fs.writeFileSync("ctx.json", JSON.stringify(context, null, 2));
+    }
     if (scenario.ctx === "fordefi") {
       const context = { wallet: "publicKey", publicKey: "02" + "11".repeat(32), network: "costwo", vaultId: "v-1" };
       fs.writeFileSync("ctx.json", JSON.stringify(context));

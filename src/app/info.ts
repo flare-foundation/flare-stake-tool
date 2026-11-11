@@ -1,5 +1,5 @@
 import type { Account } from "../chain/keys";
-import { asNFlr, asWei, type NFlr, type Wei } from "../chain/units";
+import { SHARES_PER_PERCENT, asNFlr, asWei, type NFlr, type Wei } from "../chain/units";
 import { currentValidators, isAutoRenewed, type CurrentValidator } from "../chain/validators";
 import type { Env } from "../core/types";
 
@@ -28,6 +28,8 @@ export function describeAutoRenewal(validator: CurrentValidator): string | undef
   const cycleEnd = new Date(Number(validator.endTime) * 1000).toISOString();
   const nextPeriod = validator.nextPeriod ?? "?";
   const authority = validator.validatorAuthority?.addresses.join(", ") ?? "?";
-  const compound = validator.autoCompoundRewardShares ? Number(validator.autoCompoundRewardShares) / 10_000 : 0;
+  const compound = validator.autoCompoundRewardShares
+    ? Number(validator.autoCompoundRewardShares) / SHARES_PER_PERCENT
+    : 0;
   return `auto-renewed: cycle ends ${cycleEnd}, next period ${nextPeriod}s${nextPeriod === "0" ? " (exits at cycle end)" : ""}, authority ${authority}, auto-compound ${compound}%`;
 }

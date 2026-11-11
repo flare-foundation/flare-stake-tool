@@ -152,7 +152,3 @@ export function parsePrivateKey(options: { hex?: string | undefined; cb58?: stri
   }
   return key;
 }
-
-export function privateKeyToCb58(privateKey: Uint8Array): string {
-  return `${CB58_PREFIX}${futils.base58check.encode(privateKey)}`;
-}

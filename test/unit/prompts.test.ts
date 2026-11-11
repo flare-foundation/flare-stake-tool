@@ -49,6 +49,26 @@ describe("interactive prompt checks", () => {
     expect(asked.map((question) => question.default)).to.deep.equal([undefined, undefined]); // empty stays empty
   });
 
+  it("the transfer address prompt checks the address against the session's network", async () => {
+    let validate: ((value: string) => true | string) | undefined;
+    const original = inquirer.prompt;
+    Object.assign(inquirer, {
+      prompt: (questions: { validate?: (value: string) => true | string }[]) => {
+        validate = questions[0]!.validate;
+        return Promise.resolve({ answer: "" });
+      },
+    });
+    try {
+      await prompts.transferAddress("costwo");
+    } finally {
+      Object.assign(inquirer, { prompt: original });
+    }
+    expect(validate!("P-costwo18jma8ppw3nhx5r4ap8clazz0dps7rv5uee8qg8")).to.equal(true);
+    expect(validate!("P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5uj3gy4v")).to.match(
+      /is an address of localflare, not of this network \(costwo\)/
+    );
+  });
+
   it("Ctrl-C at an open question exits with 130, and the key handler is gone once the question is answered", async () => {
     const before = process.stdin.listenerCount("keypress");
     const exits: unknown[] = [];
@@ -81,5 +101,45 @@ describe("interactive prompt checks", () => {
     expect(exits).to.deep.equal([130]);
     expect(whileAsking).to.equal(before + 1);
     expect(process.stdin.listenerCount("keypress")).to.equal(before);
+  });
+
+  it("Ctrl-D on an empty answer ends the session like Ctrl-C; with text typed it only deletes, as in readline", async () => {
+    const exits: unknown[] = [];
+    const original = {
+      prompt: inquirer.prompt,
+      exit: process.exit.bind(process),
+      write: process.stdout.write.bind(process.stdout),
+    };
+    process.exit = ((code?: number) => {
+      exits.push(code);
+    }) as typeof process.exit;
+    process.stdout.write = () => true;
+    try {
+      for (const [typed, expected] of [
+        ["", [130]], // readline would close: the end of input
+        ["half an answer", []],
+      ] as const) {
+        exits.length = 0;
+        Object.assign(inquirer, {
+          // the key comes while the question is open, as from the terminal
+          prompt: () =>
+            Object.assign(
+              new Promise((resolve) =>
+                setImmediate(() => {
+                  process.stdin.emit("keypress", "\x04", { ctrl: true, name: "d" });
+                  resolve({ answer: "" });
+                })
+              ),
+              { ui: { rl: { line: typed } } }
+            ),
+        });
+        await prompts.delegationFee();
+        expect(exits, JSON.stringify(typed)).to.deep.equal(expected);
+      }
+    } finally {
+      Object.assign(inquirer, { prompt: original.prompt });
+      process.exit = original.exit;
+      process.stdout.write = original.write;
+    }
   });
 });

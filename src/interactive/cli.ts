@@ -4,7 +4,8 @@
  */
 import fs from "fs";
 import { styleText } from "node:util";
-import { accountFromPublicKey, type Account } from "../chain/keys";
+import { computeAddress, hexlify } from "ethers";
+import { accountFromPublicKey, normalizePublicKey, type Account } from "../chain/keys";
 import type { NodeOverrides } from "../chain/network";
 import {
   formatFlr,
@@ -30,9 +31,11 @@ import {
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
 import { allUtxos, maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
+import type { BuiltDetails } from "../core/details";
 import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
-import { describeError, log, logError, logInfo, logWarning, reportOutcome } from "../output";
-import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
+import { describeError, log, logError, logInfo, logIssued, logWarning, reportOutcome } from "../output";
+import { signingSummary } from "./summary";
+import { LedgerSigner, confirmLedgerAccount, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
 import {
   DEFAULT_DELEGATION_FEE_PERCENT,
@@ -86,7 +89,8 @@ export async function interactiveCli(options: InteractiveOptions): Promise<void>
     try {
       await TASKS[task](session);
     } catch (error) {
-      logError(`Error: ${describeError(error)}`);
+      if (error instanceof SigningDeclined) logInfo(error.message);
+      else logError(`Error: ${describeError(error)}`);
     }
   }
 }
@@ -166,16 +170,33 @@ async function transfer(session: Session): Promise<void> {
 async function setAutoRenewal(session: Session): Promise<void> {
   const id = await prompts.nodeId();
   const period = parseDuration(await prompts.period("change"));
-  if (period === 0n && !(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id)))) {
-    logInfo("Auto-renewal left unchanged.");
-    return;
+  if (period === 0n) {
+    await session.env.clients.verifyNetwork(); // before a cycle end read from the node is shown
+    if (!(await prompts.confirmStopAutoRenewal(await cycleEndOf(session.env, id)))) {
+      logInfo("Auto-renewal left unchanged.");
+      return;
+    }
   }
   await execute(session, { type: "setAutoRenewedValidatorConfig", nodeId: id, period });
 }
 
-/** Builds, signs and sends (or writes) a transaction, and reports it as the command line does. */
+/** The answer No to signing a transaction: nothing is signed or sent, and a move stops before its import. */
+class SigningDeclined extends Error {
+  constructor() {
+    super("Not signed; nothing was sent.");
+  }
+}
+
+/**
+ * Builds, signs and sends a transaction, and reports it as the command line does. What is about to be signed is shown
+ * first, read from the built transaction, and signed only when the user confirms; No is the default.
+ */
 async function execute(session: Session, request: TxRequest): Promise<Outcome> {
-  const outcome = await runTransaction(request, session.env, session.signer);
+  const confirmSigning = async (details: BuiltDetails): Promise<void> => {
+    for (const line of signingSummary(request, details, session.account, session.env.network)) log(line);
+    if (!(await prompts.confirmSigning())) throw new SigningDeclined();
+  };
+  const outcome = await runTransaction(request, session.env, session.signer, { onIssued: logIssued }, confirmSigning);
   reportOutcome(outcome, session.env.network.symbol);
   return outcome;
 }
@@ -332,6 +353,7 @@ async function waitForExport(session: Session, destination: "P" | "C", exported:
 }
 
 async function claim(session: Session): Promise<void> {
+  await session.env.clients.verifyNetwork(); // before rewards read from the node are shown
   const rewardManager = await contractAddress(session.env, "ValidatorRewardManager");
   const rewards = await stateOfRewards(session.env, rewardManager, session.account.cAddress);
   const symbol = session.env.network.symbol;
@@ -390,6 +412,18 @@ async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet | und
   throw new Error(`Unsupported wallet ${String(unsupported)}`);
 }
 
+/**
+ * The C-chain address of a saved context's public key, which the session would use: the cached `ethAddress` is not
+ * relied on, and a stale or edited one would show one account and sign for another.
+ */
+function addressOfKey(publicKey: string): string {
+  try {
+    return computeAddress(hexlify(normalizePublicKey(publicKey)));
+  } catch {
+    return "none (the public key is not valid)";
+  }
+}
+
 /** The account the connected Ledger has at a saved context's derivation path. */
 async function connectedAccount(device: LedgerDevice, context: ContextFile): Promise<Account> {
   const path = context.derivationPath ?? BASE_DERIVATION_PATH;
@@ -417,7 +451,7 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
       log(`${styleText("yellow", "Wallet:")} ${existing.wallet}`);
       log(`${styleText("yellow", "Public Key:")} ${existing.publicKey}`);
       log(`${styleText("yellow", "Network:")} ${existing.network}`);
-      if (existing.ethAddress) log(`${styleText("yellow", "Eth Address:")} ${existing.ethAddress}`);
+      log(`${styleText("yellow", "Eth Address:")} ${addressOfKey(existing.publicKey)}`);
       if (existing.vaultId) log(`${styleText("yellow", "Vault Id:")} ${existing.vaultId}`);
     }
     if (existing?.wallet === "ledger") {
@@ -445,12 +479,21 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
   const chosen = await prompts.selectAddress(
     addresses.map((a, i) => ({ name: `${i + 1}. ${a.ethAddress}`, value: a }))
   );
+  // The device shows the chosen address, as for init-ctx --ledger: the listed keys came through the host, and one
+  // substituted there would be saved and funded without the device ever showing it.
+  const confirmed = await confirmLedgerAccount(device, chosen.derivationPath, network);
+  if (confirmed.account.publicKeyHex !== accountFromPublicKey(chosen.publicKey, network).publicKeyHex) {
+    throw new Error(
+      `The Ledger now has ${confirmed.account.cAddress} at ${chosen.derivationPath}, not the ${chosen.ethAddress} ` +
+        "listed; no context file was written"
+    );
+  }
   const context: ContextFile = {
     wallet: "ledger",
-    publicKey: chosen.publicKey,
+    publicKey: confirmed.publicKey,
     network,
-    ethAddress: chosen.ethAddress,
-    flareAddress: accountFromPublicKey(chosen.publicKey, network).pAddress,
+    ethAddress: confirmed.account.cAddress,
+    flareAddress: confirmed.account.pAddress,
     derivationPath: chosen.derivationPath,
   };
   // Only now, with the new context complete, does the previous file make way.

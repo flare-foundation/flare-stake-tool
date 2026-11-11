@@ -6,6 +6,7 @@ import {
   isAlreadySentToChain,
   markSentToChain,
   readSignedTxJson,
+  signerMismatch,
 } from "../core/files";
 import { attachEvmSignature, attachSignature } from "../core/signing/attach";
 import { normalizeSignature, recoverPublicKey } from "../core/signing/signature";
@@ -20,11 +21,12 @@ import type { Clients } from "../chain/clients";
 import type { UnsignedTxBundle } from "../core/types";
 import type { NetworkConfig } from "../chain/network";
 import { logIssued } from "../output";
+import type { Int } from "@flarenetwork/flarejs";
 import { Transaction } from "ethers";
 
-/** What `send` uses of an Env: the address prefix, the network check and the submit calls. */
+/** What `send` uses of an Env: the network's ids and address prefix, the network check and the submit calls. */
 export interface SendEnv {
-  readonly network: Pick<NetworkConfig, "hrp">;
+  readonly network: Pick<NetworkConfig, "name" | "hrp" | "networkId" | "chainId">;
   readonly clients: SubmitClients & Pick<Clients, "verifyNetwork">;
 }
 
@@ -49,9 +51,19 @@ export async function sendSignedTransaction(
   }
   const signed = readSignedTxJson(id, cwd);
   const bundle = bundleFromConsistentTxJson(signed);
+  checkFileNetwork(id, bundle, env.network);
   const signature = normalizeSignature(signed.signature);
-  const account = expectedAccount ?? recoverAccount(bundle, signature, env.network.hrp);
-  attachSignature(bundle, signature, account);
+  // who signed, whatever the context says: it must be the account the file was built for, when the file records it
+  const signer = recoverAccount(bundle, signature, env.network.hrp);
+  const mismatch = signerMismatch(signed, signer.publicKey);
+  if (mismatch) {
+    throw new Error(
+      `Transaction ${id} was built for ${mismatch.recorded}, but it is signed by ${mismatch.actual}; ` +
+        "it is not sent"
+    );
+  }
+  // and the context's account, when there is one
+  attachSignature(bundle, signature, expectedAccount ?? signer);
   await env.clients.verifyNetwork();
   try {
     return await submitAndConfirm(bundle, env.clients, {
@@ -74,6 +86,33 @@ export async function sendSignedTransaction(
       clearSentToChain(id, cwd);
     }
     throw error;
+  }
+}
+
+/**
+ * Refuses a file built for another network than the selected one, before anything is sent: the node would refuse it
+ * with a less clear error. Atomic transactions carry the network id, EVM ones the chain id, which differ on Songbird
+ * and Coston. Only an unprotected legacy transaction (type 0 without a chain id) has nothing to compare; a typed one
+ * always carries its chain id, 0 included.
+ */
+function checkFileNetwork(id: string, bundle: UnsignedTxBundle, network: SendEnv["network"]): void {
+  if (bundle.kind === "atomic") {
+    const tx = bundle.unsignedTx.getTx() as { baseTx?: { NetworkId: Int }; networkId?: Int };
+    const networkId = (tx.baseTx?.NetworkId ?? tx.networkId)?.value();
+    if (networkId !== network.networkId) {
+      throw new Error(
+        `Transaction ${id} is for network id ${String(networkId)}, not ${network.name} (${network.networkId}); ` +
+          "select its network with --network"
+      );
+    }
+    return;
+  }
+  const { chainId, type } = bundle.tx;
+  if (!(type === 0 && chainId === 0n) && chainId !== BigInt(network.chainId)) {
+    throw new Error(
+      `Transaction ${id} is for chain id ${chainId}, not ${network.name} (${network.chainId}); ` +
+        "select its network with --network"
+    );
   }
 }
 

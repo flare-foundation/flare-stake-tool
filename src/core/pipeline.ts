@@ -3,27 +3,44 @@
  * signer and every transaction type goes through here.
  */
 import { buildTransaction } from "./builders";
-import { atomicTxFee } from "./fee";
+import { builtDetails } from "./details";
 import { attachSignature } from "./signing/attach";
 import { submitAndConfirm, type ConfirmOptions } from "./submit";
-import type { Env, Outcome, Signer, TxRequest } from "./types";
+import type { BeforeSign, Env, Outcome, Signer, TxRequest } from "./types";
 
+/**
+ * `beforeSign` gets the details of the transaction about to be signed, read from it, and can stop it there by
+ * throwing: the transaction it approves is the one signed, not a second build.
+ */
 export async function executeTransaction(
   req: TxRequest,
   env: Env,
   signer: Signer,
-  confirm: ConfirmOptions = {}
+  confirm: ConfirmOptions = {},
+  beforeSign?: BeforeSign
 ): Promise<Outcome> {
   const account = await signer.account();
   const bundle = await buildTransaction(req, env, account, signer.policy);
   // Read before anything is signed or sent; the Context was already fetched to build an atomic transaction.
-  const fee = bundle.kind === "atomic" ? atomicTxFee(bundle.unsignedTx, await env.clients.context()) : undefined;
+  const details = builtDetails(bundle, bundle.kind === "atomic" ? await env.clients.context() : undefined);
+  const fee = details.fee;
   const notices = bundle.kind === "atomic" && bundle.notices?.length ? { notices: bundle.notices } : {};
+  const evm =
+    bundle.kind === "evm"
+      ? {
+          evm: {
+            nonce: bundle.tx.nonce,
+            ...(details.claimed !== undefined ? { claimed: details.claimed } : {}),
+            ...(bundle.txType === "setClaimExecutors" ? { executorFees: details.value } : {}),
+          },
+        }
+      : {};
+  await beforeSign?.(details);
   const result = await signer.sign(bundle);
   if (result.status === "pending") {
-    return { ...result, fee, ...notices };
+    return { ...result, fee, ...evm, ...notices };
   }
   attachSignature(bundle, result.signature, account);
   const { txId, chainStatus } = await submitAndConfirm(bundle, env.clients, confirm);
-  return { status: "sent", txId, chainStatus, fee, ...notices };
+  return { status: "sent", txId, chainStatus, fee, ...evm, ...notices };
 }

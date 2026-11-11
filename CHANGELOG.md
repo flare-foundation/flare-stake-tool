@@ -14,14 +14,18 @@ Every transaction type is now built once, signed by one of three signers (privat
 * `-f`/`--fee` for `exportCP` and `importPC` is the total fee in FLR and is paid exactly, on every path. The private key path used to ignore it and pay an estimate.
 * Amounts (`-a`, `-f`, `--delegation-fee`) refuse commas (`1,5` used to become 15) and more decimals than the chain holds (they used to be cut off).
 * `--gas-limit`, `--max-fee-per-gas` and `--priority-fee-per-gas` take plain digits only; `0x5208`, `2.1e4` and `+25` used to be accepted.
-* An empty value (`-a ""`, `-f ""`, `--nonce ""`, `--value ""`, `--delegation-fee ""`, `--auto-compound-shares ""` and the C-chain gas options) is refused. It used to count as a missing option, so `claim -a "$AMT"` with `AMT` unset claimed every reward, and `--auto-compound-shares "$X"` with `X` unset set auto-compounding to 0.
+* An empty value (`-a ""`, `-f ""`, `--nonce ""`, `--value ""`, `--data ""`, `--delegation-fee ""`, `--auto-compound-shares ""` and the C-chain gas options) is refused. It used to count as a missing option, so `claim -a "$AMT"` with `AMT` unset claimed every reward, and `--auto-compound-shares "$X"` with `X` unset set auto-compounding to 0. `customCChainTx --data ""` sent the value with no calldata; `--data 0x` still sends none.
 * A mixed-case C-chain address must have a valid EIP-55 checksum (it used to be corrected). P-chain addresses (`--transfer-address`, `--owner-address`) must belong to the selected network.
 * `setClaimExecutors` needs `--executors` and `setAllowedClaimRecipients` needs `--recipients`; without them the stored list was cleared. Pass `""` to clear it.
 * `info` and `send` refuse `--get-hacked` without `--env-path`, and choose the account in the same order as transactions.
+* `FLARE_API_KEY` goes only to the node of `FLARE_RPC_URL` or the network's default node, no longer to a node given with `--rpc-url`, so a key set for one gateway doesn't reach any host a command line names. For such a node pass `--api-key`, or write the key into the URL (`?x-apikey=`).
+* `--ledger` with `--get-hacked`, and `init-ctx --ledger` with `-p`, are refused before the key file or the device is opened. One silently won: the key file signed, and `init-ctx` saved the Ledger's key.
 * Transaction ids (`-i`) may contain only letters, digits, `.`, `_` and `-`, and can't start with `.`; an id such as `../x` named a file outside `ForDefiTxnFiles`. Rename an older file with another id to send it.
 * `info network` and `info mirror` are removed.
 * Output: the banner is shown only in interactive mode, progress messages (such as "Transaction … submitted, waiting") go to stderr while results, including the transaction id, stay on stdout, and every error exits with code 1.
 * `interactive` refuses unknown options, options it doesn't use (`--network`, `--ledger`, `--blind`, `--derivation-path`, `--ctx-file`, `--env-path`, `--get-hacked`), and running without a terminal.
+* `transaction <type>` refuses an option given on the command line that the type doesn't use, such as `importCP -a 5`, `exportPC -f 1`, `--nonce` on another type than `exportCP`, or the C-chain gas options (`--gas-limit`, `--max-fee-per-gas`, `--priority-fee-per-gas`) on a P-chain or atomic type. They were ignored, so a value the user meant to pin wasn't. `-i` and `--threshold 1` are taken by every type.
+* `addAutoRenewedValidator` takes one `--owner-address`, as documented. Several made a validator authority that any one of them controlled alone (1-of-N), whatever `--threshold` said; `--threshold` other than 1 is refused.
 * `customCChainTx` has a 300,000 gas limit by default (was 1,000,000); heavier calls need `--gas-limit`. See Changed for the other gas limits.
 
 ### Fixed
@@ -33,7 +37,8 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `send -i` checks that the signature belongs to the configured account, and marks the file as sent as soon as the node takes the transaction, so a wait that times out can't lead to a second submission. The mark is removed if the chain refuses the transaction.
   * A Ledger is held to the account it was connected with: if another device or seed answers later, or a reused Ledger `ctx.json` belongs to another device, the tool stops and names both addresses.
   * C-chain EVM transactions signed with `--get-hacked` or `--ledger` without `--nonce` take the next nonce after the pending ones. Reusing the nonce of a waiting transaction got it refused or replaced. `exportCP` keeps the accepted nonce on every path, since the C-chain checks an atomic transaction's nonce against the accepted state.
-  * Times after the year 275760 and periods above 2^64−1 seconds are refused; they produced a malformed transaction that was signed anyway.
+  * The zero address is refused as the `withdrawal` or `claim` recipient, as an executor or an allowed claim recipient, and as `customCChainTx --to` with a value. No one holds its key, so a script defaulting an address variable to it burned the funds.
+  * Times after the year 275760, periods above 2^64−1 seconds, and P-chain and atomic amounts above 2^64−1 nFLR (about 18.4 billion FLR) are refused; they produced a malformed transaction that was signed anyway. The amount limit also holds for an amount plus its fee, and for an export or import of UTXOs that each fit.
   * The limit of three nodes per account and the delegation checks (a current validator, within its period) run on every path, including the unsigned-file path. The count starts from now, since the chain ignores `--start-time`, and a node that doesn't list all delegations is refused.
 * P-chain and atomic transactions:
   * `exportCP` exports exactly the amount given (the Ledger path added the P-chain fee).
@@ -41,6 +46,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `importPC` imports only UTXOs the account can spend alone; a co-owned or time-locked UTXO made the node refuse the import. Time-locked UTXOs stay pending even after the lock ends (a flarejs limitation). An import with nothing to import is refused.
   * P-chain transactions leave out UTXOs worth less than the fee of spending them (about 0.00074 FLR), stakeable-locked ones included, with a warning. Anyone can send such dust to any address, and flarejs spent it first when the node listed it first, so a few hundred made a transfer, stake or export go over the gas limit.
   * `importPC` and `importCP` skip UTXOs worth less than the fee of importing them, and import the largest first up to the chain's gas limit: about 80 at a time on the C-chain, about 300 on the P-chain. Before, they took every pending UTXO, so dust or too many UTXOs made the import fail. A warning says what was left pending.
+  * An import whose fee takes everything it imports is refused, and the UTXOs stay pending for a later import. `importPC` built a 0-value C-chain output, which the chain refuses (an estimate above the imported value, or `-f` equal to it); `importCP` built an import with no output, which the P-chain accepts, burning the UTXOs.
   * Unsigned files treat every time-locked P-chain UTXO as still locked, so ForDefi co-signers building on either side of the second a lock ends get the same transaction. Such a UTXO isn't transferred, exported or used for a fee, even once its lock has passed (use `--ledger` or `--get-hacked`); stake and delegate can still stake a stakeable-locked one, and the stake keeps its lock.
   * `exportPC` without `-a` checks time locks the way flarejs does; it failed in the second a lock ended.
   * UTXOs are read past the node's page of 1024, so large accounts see their whole balance.
@@ -49,6 +55,7 @@ Every transaction type is now built once, signed by one of three signers (privat
   * `claim`, `setClaimExecutors` and `setAllowedClaimRecipients` use the C-chain chain id, which differs from the network id on Songbird and Coston.
   * `withdrawal` and `claim` amounts take 18 decimals (they were cut to 9).
   * `--nonce` must be a non-negative integer, and is stored as a number in unsigned files (the hash is unchanged).
+  * C-chain commands print the nonce they used, `claim` the amount it takes (all unclaimed rewards without `-a`) and `setClaimExecutors` the executor fees it pays: values read from the chain, which ForDefi co-signers had no way to see and pass in turn.
 * Signing:
   * `send -i` accepts `v` as `1b`/`1c` as documented, and fills the validator-authority credential of `setAutoRenewedValidatorConfig`.
   * A given `--ctx-file` that doesn't exist is refused by every command but `init-ctx`, whatever else selects the account; `send` skipped the signer check then, and `--ledger` ignored it.
@@ -56,23 +63,32 @@ Every transaction type is now built once, signed by one of three signers (privat
   * Ledger: the Avalanche app works with multi-digit path indices (`m/44'/60'/0'/0/10`), a signature with an impossible `v` is refused, and the USB connection is always closed.
   * Ledger blind signing (the Avalanche app, or the Flare app for a type it can't parse) prints the transaction hash on stderr first, to compare with the one the device shows.
   * `forDefi sign` labels the ForDefi id correctly, and ForDefi errors show the HTTP status and response instead of misleading messages.
+  * Unsigned files record the account they were built for: `signatureRequests[0].signer` holds its P-chain address (earlier versions wrote `""`), and C-chain files get a top-level `signer` with its C-chain address. `forDefi sign` refuses a vault of another account and `send` a signature by another account, so a mixed-up context can't have vault B sign A's transaction with A's nonce. The field is not part of the hash; files from earlier versions, without it, work as before.
+  * `send` refuses a file built for another network than the selected one (the network id of a P-chain or atomic transaction, the chain id of a C-chain one) before submitting it; the node refused it with a less clear error.
   * `forDefi sign` compares the context's public key with the vault's as keys, so a context holding it uncompressed or with `0x` is accepted.
   * `forDefi sign` and `send` refuse a file whose `message` is not the hash of its transaction, or whose `unsignedTransactionBuffer` is another transaction. ForDefi signed the file's `message` as it was, so a changed file could show one transaction and get another one's hash signed.
   * Transaction files and `ctx.json` are never overwritten by a write that started before they appeared, and rewrites go through a temporary file, so an interrupted write can't leave half a file. A repeated `forDefi fetch` with the same signature leaves the signed file as it is, and a sent file is never replaced.
   * A `ctx.json` or transaction file that is not JSON or lacks a field the tool reads, and a ForDefi answer of the wrong shape, are refused with the file (or answer) and the field named, instead of failing later with an unrelated error. Files written by earlier versions load as before, unknown fields included.
   * `init-ctx` honours `--derivation-path` and stores the P-chain address in `flareAddress`.
+  * A derivation path, given with `--derivation-path` or saved in `ctx.json`, must be `m/` and decimal indices below 2^31, each optionally hardened with `'`. The Ethereum app read `m/44'/60'/0'/0/1O` (letter O) as index 1 and signed for that account, where the Flare and Avalanche apps refused it.
   * Without `--derivation-path`, `--ledger` uses a Ledger `ctx.json`'s derivation path and refuses a Ledger without the context's key, as interactive mode does. It used the default path, so a context made at another path signed and showed another account.
   * `init-ctx --ledger` prints the address the device is about to show, and writes no context file when the device shows another address than the one of its key.
 * Interactive mode:
+  * Before a transaction is signed, the menu shows what it does, read from the built transaction: the account, the network, the amount, the recipient or node, the end time with its date, the period, the fee, and for C-chain transactions the nonce and the most the gas can cost. It is signed only after a confirmation, which defaults to No; declining the export of a move skips its import. A typed fee far above the estimate used to be paid without a word.
   * The C-chain export and import fee defaults to the current estimate instead of 1 FLR (about 170 times the real cost). A typed fee below the current cost asks for confirmation.
   * Moves between the chains import only after their own export has arrived.
+  * Claiming and stopping auto-renewal check the node's network before showing the rewards or the cycle end read from it; they were shown under the chosen network's name from a node on another one.
   * Connecting a Ledger no longer deletes `ctx.json`; another context is replaced only after confirmation and kept as a `.bak` file.
+  * Asking whether to reuse `ctx.json`, the menu shows the address of its public key, which the session uses, instead of the cached `ethAddress`, which may be stale or edited.
+  * A new Ledger context is saved only after the device has shown the chosen address and the user approved it, as with `init-ctx --ledger`. The listed addresses come from keys the host received, so a substituted key was saved and later trusted without the device ever showing it.
   * A failed action or wallet connection no longer ends the session, and the wallet menu has a Quit entry.
-  * Ctrl-C at a question ends the session with exit code 130 instead of 0, so a script sees it was cancelled; Quit still exits with 0.
+  * Ctrl-C at a question, or Ctrl-D on an empty answer (the end of input), ends the session with exit code 130 instead of 0, so a script sees it was cancelled; Ctrl-D also printed a stack trace. Quit still exits with 0.
   * Invalid amounts, fees, periods, end times, delegation fees, node ids, P-chain addresses and BLS keys are refused at the prompt, which asks again; a delegation fee of `10%` used to fail only after both BLS values were entered. The delegation fee prompt says that Enter accepts 20%.
   * `interactive --help` prints help instead of starting a session, and a bad node URL is reported before the banner.
 * Command line:
   * The shortcuts (`balance`, `exportCP`, …) and `interactive` work after global options, as in `--network costwo balance`.
+  * `<command> --help` lists the global options the command takes (`--network`, `--ledger`, the C-chain fee options, …) after its own.
+  * `-i <id>` given before a command (`-i myid exportCP …`) says that `-i` there starts interactive mode and that the id goes after the command, instead of reporting the command's first option as unknown.
   * An end time that is not in the future gets a warning (`-e 1209600` is a unix time, not 14 days).
   * A start or end time that looks like milliseconds (`-e 1700000000000`, the year 55840 as seconds) gets a warning, on the command line and in interactive mode.
   * An unknown `info`, `transaction` or `forDefi` type is refused with the allowed ones listed (also in `--help`), and a missing or invalid transaction option is reported before the signer, so `delegate` without `--node-id` says so instead of asking for `-i`.
@@ -93,7 +109,7 @@ Every transaction type is now built once, signed by one of three signers (privat
 
 * Auto-renewed validators (Helicon, ACP-236): `transaction addAutoRenewedValidator`, and `transaction setAutoRenewedValidatorConfig` to change the period or stop renewal (`--period 0`). They work on every signing path and in the interactive menu, and are refused where Helicon is not active. `info validators` shows their cycle.
 * Durations for `--end-time`, `--start-time` and `--period`, such as `2d12h` or `90m`. An end or start time given as a duration is added to now and printed as a unix time, which ForDefi co-signers must pass instead; a `--period` duration is just converted to seconds.
-* `--rpc-url` (`FLARE_RPC_URL`) and `--api-key` (`FLARE_API_KEY`) for another node or an API gateway. The tool checks that the node belongs to the selected network.
+* `--rpc-url` (`FLARE_RPC_URL`) and `--api-key` (`FLARE_API_KEY`) for another node or an API gateway. The tool checks that the node belongs to the selected network. A request carrying the key refuses a redirect instead of taking the key to the host it names.
 * `claim`, `withdrawal`, `setClaimExecutors`, `setAllowedClaimRecipients` and `customCChainTx` can be signed with `--get-hacked` or `--ledger`.
 * `init-ctx --vault-id` for ForDefi contexts, `--version`, and `--gas-limit`, `--max-fee-per-gas` and `--priority-fee-per-gas` for `interactive`.
 * Tests: `pnpm test` replays recorded scenarios of every transaction type and signing path offline; the integration tests run against a running localflare (`LOCALFLARE_RPC_URL`).
@@ -102,10 +118,11 @@ Every transaction type is now built once, signed by one of three signers (privat
 
 * `info network` and `info mirror`, with their interactive menu entries.
 * Code no command reached (the React UI, the Trezor module, browser utilities, the `local` network alias) and unused dependencies, including `web3`, `bn.js`, `@mui/*` and `@trezor/connect-web`.
+* `scripts/get-tx.sh`, which was not shipped and called a wrong endpoint (`/ext/P` instead of `/ext/bc/P`, and `costwo-api` for Coston2).
 
 ### Deprecated
 
-* `--blind` and `--threshold` have no effect (they never had any) and are kept for compatibility.
+* `--blind` and `--threshold` have no effect (they never had any) and are kept for compatibility; `--threshold` accepts only 1.
 
 ## [[v4.4.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.4.0)] - 2026-09-01
 

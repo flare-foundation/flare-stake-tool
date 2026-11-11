@@ -1,5 +1,6 @@
 /** C-chain EVM transactions: the reward contracts and plain transfers. The rawTx shape is the frozen file format. */
-import { Transaction, formatUnits, getAddress, getBytes, type TransactionLike } from "ethers";
+import { Transaction, ZeroAddress, getAddress, getBytes, type TransactionLike } from "ethers";
+import { formatWei } from "../../chain/units";
 import {
   contractAddress,
   contractInterface,
@@ -17,6 +18,19 @@ function evmBundle(txType: EvmTxType, rawTx: TransactionLike): UnsignedTxBundle 
   // with bundleFromUnsignedTxJson, which keeps the envelope they were signed over.
   const tx = Transaction.from({ ...rawTx, type: rawTx.type ?? 2 });
   return { kind: "evm", txType, tx, rawTx, digest: getBytes(tx.unsignedHash) };
+}
+
+/**
+ * An address that gets funds or the right to them (a recipient, an executor, an allowed claim recipient), with its
+ * checksum checked. Never the zero address: no one holds its key, so a script that defaults an address variable to it
+ * would burn the funds.
+ */
+function payee(address: string, what: string): string {
+  const checked = getAddress(address);
+  if (checked === ZeroAddress) {
+    throw new Error(`${what} is the zero address, which no one can spend from`);
+  }
+  return checked;
 }
 
 async function nonceOf(
@@ -52,8 +66,8 @@ export async function buildWithdrawal(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
+  const to = payee(req.to, "The withdrawal recipient (--to)");
   const nonce = await nonceOf(env, account, req.nonce, policy);
-  const to = getAddress(req.to);
   const contract = await contractRecipient(env, req.fees, to);
   return evmBundle("withdrawal", {
     nonce,
@@ -70,7 +84,7 @@ export async function buildClaim(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
-  const recipient = getAddress(req.recipient);
+  const recipient = payee(req.recipient, "The claim recipient (--recipient)");
   const rewardManager = await contractAddress(env, "ValidatorRewardManager");
   const nonce = await nonceOf(env, account, req.nonce, policy);
   const rewards = await stateOfRewards(env, rewardManager, account.cAddress);
@@ -78,7 +92,7 @@ export async function buildClaim(
   if (amountWei > rewards.unclaimedWei || rewards.unclaimedWei === 0n || amountWei === 0n) {
     const symbol = env.network.symbol;
     throw new Error(
-      `Trying to claim: ${formatUnits(amountWei, 18)} ${symbol}. Unclaimed rewards: ${formatUnits(rewards.unclaimedWei, 18)} ${symbol}. ` +
+      `Trying to claim: ${formatWei(amountWei)} ${symbol}. Unclaimed rewards: ${formatWei(rewards.unclaimedWei)} ${symbol}. ` +
         "Amount should be greater than 0 and less than or equal to unclaimed rewards."
     );
   }
@@ -98,9 +112,10 @@ export async function buildSetClaimExecutors(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
+  const executors = normalizeAddressList(req.executors);
+  for (const executor of executors) payee(executor, "An executor (--executors)");
   const claimSetupManager = await contractAddress(env, "ClaimSetupManager");
   const nonce = await nonceOf(env, account, req.nonce, policy);
-  const executors = normalizeAddressList(req.executors);
   let totalFeeWei = 0n;
   for (const executor of executors) {
     const info = await executorInfo(env, claimSetupManager, getAddress(executor));
@@ -125,9 +140,10 @@ export async function buildSetAllowedClaimRecipients(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
+  const recipients = normalizeAddressList(req.recipients);
+  for (const recipient of recipients) payee(recipient, "An allowed claim recipient (--recipients)");
   const claimSetupManager = await contractAddress(env, "ClaimSetupManager");
   const nonce = await nonceOf(env, account, req.nonce, policy);
-  const recipients = normalizeAddressList(req.recipients);
   return evmBundle("setAllowedClaimRecipients", {
     nonce,
     ...feeFields(req.fees, defaultGasLimit("setAllowedClaimRecipients", { entries: recipients.length })),
@@ -143,11 +159,13 @@ export async function buildCustomCChainTx(
   account: Account,
   policy: BuildPolicy
 ): Promise<UnsignedTxBundle> {
+  // a call without value may go to any address; a value sent to the zero address is lost
+  const to = req.value > 0n ? payee(req.to, "The recipient of a value (--to)") : getAddress(req.to);
   const nonce = await nonceOf(env, account, req.nonce, policy);
   return evmBundle("customCChainTx", {
     nonce,
     ...feeFields(req.fees, defaultGasLimit("custom")),
-    to: getAddress(req.to),
+    to,
     value: req.value.toString(),
     data: req.data,
     chainId: env.network.chainId,

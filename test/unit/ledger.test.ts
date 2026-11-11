@@ -9,6 +9,7 @@ import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
 import { checkFlareResponse } from "../../src/ledger/flare";
+import { checkDerivationPath } from "../../src/ledger/path";
 import { ETHEREUM_APP_P_CHAIN, detectApp } from "../../src/ledger/index";
 import { SigningKey, Transaction, computeAddress, getBytes, keccak256 } from "ethers";
 import {
@@ -107,6 +108,43 @@ describe("ledger", () => {
     );
   });
 
+  describe("checkDerivationPath", () => {
+    it("accepts m/ and decimal indices below 2^31, hardened or not, whatever their number", () => {
+      for (const good of [
+        "m/44'/60'/0'/0/0",
+        "m/44'/60'/0'/0/10",
+        "m/44'/60'/7'/0/0",
+        "m/44'/60'/0'/0/0/1", // six: the Flare app takes it
+        "m/44'/60'/2147483647'/0/2147483647",
+        "m/0",
+      ]) {
+        expect(checkDerivationPath(good, "--derivation-path"), good).to.equal(good);
+      }
+    });
+
+    it("refuses what an app would read as another index, or not at all", () => {
+      for (const bad of [
+        "m/44'/60'/0'/0/1O", // hw-app-eth: index 1
+        "m/44'/60'/0'/0/1e1", // hw-app-eth: 1, the others: 10
+        "m/44'/60'/0'/0/2147483648",
+        "m/44'/60'/0'/0/0x10",
+        "m/44'/60'/0'/0/+1",
+        "m/44'/60'/0'/0/ 1",
+        "m/44'//0'/0/0",
+        "m/44h/60'/0'/0/0",
+        "M/44'/60'/0'/0/0",
+        "44'/60'/0'/0/0",
+        "m/",
+        "m",
+        "",
+      ]) {
+        expect(() => checkDerivationPath(bad, "--derivation-path"), bad).to.throw(
+          `Invalid derivation path "${bad}" (--derivation-path): expected m/ and decimal indices below 2^31`
+        );
+      }
+    });
+  });
+
   describe("splitAvalanchePath", () => {
     it("splits after the account level, whatever the number of digits", () => {
       expect(splitAvalanchePath("m/44'/60'/0'/0/0")).to.deep.equal({ accountPath: "m/44'/60'/0'", signPath: "0/0" });
@@ -163,6 +201,33 @@ describe("ledger", () => {
       expect(await fakeLedgerDevice(key).showCAddress("m/44'/60'/0'/0/0")).to.equal(
         computeAddress(`0x${EWOQ_PUBLIC_KEY_COMPRESSED}`)
       );
+    });
+
+    it("refuses a malformed key with a fixed message that holds neither the value nor a cause quoting it", () => {
+      const original = console.error;
+      console.error = () => undefined;
+      try {
+        const order = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141";
+        for (const bad of [`${EWOQ_PRIVATE_KEY_HEX}zz`, EWOQ_PRIVATE_KEY_HEX.slice(2), "00".repeat(32), order, "x"]) {
+          let error: unknown;
+          try {
+            ledgerDevice({ [FAKE_LEDGER_KEY_ENV]: bad });
+          } catch (caught) {
+            error = caught;
+          }
+          expect(error, bad).to.be.instanceOf(Error);
+          expect((error as Error).message).to.equal(
+            `${FAKE_LEDGER_KEY_ENV} is not a private key (32 bytes of hex); its value is not shown`
+          );
+          expect((error as Error).cause, bad).to.equal(undefined);
+        }
+        // a trailing newline, as a shell may leave, or 0x, still names the key
+        for (const good of [`${EWOQ_PRIVATE_KEY_HEX}\n`, `0x${EWOQ_PRIVATE_KEY_HEX}`]) {
+          expect(() => ledgerDevice({ [FAKE_LEDGER_KEY_ENV]: good }), JSON.stringify(good)).not.to.throw();
+        }
+      } finally {
+        console.error = original;
+      }
     });
 
     it("is announced on stderr whenever it replaces the device", () => {

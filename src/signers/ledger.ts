@@ -214,6 +214,22 @@ export function fakeLedgerDevice(privateKey: Uint8Array): LedgerDevice {
   };
 }
 
+/** The order of secp256k1: a private key is from 1 to one below it. */
+const SECP256K1_ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+
+/**
+ * The stand-in's key: 32 bytes of hex (0x and surrounding space allowed), a valid secp256k1 private key. Refused with
+ * a fixed message, and without a cause: ethers and the curve library quote the value they refuse.
+ */
+function fakeLedgerKey(value: string): Uint8Array {
+  const hex = value.trim().replace(/^0x/i, "");
+  const scalar = /^[0-9a-fA-F]{64}$/.test(hex) ? BigInt(`0x${hex}`) : 0n;
+  if (scalar === 0n || scalar >= SECP256K1_ORDER) {
+    throw new Error(`${FAKE_LEDGER_KEY_ENV} is not a private key (32 bytes of hex); its value is not shown`);
+  }
+  return getBytes(`0x${hex}`);
+}
+
 /** The real device, or the test stand-in when FLARE_FAKE_LEDGER_KEY is set, which is announced on stderr. */
 export function ledgerDevice(env: NodeJS.ProcessEnv = process.env): LedgerDevice {
   const fakeKey = env[FAKE_LEDGER_KEY_ENV];
@@ -223,5 +239,5 @@ export function ledgerDevice(env: NodeJS.ProcessEnv = process.env): LedgerDevice
   logWarning(
     `${FAKE_LEDGER_KEY_ENV} is set: --ledger signs with that software key, not with a Ledger device (tests only)`
   );
-  return fakeLedgerDevice(getBytes(fakeKey.startsWith("0x") ? fakeKey : `0x${fakeKey}`));
+  return fakeLedgerDevice(fakeLedgerKey(fakeKey));
 }

@@ -133,6 +133,14 @@ describe("chain/network", () => {
         "https://host.example:bad/ext/info?x%2Dapikey=SECRET",
         "https://host.example:bad/ext/info?X-APIKEY=SECRET",
         "ftp://user:SECRET@host.example/ext/info#x-apikey=SECRET",
+        // a password typed without escaping, with characters that end the userinfo before its "@"
+        "https://alice:synthetic/SECRET@node.invalid",
+        "https://alice:SECRET?tail@node.invalid",
+        "https://alice:SECRET#tail@node.invalid",
+        "https://alice:SE@CRET@node.invalid:bad",
+        "alice:SECRET@node.invalid",
+        // an "@" in the query, which masking up to the last "@" uncovered the rest of
+        "https://host.invalid:bad/ext/info?x-apikey=SECRET@SECRET",
       ]) {
         let message = "";
         try {
@@ -146,6 +154,17 @@ describe("chain/network", () => {
       expect(() => parseNodeUrl("https://host.example:bad/ext/info?x%2Dapikey=SECRET")).to.throw(
         'Invalid node URL "https://host.example:bad/ext/info?…"; expected a base URL'
       );
+      // with an "@" anywhere, where credentials end can't be told: only the scheme is shown
+      for (const input of [
+        "https://alice:synthetic/SECRET@node.invalid",
+        "https://alice:SECRET?tail@node.invalid",
+        "https://host.invalid:bad/ext/info?x-apikey=public@SECRET",
+      ]) {
+        expect(() => parseNodeUrl(input), input).to.throw('Invalid node URL "https://***"; expected a base URL');
+      }
+      expect(() => parseNodeUrl("ftp://user:SECRET@host.example")).to.throw(
+        'Invalid node URL "ftp://***"; only http and https are supported'
+      );
     });
 
     it("rejects what is not an http(s) URL", () => {
@@ -154,7 +173,7 @@ describe("chain/network", () => {
     });
   });
 
-  it("takes the node URL from the options, then the environment; the key from the options, the URL, the environment", () => {
+  it("takes the node URL from the options, then the environment; the key from the options, the URL, the environment's own node", () => {
     const env = { FLARE_RPC_URL: "https://env.example/ext/info?x-apikey=from-url", FLARE_API_KEY: "from-env" };
     expect(networkConfig("costwo", env)).to.include({
       apiUrl: "https://env.example",
@@ -175,8 +194,21 @@ describe("chain/network", () => {
       apiUrl: "https://flag.example",
       apiKey: "from-flag",
     });
+    // FLARE_API_KEY goes to the node of FLARE_RPC_URL or the network's own, never to one --rpc-url names, even with
+    // an unused FLARE_RPC_URL set
     expect(networkConfig("costwo", env, { apiUrl: "https://flag.example" })).to.include({
       apiUrl: "https://flag.example",
+      apiKey: undefined,
+    });
+    expect(networkConfig("costwo", { FLARE_API_KEY: "from-env" }, { apiUrl: "https://flag.example" }).apiKey).to.equal(
+      undefined
+    );
+    expect(networkConfig("costwo", { FLARE_RPC_URL: "https://env.example", FLARE_API_KEY: "from-env" })).to.include({
+      apiUrl: "https://env.example",
+      apiKey: "from-env",
+    });
+    expect(networkConfig("costwo", { FLARE_API_KEY: "from-env" })).to.include({
+      apiUrl: "https://coston2-api.flare.network",
       apiKey: "from-env",
     });
     expect(networkConfig("costwo", {}, { apiKey: "only-key" })).to.include({

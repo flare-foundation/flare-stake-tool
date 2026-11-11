@@ -7,7 +7,6 @@ import {
   normalizePublicKey,
   pChainAddressBytes,
   parsePrivateKey,
-  privateKeyToCb58,
 } from "../../src/chain/keys";
 import {
   EWOQ_ETH_ADDRESS,
@@ -94,7 +93,6 @@ describe("chain/keys", () => {
     expect(parsePrivateKey({ cb58: EWOQ_PRIVATE_KEY_CB58 })).to.deep.equal(privateKey);
     expect(parsePrivateKey({ cb58: EWOQ_PRIVATE_KEY_CB58.replace("PrivateKey-", "") })).to.deep.equal(privateKey);
     expect(parsePrivateKey({ hex: EWOQ_PRIVATE_KEY_HEX, cb58: EWOQ_PRIVATE_KEY_CB58 })).to.deep.equal(privateKey);
-    expect(privateKeyToCb58(privateKey)).to.equal(EWOQ_PRIVATE_KEY_CB58);
     expect(() => parsePrivateKey({})).to.throw(/No private key/);
     expect(() => parsePrivateKey({ hex: "1234" })).to.throw(/32 bytes/);
     expect(() => parsePrivateKey({ cb58: "not-base58!" })).to.throw(/base58check/);
