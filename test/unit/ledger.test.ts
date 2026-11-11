@@ -453,6 +453,10 @@ describe("ledger", () => {
         (error: unknown) => expect((error as Error).message).to.equal(ETHEREUM_APP_P_CHAIN)
       );
       expect(calls).to.deep.equal([["getPublicKey", PATH]]);
+      // the Flare app reads the transaction on the device; on localflare, whose network it doesn't know, only the
+      // Avalanche app can sign
+      expect(ETHEREUM_APP_P_CHAIN).to.include("open the Flare app");
+      expect(ETHEREUM_APP_P_CHAIN).to.include("on localflare, the Avalanche app");
     });
 
     it("every app signs an EVM transaction's unsigned serialization, whose keccak is the file's message", async () => {
