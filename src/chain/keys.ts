@@ -69,8 +69,53 @@ export function accountFromPublicKey(publicKey: string | Uint8Array, hrp: string
   };
 }
 
+/**
+ * The address bytes of a P-chain address the user gave, checked to belong to the network of `hrp`. The bech32
+ * decoding alone keeps only the bytes, so "P-costwo1…" or "C-flare1…" would pay the same key on whichever network
+ * is selected.
+ */
+export function pChainAddressBytes(address: string, hrp: string): Uint8Array {
+  const expected = `expected P-${hrp}1…`;
+  let parsed: [string, string, Uint8Array];
+  try {
+    parsed = futils.parse(address.trim());
+  } catch {
+    throw new Error(`Invalid P-chain address "${address}": ${expected}`);
+  }
+  const [chain, addressHrp, bytes] = parsed;
+  if (chain !== "P") {
+    throw new Error(`"${address}" is not a P-chain address: ${expected}`);
+  }
+  if (addressHrp !== hrp) {
+    throw new Error(`"${address}" is an address of ${addressHrp}, not of this network (${hrp}): ${expected}`);
+  }
+  if (bytes.length !== 20) {
+    throw new Error(`Invalid P-chain address "${address}": it holds ${bytes.length} bytes, not 20`);
+  }
+  return bytes;
+}
+
 export function accountFromPrivateKey(privateKey: Uint8Array, hrp: string): Account {
   return accountFromPublicKey(secp256k1.getPublicKey(privateKey), hrp);
+}
+
+/**
+ * Decodes CB58 (base58 of the bytes followed by the last 4 bytes of their sha256) and checks the checksum. flarejs'
+ * `base58check.decode` (and so `NodeId.fromString`) drops those 4 bytes without checking them, so a mistyped
+ * character decoded to other, valid bytes. `label` names the value in the errors.
+ */
+export function decodeCb58(encoded: string, label: string): Uint8Array {
+  let decoded: Uint8Array;
+  try {
+    decoded = futils.base58.decode(encoded);
+  } catch {
+    throw new Error(`${label} is not valid base58check`);
+  }
+  const bytes = decoded.subarray(0, -4);
+  if (hexlify(futils.addChecksum(bytes)) !== hexlify(decoded)) {
+    throw new Error(`${label} has a bad checksum; check it for a typo`);
+  }
+  return bytes;
 }
 
 const CB58_PREFIX = "PrivateKey-";
@@ -93,12 +138,7 @@ export function parsePrivateKey(options: { hex?: string | undefined; cb58?: stri
     fromHex = getBytes("0x" + digits);
   }
   if (cb58) {
-    const encoded = cb58.startsWith(CB58_PREFIX) ? cb58.slice(CB58_PREFIX.length) : cb58;
-    try {
-      fromCb58 = futils.base58check.decode(encoded);
-    } catch {
-      throw new Error("PRIVATE_KEY_CB58 is not valid base58check");
-    }
+    fromCb58 = decodeCb58(cb58.startsWith(CB58_PREFIX) ? cb58.slice(CB58_PREFIX.length) : cb58, "PRIVATE_KEY_CB58");
     if (fromCb58.length !== 32) {
       throw new Error("PRIVATE_KEY_CB58 must decode to 32 bytes");
     }

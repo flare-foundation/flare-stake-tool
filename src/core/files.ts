@@ -99,7 +99,11 @@ export function bundleFromUnsignedTxJson(
   };
 }
 
-/** Writes the unsigned file (refusing to overwrite) and returns the ForDefi hash. */
+/**
+ * Writes the unsigned file and returns the ForDefi hash. Refuses an id that already has an unsigned or a signed file:
+ * `send` reads only the signed one, so an old signed file left under a reused id would be sent instead of the new
+ * transaction.
+ */
 export function saveUnsignedTxJson(
   json: UnsignedTxJson,
   id: string,
@@ -109,9 +113,14 @@ export function saveUnsignedTxJson(
   if (fs.existsSync(file)) {
     throw new Error(`unsignedTx file ${file} already exists`);
   }
+  const signed = signedTxPath(id, cwd);
+  if (fs.existsSync(signed)) {
+    throw new Error(`signedTx file ${signed} already exists: transaction ${id} was already signed; use another id`);
+  }
   const forDefiHash = forDefiHashOf(messageOf(json));
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify({ ...json, forDefiHash }, null, 2));
+  // "wx" fails if the file appeared since the check
+  fs.writeFileSync(file, JSON.stringify({ ...json, forDefiHash }, null, 2), { flag: "wx" });
   return { file, forDefiHash };
 }
 

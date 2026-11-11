@@ -1,14 +1,14 @@
 /**
  * The Ledger code that runs without a device: signature shapes, the Avalanche
- * app's path split, the software stand-in used by tests, and how LedgerSigner
- * handles the Flare app's refusals.
+ * app's path split, the software stand-in used by tests, how LedgerSigner
+ * handles the Flare app's refusals, and how it holds on to the device's account.
  */
 import { expect } from "chai";
 import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
 import { detectApp } from "../../src/ledger/index";
-import { getBytes } from "ethers";
+import { SigningKey, getBytes } from "ethers";
 import { bundleFromUnsignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import {
   FAKE_LEDGER_KEY_ENV,
@@ -223,6 +223,86 @@ describe("ledger", () => {
         (error: unknown) => expect(String(error)).to.include("Ledger signing error")
       );
       expect(signedHashes).to.deep.equal([]);
+    });
+  });
+
+  describe("LedgerSigner and another Ledger connected later", () => {
+    const bundle = bundleFromUnsignedTxJson(readGolden("delegate-file").outcome.unsignedTxJson as UnsignedTxJson);
+    const OTHER_KEY = new SigningKey(`0x${"11".repeat(32)}`).compressedPublicKey.slice(2);
+
+    /** A device answering `key.current`, which the test changes to plug in another Ledger; records what it signs. */
+    function swappableDevice(key: { current: string }): { device: LedgerDevice; signed: string[] } {
+      const signed: string[] = [];
+      const device: LedgerDevice = {
+        detectApp: () => Promise.resolve("Flare"),
+        getPublicKey: () => Promise.resolve(key.current),
+        signHash: (_path, hashHex) => {
+          signed.push(hashHex);
+          return Promise.resolve("ab".repeat(65));
+        },
+        signTransaction: (_path, txHex) => {
+          signed.push(txHex);
+          return Promise.resolve("ab".repeat(65));
+        },
+        signEvmTransaction: (_path, txHex) => {
+          signed.push(txHex);
+          return Promise.resolve("ab".repeat(65));
+        },
+      };
+      return { device, signed };
+    }
+
+    it("keeps answering the account it first read while the device has its key", async () => {
+      const key = { current: EWOQ_PUBLIC_KEY_COMPRESSED };
+      const { device, signed } = swappableDevice(key);
+      const signer = new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare");
+      const first = await signer.account();
+      expect(await signer.account()).to.equal(first);
+      expect((await signer.sign(bundle)).status).to.equal("signed");
+      expect(signed).to.have.length(1);
+    });
+
+    it("refuses the account and signs nothing once another key answers", async () => {
+      const key = { current: EWOQ_PUBLIC_KEY_COMPRESSED };
+      const { device, signed } = swappableDevice(key);
+      const signer = new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare");
+      const first = await signer.account();
+      key.current = OTHER_KEY;
+      const refusal =
+        /^The connected Ledger has 0x[0-9a-fA-F]{40} at m\/44'\/60'\/0'\/0\/0, not 0x[0-9a-fA-F]{40} as when it was connected; reconnect that Ledger$/;
+      await signer.account().then(
+        () => expect.fail("answered another account"),
+        (error: unknown) => {
+          expect((error as Error).message).to.match(refusal);
+          expect((error as Error).message).to.include(`not ${first.cAddress} `);
+        }
+      );
+      await signer.sign(bundle).then(
+        () => expect.fail("signed with another Ledger"),
+        (error: unknown) => expect((error as Error).message).to.match(refusal)
+      );
+      expect(signed).to.deep.equal([]);
+      key.current = EWOQ_PUBLIC_KEY_COMPRESSED; // the first Ledger back: accepted again
+      expect(await signer.account()).to.equal(first);
+    });
+
+    it("given the key the account was chosen by, refuses even the first read of another key", async () => {
+      const key = { current: OTHER_KEY };
+      const { device, signed } = swappableDevice(key);
+      // as a ctx.json may hold it: uncompressed, with 0x
+      const expected = new SigningKey(`0x${EWOQ_PRIVATE_KEY_HEX}`).publicKey;
+      const signer = new LedgerSigner(device, "m/44'/60'/0'/0/0", "localflare", expected);
+      await signer.account().then(
+        () => expect.fail("answered another account"),
+        (error: unknown) => expect((error as Error).message).to.match(/^The connected Ledger has 0x[0-9a-fA-F]{40} /)
+      );
+      await signer.sign(bundle).then(
+        () => expect.fail("signed with another Ledger"),
+        (error: unknown) => expect((error as Error).message).to.match(/^The connected Ledger has /)
+      );
+      expect(signed).to.deep.equal([]);
+      key.current = EWOQ_PUBLIC_KEY_COMPRESSED;
+      expect((await signer.account()).publicKeyHex).to.equal(EWOQ_PUBLIC_KEY_COMPRESSED);
     });
   });
 });

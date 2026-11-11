@@ -5,6 +5,7 @@ import {
   formatDuration,
   formatFlr,
   formatWei,
+  MAX_TIME_SECONDS,
   isDurationInput,
   nFlrToWei,
   parseDecimal,
@@ -137,6 +138,28 @@ describe("chain/units", () => {
       expect(parseEndTime("20m", now)).to.equal(1_700_001_200n);
       expect(isDurationInput("20m")).to.equal(true);
       expect(isDurationInput("1779484800")).to.equal(false);
+    });
+
+    it("refuses a time after the latest date that can be shown, below the chain's uint64 limit", () => {
+      expect(parseEndTime(MAX_TIME_SECONDS.toString(), now)).to.equal(MAX_TIME_SECONDS);
+      // 2^64 + 5 was serialized in 9 bytes, shifting every later field; 15000000w crashed printing the date
+      for (const time of [(MAX_TIME_SECONDS + 1n).toString(), "18446744073709551621", "15000000w"]) {
+        expect(() => parseEndTime(time, now), time).to.throw(
+          `Invalid time "${time}": after 8640000000000 (year 275760), the latest date that can be shown`
+        );
+      }
+      expect(new Date(Number(MAX_TIME_SECONDS) * 1000).toISOString()).to.equal("+275760-09-13T00:00:00.000Z");
+    });
+  });
+
+  describe("parseDuration bound", () => {
+    it("refuses a duration above the chain's uint64 limit", () => {
+      expect(parseDuration("18446744073709551615")).to.equal(2n ** 64n - 1n);
+      for (const duration of ["18446744073709551616", "40000000000000w"]) {
+        expect(() => parseDuration(duration), duration).to.throw(
+          `Invalid duration "${duration}": at most 18446744073709551615 seconds`
+        );
+      }
     });
   });
 });

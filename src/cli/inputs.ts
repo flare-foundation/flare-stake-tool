@@ -5,9 +5,9 @@
  * signer.
  */
 import { getBytes } from "ethers";
+import { decodeCb58 } from "../chain/keys";
 import { isDurationInput, parseEndTime } from "../chain/units";
 import { resolveEvmFees, type EvmFeeOverrides } from "../constants/fees";
-import { argvValue } from "./node";
 
 export const BASE_DERIVATION_PATH = "m/44'/60'/0'/0/0";
 export const DEFAULT_DELEGATION_FEE_PERCENT = "20";
@@ -26,6 +26,17 @@ export const START_TIME_NOT_USED_WARNING =
 /** An option's value, or undefined when it is absent or empty. */
 export const optionalString = (value: unknown): string | undefined =>
   typeof value === "string" && value !== "" ? value : undefined;
+
+/**
+ * The value of an option whose absence means a default, or undefined when it is absent. An empty value is refused
+ * rather than taken as absent: `claim -a "$AMT"` with AMT unset claimed every reward.
+ */
+export function optionValue(value: unknown, flag: string): string | undefined {
+  if (value === "") {
+    throw new Error(`Option ${flag} is empty; leave it out to use the default`);
+  }
+  return typeof value === "string" ? value : undefined;
+}
 
 /** Byte lengths of a BLS proof of possession: the compressed G1 public key and the G2 signature. */
 const BLS_LENGTHS = { publicKey: 48, signature: 96 } as const;
@@ -49,9 +60,29 @@ export function parseBlsHex(value: string, part: keyof typeof BLS_LENGTHS): Uint
   return bytes;
 }
 
+const NODE_ID_PREFIX = "NodeID-";
+const NODE_ID_BYTES = 20;
+
+/**
+ * Checks a node id ("NodeID-" and the CB58 of 20 bytes), for the command line and the interactive menu, and returns
+ * it trimmed. Its checksum is checked here because flarejs doesn't: a mistyped id would stake to a node nobody runs.
+ */
+export function parseNodeId(value: string): string {
+  const label = "Node ID (--node-id)";
+  const text = value.trim();
+  if (!text.startsWith(NODE_ID_PREFIX)) {
+    throw new Error(`${label} must start with "${NODE_ID_PREFIX}", got "${text}"`);
+  }
+  const bytes = decodeCb58(text.slice(NODE_ID_PREFIX.length), label);
+  if (bytes.length !== NODE_ID_BYTES) {
+    throw new Error(`${label} must be ${NODE_ID_BYTES} bytes, got ${bytes.length}`);
+  }
+  return text;
+}
+
 /** `--nonce`: a non-negative integer, or undefined when not given. */
 export function parseNonce(value: unknown): number | undefined {
-  const text = optionalString(value);
+  const text = optionValue(value, "--nonce");
   if (text === undefined) return undefined;
   const nonce = Number(text);
   if (!/^\d+$/.test(text) || !Number.isSafeInteger(nonce)) {
@@ -84,15 +115,15 @@ export function parseTime(value: string): ParsedTime {
 }
 
 /**
- * The C-chain fee options from a raw argv, for `interactive`, which is
- * dispatched before Commander parses the command line. Validated here, so that
- * a bad value stops the session before it starts.
+ * The C-chain fee options given with `interactive`. Validated here, so that a
+ * bad value stops the session before it starts rather than at its first
+ * C-chain transaction.
  */
-export function evmFeeOverridesFromArgv(argv: readonly string[]): EvmFeeOverrides {
+export function evmFeeOverrides(options: EvmFeeOverrides): EvmFeeOverrides {
   const overrides = {
-    maxFeePerGas: argvValue(argv, "--max-fee-per-gas"),
-    priorityFeePerGas: argvValue(argv, "--priority-fee-per-gas"),
-    gasLimit: argvValue(argv, "--gas-limit"),
+    maxFeePerGas: options.maxFeePerGas,
+    priorityFeePerGas: options.priorityFeePerGas,
+    gasLimit: options.gasLimit,
   };
   resolveEvmFees("custom", overrides);
   return overrides;

@@ -33,6 +33,8 @@ export interface CurrentValidator {
   delegationFee?: string;
   uptime?: string;
   connected?: boolean;
+  /** How many delegations the validator has; `delegators` lists them unless the node leaves the list out. */
+  delegatorCount?: string;
   delegators?: CurrentDelegator[];
   /** Present only for auto-renewed validators (Helicon). */
   validatorAuthority?: OutputOwners;

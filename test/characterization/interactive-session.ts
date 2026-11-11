@@ -29,7 +29,7 @@ import type * as InteractiveModule from "../../src/interactive/cli";
 import type * as LedgerSignerModule from "../../src/signers/ledger";
 import type { LedgerDevice } from "../../src/signers/ledger";
 import { SigningKey, keccak256, toUtf8Bytes } from "ethers";
-import { EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
+import { EWOQ_P_ADDRESS, EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 
 const DIST = path.resolve(__dirname, "..", "..", "dist");
 const load = createRequire(__filename);
@@ -70,6 +70,13 @@ interface Flags {
   noCycle?: boolean;
   /** The Ledger answers one key whatever the path, like the FLARE_FAKE_LEDGER_KEY stand-in. */
   sameKey?: boolean;
+  /** Another Ledger is plugged in when a question with this text is asked: from then on every path answers another key. */
+  swapLedgerAt?: string;
+  /**
+   * An earlier export is still pending on both chains, and a new export's UTXO shows up only on the second look,
+   * so a move must wait for its own.
+   */
+  earlierExport?: boolean;
 }
 type Answer = string | boolean | { index: number };
 
@@ -77,6 +84,9 @@ let script: Answer[] = [];
 let flags: Flags = {};
 let exhausted = 0;
 let txCount = 0;
+let ledgerSwapped = false;
+/** How often the pending UTXOs were read since the last transaction. */
+let utxoReads = 0;
 
 // ---- inquirer ----
 
@@ -114,6 +124,7 @@ async function prompt(questions: Question[]): Promise<Record<string, unknown>> {
   const answers: Record<string, unknown> = {};
   for (const q of questions) {
     const choices = q.choices;
+    if (flags.swapLedgerAt !== undefined && q.message.includes(flags.swapLedgerAt)) ledgerSwapped = true;
     record(
       `? ${q.type} ${show(q.message)}` +
         (q.default !== undefined ? ` default=${show(q.default)}` : "") +
@@ -159,9 +170,14 @@ const { networkConfig } = fromDist<typeof NetworkModule>("chain/network.js");
 
 /** Only the client calls interactive mode makes itself; everything else goes through the stubs below. */
 const fakeClients = () => {
+  // a pending UTXO as allUtxos and the wait for an export read it: its own id and its export's tx id
+  const utxo = (txId: string) => ({ ID: () => `${txId}-0`, utxoId: { txID: { toString: () => txId } } });
   const getUTXOs = (chain: string) => (query: unknown) => {
-    record(`UTXOS ${chain} ${show(query)}`);
-    return Promise.resolve({ utxos: [{}] });
+    utxoReads++;
+    const latest = `tx${txCount}`;
+    const txIds = flags.earlierExport ? ["tx-earlier", ...(utxoReads > 1 ? [latest] : [])] : [latest];
+    record(`UTXOS ${chain} ${show(query)} -> ${txIds.join(", ")}`);
+    return Promise.resolve({ numFetched: txIds.length, utxos: txIds.map(utxo), endIndex: { address: "", utxo: "" } });
   };
   return {
     verifyNetwork: () => (flags.noMax ? Promise.reject(new Error("unreachable")) : Promise.resolve()),
@@ -179,20 +195,22 @@ stub(envModule, "createEnv", (network, node = {}) => {
 });
 
 const transactions = fromDist<typeof TransactionsModule>("app/transactions.js");
-stub(transactions, "runTransaction", (request, _env, signer) => {
+stub(transactions, "runTransaction", async (request, _env, signer) => {
+  await signer.account(); // as runTransaction does before building
   record(`TX ${show(request)} signer=${signer.kind}`);
   if (flags.failTx?.includes(request.type)) {
     flags.failTx = flags.failTx.filter((type) => type !== request.type);
-    return Promise.reject(new Error(`node refused ${request.type}`));
+    throw new Error(`node refused ${request.type}`);
   }
   txCount++;
+  utxoReads = 0;
   const atomic = /^(export|import)/.test(request.type);
-  return Promise.resolve({
+  return {
     status: "sent" as const,
     txId: `tx${txCount}`,
     chainStatus: "Committed",
     ...(atomic ? { fee: 1_234_000n } : {}),
-  });
+  };
 });
 stub(transactions, "estimateAtomicFee", (request) => {
   record(`ESTIMATE ${show(request)}`);
@@ -237,7 +255,7 @@ const fakeDevice: LedgerDevice = {
   detectApp: () => Promise.resolve("Flare"),
   getPublicKey: (derivationPath) => {
     record(`LEDGER getPublicKey ${derivationPath}`);
-    const seed = flags.sameKey ? "same" : derivationPath;
+    const seed = (ledgerSwapped ? "another Ledger " : "") + (flags.sameKey ? "same" : derivationPath);
     return Promise.resolve(new SigningKey(keccak256(toUtf8Bytes(seed))).compressedPublicKey.slice(2));
   },
   signHash: () => Promise.reject(new Error("not used")),
@@ -266,13 +284,19 @@ const TASK = {
   quit: "Quit",
 };
 const PRIVATE_KEY = ["Private Key", "pk", "LocalHost"];
-const P_ADDRESS = "P-localflare18jma8ppw3nhx5r4ap8clazz0dps7rv5u00z96u";
+const P_ADDRESS = EWOQ_P_ADDRESS;
 const BLS_PUBLIC_KEY = "0x" + "a1".repeat(48);
 const BLS_SIGNATURE = "0x" + "b2".repeat(96);
+// node ids with valid checksums (the prompt refuses others), and one with its last character mistyped
+const NODE_X = "NodeID-MFrZFVCXPv5iCn6M9K6XduxGTYp891xXZ";
+const NODE_Y = "NodeID-GWPcbFJZFfZreETSoWjPimr846mXEKCtu";
+const NODE_Z = "NodeID-NFBbbJ4qCmNaCzeW7sxErhvWqvEQMnYcN";
+const NODE_X_MISTYPED = `${NODE_X.slice(0, -1)}Y`;
 
 interface Scenario {
   name: string;
-  argv?: string[];
+  /** What the command line gives the session (Commander parses it; see test/unit/cli-errors.test.ts). */
+  options?: Partial<InteractiveModule.InteractiveOptions>;
   flags?: Flags;
   /** The ctx.json present at the start: the Ledger one an earlier scenario wrote, a ForDefi one, or an unusable one. */
   ctx?: "ledger" | "fordefi" | "unusable";
@@ -285,7 +309,7 @@ interface Scenario {
 const SCENARIOS: Scenario[] = [
   {
     name: "private key: every task",
-    argv: ["interactive", "--max-fee-per-gas", "300"],
+    options: { evmFees: { maxFeePerGas: "300" } },
     script: [
       ...PRIVATE_KEY,
       TASK.addresses,
@@ -297,12 +321,12 @@ const SCENARIOS: Scenario[] = [
       TASK.import, "P",
       TASK.import, "C", "0.5",
       TASK.transfer, "1.5", P_ADDRESS,
-      TASK.stake, "10000", "NodeID-X", "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE,
-      TASK.delegate, "50", "NodeID-X", "1700000000",
-      TASK.addARV, "10000", "NodeID-Y", "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE,
-      TASK.setARV, "NodeID-Y", "0", false,
-      TASK.setARV, "NodeID-Y", "0", true,
-      TASK.setARV, "NodeID-Y", "7d",
+      TASK.stake, "10000", NODE_X.slice("NodeID-".length), NODE_X_MISTYPED, NODE_X, "2d", "", "zz", BLS_PUBLIC_KEY, "zz", BLS_SIGNATURE,
+      TASK.delegate, "50", NODE_X, "1700000000",
+      TASK.addARV, "10000", NODE_Y, "abc", "14d", "15", BLS_PUBLIC_KEY, BLS_SIGNATURE,
+      TASK.setARV, NODE_Y, "0", false,
+      TASK.setARV, NODE_Y, "0", true,
+      TASK.setARV, NODE_Y, "7d",
       TASK.claim, "Yes", "No", "",
       TASK.claim, "No", "1,25", "0.0000000000000000001", "1.25", "Yes", "0x8db97C7cEcE249c2b98bDC0226Cc4C2A57BF52FC",
       TASK.quit,
@@ -315,10 +339,15 @@ const SCENARIOS: Scenario[] = [
       "Private Key", "nofile",
       ...PRIVATE_KEY,
       TASK.transfer, "1", P_ADDRESS,
-      TASK.transfer, "abc", "1", P_ADDRESS,
-      TASK.setARV, "NodeID-Z", "0", true,
+      TASK.transfer, "abc", "1", "P-costwo1qurswpc8qurswpc8qurswpc8qurswpc8f5jsg0", `C${P_ADDRESS.slice(1)}`, P_ADDRESS,
+      TASK.setARV, NODE_Z, "0", true,
       TASK.quit,
     ],
+  },
+  {
+    // connecting used to ask again after every error, with no way out but Ctrl-C
+    name: "wallet menu: Quit after a failed connection",
+    script: ["Private Key", "nofile", "Quit"],
   },
   {
     name: "private key: a failed export is not imported",
@@ -326,9 +355,14 @@ const SCENARIOS: Scenario[] = [
     script: [...PRIVATE_KEY, TASK.CP, "10", "", TASK.PC, "1", TASK.quit],
   },
   {
+    name: "private key: a move waits for its own export, not an earlier one",
+    flags: { earlierExport: true },
+    script: [...PRIVATE_KEY, TASK.CP, "10", "", TASK.PC, "1", "", TASK.quit],
+  },
+  {
     name: "private key: no estimates, nothing to claim",
     flags: { noEstimate: true, noMax: true, zeroRewards: true },
-    argv: ["interactive", "--gas-limit", "250000", "--rpc-url", "http://127.0.0.1:1"],
+    options: { node: { apiUrl: "http://127.0.0.1:1" }, evmFees: { gasLimit: "250000" } },
     script: [...PRIVATE_KEY, TASK.CP, "1", "", TASK.PC, "2", "", TASK.import, "C", "", TASK.claim, TASK.quit],
   },
   {
@@ -337,6 +371,30 @@ const SCENARIOS: Scenario[] = [
     script: ["Ledger", "Coston2", "Ledger Live", { index: 2 }, TASK.addresses, TASK.quit],
   },
   { name: "ledger: keep the context", ctx: "ledger", script: ["Ledger", "Yes", TASK.addresses, TASK.quit] },
+  {
+    // the claim shows the first Ledger's account; the transaction is refused rather than built for the other one
+    name: "ledger: another Ledger plugged in during the session",
+    ctx: "ledger",
+    flags: { swapLedgerAt: "What do you want to do?" },
+    script: ["Ledger", "Yes", TASK.claim, "Yes", "No", "", TASK.quit],
+  },
+  {
+    // the addresses listed are the first Ledger's: the session does not start on the other one, whose key does not
+    // match the saved context either, until it is chosen by replacing the context
+    name: "ledger: another Ledger plugged in while choosing the address",
+    flags: { swapLedgerAt: "Which address do you want to use?" },
+    script: [
+      "Ledger", "Coston2", "BIP44", { index: 0 },
+      "Ledger", "Yes", true, "Coston2", "BIP44", { index: 0 }, TASK.addresses, TASK.quit,
+    ],
+  },
+  {
+    // every path of this device answers another key than the one saved: kept (and refused), then replaced
+    name: "ledger: a context from another Ledger",
+    ctx: "ledger",
+    flags: { sameKey: true },
+    script: ["Ledger", "Yes", false, "Ledger", "Yes", true, "Coston2", "BIP44", { index: 0 }, TASK.addresses, TASK.quit],
+  },
   {
     name: "ledger: replace the context",
     ctx: "ledger",
@@ -375,9 +433,11 @@ async function main(): Promise<void> {
     flags = { ...scenario.flags };
     exhausted = 0;
     txCount = 0;
+    ledgerSwapped = false;
+    utxoReads = 0;
     record(`\n===== ${scenario.name}`);
     try {
-      await interactiveCli(scenario.argv ?? ["interactive"]);
+      await interactiveCli({ node: {}, evmFees: {}, ...scenario.options });
       record("EXIT ok");
     } catch (error) {
       record(`EXIT error: ${error instanceof Error ? error.message : String(error)}`);

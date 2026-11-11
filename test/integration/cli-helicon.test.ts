@@ -4,9 +4,12 @@ import fs from "fs";
 import { runCli, makeTempDir, cleanupTempDir, signMessageHash } from "./cli-helper";
 import { createFundedAccount, type FundedAccount } from "./accounts";
 import {
+  freshPAddress,
   getCurrentValidators,
+  getPBalance,
   isHeliconActive,
   pickFreeNode,
+  sentTxId,
   uniqueId,
   waitForLocalNetwork,
   waitForPTxCommitted,
@@ -214,12 +217,25 @@ describe("CLI auto-renewed validators (Helicon, with network)", function () {
     expect(validator!.nextPeriod).to.equal("0");
   });
 
-  it("signs with a software Ledger device (FLARE_FAKE_LEDGER_KEY) through the --ledger path", () => {
+  it("signs with a software Ledger device (FLARE_FAKE_LEDGER_KEY) through the --ledger path", async () => {
+    const recipient = freshPAddress();
     const result = runCli(
-      ["transaction", "transfer", "-a", "1", "--transfer-address", account.pAddress, "--ledger", "--network", NETWORK],
+      [
+        "transaction",
+        "transfer",
+        "-a",
+        "0.987654321",
+        "--transfer-address",
+        recipient,
+        "--ledger",
+        "--network",
+        NETWORK,
+      ],
       { env: { FLARE_FAKE_LEDGER_KEY: account.privateKeyHex }, timeoutMs: 90_000 }
     );
     expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
+    await waitForPTxCommitted(sentTxId(result.stdout));
+    expect(await getPBalance(recipient)).to.equal(987_654_321n);
   });
 });

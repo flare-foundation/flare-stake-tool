@@ -12,8 +12,10 @@ import {
   DEFAULT_DELEGATION_FEE_PERCENT,
   END_TIME,
   START_TIME,
+  optionValue,
   optionalString,
   parseBlsHex,
+  parseNodeId,
   parseNonce,
   parseTime,
   type ParsedTime,
@@ -60,8 +62,19 @@ const required = (value: unknown, name: string, flag: string, type: string): str
   return value;
 };
 
+/**
+ * The list a setClaimExecutors / setAllowedClaimRecipients transaction stores. Required: an empty list clears the
+ * stored one, so clearing takes an explicit empty string rather than a forgotten option.
+ */
+function storedList(value: string[] | undefined, flag: string, type: string): string[] {
+  if (value === undefined) {
+    throw new Error(`${flag} is required for ${type}; to clear the stored list, pass ${flag} ""`);
+  }
+  return normalizeAddressList(value);
+}
+
 function parseShares(value: unknown): number | undefined {
-  const text = optionalString(value);
+  const text = optionValue(value, "--auto-compound-shares");
   if (text === undefined) return undefined;
   if (!/^\d+$/.test(text) || Number(text) > 1_000_000) {
     throw new Error("--auto-compound-shares must be an integer between 0 and 1000000 (millionths)");
@@ -76,14 +89,14 @@ export function parseAtomicTxRequest(
 ): { request: TxRequest; resolvedTimes: { name: string; time: ParsedTime }[] } {
   const amount = (): bigint => parseFlr(required(options.amount, "amount", "--amount <amount>", type));
   const optionalAmount = (): bigint | undefined => {
-    const text = optionalString(options.amount);
-    return text ? parseFlr(text) : undefined;
+    const text = optionValue(options.amount, "--amount");
+    return text === undefined ? undefined : parseFlr(text);
   };
   const fee = (): bigint | undefined => {
-    const text = optionalString(options.fee);
-    return text ? parseFlr(text) : undefined;
+    const text = optionValue(options.fee, "--fee");
+    return text === undefined ? undefined : parseFlr(text);
   };
-  const nodeId = (): string => required(options.nodeId, "nodeId", "--node-id <nodeId>", type);
+  const nodeId = (): string => parseNodeId(required(options.nodeId, "nodeId", "--node-id <nodeId>", type));
   const resolvedTimes: { name: string; time: ParsedTime }[] = [];
   const endTime = (): bigint => {
     const time = parseTime(required(options.endTime, "endTime", "--end-time <endTime>", type));
@@ -98,7 +111,7 @@ export function parseAtomicTxRequest(
     return time.value;
   };
   const shares = (): number =>
-    parsePercentToShares(optionalString(options.delegationFee) ?? DEFAULT_DELEGATION_FEE_PERCENT);
+    parsePercentToShares(optionValue(options.delegationFee, "--delegation-fee") ?? DEFAULT_DELEGATION_FEE_PERCENT);
   const bls = () => ({
     blsPublicKey: parseBlsHex(
       required(options.popBlsPublicKey, "popBlsPublicKey", "--pop-bls-public-key <popBlsPublicKey>", type),
@@ -170,7 +183,7 @@ export function parseAtomicTxRequest(
       }
       request = {
         type,
-        nodeId: node,
+        nodeId: node === undefined ? undefined : parseNodeId(node),
         validatorTxId,
         period: period(),
         autoCompoundShares: parseShares(options.autoCompoundShares),
@@ -195,18 +208,18 @@ export function parseEvmTxRequest(operation: EvmOperation, options: EvmTxOptions
         fees: resolveEvmFees("withdrawal", options),
       };
     case "claim": {
-      const amount = optionalString(options.amount);
+      const amount = optionValue(options.amount, "--amount");
       return {
         type: "claim",
         recipient: required(options.recipient, "recipient", "--recipient <address>", "claim"),
-        amount: amount ? parseFlrToWei(amount) : undefined,
+        amount: amount === undefined ? undefined : parseFlrToWei(amount),
         wrap: Boolean(options.wrap),
         nonce,
         fees: resolveEvmFees("claim", options),
       };
     }
     case "setClaimExecutors": {
-      const executors = normalizeAddressList(options.executors);
+      const executors = storedList(options.executors, "--executors", "setClaimExecutors");
       return {
         type: "setClaimExecutors",
         executors,
@@ -215,7 +228,7 @@ export function parseEvmTxRequest(operation: EvmOperation, options: EvmTxOptions
       };
     }
     case "setAllowedClaimRecipients": {
-      const recipients = normalizeAddressList(options.recipients);
+      const recipients = storedList(options.recipients, "--recipients", "setAllowedClaimRecipients");
       return {
         type: "setAllowedClaimRecipients",
         recipients,
@@ -224,7 +237,7 @@ export function parseEvmTxRequest(operation: EvmOperation, options: EvmTxOptions
       };
     }
     case "custom": {
-      const value = optionalString(options.value) ?? "0";
+      const value = optionValue(options.value, "--value") ?? "0";
       if (!/^\d+$/.test(value)) {
         throw new Error("--value must be an integer amount of wei");
       }

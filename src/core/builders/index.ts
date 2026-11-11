@@ -46,14 +46,14 @@ export function buildTransaction(
     case "setAutoRenewedValidatorConfig":
       return buildSetAutoRenewedValidatorConfig(req, env, account, policy);
     case "claim":
-      return buildClaim(req, env, account);
+      return buildClaim(req, env, account, policy);
     case "withdrawal":
-      return buildWithdrawal(req, env, account);
+      return buildWithdrawal(req, env, account, policy);
     case "setClaimExecutors":
-      return buildSetClaimExecutors(req, env, account);
+      return buildSetClaimExecutors(req, env, account, policy);
     case "setAllowedClaimRecipients":
-      return buildSetAllowedClaimRecipients(req, env, account);
+      return buildSetAllowedClaimRecipients(req, env, account, policy);
     case "customCChainTx":
-      return buildCustomCChainTx(req, env, account);
+      return buildCustomCChainTx(req, env, account, policy);
   }
 }

@@ -117,14 +117,26 @@ export interface BuildPolicy {
   readonly defaultStartTime: bigint | "now";
   /** exportCP/importPC refuse to estimate the fee from the chain. */
   readonly requireExplicitFee: boolean;
+  /**
+   * The nonce of a C-chain EVM transaction built without --nonce. "pending" counts the transactions the node holds
+   * too, so one signed and sent now does not take the nonce of one still waiting (and replace it if it pays more);
+   * "latest" is the same on every node at a height, so ForDefi co-signers build the same transaction.
+   */
+  readonly evmNonce: "pending" | "latest";
 }
 
 export const IMMEDIATE_SIGNER_POLICY: BuildPolicy = {
   feePrice: "chain",
   defaultStartTime: "now",
   requireExplicitFee: false,
+  evmNonce: "pending",
 };
-export const FILE_SIGNER_POLICY: BuildPolicy = { feePrice: 1000n, defaultStartTime: 1n, requireExplicitFee: true };
+export const FILE_SIGNER_POLICY: BuildPolicy = {
+  feePrice: 1000n,
+  defaultStartTime: 1n,
+  requireExplicitFee: true,
+  evmNonce: "latest",
+};
 
 export type UnsignedTxBundle =
   | {

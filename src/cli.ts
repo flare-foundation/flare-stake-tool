@@ -4,18 +4,14 @@
  * no transaction logic lives here.
  */
 import { Command } from "commander";
+import { styleText } from "node:util";
+import figlet from "figlet";
 import { accountFromPublicKey } from "./chain/keys";
+import { overriddenNode } from "./chain/network";
 import { formatFlr, formatWei } from "./chain/units";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { isAlreadySentToChain } from "./core/files";
-import {
-  contextFileExists,
-  readContextFile,
-  resolveNetworkName,
-  writeContextFile,
-  accountFromContextFile,
-  type ContextFile,
-} from "./app/env";
+import { contextFileExists, readContextFile, resolveNetworkName, writeContextFile, type ContextFile } from "./app/env";
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
 import { describeAutoRenewal, getBalances, getValidators } from "./app/info";
 import { sendSignedTransaction } from "./app/send";
@@ -25,15 +21,25 @@ import {
   END_TIME,
   START_TIME,
   START_TIME_NOT_USED_WARNING,
+  evmFeeOverrides,
   pastEndTimeWarning,
   type ParsedTime,
 } from "./cli/inputs";
-import { globalOptions, resolveAccount, resolveEnv, resolveSigner, type GlobalOptions } from "./cli/options";
+import {
+  globalOptions,
+  resolveAccount,
+  resolveEnv,
+  resolveSigner,
+  selectsAccount,
+  type GlobalOptions,
+} from "./cli/options";
 import { parseAtomicTxRequest, parseEvmTxRequest, type AtomicTxOptions, type EvmTxOptions } from "./cli/requests";
-import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION } from "./cli/node";
+import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
+import { interactiveCli } from "./interactive/cli";
 import { log, logInfo, logSuccess, logWarning, reportOutcome } from "./output";
 import { FAKE_LEDGER_KEY_ENV, ledgerDevice } from "./signers/ledger";
 import * as ledger from "./ledger";
+import { version } from "../package.json";
 
 const TRANSACTION_TYPES = ATOMIC_TX_TYPES.join("|");
 
@@ -74,9 +80,13 @@ export function cli(program: Command): void {
 
   program
     .command("interactive")
-    .description("Interactive mode")
-    .action(() => {
-      // never runs: src/run.ts dispatches "interactive" before Commander; listed for --help
+    .description("Interactive mode (also -i)")
+    .action(async () => {
+      const given = NOT_INTERACTIVE_OPTIONS.filter(([key]) => program.getOptionValueSource(key) === "cli");
+      await interactive(
+        globalOptions(program.opts()),
+        given.map(([, flag]) => flag)
+      );
     });
 
   program
@@ -189,7 +199,10 @@ export function cli(program: Command): void {
     .description("Set allowed claim recipients for claiming FSP rewards")
     .option("-i, --transaction-id <transaction-id>", "Id of the transaction to finalize (unsigned-file flow)")
     .option("--nonce <nonce>", "Nonce of the constructed transaction")
-    .option("--recipients <recipients...>", "Addresses of the allowed claim recipients (space separated)")
+    .option(
+      "--recipients <recipients...>",
+      "Addresses of the allowed claim recipients to set (space separated); empty string to remove all recipients"
+    )
     .action(async (options: EvmTxOptions) => {
       await evmTransaction("setAllowedClaimRecipients", globalOptions(program.opts(), options));
     });
@@ -249,12 +262,10 @@ async function send(options: GlobalOptions): Promise<void> {
     throw new Error("send needs the transaction id: -i <id>");
   }
   const env = resolveEnv(options);
+  // the signature is checked against the account the options select, as info and transactions choose it; with no
+  // selector and no context file there is nothing to check it against
   const expected =
-    options.ledger || options.envPath
-      ? await resolveAccount(options, env)
-      : contextFileExists(options.ctxFile)
-        ? accountFromContextFile(readContextFile(options.ctxFile), env.network.hrp)
-        : undefined;
+    selectsAccount(options) || contextFileExists(options.ctxFile) ? await resolveAccount(options, env) : undefined;
   const { txId } = await sendSignedTransaction(id, env, expected);
   logSuccess(`Signed transaction ${id} with hash ${txId} sent to the node`);
 }
@@ -276,6 +287,45 @@ async function forDefi(type: string, options: GlobalOptions): Promise<void> {
   } else {
     throw new Error(`Unknown forDefi action ${type}; use sign or fetch`);
   }
+}
+
+/**
+ * Global options interactive mode has no use for: it asks for the wallet and the network itself, and keeps a Ledger
+ * context in ./ctx.json. They are refused rather than ignored.
+ */
+const NOT_INTERACTIVE_OPTIONS = [
+  ["network", "--network"],
+  ["ledger", "--ledger"],
+  ["blind", "--blind"],
+  ["derivationPath", "--derivation-path"],
+  ["ctxFile", "--ctx-file"],
+  ["envPath", "--env-path"],
+  ["getHacked", "--get-hacked"],
+] as const;
+
+/**
+ * Starts the menu. Commander has handled --help and refused unknown options by now; the options interactive mode
+ * doesn't use (`ignored`, the ones given), the fee options and the node URL are checked before anything is shown, and
+ * the menu needs a terminal, as the prompts read keystrokes from one.
+ */
+async function interactive(options: GlobalOptions, ignored: readonly string[]): Promise<void> {
+  if (ignored.length > 0) {
+    throw new Error(
+      `interactive mode asks for the wallet and network itself; leave out ${ignored.join(", ")} ` +
+        "(it uses --rpc-url, --api-key and the C-chain fee options)"
+    );
+  }
+  const settings = { node: nodeOverrides(options), evmFees: evmFeeOverrides(options) };
+  overriddenNode(settings.node); // a bad --rpc-url fails now, not after the wallet questions
+  if (!process.stdin.isTTY) {
+    // without a terminal inquirer would crash after the first question
+    throw new Error("interactive mode needs a terminal; use the commands instead (see --help)");
+  }
+  process.stdout.write("\x1Bc");
+  console.log(styleText("white", figlet.textSync("Flare Stake CLI")));
+  console.log(styleText("green", `Version: ${version}`));
+  await interactiveCli(settings);
+  console.log("Finished execution");
 }
 
 async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {

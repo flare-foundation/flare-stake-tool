@@ -100,6 +100,9 @@ async function requireHelicon(env: Env): Promise<void> {
  * Refuses a stake or delegation to a fourth distinct node while stakes to three
  * other nodes overlap its period. The period starts now whatever start time the
  * transaction carries: since Durango the chain starts a stake when it accepts it.
+ * The account's delegations are read from the validators' lists, so a node that
+ * counts delegations without listing them is refused rather than trusted to
+ * have none.
  */
 export function checkNodeLimit(
   validators: CurrentValidator[],
@@ -108,6 +111,14 @@ export function checkNodeLimit(
   endTime: bigint | undefined,
   nowSeconds: bigint = BigInt(Math.floor(Date.now() / 1000))
 ): void {
+  const unlisted = validators.find((v) => BigInt(v.delegatorCount ?? "0") > BigInt(v.delegators?.length ?? 0));
+  if (unlisted) {
+    throw new Error(
+      `The node lists ${unlisted.delegators?.length ?? 0} of the ${unlisted.delegatorCount} delegations to ` +
+        `${unlisted.nodeID}, so the account's stakes cannot be checked against the limit of ` +
+        `${MAX_NODES_PER_ACCOUNT} nodes; use a node that lists them (--rpc-url)`
+    );
+  }
   const overlapping = stakesOf(validators, account.pAddress).filter(
     (stake) => stake.endTime >= nowSeconds && (endTime === undefined || stake.startTime <= endTime)
   );

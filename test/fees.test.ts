@@ -153,10 +153,13 @@ describe("constants/fees", () => {
       expect(resolveEvmFees("claim", { gasLimit: "250000" }).gasLimit).to.equal(250_000);
     });
 
-    it("falls back to the default when an override is absent or empty", () => {
-      for (const override of [{}, { maxFeePerGas: undefined }, { maxFeePerGas: "" }]) {
+    it("falls back to the default when an override is absent, and refuses an empty one", () => {
+      for (const override of [{}, { maxFeePerGas: undefined }]) {
         expect(resolveEvmFees("claim", override).maxFeePerGas).to.equal(DEFAULT_MAX_FEE_PER_GAS.claim);
       }
+      expect(() => resolveEvmFees("claim", { maxFeePerGas: "" })).to.throw(
+        "Option --max-fee-per-gas is empty; leave it out to use the default"
+      );
     });
 
     it("rejects a tip above the fee cap", () => {

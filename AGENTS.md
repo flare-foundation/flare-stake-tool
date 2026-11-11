@@ -15,10 +15,10 @@ install. Hardware-wallet support: Ledger (Flare, Avalanche and Ethereum apps).
 
 ```
 src/
-  run.ts                    Entry script: alias rewrite (exportCP → transaction exportCP), banner in interactive mode, Commander dispatch
-  cli.ts                    Commander definitions; each action parses options, resolves env + signer and calls app/
+  run.ts                    Entry script: alias rewrite (exportCP → transaction exportCP, -i → interactive), Commander dispatch
+  cli.ts                    Commander definitions; each action parses options, resolves env + signer and calls app/ (interactive: terminal check, banner, menu)
   cli/requests.ts           Command options → TxRequest (FLR → nFLR/wei bigint, durations, percentages)
-  cli/inputs.ts             Input parsers shared with interactive mode (BLS hex, nonce, times, fee flags from argv)
+  cli/inputs.ts             Input parsers shared with interactive mode (BLS hex, node id, nonce, times, fee flags)
   cli/options.ts            Options every command shares; signer, env and account resolution
   app/env.ts                Network resolution (--network, else ctx.json, else flare) and the ctx.json file
   app/transactions.ts       Pre-flight checks (max 3 nodes, validator exists/period, Helicon gate) + the pipeline
@@ -37,7 +37,7 @@ src/
   signers/file.ts           default + -i <id>: writes the unsigned file and stops (ForDefi / manual signing)
   chain/network.ts          The single network table (ids, hrp, URLs, symbol) + node URL / API key overrides
   chain/clients.ts          flarejs APIs, ethers provider, cached Context, Helicon gate
-  chain/keys.ts             Key/address derivation (flarejs secp256k1 + ethers)
+  chain/keys.ts             Key/address derivation (flarejs secp256k1 + ethers), CB58 decoding with its checksum checked
   chain/units.ts            parseFlr/formatFlr, percentages → shares, durations
   chain/contracts.ts        FlareContractRegistry / reward contract calls (six ABI fragments)
   chain/validators.ts       Typed getCurrentValidators incl. Helicon fields, stake summaries
@@ -102,7 +102,8 @@ recipient has contract code.
 - `-e`, `-s` and `--period` accept unix seconds or durations (`2d12h`);
   `parseEndTime` resolves a duration against now.
 - The `--env-path` file uses `PRIVATE_KEY_HEX` (hex) and/or `PRIVATE_KEY_CB58`
-  (base58check).
+  (base58check). `parsePrivateKey` checks the CB58 checksum itself: flarejs'
+  `base58check.decode` only drops it.
 - Network minimums (P-chain) differ per network — validator self-bond /
   delegation: flare, songbird, costwo = 1,000,000 / 50,000; coston =
   100,000 / 10,000. Verify against the chain rather than this file:
@@ -177,11 +178,18 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   Flare's API gateway. The key travels as the `x-apikey` header on every
   request of every client (`chain/clients.ts` assembles the flarejs Context
   itself, because `Context.getContextFromURI` would build keyless clients), and
-  a copied endpoint URL with `?x-apikey=` works as the URL. `interactive` reads
-  the two flags from argv (`cli/node.ts`), as it is dispatched before Commander.
+  a copied endpoint URL with `?x-apikey=` works as the URL. `interactive` is a
+  Commander command like the others and takes the two flags the same way; it
+  checks the URL before the banner and refuses the account and network options,
+  which its menu asks for.
 - The signing suites create a fresh account funded from the ewoq key for every
   run (`test/integration/accounts.ts`), so they are rerun-safe and independent
   of the max-three-validators rule, and all end times are relative to now.
+- `cli-evm.test.ts` signs `withdrawal` and `customCChainTx` directly, including
+  the nonce taken while another transaction of the account waits in the node.
+  `claim`, `setClaimExecutors` and `setAllowedClaimRecipients` have no live
+  test: localflare has none of Flare's reward contracts, so only the fixture
+  recorder runs them, with those contract reads stubbed.
 - Funded test account: ewoq private key
   `56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027` is
   publicly known and funded on **both** the C-chain (huge balance) and the

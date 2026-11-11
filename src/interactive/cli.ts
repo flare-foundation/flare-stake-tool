@@ -28,20 +28,13 @@ import {
   type ContextFile,
 } from "../app/env";
 import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
-import { maxExportPCAmount } from "../core/builders/pchain";
+import { allUtxos, maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
-import type { Env, Signer, TxRequest, TxRequestOf } from "../core/types";
+import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
 import { describeError, log, logError, logInfo, logWarning, reportOutcome } from "../output";
 import { LedgerSigner, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
-import {
-  DEFAULT_DELEGATION_FEE_PERCENT,
-  BASE_DERIVATION_PATH,
-  evmFeeOverridesFromArgv,
-  parseBlsHex,
-  pastEndTimeWarning,
-} from "../cli/inputs";
-import { nodeOverridesFromArgv } from "../cli/node";
+import { DEFAULT_DELEGATION_FEE_PERCENT, BASE_DERIVATION_PATH, parseBlsHex, pastEndTimeWarning } from "../cli/inputs";
 import type { DerivationMode, TaskId } from "../constants/screen";
 import { prompts } from "./prompts";
 
@@ -64,10 +57,19 @@ type ConnectedWallet = Omit<Session, "evmFees">;
 const PENDING_IMPORT_TIMEOUT_MS = 90_000;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export async function interactiveCli(baseArgv: string[]): Promise<void> {
-  const node = nodeOverridesFromArgv(baseArgv);
-  const evmFees = evmFeeOverridesFromArgv(baseArgv);
-  const session: Session = { ...(await connectWalletWithRetry(node)), evmFees };
+/** What the command line gives interactive mode: the node to use and the C-chain fee options. */
+export interface InteractiveOptions {
+  node: NodeOverrides;
+  evmFees: EvmFeeOverrides;
+}
+
+export async function interactiveCli(options: InteractiveOptions): Promise<void> {
+  const wallet = await connectWalletWithRetry(options.node);
+  if (wallet === undefined) {
+    logInfo("Exiting interactive cli.");
+    return;
+  }
+  const session: Session = { ...wallet, evmFees: options.evmFees };
   for (;;) {
     const task = await prompts.selectTask();
     if (task === "quit") {
@@ -83,7 +85,8 @@ export async function interactiveCli(baseArgv: string[]): Promise<void> {
   }
 }
 
-async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWallet> {
+/** Asks again after an error, until a wallet is connected; undefined when the user quits. */
+async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWallet | undefined> {
   for (;;) {
     try {
       return await connectWallet(node);
@@ -100,12 +103,18 @@ const TASKS: Record<Exclude<TaskId, "quit">, (session: Session) => Promise<void>
   validators: showValidators,
   CP: moveCP,
   PC: movePC,
-  stake: async (session) => execute(session, await askStake()),
-  delegate: async (session) => execute(session, await askDelegate()),
+  stake: async (session) => {
+    await execute(session, await askStake());
+  },
+  delegate: async (session) => {
+    await execute(session, await askDelegate());
+  },
   import: importFunds,
   transfer,
   claim,
-  addAutoRenewedValidator: async (session) => execute(session, await askAutoRenewedValidator()),
+  addAutoRenewedValidator: async (session) => {
+    await execute(session, await askAutoRenewedValidator());
+  },
   setAutoRenewedValidatorConfig: setAutoRenewal,
 };
 
@@ -143,7 +152,7 @@ async function importFunds(session: Session): Promise<void> {
 
 async function transfer(session: Session): Promise<void> {
   const amount = await prompts.amount();
-  const to = await prompts.transferAddress();
+  const to = await prompts.transferAddress(session.env.network.hrp);
   await execute(session, { type: "transfer", amount: parseFlr(amount), to });
 }
 
@@ -159,8 +168,10 @@ async function setAutoRenewal(session: Session): Promise<void> {
 }
 
 /** Builds, signs and sends (or writes) a transaction, and reports it as the command line does. */
-async function execute(session: Session, request: TxRequest): Promise<void> {
-  reportOutcome(await runTransaction(request, session.env, session.signer), session.env.network.symbol);
+async function execute(session: Session, request: TxRequest): Promise<Outcome> {
+  const outcome = await runTransaction(request, session.env, session.signer);
+  reportOutcome(outcome, session.env.network.symbol);
+  return outcome;
 }
 
 /** Asks for an end time and warns (as the command line does) when it is not in the future. */
@@ -256,14 +267,14 @@ async function askCChainFee(
   }
 }
 
-/** Export from the C-chain, wait for the UTXO to reach the P-chain, import. */
+/** Export from the C-chain, wait for its UTXO to reach the P-chain, import. */
 async function moveCP(session: Session): Promise<void> {
   const amount = await prompts.amount();
   const exportCP: TxRequestOf<"exportCP"> = { type: "exportCP", amount: parseFlr(amount) };
   const fee = await askCChainFee(session, exportCP);
   log("Please approve export transaction");
-  await execute(session, { ...exportCP, fee });
-  await waitForPendingImport(session, "P");
+  const exported = await execute(session, { ...exportCP, fee });
+  await waitForExport(session, "P", exported);
   log("Please approve import transaction");
   await execute(session, { type: "importCP" });
 }
@@ -279,25 +290,39 @@ async function movePC(session: Session): Promise<void> {
   }
   const amount = await prompts.amount(defaultAmount);
   log("Please approve export transaction");
-  await execute(session, { type: "exportPC", amount: parseFlr(amount) });
-  await waitForPendingImport(session, "C");
+  const exported = await execute(session, { type: "exportPC", amount: parseFlr(amount) });
+  await waitForExport(session, "C", exported);
   const fee = await askCChainFee(session, { type: "importPC" });
   log("Please approve import transaction");
   await execute(session, { type: "importPC", fee });
 }
 
-async function waitForPendingImport(session: Session, destination: "P" | "C"): Promise<void> {
+/**
+ * Waits until the export's own UTXOs reach the destination chain. An earlier export that was never imported is
+ * pending there as well, and importing as soon as it showed up could leave this one behind.
+ */
+async function waitForExport(session: Session, destination: "P" | "C", exported: Outcome): Promise<void> {
+  if (exported.status !== "sent") {
+    throw new Error("The export was not sent, so there is nothing to import yet");
+  }
+  const { env, account } = session;
   const deadline = Date.now() + PENDING_IMPORT_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const { utxos } =
+    const utxos =
       destination === "P"
-        ? await session.env.clients.pvm.getUTXOs({ addresses: [session.account.pAddress], sourceChain: "C" })
-        : await session.env.clients.evm.getUTXOs({ addresses: [session.account.cAddressBech], sourceChain: "P" });
-    if (utxos.length > 0) return;
+        ? await allUtxos((query) => env.clients.pvm.getUTXOs(query), {
+            addresses: [account.pAddress],
+            sourceChain: "C",
+          })
+        : await allUtxos((query) => env.clients.evm.getUTXOs(query), {
+            addresses: [account.cAddressBech],
+            sourceChain: "P",
+          });
+    if (utxos.some((utxo) => utxo.utxoId.txID.toString() === exported.txId)) return;
     await sleep(1_000);
   }
   throw new Error(
-    `The exported funds did not show up on the ${destination}-chain within ${PENDING_IMPORT_TIMEOUT_MS / 1000}s`
+    `The exported funds (${exported.txId}) did not show up on the ${destination}-chain within ${PENDING_IMPORT_TIMEOUT_MS / 1000}s`
   );
 }
 
@@ -331,8 +356,11 @@ async function claim(session: Session): Promise<void> {
   });
 }
 
-async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
+async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet | undefined> {
   const wallet = await prompts.connectWallet();
+  if (wallet === "quit") {
+    return undefined;
+  }
   if (wallet === "privateKey") {
     const pvtKeyPath = await prompts.pvtKeyPath();
     if (!fs.existsSync(pvtKeyPath)) {
@@ -347,18 +375,28 @@ async function connectWallet(node: NodeOverrides): Promise<ConnectedWallet> {
     const device = ledgerDevice();
     const context = await ledgerContext(device);
     const env = createEnv(context.network, node);
-    const signer = new LedgerSigner(device, context.derivationPath ?? BASE_DERIVATION_PATH, env.network.hrp);
+    // the device must still have the context's key: another Ledger plugged in while choosing the address, or since
+    // the saved context was checked, would otherwise become the session's account
+    const path = context.derivationPath ?? BASE_DERIVATION_PATH;
+    const signer = new LedgerSigner(device, path, env.network.hrp, context.publicKey);
     return { env, signer, account: await signer.account() };
   }
   const unsupported: never = wallet; // a wallet added to the menu without a branch here fails to compile
   throw new Error(`Unsupported wallet ${String(unsupported)}`);
 }
 
+/** The account the connected Ledger has at a saved context's derivation path. */
+async function connectedAccount(device: LedgerDevice, context: ContextFile): Promise<Account> {
+  const path = context.derivationPath ?? BASE_DERIVATION_PATH;
+  return accountFromPublicKey(await device.getPublicKey(path, context.network), context.network);
+}
+
 /**
- * Reuses an existing Ledger ctx.json when the user wants to, otherwise creates
- * one. Any other context (a ForDefi one with its vault id, or an unreadable
- * file) is replaced only after confirmation, and the replaced file is kept as
- * a backup rather than deleted.
+ * Reuses an existing Ledger ctx.json when the user wants to and the connected
+ * device has its key, otherwise creates one: a different device or seed would
+ * sign for another account than the one just shown. Any other context (a
+ * ForDefi one with its vault id, or an unreadable file) is replaced only after
+ * confirmation, and the replaced file is kept as a backup rather than deleted.
  */
 async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
   const replacing = contextFileExists(DEFAULT_CTX_FILE);
@@ -378,7 +416,18 @@ async function ledgerContext(device: LedgerDevice): Promise<ContextFile> {
       if (existing.vaultId) log(`${styleText("yellow", "Vault Id:")} ${existing.vaultId}`);
     }
     if (existing?.wallet === "ledger") {
-      if (await prompts.ctxFile()) return existing;
+      if (await prompts.ctxFile()) {
+        const connected = await connectedAccount(device, existing);
+        const saved = accountFromPublicKey(existing.publicKey, existing.network);
+        if (connected.publicKeyHex === saved.publicKeyHex) return existing;
+        logWarning(
+          `The connected Ledger has ${connected.cAddress} at ${existing.derivationPath ?? BASE_DERIVATION_PATH}, ` +
+            `not the ${saved.cAddress} saved in ${DEFAULT_CTX_FILE}`
+        );
+        if (!(await prompts.replaceCtxFile(DEFAULT_CTX_FILE))) {
+          throw new Error(`Kept ${DEFAULT_CTX_FILE}; connect the Ledger it was made with, or replace it`);
+        }
+      }
     } else if (!(await prompts.replaceCtxFile(DEFAULT_CTX_FILE))) {
       throw new Error(`Kept ${DEFAULT_CTX_FILE}; choose another wallet, or move the file away to connect a Ledger`);
     }

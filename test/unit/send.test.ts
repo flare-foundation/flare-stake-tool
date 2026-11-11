@@ -6,13 +6,14 @@
 import { expect } from "chai";
 import fs from "fs";
 import { sendSignedTransaction, type SendEnv } from "../../src/app/send";
+import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import { isAlreadySentToChain, signedTxPath, writeSignedTxJson, type UnsignedTxJson } from "../../src/core/files";
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
 import { describeError } from "../../src/output";
 import { readGolden } from "../characterization/scenarios";
 import { cleanupTempDir, makeTempDir } from "../helpers/cli";
-import { signMessageHash } from "../helpers/keys";
+import { EWOQ_PUBLIC_KEY_COMPRESSED, signMessageHash } from "../helpers/keys";
 
 interface ScriptedNode {
   /** Statuses returned by successive polls; the last one repeats. */
@@ -57,14 +58,18 @@ function scriptedEnv(node: ScriptedNode, id: string, cwd: string): SendEnv {
   return { network: networkConfig("localflare", {}), clients };
 }
 
-function writeSigned(scenario: string, id: string, cwd: string): void {
+/** Writes the recorded unsigned file of `scenario` as signed, by the ewoq key its ctx.json holds unless `key` is given. */
+function writeSigned(scenario: string, id: string, cwd: string, key?: string): void {
   const unsigned = readGolden(scenario).outcome.unsignedTxJson as UnsignedTxJson & {
     signatureRequests?: { message: string }[];
     message?: string;
   };
   const message = unsigned.signatureRequests?.[0]?.message ?? unsigned.message!; // atomic or EVM file
-  writeSignedTxJson({ ...unsigned, signature: signMessageHash(message) }, id, cwd);
+  writeSignedTxJson({ ...unsigned, signature: signMessageHash(message, key) }, id, cwd);
 }
+
+/** A valid private key that is not ewoq's. */
+const FOREIGN_KEY = "22".repeat(32);
 
 /** Runs `action` and returns what it printed on stderr. */
 async function stderrOf(action: () => Promise<unknown>): Promise<string> {
@@ -264,5 +269,52 @@ describe("app/send: the isSentToChain mark", () => {
       (error: unknown) => expect(String(error)).to.include("insufficient funds")
     );
     expect(isAlreadySentToChain("t", cwd)).to.equal(false);
+  });
+});
+
+describe("app/send: the signature must belong to the expected account", () => {
+  const ewoq = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
+  // P-chain, C-chain atomic and EVM, with the status that ends each wait; the atomic refusals name the public key,
+  // the EVM one the address
+  const CASES = [
+    ["delegate-file", "Committed", "recovered public key differs"],
+    ["exportCP-file", "Accepted", "recovered public key differs"],
+    ["withdrawal-file", "Committed", "recovered address differs"],
+  ] as const;
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = makeTempDir("send-");
+  });
+
+  afterEach(() => {
+    cleanupTempDir(cwd);
+  });
+
+  it("refuses a signature by another key: nothing reaches the node and the file is not marked", async () => {
+    for (const [scenario, final, differs] of CASES) {
+      writeSigned(scenario, scenario, cwd, FOREIGN_KEY);
+      let issued = false;
+      const env = scriptedEnv({ statuses: [final], onIssue: () => (issued = true) }, scenario, cwd);
+      await sendSignedTransaction(scenario, env, ewoq, cwd, FAST).then(
+        () => expect.fail(`${scenario}: a signature by another key must be refused`),
+        (error: unknown) =>
+          expect(describeError(error), scenario).to.equal(
+            `The signature does not belong to the configured account (${differs})`
+          )
+      );
+      expect(issued, scenario).to.equal(false);
+      expect(isAlreadySentToChain(scenario, cwd), scenario).to.equal(false);
+    }
+  });
+
+  it("sends a signature by the expected account", async () => {
+    for (const [scenario, final] of CASES) {
+      writeSigned(scenario, scenario, cwd);
+      const env = scriptedEnv({ statuses: [final] }, scenario, cwd);
+      const { txId } = await sendSignedTransaction(scenario, env, ewoq, cwd, FAST);
+      expect(txId, scenario).to.be.oneOf(["2TxIdFromTheScriptedNode", "0xEvmHashFromTheScriptedNode"]);
+      expect(isAlreadySentToChain(scenario, cwd), scenario).to.equal(true);
+    }
   });
 });
