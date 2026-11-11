@@ -180,28 +180,8 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
 - `LOCALFLARE_RPC_URL` (default `http://localhost:9650`) is the node the CLI
   talks to; `LOCALFLARE_NODE_URLS` lists all nodes so the stake tests can pick
   one that is not validating yet (`test/integration/local-network.ts`).
-- The CLI itself honours `FLARE_RPC_URL=<base url>` / `--rpc-url` for any
-  network name: it replaces the API/RPC base URL while keeping the network's
-  hrp and ids, and refuses a node whose `info.getNetworkID` is not that
-  network's (`Clients.verifyNetwork`, also run before the Context is built).
-  Goldens recorded without that call get it from
-  `test/characterization/node-stubs.ts`. The test harness relies on it; together with `FLARE_API_KEY` /
-  `--api-key` it also reaches staging deployments and private nodes behind
-  Flare's API gateway. The key travels as the `x-apikey` header on every
-  request of every client (`chain/clients.ts` assembles the flarejs Context
-  itself, because `Context.getContextFromURI` would build keyless clients), and
-  a copied endpoint URL with `?x-apikey=` works as the URL (its key comes before
-  `FLARE_API_KEY`; `createEnv` warns about a key over plain http to another
-  machine). `FLARE_API_KEY` goes only to the node of `FLARE_RPC_URL` or the
-  network's own, never to one `--rpc-url` names. A request carrying the key
-  refuses a redirect (flarejs fetch options `redirect: "error"`, the ethers
-  connection's `getUrlFunc`), since both libraries send the header on to the
-  redirect's target. Every client notes its node on the errors it throws (`notingNode`),
-  and `describeError` adds the causes and the node and masks credentials
-  (`redactSecrets`): print errors through it. `interactive` is a
-  Commander command like the others and takes the two flags the same way; it
-  checks the URL before the banner and refuses the account and network options,
-  which its menu asks for.
+- The harness points the CLI at localflare with `FLARE_RPC_URL` (see "Node URL
+  and API key" below).
 - A skipped test fails the run (`forbid-pending` in `.mocharc.integration.yml`).
   The Helicon suite skips when Helicon is not active, and the stake tests when
   every node is validating, which a rerun within the 15-minute minimum stake
@@ -224,6 +204,30 @@ LOCALFLARE_RPC_URL=http://localhost:9650 pnpm test:integration
   P-chain. **Safe for local test networks only — never mainnet.**
 - `docker-compose.yml` (go-flare v1.13.0, no Helicon) is kept only as a
   reference until a Helicon image is published; the harness no longer uses it.
+
+## Node URL and API key
+
+What users see is in `docs/COMMANDS.md` (`--rpc-url`, `--api-key`). What the
+code must keep:
+
+- `--rpc-url` / `FLARE_RPC_URL` replace the network's base URL and keep its hrp
+  and ids. `Clients.verifyNetwork` refuses a node whose `info.getNetworkID` is
+  not the network's, before anything else and before the Context is built;
+  goldens recorded without that call get it from
+  `test/characterization/node-stubs.ts`.
+- The key goes as the `x-apikey` header on every request of every client:
+  `chain/clients.ts` assembles the flarejs Context itself, because
+  `Context.getContextFromURI` builds keyless clients. `FLARE_API_KEY` goes only
+  to the node of `FLARE_RPC_URL` or the network's own, never to one that
+  `--rpc-url` names.
+- A request carrying the key refuses a redirect (flarejs fetch options
+  `redirect: "error"`, the ethers connection's `getUrlFunc`): both libraries
+  would send the header on to the redirect's target.
+- Every client notes its node on the errors it throws (`notingNode`). Print
+  errors through `describeError`, which adds the causes and the node and masks
+  credentials (`redactSecrets`).
+- `interactive` takes the two flags like any command, checks the URL before the
+  banner, and refuses the account and network options, which its menu asks for.
 
 ## Characterization goldens (offline)
 
