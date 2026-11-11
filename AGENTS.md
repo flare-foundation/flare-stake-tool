@@ -328,6 +328,29 @@ it — both example-based and property-based where applicable.
   against a device, so check changes there on a real one (Flare, Avalanche and
   Ethereum apps).
 
+## Commit messages
+
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/), as the
+Flare handbook's Commit Messages page sets them out: `<type>: <description>` or
+`<type>(<scope>): <description>`, the description a short summary in the
+imperative mood ("add", not "added").
+
+| Type | For |
+|---|---|
+| `feat` | a new feature |
+| `fix` | a bug fix |
+| `refactor` | restructuring without a change in behaviour |
+| `test` | adding or changing tests |
+| `docs` | documentation |
+| `chore` | maintenance: dependencies, tooling |
+| `ci` | the pipelines (`.gitlab-ci.yml`, `.github/workflows/`) |
+| `chore(release)` | the commit that prepares a release: the version, and the CHANGELOG date of a final one |
+
+Only `fix`, `feat` and `refactor` change the review scope, `src/` (SECURITY.md).
+A `test`, `docs` or `chore` commit that needs a change there, such as a seam
+for a test, is a `refactor`. Commits must be signed: GitLab refuses unsigned
+ones.
+
 ## Release process
 
 Releases publish to npm from the GitHub mirror, not from GitLab CI (which
