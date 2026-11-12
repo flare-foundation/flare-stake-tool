@@ -101,6 +101,7 @@ proofs
 *unsignedTx.json
 *signedTx.json
 ctx*.json
+ctx*.json.*.bak
 
 # fordefi
 private.pem
