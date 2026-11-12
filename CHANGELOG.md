@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [[v5.0.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.0.0)] - Unreleased
+## [[v5.0.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.0.0)] - 2026-11-12
 
 Every transaction type is now built once, signed by one of three signers (private key, Ledger, or the unsigned-file flow used by ForDefi), and sent and confirmed by the same code. The three paths used to be separate copies that behaved differently. Commands, flags and the transaction file formats are unchanged, except as listed under Breaking changes.
 
@@ -63,8 +63,10 @@ Every transaction type is now built once, signed by one of three signers (privat
 * Signing:
   * `send -i` accepts `v` as `1b`/`1c` as documented, and fills the validator-authority credential of `setAutoRenewedValidatorConfig`. A signature with a high `s` (as Go's `crypto/ecdsa` or a KMS may give) is sent as its low-`s` twin, which the node and ethers require; an `r` or `s` of 0 or above the curve order, or a signature no key recovers from, is refused with a message saying so (it used to be an empty error or "sqrt invalid").
   * A given `--ctx-file` that doesn't exist is refused by every command but `init-ctx`, whatever else selects the account; `send` skipped the signer check then, and `--ledger` ignored it.
-  * The Ledger Ethereum app is refused for P-chain and atomic transactions, which the node never accepts from it; the tool asks for the Flare app.
+  * The Ledger Ethereum app is refused for P-chain and atomic transactions, which the node never accepts from it; the tool asks for the Flare app (on localflare, the Avalanche app).
   * Ledger: the Avalanche app works with multi-digit path indices (`m/44'/60'/0'/0/10`), a signature with an impossible `v` is refused, and the USB connection is always closed.
+  * Ledger: when the USB module `node-hid` has no binary (npm with `ignore-scripts=true` skips its install script), the error says how to build it, instead of listing every path it tried. The README's Installation says how to install with `ignore-scripts`.
+  * Ledger: a C-chain transaction the Flare app doesn't sign is reported as a Ledger signing error, not as a bare device status; its 0x6984 (data invalid, as on localflare, whose chain id it doesn't know) says to use the Avalanche or Ethereum app there.
   * Ledger blind signing (the Avalanche app, or the Flare app for a type it can't parse) prints the transaction hash on stderr first, to compare with the one the device shows. The Flare app's fallback to it is said on stderr too, so stdout holds only the result.
   * `forDefi sign` labels the ForDefi id correctly, and ForDefi errors show the HTTP status and response instead of misleading messages. The API token is masked in them, also where the response is cut short, and a ForDefi transaction id that holds it, or that is not a plain id (one with a line break could print a false `ForDefi hash: …` line), is not saved into the unsigned file. A ForDefi state that is not a word is quoted and cut.
   * Unsigned files record the account they were built for: `signatureRequests[0].signer` holds its P-chain address (earlier versions wrote `""`), and C-chain files get a top-level `signer` with its C-chain address. `forDefi sign` refuses a vault of another account, and `forDefi fetch` and `send` a signature by another account or over another transaction, so a mixed-up context can't have vault B sign A's transaction with A's nonce, and a wrong answer doesn't replace a good signature not sent yet. The field is not part of the hash; files from earlier versions, without it, work as before.

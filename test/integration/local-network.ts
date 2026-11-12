@@ -4,7 +4,9 @@
  * 9650/9652/9654/9656/9658, network id 162, Helicon active at genesis). Nothing is
  * started or stopped here; the harness only checks readiness and picks nodes.
  *
- *   LOCALFLARE_RPC_URL    base URL of the node the CLI talks to (default http://localhost:9650)
+ *   LOCALFLARE_RPC_URL    base URL of the node the tests' own checks query (default http://localhost:9650).
+ *                         The CLI they run uses localflare's default node, or FLARE_RPC_URL, which it
+ *                         inherits: for another node, set both to the same URL.
  *   LOCALFLARE_NODE_URLS  comma-separated base URLs of all nodes, used to find a
  *                         node that is not validating yet for the stake tests
  */

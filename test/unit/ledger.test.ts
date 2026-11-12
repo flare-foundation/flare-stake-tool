@@ -8,9 +8,17 @@ import { expect } from "chai";
 import fc from "fast-check";
 import { evmSignatureHex, rsvHex, toHex } from "../../src/ledger/bytes";
 import { splitAvalanchePath } from "../../src/ledger/avalanche";
-import { checkFlareResponse } from "../../src/ledger/flare";
+import {
+  FLARE_APP_EVM_REFUSED,
+  checkFlareResponse,
+  flareEvmSigningError,
+  signEvmTransaction,
+  type FlareEvmApp,
+  type FlareEvmDevice,
+} from "../../src/ledger/flare";
 import { checkDerivationPath } from "../../src/ledger/path";
 import { ETHEREUM_APP_P_CHAIN, detectApp } from "../../src/ledger/index";
+import { NODE_HID_NOT_BUILT, openTransport, withApp, type HidTransport } from "../../src/ledger/transport";
 import { SigningKey, Transaction, computeAddress, getBytes, keccak256 } from "ethers";
 import {
   bundleFromUnsignedTxJson,
@@ -157,6 +165,173 @@ describe("ledger", () => {
       for (const bad of ["m/44'/60'/0'", "44'/60'/0'/0/0", "m/44'/60'/0'/0/0/1"]) {
         expect(() => splitAvalanchePath(bad), bad).to.throw(/Unsupported derivation path/);
       }
+    });
+  });
+
+  describe("flareEvmSigningError, for a C-chain transaction the Flare app did not sign", () => {
+    /** What `@ledgerhq/errors`' TransportStatusError carries: the message it builds and the device status. */
+    const deviceStatus = (statusCode: number, text: string): Error =>
+      Object.assign(new Error(`Ledger device: ${text} (0x${statusCode.toString(16)})`), { statusCode });
+
+    it("says on 0x6984 that the Flare app refused it, and which apps sign on localflare", () => {
+      const refused = deviceStatus(0x6984, "UNKNOWN_ERROR");
+      const error = flareEvmSigningError(refused);
+      expect(error.message).to.equal(`Ledger signing error: ${FLARE_APP_EVM_REFUSED}`);
+      expect(error.message).to.include("on localflare, use the Avalanche or Ethereum app");
+      expect(error.cause).to.equal(refused);
+    });
+
+    it("names any other refusal as a signing error with its own text, the user's rejection included", () => {
+      const rejected = deviceStatus(0x6985, "Condition of use not satisfied (denied by the user?)");
+      expect(flareEvmSigningError(rejected).message).to.equal(`Ledger signing error: ${rejected.message}`);
+      expect(flareEvmSigningError(rejected).cause).to.equal(rejected);
+      // 0x6984 only as text, without the status, is not taken for it
+      const textOnly = new Error("Ledger device: UNKNOWN_ERROR (0x6984)");
+      expect(flareEvmSigningError(textOnly).message).to.equal(`Ledger signing error: ${textOnly.message}`);
+      expect(flareEvmSigningError("disconnected").message).to.equal("Ledger signing error: disconnected");
+    });
+  });
+
+  describe("signEvmTransaction with the Flare app, through a stand-in device", () => {
+    const path = "m/44'/60'/0'/0/2";
+    /** A device whose app signs with `sign`; `calls` records what reached it. */
+    const device = (sign: FlareEvmApp["signEVMTransaction"], calls: unknown[][]): FlareEvmDevice => ({
+      resolve: (rawTx) => {
+        calls.push(["resolve", rawTx]);
+        return Promise.resolve(null);
+      },
+      withApp: (use) => use({ signEVMTransaction: sign }),
+    });
+
+    it("reports the app's 0x6984 as a signing error that names the apps to use on localflare", async () => {
+      const refused = Object.assign(new Error("Ledger device: UNKNOWN_ERROR (0x6984)"), { statusCode: 0x6984 });
+      const calls: unknown[][] = [];
+      await signEvmTransaction(
+        path,
+        "02e5",
+        device(() => Promise.reject(refused), calls)
+      ).then(
+        () => expect.fail("signed"),
+        (error: unknown) => {
+          expect((error as Error).message).to.equal(`Ledger signing error: ${FLARE_APP_EVM_REFUSED}`);
+          expect((error as Error).cause).to.equal(refused);
+        }
+      );
+      expect(calls).to.deep.equal([["resolve", "02e5"]]);
+    });
+
+    it("returns r|s|v of what the app signed, given the path, the transaction and its resolution", async () => {
+      const calls: unknown[][] = [];
+      const sign: FlareEvmApp["signEVMTransaction"] = (signPath, rawTx, resolution) => {
+        calls.push(["sign", signPath, rawTx, resolution]);
+        return Promise.resolve({ r: "11".repeat(32), s: "22".repeat(32), v: "1b" });
+      };
+      expect(await signEvmTransaction(path, "02e5", device(sign, calls))).to.equal(
+        "11".repeat(32) + "22".repeat(32) + "1b"
+      );
+      expect(calls).to.deep.equal([
+        ["resolve", "02e5"],
+        ["sign", path, "02e5", null],
+      ]);
+    });
+  });
+
+  describe("withApp, around every device call", () => {
+    /** A transport that records its closing. */
+    const transport = (closed: string[]): HidTransport =>
+      ({
+        close: () => {
+          closed.push("closed");
+          return Promise.resolve();
+        },
+      }) as unknown as HidTransport;
+
+    it("says how to build node-hid when the transport it opens has no binary, before creating any app", async () => {
+      const missing = new Error(
+        "Could not locate the bindings file. Tried:\n → /lib/node_modules/node-hid/build/HID.node"
+      );
+      const created: string[] = [];
+      await withApp(
+        () => created.push("app"),
+        () => Promise.resolve(),
+        () => Promise.reject(missing)
+      ).then(
+        () => expect.fail("opened without a binary"),
+        (error: unknown) => {
+          expect((error as Error).message).to.equal(NODE_HID_NOT_BUILT);
+          expect((error as Error).cause).to.equal(missing);
+        }
+      );
+      expect(created).to.deep.equal([]);
+    });
+
+    it("closes the transport after the call, when the call fails, and when the app can't be created", async () => {
+      const closed: string[] = [];
+      const opened = () => Promise.resolve(transport(closed));
+      expect(
+        await withApp(
+          () => "app",
+          (app) => Promise.resolve(`${app} used`),
+          opened
+        )
+      ).to.equal("app used");
+      expect(closed).to.have.length(1);
+      const failed = new Error("the device call failed");
+      await withApp(
+        () => "app",
+        () => Promise.reject(failed),
+        opened
+      ).then(
+        () => expect.fail("succeeded"),
+        (error: unknown) => expect(error).to.equal(failed)
+      );
+      expect(closed).to.have.length(2);
+      const noApp = new Error("the app client could not be created");
+      await withApp(
+        () => {
+          throw noApp;
+        },
+        () => Promise.resolve(),
+        opened
+      ).then(
+        () => expect.fail("succeeded"),
+        (error: unknown) => expect(error).to.equal(noApp)
+      );
+      expect(closed).to.have.length(3);
+    });
+  });
+
+  describe("openTransport", () => {
+    const transport = {} as HidTransport;
+
+    it("says how to build node-hid when its binary is missing, keeping the original error as cause", async () => {
+      const missing = new Error(
+        "Could not locate the bindings file. Tried:\n → /lib/node_modules/node-hid/build/HID.node\n → /lib/node_modules/node-hid/build/Release/HID.node"
+      );
+      await openTransport(() => Promise.reject(missing)).then(
+        () => expect.fail("opened without a binary"),
+        (error: unknown) => {
+          expect(error).to.be.instanceOf(Error);
+          expect((error as Error).message).to.equal(NODE_HID_NOT_BUILT);
+          expect((error as Error).message).to.include("npm rebuild node-hid --global --ignore-scripts=false");
+          expect((error as Error).message).not.to.include("HID.node");
+          expect((error as Error).cause).to.equal(missing);
+        }
+      );
+    });
+
+    it("passes any other error through unchanged, and an opened transport too", async () => {
+      const other = new Error("cannot open device with path IOService:/AppleARMPE/arm-io");
+      await openTransport(() => Promise.reject(other)).then(
+        () => expect.fail("opened"),
+        (error: unknown) => expect(error).to.equal(other)
+      );
+      const mentionsIt = new Error("Ledger: Could not locate the bindings file, said another layer");
+      await openTransport(() => Promise.reject(mentionsIt)).then(
+        () => expect.fail("opened"),
+        (error: unknown) => expect(error).to.equal(mentionsIt)
+      );
+      expect(await openTransport(() => Promise.resolve(transport))).to.equal(transport);
     });
   });
 
@@ -418,6 +593,10 @@ describe("ledger", () => {
         (error: unknown) => expect((error as Error).message).to.equal(ETHEREUM_APP_P_CHAIN)
       );
       expect(calls).to.deep.equal([["getPublicKey", PATH]]);
+      // the Flare app reads the transaction on the device; on localflare, whose network it doesn't know, only the
+      // Avalanche app can sign
+      expect(ETHEREUM_APP_P_CHAIN).to.include("open the Flare app");
+      expect(ETHEREUM_APP_P_CHAIN).to.include("on localflare, the Avalanche app");
     });
 
     it("every app signs an EVM transaction's unsigned serialization, whose keccak is the file's message", async () => {

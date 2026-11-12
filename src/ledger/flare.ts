@@ -40,10 +40,53 @@ export async function sign(bip44Path: string, txHex: string): Promise<string> {
   return rsvHex(response, "the transaction");
 }
 
-export async function signEvmTransaction(bip44Path: string, txHex: string): Promise<string> {
+/** zondax's `DataIsInvalid`: the Flare app's answer to a C-chain transaction it refuses, as on localflare. */
+const DATA_INVALID = 0x6984;
+
+export const FLARE_APP_EVM_REFUSED =
+  "the Flare app refused the transaction (0x6984, data invalid); on localflare, use the Avalanche or Ethereum app: " +
+  "the Flare app doesn't know that chain";
+
+/**
+ * The error for a C-chain transaction the Flare app did not sign. Its EVM signing throws the bare device status
+ * (`Ledger device: UNKNOWN_ERROR (0x6984)`), so it is named as a signing error, and 0x6984 says what to do instead.
+ */
+export function flareEvmSigningError(error: unknown): Error {
+  const status = typeof error === "object" && error !== null && "statusCode" in error ? error.statusCode : undefined;
+  const reason =
+    status === DATA_INVALID ? FLARE_APP_EVM_REFUSED : error instanceof Error ? error.message : String(error);
+  return new Error(`Ledger signing error: ${reason}`, { cause: error });
+}
+
+export type FlareEvmApp = Pick<FlareApp, "signEVMTransaction">;
+type EvmResolution = Parameters<FlareApp["signEVMTransaction"]>[2];
+
+/** What signing a C-chain transaction with the Flare app needs; tests pass a stand-in. */
+export interface FlareEvmDevice {
+  /** Ledger's clear-signing metadata for the transaction, which the app shows when it has some. */
+  resolve: (rawTx: string) => Promise<EvmResolution>;
+  withApp: <R>(use: (app: FlareEvmApp) => Promise<R>) => Promise<R>;
+}
+
+const FLARE_EVM_DEVICE: FlareEvmDevice = {
+  resolve: (rawTx) => ledgerService.resolveTransaction(rawTx, {}, {}),
+  withApp: withFlare,
+};
+
+export async function signEvmTransaction(
+  bip44Path: string,
+  txHex: string,
+  device: FlareEvmDevice = FLARE_EVM_DEVICE
+): Promise<string> {
   const rawTx = toHex(txHex, false);
-  const resolution = await ledgerService.resolveTransaction(rawTx, {}, {});
-  const signature = (await withFlare((app) => app.signEVMTransaction(bip44Path, rawTx, resolution))) as Signature;
+  const resolution = await device.resolve(rawTx);
+  const signature = (await device.withApp(async (app) => {
+    try {
+      return await app.signEVMTransaction(bip44Path, rawTx, resolution);
+    } catch (error) {
+      throw flareEvmSigningError(error);
+    }
+  })) as Signature;
   return evmSignatureHex(signature);
 }
 

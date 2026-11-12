@@ -34,7 +34,8 @@ export async function detectApp(openAppName: () => Promise<string> = flare.openA
 }
 
 export const ETHEREUM_APP_P_CHAIN =
-  "The Ledger Ethereum app cannot sign P-chain or atomic transactions; open the Flare app and retry";
+  "The Ledger Ethereum app cannot sign P-chain or atomic transactions; open the Flare app and retry " +
+  "(on localflare, the Avalanche app: the Flare app doesn't know that network)";
 
 export async function getPublicKey(bip44Path: string, hrp: string): Promise<string> {
   switch (await detectApp()) {
