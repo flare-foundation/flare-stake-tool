@@ -123,7 +123,7 @@ describe("chain/units", () => {
     });
 
     it("refuses any other comma, which 4.4.0 dropped ('1,5' became 15)", () => {
-      const bad = ["1,5", "0,5", "1,50", "1,5000", "12,34,567", "1,000,00", "0,500", "01,000", "1.000,5"];
+      const bad = ["1,5", "0,5", "1,50", "1,5000", "12,34,567", "1,000,00", "1000,000", "0,500", "01,000", "1.000,5"];
       for (const amount of [...bad, ",5", ",000", "1,", "1,,000", "1, 000", "1,000,", "-1,000", "1,000.5,0"]) {
         expect(() => parseFlr(amount), amount).to.throw(
           `Invalid amount "${amount}": commas are accepted only as thousands separators (15,000,000); use "." for decimals, e.g. 1.5`
