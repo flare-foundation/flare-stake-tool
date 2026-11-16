@@ -129,8 +129,8 @@ runs in CI and must stay clean.
   module. `@ledgerhq/cryptoassets` has a `>=13.33.0` floor in
   `pnpm-workspace.yaml` overrides (security).
 - `eslint` stays on 9.x until `@flarenetwork/eslint-config-flare` supports 10.
-- `typescript` stays on 5.x; TypeScript 7 (Go compiler) needs
-  `typescript-eslint` support first.
+- `typescript` stays on 6.x; TypeScript 7 (Go compiler) needs
+  `typescript-eslint` support first (8.72 takes TypeScript below 6.1).
 - `rootDir: "src"` is set in `tsconfig.build.json` only, not the base
   `tsconfig.json`. The base tsconfig includes both `src` and `test` for
   type-checking; setting `rootDir` there would cause TS6059 "file is not
