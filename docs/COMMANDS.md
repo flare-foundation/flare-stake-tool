@@ -229,7 +229,7 @@ Register a new fixed-term validator using locked P-chain funds. (For validators 
 | Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `-e <endTime>` (unix seconds or duration from now), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>` (48 bytes), `--pop-bls-signature <hex>` (96 bytes), optional `-s <startTime>` |
 | Side effects | Locks the staked amount on the P-chain for the duration. Funds return to the staking address on `endTime`. |
 | Output | Tx hash, "sent to the network" |
-| Failures | A `-n` node id that doesn't start with `NodeID-` or whose checksum doesn't match (a typo), refused before anything is built (also for `delegate`, `addAutoRenewedValidator`, `setAutoRenewedValidatorConfig` and the interactive prompt, which asks again). "Insufficient funds" if P-balance < stake amount. Validator already registered. Invalid BLS signature. End time before start time or after the configured maximum. The account already stakes to three other nodes in an overlapping period (checked on every path, also for `delegate` and `addAutoRenewedValidator`; refused when the node counts a validator's delegations without listing them all, since the account's could be among those left out). |
+| Failures | A `-n` node id that doesn't start with `NodeID-` or whose checksum doesn't match (a typo), refused before anything is built (also for `delegate`, `addAutoRenewedValidator`, `setAutoRenewedValidatorConfig` and the interactive prompt, which asks again). "Insufficient funds" if P-balance < stake amount. Validator already registered. Invalid BLS signature. End time before start time or after the configured maximum. On Flare and Coston2 (and localflare, which follows Flare), the account already stakes to three other nodes in an overlapping period: their C-chain stake mirror (`PChainStakeMirror`) counts at most three nodes per account (checked on every path, also for `delegate` and `addAutoRenewedValidator`; refused when the node counts a validator's delegations without listing them all, since the account's could be among those left out). Songbird and Coston have no stake mirror and no such limit. |
 
 `-s <startTime>` does not delay the stake: since the Durango upgrade the network
 starts a stake when it accepts the transaction (the tool warns when `-s` is
@@ -248,7 +248,7 @@ Delegate P-chain funds to an existing validator.
 | Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `-e <endTime>` (unix seconds or duration from now), optional `-s <startTime>` |
 | Side effects | Locks the delegated amount until endTime; rewards accrue per the validator's delegation fee |
 | Output | Tx hash, "sent to the network" |
-| Failures | "Unknown node id" when the node is not a current validator. End time after the validator's current period (for auto-renewed validators: the current cycle). Insufficient P-chain funds. The max-three-nodes rule (every path). |
+| Failures | "Unknown node id" when the node is not a current validator. End time after the validator's current period (for auto-renewed validators: the current cycle). Insufficient P-chain funds. The three-node limit on Flare and Coston2 (every path; see `stake`). |
 
 As for `stake`, `-s <startTime>` does not delay the delegation; it starts when the network accepts the transaction.
 
@@ -279,7 +279,7 @@ uptime.
 | Inputs | `-n <nodeId>`, `-a <amount>` (≥ network minimum), `--period <seconds\|duration>` (e.g. `14d`; within the network's minimum and maximum validation duration), `--delegation-fee <pct>` (default 20), `--pop-bls-public-key <hex>` (48 bytes), `--pop-bls-signature <hex>` (96 bytes), optional `--owner-address <P-…>` (the validator authority allowed to change the configuration later, one P-chain address of the selected network; default: own address), optional `--auto-compound-shares <millionths>` (share of rewards restaked each cycle; rewards are 0 on Flare networks, so it has no effect) |
 | Side effects | Locks the stake on the P-chain. The stake returns to the staking address at the end of the cycle in which auto-renewal was stopped. |
 | Output | Tx hash, "sent to the network" |
-| Failures | "Auto-renewed validators (Helicon upgrade) are not active on <network>". An owner address of another network or chain. Validator already registered. Period outside the allowed range. Invalid BLS signature. The max-three-nodes rule. |
+| Failures | "Auto-renewed validators (Helicon upgrade) are not active on <network>". An owner address of another network or chain. Validator already registered. Period outside the allowed range. Invalid BLS signature. The three-node limit on Flare and Coston2 (see `stake`). |
 
 The configuration can only be changed by the validator authority; this tool
 supports a single-address authority with threshold 1, so a second
