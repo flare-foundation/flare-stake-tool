@@ -57,8 +57,8 @@ export interface Stake {
   txId: string;
   kind: "validator" | "delegator";
   nodeId: string;
-  /** P-chain address of the reward owner. */
-  owner: string;
+  /** P-chain addresses of the reward owner, usually one. */
+  owners: string[];
   startTime: bigint;
   /** For an auto-renewed validator: the end of the current cycle. */
   endTime: bigint;
@@ -67,22 +67,33 @@ export interface Stake {
   autoRenewed: boolean;
 }
 
-const ownerOf = (owners: OutputOwners | undefined): string | undefined => owners?.addresses[0];
+/** The reward owner's addresses: of the Helicon-era field when it lists any, else of the older one. */
+const ownersOf = (current: OutputOwners | undefined, older: OutputOwners | undefined): string[] =>
+  current?.addresses.length ? current.addresses : (older?.addresses ?? []);
 const amountOf = (stake: { stakeAmount?: string; weight?: string }): NFlr =>
   asNFlr(BigInt(stake.stakeAmount ?? stake.weight ?? "0"));
 
-/** Every current stake (validation or delegation) whose reward owner is `pAddress`. */
-export function stakesOf(validators: CurrentValidator[], pAddress: string): Stake[] {
+/**
+ * Every current stake (validation or delegation) of `pAddress`: those whose first reward owner it is (`first`, what
+ * the limit of staked nodes counts: the stake mirror counts a stake for the address that paid for it, which the list
+ * doesn't show, and every stake this tool builds rewards that address alone), or those whose reward owners include
+ * it (`any`, what `info stakes` lists).
+ */
+export function stakesOf(validators: CurrentValidator[], pAddress: string, match: "first" | "any" = "first"): Stake[] {
   const wanted = pAddress.toLowerCase();
+  const isWanted = (owners: string[]): boolean =>
+    match === "first"
+      ? owners[0]?.toLowerCase() === wanted
+      : owners.some((address) => address.toLowerCase() === wanted);
   const stakes: Stake[] = [];
   for (const validator of validators) {
-    const owner = ownerOf(validator.validationRewardOwner) ?? ownerOf(validator.rewardOwner);
-    if (owner?.toLowerCase() === wanted) {
+    const owners = ownersOf(validator.validationRewardOwner, validator.rewardOwner);
+    if (isWanted(owners)) {
       stakes.push({
         txId: validator.txID,
         kind: "validator",
         nodeId: validator.nodeID,
-        owner,
+        owners,
         startTime: BigInt(validator.startTime),
         endTime: BigInt(validator.endTime),
         amount: amountOf(validator),
@@ -90,13 +101,13 @@ export function stakesOf(validators: CurrentValidator[], pAddress: string): Stak
       });
     }
     for (const delegator of validator.delegators ?? []) {
-      const delegationOwner = ownerOf(delegator.delegationRewardOwner) ?? ownerOf(delegator.rewardOwner);
-      if (delegationOwner?.toLowerCase() === wanted) {
+      const delegationOwners = ownersOf(delegator.delegationRewardOwner, delegator.rewardOwner);
+      if (isWanted(delegationOwners)) {
         stakes.push({
           txId: delegator.txID,
           kind: "delegator",
           nodeId: validator.nodeID,
-          owner: delegationOwner,
+          owners: delegationOwners,
           startTime: BigInt(delegator.startTime),
           endTime: BigInt(delegator.endTime),
           amount: amountOf(delegator),

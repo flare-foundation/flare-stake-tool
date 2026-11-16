@@ -35,7 +35,7 @@ export function describeAutoRenewal(validator: CurrentValidator): string | undef
   return `auto-renewed: cycle ends ${cycleEnd}, next period ${nextPeriod}s${nextPeriod === "0" ? " (exits at cycle end)" : ""}, authority ${authority}, auto-compound ${compound}%`;
 }
 
-/** An account's current stakes: validations and delegations whose reward owner it is. */
+/** An account's current stakes: validations and delegations whose reward owners include it. */
 export interface StakesReport {
   /** By end time, then node id and transaction id. */
   stakes: Stake[];
@@ -52,7 +52,7 @@ export async function getStakes(env: Env, account: Account): Promise<StakesRepor
 }
 
 export function stakesReport(validators: CurrentValidator[], pAddress: string): StakesReport {
-  const stakes = stakesOf(validators, pAddress).sort(
+  const stakes = stakesOf(validators, pAddress, "any").sort(
     (a, b) =>
       (a.endTime < b.endTime ? -1 : a.endTime > b.endTime ? 1 : 0) ||
       (a.nodeId < b.nodeId ? -1 : a.nodeId > b.nodeId ? 1 : 0) ||
@@ -89,7 +89,8 @@ export function describeStakes(report: StakesReport, pAddress: string, network: 
         `${stake.kind === "validator" ? "validation" : "delegation"} ${stake.nodeId} ` +
         `${formatFlr(stake.amount)} ${network.symbol}, ` +
         (stake.autoRenewed ? `auto-renewed, cycle ends ${timeOf(stake.endTime)}` : `ends ${timeOf(stake.endTime)}`) +
-        `, tx ${stake.txId}`
+        `, tx ${stake.txId}` +
+        (stake.owners.length > 1 ? `, reward owners ${stake.owners.join(", ")}` : "")
     ),
     `Total staked: ${formatFlr(report.total)} ${network.symbol}`,
   ];

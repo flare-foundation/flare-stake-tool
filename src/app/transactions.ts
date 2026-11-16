@@ -145,7 +145,7 @@ export function checkNodeLimit(
         `${limit} nodes; use a node that lists them (--rpc-url)`
     );
   }
-  const overlapping = stakesOf(validators, account.pAddress).filter(
+  const overlapping = stakesOf(validators, account.pAddress, "first").filter(
     (stake) => stake.endTime >= now && (endTime === undefined || stake.startTime <= endTime)
   );
   const nodeIds = new Set(overlapping.map((stake) => stake.nodeId.toLowerCase()));

@@ -145,8 +145,10 @@ period, authority and auto-compound share, goes to stderr.
 ### info stakes
 
 Output the account's current validations and delegations, read from the
-P-chain's list of current validators: those whose reward owner is the account,
-as the limit of staked nodes counts them. Every network has the list, so this
+P-chain's list of current validators: those whose reward owners include the
+account. A stake with several reward owners names them at the end of its line
+(`, reward owners P-…, P-…`); the limit of staked nodes counts it only for the
+first. Every network has the list, so this
 works without the C-chain stake mirror (on Songbird and Coston too). Stdout:
 
 ```

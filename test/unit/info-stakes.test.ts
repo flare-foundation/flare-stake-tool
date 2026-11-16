@@ -125,6 +125,39 @@ describe("info stakes", () => {
     ).to.equal(`${ACCOUNT.pAddress}: 1 stake on 1 node (at most 3 nodes at once on flare)`);
   });
 
+  it("lists a stake whose reward owners include the account after another, and names them", () => {
+    const shared = { locktime: "0", threshold: "1", addresses: [OTHER, ACCOUNT.pAddress] };
+    const report = stakesReport(
+      [
+        {
+          txID: "tx-shared-validation",
+          nodeID: "NodeID-C",
+          startTime: "1000",
+          endTime: "4000",
+          weight: "1000000000000000",
+          validationRewardOwner: shared,
+          delegators: [
+            {
+              txID: "tx-shared-delegation",
+              nodeID: "NodeID-C",
+              startTime: "1000",
+              endTime: "3500",
+              stakeAmount: "50000000000000",
+              delegationRewardOwner: shared,
+            },
+          ],
+        },
+      ],
+      ACCOUNT.pAddress
+    );
+    expect(describeStakes(report, ACCOUNT.pAddress, networkConfig("flare", {}))).to.deep.equal([
+      `${ACCOUNT.pAddress}: 2 stakes on 1 node (at most 3 nodes at once on flare)`,
+      `delegation NodeID-C 50000 FLR, ends 1970-01-01T00:58:20.000Z (3500), tx tx-shared-delegation, reward owners ${OTHER}, ${ACCOUNT.pAddress}`,
+      `validation NodeID-C 1000000 FLR, ends 1970-01-01T01:06:40.000Z (4000), tx tx-shared-validation, reward owners ${OTHER}, ${ACCOUNT.pAddress}`,
+      "Total staked: 1050000 FLR",
+    ]);
+  });
+
   it("reports a validator whose delegations the node counts but doesn't list in full", () => {
     // the delegators field cut short, or left out altogether
     const { delegators: _left, ...withoutList } = VALIDATORS[0]!;
