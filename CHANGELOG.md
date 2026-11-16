@@ -237,6 +237,16 @@ Every transaction type is now built once, signed by one of three signers (privat
 * `.npmrc` (settings moved to `pnpm-workspace.yaml`).
 * Legacy ESLint packages (`@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, `globals`).
 
+## [[v4.2.3](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.2.3)] - 2025-12-16
+
+### Fixed
+
+* `@ledgerhq/cryptoassets` pinned to 13.33.0, to avoid issues with 13.34.0.
+
+### Changed
+
+* Releases are published to npm from GitLab CI as a trusted publisher.
+
 ## [[v4.2.2](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.2.2)] - 2025-12-03
 
 ### Fixed
