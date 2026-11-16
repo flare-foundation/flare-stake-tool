@@ -39,7 +39,7 @@ at once, and `-i` is not used. `withdrawal`, `setClaimExecutors`,
 `setAllowedClaimRecipients` and `customCChainTx`, which 4.x always wrote as a
 file, refuse `-i` together with `--get-hacked` or `--ledger`. The transaction types
 (`exportCP`, `stake`, …) can be given without `transaction`, and `addresses`,
-`balance` and `validators` without `info`, also after global options:
+`balance`, `validators` and `stakes` without `info`, also after global options:
 `flare-stake-tool --network costwo balance` is
 `flare-stake-tool info balance --network costwo`.
 
@@ -113,10 +113,10 @@ network. It does **not** contain the private key.
 
 ---
 
-## info \<addresses\|balance\|validators\>
+## info \<addresses\|balance\|validators\|stakes\>
 
-Read-only queries against the configured network. `addresses` and `balance`
-need an account: a context file (`--ctx-file`, default `ctx.json`),
+Read-only queries against the configured network. `addresses`, `balance` and
+`stakes` need an account: a context file (`--ctx-file`, default `ctx.json`),
 `--ledger`, or a key file with `--env-path` (one holding only `PUBLIC_KEY` will
 do, except with `--get-hacked`, which needs its private key). `validators`
 needs none. The account is chosen as transactions choose the
@@ -141,6 +141,33 @@ Output the list of current validators on the P-chain. Each entry includes
 nodeID, weight, start/end times, reward owner, delegators. Stdout holds a header
 line and the JSON; a line per auto-renewed validator, with its cycle end, next
 period, authority and auto-compound share, goes to stderr.
+
+### info stakes
+
+Output the account's current validations and delegations, read from the
+P-chain's list of current validators: those whose reward owners include the
+account. A stake with several reward owners names them at the end of its line
+(`, reward owners P-…, P-…`); the limit of staked nodes counts it only for the
+first. Every network has the list, so this
+works without the C-chain stake mirror (on Songbird and Coston too). Stdout:
+
+```
+Stakes on the network "flare"
+P-flare1…: 3 stakes on 2 nodes (at most 3 nodes at once on flare)
+delegation NodeID-… 50000 FLR, ends 2026-12-01T00:00:00.000Z (1796083200), tx …
+delegation NodeID-… 15000000 FLR, ends 2026-12-15T00:00:00.000Z (1797292800), tx …
+validation NodeID-… 2000000 FLR, auto-renewed, cycle ends 2027-01-01T00:00:00.000Z (1798761600), tx …
+Total staked: 17050000 FLR
+```
+
+One line per stake, by end time (for an auto-renewed validator, the end of its
+current cycle); `tx` is the transaction that added it, which
+`setAutoRenewedValidatorConfig --validator-tx-id` takes. The first line counts
+the distinct nodes and names the network's limit (`at most 3 nodes at once` on
+Flare and Coston2, `no limit of nodes` on Songbird and Coston), and the account
+with no stake gets `no stakes` and a total of 0. A node that counts a
+validator's delegations without listing them all gets a warning on stderr: the
+account's stakes there may be missing.
 
 ---
 
@@ -472,7 +499,8 @@ shows what it does, read from the transaction built (account, network,
 amount, recipient or node, end time with its date, period, fee; for C-chain
 transactions the nonce and the most the gas can cost), and asks "Sign and send
 this transaction?", which defaults to No. No signs nothing, and a move whose
-export is declined imports nothing. Every value read from the node (balances,
+export is declined imports nothing. "View stakes" prints what `info stakes`
+does. Every value read from the node (balances, stakes,
 validators, rewards, a cycle end) is shown only after the node's network was
 checked against the one chosen. The wallet menu has a Quit entry, so a wallet
 that fails to connect can be left. It needs a terminal: with stdin redirected

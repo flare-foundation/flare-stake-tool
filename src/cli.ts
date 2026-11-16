@@ -21,7 +21,14 @@ import {
   type ContextFile,
 } from "./app/env";
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
-import { describeAutoRenewal, getBalances, getValidators } from "./app/info";
+import {
+  describeAutoRenewal,
+  describeStakes,
+  getBalances,
+  getStakes,
+  getValidators,
+  unlistedDelegationsWarning,
+} from "./app/info";
 import { sendSignedTransaction } from "./app/send";
 import { runTransaction } from "./app/transactions";
 import {
@@ -62,7 +69,7 @@ import { version } from "../package.json";
 
 const TRANSACTION_TYPES = ATOMIC_TX_TYPES.join("|");
 /** Commander refuses other values (Argument.choices); the commands keep their own checks for other callers. */
-const INFO_TYPES = ["addresses", "balance", "validators"];
+const INFO_TYPES = ["addresses", "balance", "validators", "stakes"];
 const FORDEFI_ACTIONS = ["sign", "fetch"];
 
 /** Options of `init-ctx`. */
@@ -183,7 +190,7 @@ export function cli(program: Command): void {
   program
     .command("info")
     .description("Relevant information")
-    .addArgument(new Argument("<addresses|balance|validators>", "Type of information").choices(INFO_TYPES))
+    .addArgument(new Argument("<addresses|balance|validators|stakes>", "Type of information").choices(INFO_TYPES))
     .action(async (type: string) => {
       refuseFeeOptions(program, `info ${type}`);
       await info(type, globalOptions(program.opts()));
@@ -551,5 +558,10 @@ async function info(type: string, options: GlobalOptions): Promise<void> {
     logInfo(`Balances on the network "${env.network.name}"`);
     log(`C-chain ${account.cAddress}: ${formatWei(balances.cChainWei)} ${env.network.symbol}`);
     log(`P-chain ${account.pAddress}: ${formatFlr(balances.pChainNFlr)} ${env.network.symbol}`);
+  } else if (type === "stakes") {
+    const report = await getStakes(env, account);
+    report.unlisted.forEach((entry) => logWarning(unlistedDelegationsWarning(entry)));
+    logInfo(`Stakes on the network "${env.network.name}"`);
+    describeStakes(report, account.pAddress, env.network).forEach((line) => log(line));
   }
 }

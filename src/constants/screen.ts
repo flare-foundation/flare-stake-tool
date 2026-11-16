@@ -5,6 +5,7 @@ import type { NetworkName } from "../chain/network";
 export const taskConstants = {
   addresses: "View chain addresses",
   balance: "Check on-chain balance",
+  stakes: "View stakes",
   validators: "Get validator info",
   CP: "Move assets from C-chain to P-chain",
   PC: "Move assets from P-chain to C-chain",

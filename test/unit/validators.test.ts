@@ -59,6 +59,43 @@ describe("chain/validators", () => {
     expect(stakesOf(validators, other).map((s) => s.txId)).to.deep.equal(["del-2"]);
   });
 
+  it("matches the first reward owner, or with 'any' every one, and the limit of nodes still counts the first", () => {
+    const shared = owner([other, target]);
+    const sharedStakes: CurrentValidator[] = ["NodeID-A", "NodeID-B", "NodeID-C"].map((nodeID) => ({
+      txID: `val-${nodeID}`,
+      nodeID,
+      startTime: "1000",
+      endTime: "9000",
+      weight: "1",
+      validationRewardOwner: shared,
+      delegators: [
+        { txID: `del-${nodeID}`, nodeID, startTime: "1000", endTime: "9000", stakeAmount: "2", rewardOwner: shared },
+      ],
+    }));
+    expect(stakesOf(sharedStakes, target)).to.deep.equal([]);
+    expect(stakesOf(sharedStakes, target, "first")).to.deep.equal([]);
+    const any = stakesOf(sharedStakes, target, "any");
+    expect(any.map((s) => s.txId)).to.deep.equal([
+      "val-NodeID-A",
+      "del-NodeID-A",
+      "val-NodeID-B",
+      "del-NodeID-B",
+      "val-NodeID-C",
+      "del-NodeID-C",
+    ]);
+    expect(any[0]!.owners).to.deep.equal([other, target]);
+    expect(stakesOf(sharedStakes, other).map((s) => s.txId)).to.have.length(6); // the first owner, either way
+    // the Helicon-era field wins when it lists any address, else the older one counts
+    const fallback = { ...validators[1]!, validationRewardOwner: owner([]) };
+    expect(stakesOf([fallback], target).map((s) => s.txId)).to.deep.equal(["val-2"]);
+    // the account is second on three nodes: no limit reached for it, the first owner reaches it
+    const account = { ...accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "flare"), pAddress: target };
+    expect(() => checkNodeLimit(sharedStakes, account, "NodeID-D", 3000n, 3, 2000n)).to.not.throw();
+    expect(() => checkNodeLimit(sharedStakes, { ...account, pAddress: other }, "NodeID-D", 3000n, 3, 2000n)).to.throw(
+      /already has active stakes to 3 different nodes/
+    );
+  });
+
   it("recognises auto-renewed validators by the Helicon fields", () => {
     expect(isAutoRenewed(validators[0]!)).to.equal(false);
     expect(isAutoRenewed(validators[1]!)).to.equal(true);

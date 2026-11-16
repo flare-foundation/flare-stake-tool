@@ -35,6 +35,8 @@ describe("CLI signing commands (with network)", function () {
   let envPath: string;
   let account: FundedAccount;
   let delegateTarget: string;
+  let delegationTxId: string;
+  let stakeTxId: string | undefined;
 
   before(async () => {
     await waitForLocalNetwork();
@@ -93,6 +95,7 @@ describe("CLI signing commands (with network)", function () {
     );
     expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
+    delegationTxId = sentTxId(result.stdout);
   });
 
   it("stake: registers a free node as a new validator", async function () {
@@ -124,6 +127,28 @@ describe("CLI signing commands (with network)", function () {
     );
     expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
     expect(result.stdout.toLowerCase()).to.include("sent to the network");
+    stakeTxId = sentTxId(result.stdout);
+  });
+
+  it("info stakes: lists the delegation and the stake just made, with their nodes and total", () => {
+    const result = runCli(["info", "stakes", ...signArgs()], { timeoutMs: 60_000 });
+    expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
+    const lines = result.stdout.trimEnd().split("\n");
+    // the account is fresh: these are its only stakes
+    const count = stakeTxId === undefined ? 1 : 2;
+    expect(lines[1]).to.equal(
+      `${account.pAddress}: ${count === 1 ? "1 stake on 1 node" : "2 stakes on 2 nodes"} (at most 3 nodes at once on localflare)`
+    );
+    const delegation = lines.find((line) => line.endsWith(`tx ${delegationTxId}`));
+    expect(delegation).to.match(
+      new RegExp(`^delegation ${delegateTarget} ${DELEGATE_AMOUNT} LFLR, ends \\S+ \\(\\d+\\), tx `)
+    );
+    if (stakeTxId !== undefined) {
+      expect(lines.find((line) => line.endsWith(`tx ${stakeTxId}`))).to.match(
+        new RegExp(`^validation NodeID-\\S+ ${STAKE_AMOUNT} LFLR, ends `)
+      );
+    }
+    expect(lines.at(-1)).to.equal(`Total staked: ${10_000 * count} LFLR`);
   });
 
   it("transfer: pays exactly the amount to the recipient given", async () => {

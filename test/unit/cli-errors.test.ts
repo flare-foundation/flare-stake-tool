@@ -196,7 +196,7 @@ describe("CLI errors (built CLI, no node)", function () {
 
   it("refuses an unknown info, transaction or forDefi type with the allowed ones, before looking for a context file", () => {
     for (const [args, choices] of [
-      [["info", "foo"], "addresses, balance, validators"],
+      [["info", "foo"], "addresses, balance, validators, stakes"],
       [
         ["transaction", "stakeAll"],
         "exportCP, importCP, exportPC, importPC, stake, delegate, transfer, addAutoRenewedValidator, setAutoRenewedValidatorConfig",
@@ -211,7 +211,7 @@ describe("CLI errors (built CLI, no node)", function () {
       expect(result.stderr, args.join(" ")).to.include(`Allowed choices are ${choices}.`);
     }
     const help = runCli(["info", "--help"], { cwd });
-    expect(help.stdout).to.match(/\(choices:\s+"addresses",\s+"balance",\s+"validators"\)/); // wrapped anywhere
+    expect(help.stdout).to.match(/\(choices:\s+"addresses",\s+"balance",\s+"validators",\s+"stakes"\)/); // wrapped anywhere
   });
 
   it("lists the global options a command takes in its own help", () => {

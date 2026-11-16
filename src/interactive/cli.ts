@@ -28,7 +28,14 @@ import {
   contextFileExists,
   type ContextFile,
 } from "../app/env";
-import { getBalances, getValidators, describeAutoRenewal } from "../app/info";
+import {
+  describeAutoRenewal,
+  describeStakes,
+  getBalances,
+  getStakes,
+  getValidators,
+  unlistedDelegationsWarning,
+} from "../app/info";
 import { allUtxos, maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
 import type { BuiltDetails } from "../core/details";
@@ -115,6 +122,7 @@ async function connectWalletWithRetry(node: NodeOverrides): Promise<ConnectedWal
 const TASKS: Record<Exclude<TaskId, "quit">, (session: Session) => Promise<void> | void> = {
   addresses: showAddresses,
   balance: showBalances,
+  stakes: showStakes,
   validators: showValidators,
   CP: moveCP,
   PC: movePC,
@@ -144,6 +152,14 @@ async function showBalances(session: Session): Promise<void> {
   logInfo(`Balances on the network "${session.env.network.name}"`);
   log(`C-chain ${session.account.cAddress}: ${formatWei(balances.cChainWei)} ${session.env.network.symbol}`);
   log(`P-chain ${session.account.pAddress}: ${formatFlr(balances.pChainNFlr)} ${session.env.network.symbol}`);
+}
+
+/** As `info stakes` prints them. */
+async function showStakes(session: Session): Promise<void> {
+  const report = await getStakes(session.env, session.account);
+  for (const entry of report.unlisted) logWarning(unlistedDelegationsWarning(entry));
+  logInfo(`Stakes on the network "${session.env.network.name}"`);
+  for (const line of describeStakes(report, session.account.pAddress, session.env.network)) log(line);
 }
 
 async function showValidators(session: Session): Promise<void> {

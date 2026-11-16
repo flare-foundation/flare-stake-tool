@@ -304,6 +304,44 @@ stub(info, "getValidators", () =>
   >)
 );
 stub(info, "describeAutoRenewal", (v) => (v.nodeID === "NodeID-A" ? "auto-renews every 14d" : undefined));
+// the account validates on NodeID-A, auto-renewed, and delegates to NodeID-B; the lines are the real describeStakes'
+stub(info, "getStakes", (_env, account) => {
+  const owner = { locktime: "0", threshold: "1", addresses: [account.pAddress] };
+  return Promise.resolve(
+    info.stakesReport(
+      [
+        {
+          txID: "tx-validation",
+          nodeID: "NodeID-A",
+          startTime: "1700000000",
+          endTime: "1800086400",
+          weight: "10000000000000",
+          validationRewardOwner: owner,
+          validatorAuthority: owner,
+          delegators: [],
+        },
+        {
+          txID: "tx-other",
+          nodeID: "NodeID-B",
+          startTime: "1700000000",
+          endTime: "1810000000",
+          weight: "10000000000000",
+          delegators: [
+            {
+              txID: "tx-delegation",
+              nodeID: "NodeID-B",
+              startTime: "1700000000",
+              endTime: "1790000000",
+              stakeAmount: "50000000000000",
+              rewardOwner: owner,
+            },
+          ],
+        },
+      ],
+      account.pAddress
+    )
+  );
+});
 
 stub(fromDist<typeof PchainModule>("core/builders/pchain.js"), "maxExportPCAmount", () =>
   flags.noMax ? Promise.reject(new Error("nothing to export")) : Promise.resolve(2_999_000_000n as NFlr)
@@ -365,6 +403,7 @@ const { interactiveCli } = fromDist<typeof InteractiveModule>("interactive/cli.j
 const TASK = {
   addresses: "View chain addresses",
   balance: "Check on-chain balance",
+  stakes: "View stakes",
   validators: "Get validator info",
   CP: "Move assets from C-chain to P-chain",
   PC: "Move assets from P-chain to C-chain",
@@ -410,6 +449,7 @@ const SCENARIOS: Scenario[] = [
       ...PRIVATE_KEY,
       TASK.addresses,
       TASK.balance,
+      TASK.stakes,
       TASK.validators,
       TASK.CP, "10", "", SIGN, SIGN,
       TASK.PC, "", SIGN, "0.00000001", false, "0.00000001", true, SIGN,

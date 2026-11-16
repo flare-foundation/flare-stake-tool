@@ -4,7 +4,7 @@ import type { AddressInfo } from "net";
 import { createClients, nodeOfError, notingNode } from "../../src/chain/clients";
 import { networkConfig, rememberSecret } from "../../src/chain/network";
 import { SubmittedTxError, TxNotAcceptedError } from "../../src/core/submit";
-import { getBalances, getValidators } from "../../src/app/info";
+import { getBalances, getStakes, getValidators } from "../../src/app/info";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { asNFlr, asWei } from "../../src/chain/units";
 import { parseJson } from "../../src/core/json";
@@ -362,14 +362,14 @@ describe("output/describeError: node errors", () => {
 });
 
 describe("app/info: the node's network", () => {
-  it("is checked before balances or validators are read from the node", async () => {
+  it("is checked before balances, validators or stakes are read from the node", async () => {
     const mismatch = "The node at http://node is on network ID 14 (flare), not localflare (162)";
     const env = {
       network: networkConfig("localflare", {}),
       clients: { verifyNetwork: () => Promise.reject(new Error(mismatch)) },
     } as unknown as Env;
     const account = accountFromPublicKey(EWOQ_PUBLIC_KEY_COMPRESSED, "localflare");
-    for (const read of [() => getBalances(env, account), () => getValidators(env)]) {
+    for (const read of [() => getBalances(env, account), () => getValidators(env), () => getStakes(env, account)]) {
       await read().then(
         () => expect.fail("read from a node on another network"),
         (error: unknown) => expect((error as Error).message).to.equal(mismatch)

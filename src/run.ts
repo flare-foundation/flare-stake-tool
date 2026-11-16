@@ -5,7 +5,7 @@ import { describeError } from "./output";
 import { ATOMIC_TX_TYPES } from "./core/types";
 import { version } from "../package.json";
 
-const INFO_ALIASES = ["addresses", "balance", "validators"];
+const INFO_ALIASES = ["addresses", "balance", "validators", "stakes"];
 
 const program = new Command("flare-stake-tool");
 program.version(version);
