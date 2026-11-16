@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [[v5.0.2](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.0.2)] - 2026-11-16
+
+### Fixed
+
+* Amounts and fees accept commas again as thousands separators between groups of three digits (`15,000,000`, `1,000.5`), which 5.0.0 refused; scripts that write amounts that way work as they did with 4.4.0. Any other comma is still refused (`1,5`, which 4.4.0 read as 15, `1,50`, `0,500`). `1,500` is 1500, as in 4.4.0.
+
 ## [[v5.0.1](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.0.1)] - 2026-11-16
 
 ### Fixed
@@ -230,6 +236,16 @@ Every transaction type is now built once, signed by one of three signers (privat
 * Custom `genesis.json` (now using v1.13's built-in localflare genesis).
 * `.npmrc` (settings moved to `pnpm-workspace.yaml`).
 * Legacy ESLint packages (`@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, `globals`).
+
+## [[v4.2.3](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.2.3)] - 2025-12-16
+
+### Fixed
+
+* `@ledgerhq/cryptoassets` pinned to 13.33.0, to avoid issues with 13.34.0.
+
+### Changed
+
+* Releases are published to npm from GitLab CI as a trusted publisher.
 
 ## [[v4.2.2](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v4.2.2)] - 2025-12-03
 

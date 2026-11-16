@@ -89,8 +89,10 @@ recipient has contract code.
 - `-a` (amount) and `-f` (fee) are in **FLR** on every path; `cli/requests.ts`
   converts them with `parseFlr` to **nFLR** (bigint, 9 decimals) for
   P-chain/atomic requests and with `parseFlrToWei` to **wei** (18 decimals)
-  for C-chain commands. Extra non-zero decimals and commas are errors, never
-  silently dropped. Nothing downstream sees FLR.
+  for C-chain commands. Extra non-zero decimals are errors, never silently
+  dropped. Commas are read only as thousands separators between groups of
+  three digits (`15,000,000`), as 4.4.0 read them; any other comma (`1,5`,
+  which 4.4.0 made 15) is an error. Nothing downstream sees FLR.
 - Amounts are typed `NFlr` or `Wei` (`chain/units.ts`): plain bigints at
   runtime, branded so the compiler refuses one where the other is expected.
   Parsing returns the right type; a value read from the chain is marked with

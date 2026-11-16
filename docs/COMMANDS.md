@@ -44,8 +44,10 @@ file, refuse `-i` together with `--get-hacked` or `--ledger`. The transaction ty
 `flare-stake-tool info balance --network costwo`.
 
 `-a`/`-f` (amount/fee) are in **FLR** on every signing path, written with `.`
-as the decimal separator (`.5` and `1.` are read as 0.5 and 1); commas are
-refused (`1,5` and `10,000` are errors, write `1.5` and `10000`). P-chain and atomic amounts and fees take at most 9
+as the decimal separator (`.5` and `1.` are read as 0.5 and 1). Commas are
+read only as thousands separators between groups of three digits
+(`15,000,000`, `1,000.5`; `1,500` is 1500, never 1.5); any other comma is
+refused (`1,5`, `1,50`, `0,500`); use `.` for decimals, e.g. `1.5` or `0.5`. P-chain and atomic amounts and fees take at most 9
 decimals (nFLR) and at most 18446744073.709551615 FLR (2^64−1 nFLR, also as
 an amount plus its fee); the C-chain amounts of `withdrawal` and `claim` take
 up to 18 decimals (wei). More non-zero decimals are an error rather than being
