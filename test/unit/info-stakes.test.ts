@@ -5,7 +5,8 @@
 import { expect } from "chai";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { describeStakes, getStakes, stakesReport, unlistedDelegationsWarning } from "../../src/app/info";
+import { balancesJson, describeStakes, getStakes, stakesReport, unlistedDelegationsWarning } from "../../src/app/info";
+import { asNFlr, asWei } from "../../src/chain/units";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import type { CurrentValidator } from "../../src/chain/validators";
@@ -159,6 +160,16 @@ describe("info stakes", () => {
     ]);
   });
 
+  it("keeps every wei and nFLR of a balance in its JSON", () => {
+    const json = balancesJson(
+      { cChainWei: asWei(1_000_000_000_000_000_001n), pChainNFlr: asNFlr(18_446_744_073_709_551_615n) },
+      ACCOUNT,
+      networkConfig("flare", {})
+    );
+    expect(json.cChain).to.include({ balance: "1.000000000000000001", wei: "1000000000000000001" });
+    expect(json.pChain).to.include({ balance: "18446744073.709551615", nFlr: "18446744073709551615" });
+  });
+
   it("reports a validator whose delegations the node counts but doesn't list in full", () => {
     // the delegators field cut short, or left out altogether
     const { delegators: _left, ...withoutList } = VALIDATORS[0]!;
@@ -239,6 +250,57 @@ describe("info stakes", () => {
       expect(shortcut.stdout).to.equal(result.stdout);
     });
 
+    it("prints only the JSON with --json, exact to the nFLR, also as the stakes shortcut", async () => {
+      const result = await runCliAsync(["info", "stakes", "--json", "--rpc-url", url], { cwd });
+      expect(result.exitCode, result.stderr).to.equal(0);
+      expect(JSON.parse(result.stdout)).to.deep.equal({
+        network: "localflare",
+        symbol: "LFLR",
+        pChainAddress: ACCOUNT.pAddress,
+        nodeLimit: 3,
+        nodes: 2,
+        total: "17050000.000000001",
+        totalNFlr: "17050000000000001",
+        stakes: [
+          {
+            kind: "delegation",
+            nodeId: "NodeID-A",
+            amount: "50000",
+            amountNFlr: "50000000000000",
+            startTime: 1000,
+            endTime: 2000,
+            autoRenewed: false,
+            txId: "tx-delegation-a",
+            rewardOwners: [ACCOUNT.pAddress],
+          },
+          {
+            kind: "delegation",
+            nodeId: "NodeID-B",
+            amount: "15000000.000000001",
+            amountNFlr: "15000000000000001",
+            startTime: 1000,
+            endTime: 3000,
+            autoRenewed: false,
+            txId: "tx-delegation-b",
+            rewardOwners: [ACCOUNT.pAddress.toUpperCase()],
+          },
+          {
+            kind: "validation",
+            nodeId: "NodeID-A",
+            amount: "2000000",
+            amountNFlr: "2000000000000000",
+            startTime: 1000,
+            endTime: 9000,
+            autoRenewed: true,
+            txId: "tx-validation-a",
+            rewardOwners: [ACCOUNT.pAddress],
+          },
+        ],
+      });
+      const shortcut = await runCliAsync(["stakes", "--json", "--rpc-url", url], { cwd });
+      expect(shortcut.stdout).to.equal(result.stdout);
+    });
+
     it("warns on stderr about a validator whose delegations the node doesn't list in full, and still lists the rest", async () => {
       listed = [{ ...VALIDATORS[1]!, delegators: VALIDATORS[1]!.delegators!.slice(1) }, VALIDATORS[0]!];
       try {
@@ -253,6 +315,10 @@ describe("info stakes", () => {
         );
         expect(result.stdout).to.not.include("The node lists");
         expect(result.stdout).to.include(`${ACCOUNT.pAddress}: 2 stakes on 1 node`);
+        // with --json the warning stays on stderr, and stdout is nothing but the JSON
+        const json = await runCliAsync(["info", "stakes", "--json", "--rpc-url", url], { cwd });
+        expect(json.stderr).to.include("The node lists 1 of the 2 delegations to NodeID-B");
+        expect((JSON.parse(json.stdout) as { nodes: number }).nodes).to.equal(1);
       } finally {
         listed = VALIDATORS;
       }

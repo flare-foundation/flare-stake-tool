@@ -16,6 +16,7 @@ import {
   log,
   logError,
   logInfo,
+  logJson,
   logProgress,
   logSuccess,
   logWarning,
@@ -405,6 +406,43 @@ describe("output: what is printed", () => {
     }
     expect(printed).to.have.length(6);
     for (const line of printed) expect(line).to.include('"***"').and.not.to.include("SYNTHETIC");
+  });
+
+  it("prints JSON that stays valid when a secret or an x-apikey is masked in it (logJson)", () => {
+    const secret = '"network": "localflare"'; // a secret that is also JSON around a value
+    rememberSecret(secret);
+    const printed: string[] = [];
+    const log0 = console.log;
+    console.log = (line: string) => printed.push(line);
+    try {
+      logJson({
+        network: "localflare",
+        note: secret,
+        [`key ${secret}`]: 1,
+        // an x-apikey in a string with quotes: masking the serialized text took the backslash of \"
+        url: 'node "https://node.example/ext/info?x-apikey=SYNTHETIC-JSON-KEY" said "no"',
+        list: ["https://node.example/?x-apikey=SYNTHETIC-JSON-KEY-2"],
+      });
+    } finally {
+      console.log = log0;
+    }
+    expect(printed).to.have.length(1);
+    expect(JSON.parse(printed[0]!)).to.deep.equal({
+      network: "localflare",
+      note: "***",
+      "key ***": 1,
+      url: 'node "https://node.example/ext/info?x-apikey=***" said "no"',
+      list: ["https://node.example/?x-apikey=***"],
+    });
+    // the text logger, which info --json used, broke the same JSON
+    const text: string[] = [];
+    console.log = (line: string) => text.push(line);
+    try {
+      log(JSON.stringify({ network: "localflare", url: 'say "https://n/?x-apikey=KEY"' }, null, 2));
+    } finally {
+      console.log = log0;
+    }
+    expect(() => JSON.parse(text[0]!) as unknown).to.throw();
   });
 
   it("leaves addresses and hashes whole: a URL username and a secret under 16 characters are masked in errors only", () => {

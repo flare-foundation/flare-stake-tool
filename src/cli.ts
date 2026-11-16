@@ -23,10 +23,13 @@ import {
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
 import {
   describeAutoRenewal,
+  addressesJson,
+  balancesJson,
   describeStakes,
   getBalances,
   getStakes,
   getValidators,
+  stakesJson,
   unlistedDelegationsWarning,
 } from "./app/info";
 import { sendSignedTransaction } from "./app/send";
@@ -63,7 +66,7 @@ import {
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
 import { checkDerivationPath } from "./ledger/path";
-import { log, logInfo, logProgress, logSuccess, logWarning, reportOutcome } from "./output";
+import { log, logInfo, logJson, logProgress, logSuccess, logWarning, reportOutcome } from "./output";
 import { confirmLedgerAccount, ledgerDevice } from "./signers/ledger";
 import { version } from "../package.json";
 
@@ -191,9 +194,10 @@ export function cli(program: Command): void {
     .command("info")
     .description("Relevant information")
     .addArgument(new Argument("<addresses|balance|validators|stakes>", "Type of information").choices(INFO_TYPES))
-    .action(async (type: string) => {
+    .option("--json", "Print the result as JSON only, for scripts (exact amounts as strings)")
+    .action(async (type: string, commandOptions: { json?: boolean }) => {
       refuseFeeOptions(program, `info ${type}`);
-      await info(type, globalOptions(program.opts()));
+      await info(type, globalOptions(program.opts()), commandOptions.json === true);
     });
 
   program
@@ -530,7 +534,8 @@ async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
   logSuccess("Context file created");
 }
 
-async function info(type: string, options: GlobalOptions): Promise<void> {
+/** Prints the information `type` names: lines for people, or with `json` nothing but the JSON on stdout. */
+async function info(type: string, options: GlobalOptions, json: boolean): Promise<void> {
   if (!INFO_TYPES.includes(type)) {
     throw new Error(`Unknown information type "${type}"; use ${INFO_TYPES.join(", ")}`);
   }
@@ -538,8 +543,8 @@ async function info(type: string, options: GlobalOptions): Promise<void> {
   warnOnDefaultNetwork(options); // info names the network itself
   if (type === "validators") {
     const validators = await getValidators(env);
-    logInfo(`Validators on the network "${env.network.name}"`);
-    log(JSON.stringify(validators, null, 2));
+    if (!json) logInfo(`Validators on the network "${env.network.name}"`);
+    logJson(validators);
     // on stderr, so that stdout stays the header and the JSON, as 4.4.0 printed it
     for (const validator of validators) {
       const summary = describeAutoRenewal(validator);
@@ -548,6 +553,18 @@ async function info(type: string, options: GlobalOptions): Promise<void> {
     return;
   }
   const account = await resolveAccount(options, env);
+  if (json) {
+    if (type === "addresses") {
+      logJson(addressesJson(account, env.network));
+    } else if (type === "balance") {
+      logJson(balancesJson(await getBalances(env, account), account, env.network));
+    } else if (type === "stakes") {
+      const report = await getStakes(env, account);
+      report.unlisted.forEach((entry) => logWarning(unlistedDelegationsWarning(entry)));
+      logJson(stakesJson(report, account.pAddress, env.network));
+    }
+    return;
+  }
   if (type === "addresses") {
     logInfo(`Addresses on the network "${env.network.name}"`);
     log(`P-chain address: ${account.pAddress}`);

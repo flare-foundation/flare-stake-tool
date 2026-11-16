@@ -40,7 +40,7 @@ import { allUtxos, maxExportPCAmount } from "../core/builders/pchain";
 import { estimateAtomicFee, runTransaction, underpricedFeeWarning } from "../app/transactions";
 import type { BuiltDetails } from "../core/details";
 import type { Env, Outcome, Signer, TxRequest, TxRequestOf } from "../core/types";
-import { describeError, log, logError, logInfo, logIssued, logWarning, reportOutcome } from "../output";
+import { describeError, log, logError, logInfo, logIssued, logJson, logWarning, reportOutcome } from "../output";
 import { signingSummary } from "./summary";
 import { LedgerSigner, confirmLedgerAccount, ledgerDevice, type LedgerDevice } from "../signers/ledger";
 import { PrivateKeySigner } from "../signers/privateKey";
@@ -164,7 +164,7 @@ async function showStakes(session: Session): Promise<void> {
 
 async function showValidators(session: Session): Promise<void> {
   const validators = await getValidators(session.env);
-  log(JSON.stringify(validators, null, 2));
+  logJson(validators);
   for (const validator of validators) {
     const summary = describeAutoRenewal(validator);
     if (summary) log(`${validator.nodeID}: ${summary}`);

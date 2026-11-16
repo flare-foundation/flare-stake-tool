@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [[v5.2.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.2.0)] - 2026-11-16
+
+### Added
+
+* `info --json` (`addresses`, `balance`, `validators`, `stakes`, also after a shortcut): nothing but the result as JSON on stdout, for scripts, with exact amounts as strings in the coin and in nFLR or wei.
+
 ## [[v5.1.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.1.0)] - 2026-11-16
 
 ### Added

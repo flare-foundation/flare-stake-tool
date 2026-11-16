@@ -1,6 +1,6 @@
 import type { Account } from "../chain/keys";
 import type { NetworkConfig } from "../chain/network";
-import { SHARES_PER_PERCENT, asNFlr, asWei, formatFlr, type NFlr, type Wei } from "../chain/units";
+import { SHARES_PER_PERCENT, asNFlr, asWei, formatFlr, formatWei, type NFlr, type Wei } from "../chain/units";
 import { currentValidators, isAutoRenewed, stakesOf, type CurrentValidator, type Stake } from "../chain/validators";
 import type { Env } from "../core/types";
 
@@ -100,3 +100,55 @@ export function describeStakes(report: StakesReport, pAddress: string, network: 
 export const unlistedDelegationsWarning = (entry: StakesReport["unlisted"][number]): string =>
   `The node lists ${entry.listed} of the ${entry.count} delegations to ${entry.nodeId}, so some of the account's ` +
   "stakes there may be missing; use a node that lists them (--rpc-url)";
+
+/*
+ * What `info <type> --json` prints, for scripts: amounts as exact strings, both in the coin (as the text output
+ * prints them) and as the integer of its base unit (nFLR on the P-chain, wei on the C-chain); times in unix seconds.
+ */
+
+export function addressesJson(account: Account, network: NetworkConfig) {
+  return {
+    network: network.name,
+    pChainAddress: account.pAddress,
+    cChainAddress: account.cAddress,
+    publicKey: `0x${account.publicKeyHex}`,
+  };
+}
+
+export function balancesJson(balances: Balances, account: Account, network: NetworkConfig) {
+  return {
+    network: network.name,
+    symbol: network.symbol,
+    cChain: { address: account.cAddress, balance: formatWei(balances.cChainWei), wei: balances.cChainWei.toString() },
+    pChain: {
+      address: account.pAddress,
+      balance: formatFlr(balances.pChainNFlr),
+      nFlr: balances.pChainNFlr.toString(),
+    },
+  };
+}
+
+export function stakesJson(report: StakesReport, pAddress: string, network: NetworkConfig) {
+  return {
+    network: network.name,
+    symbol: network.symbol,
+    pChainAddress: pAddress,
+    /** The most distinct nodes an account may stake to at once on this network; null where nothing limits it. */
+    nodeLimit: network.maxStakedNodes ?? null,
+    nodes: report.nodes,
+    total: formatFlr(report.total),
+    totalNFlr: report.total.toString(),
+    stakes: report.stakes.map((stake) => ({
+      kind: stake.kind === "validator" ? "validation" : "delegation",
+      nodeId: stake.nodeId,
+      amount: formatFlr(stake.amount),
+      amountNFlr: stake.amount.toString(),
+      startTime: Number(stake.startTime),
+      /** For an auto-renewed validator: the end of its current cycle. */
+      endTime: Number(stake.endTime),
+      autoRenewed: stake.autoRenewed,
+      txId: stake.txId,
+      rewardOwners: stake.owners,
+    })),
+  };
+}

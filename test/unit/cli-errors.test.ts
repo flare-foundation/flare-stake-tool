@@ -896,6 +896,15 @@ describe("CLI commands that need no node (built CLI)", function () {
         `secp256k1 public key: 0x${EWOQ_PUBLIC_KEY_COMPRESSED}\n`
     );
     expect(runCli(["info", "addresses"], { cwd, env: PLAIN }).stdout).to.equal(shortcut.stdout);
+    // --json: nothing but the JSON on stdout, which needs no node
+    const json = runCli(["addresses", "--json"], { cwd, env: PLAIN });
+    expect(json.exitCode, json.stderr).to.equal(0);
+    expect(JSON.parse(json.stdout)).to.deep.equal({
+      network: "costwo",
+      pChainAddress: account.pAddress,
+      cChainAddress: account.cAddress,
+      publicKey: `0x${EWOQ_PUBLIC_KEY_COMPRESSED}`,
+    });
   });
 
   it("finds a shortcut after the global options, skipping their values", () => {

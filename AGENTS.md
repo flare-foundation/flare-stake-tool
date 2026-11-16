@@ -128,9 +128,21 @@ runs in CI and must stay clean.
   moved to Ledger's Device Management Kit and need a rewrite of the Ledger
   module. `@ledgerhq/cryptoassets` has a `>=13.33.0` floor in
   `pnpm-workspace.yaml` overrides (security).
+- Both 1.x lines use `@ledgerhq/hw-app-eth` 6.47.1, which (with
+  `@ledgerhq/cryptoassets-evm-signatures` 13.7.1) pins `axios` 1.12.2, a
+  version with high-severity advisories. The `axios` override in
+  `pnpm-workspace.yaml` keeps it out of this repository's install and audit,
+  but overrides don't travel with the package (npm's `overrides` in
+  `package.json` don't reach a global install either; tested with 5.1.0), so
+  every user's install has those three copies, and their scanners report them.
+  They make no request: 6.x calls axios only to look up token, NFT and plugin
+  data, and the tool calls `ledgerService.resolveTransaction(rawTx, {}, {})`
+  with every lookup off (`src/ledger/flare.ts`, `avalanche.ts`,
+  `ethereum.ts`). Keep it so while the 1.x lines are in; the fix is the move
+  to their 2.x lines.
 - `eslint` stays on 9.x until `@flarenetwork/eslint-config-flare` supports 10.
-- `typescript` stays on 5.x; TypeScript 7 (Go compiler) needs
-  `typescript-eslint` support first.
+- `typescript` stays on 6.x; TypeScript 7 (Go compiler) needs
+  `typescript-eslint` support first (8.72 takes TypeScript below 6.1).
 - `rootDir: "src"` is set in `tsconfig.build.json` only, not the base
   `tsconfig.json`. The base tsconfig includes both `src` and `test` for
   type-checking; setting `rootDir` there would cause TS6059 "file is not
