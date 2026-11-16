@@ -7,7 +7,7 @@
 import { expect } from "chai";
 import { checkNodeLimit, runTransaction } from "../../src/app/transactions";
 import { accountFromPublicKey } from "../../src/chain/keys";
-import { networkConfig } from "../../src/chain/network";
+import { NETWORK_NAMES, networkConfig } from "../../src/chain/network";
 import { resolveAutoRenewedValidator } from "../../src/core/builders/pchain";
 import { asNFlr, asWei } from "../../src/chain/units";
 import { resolveEvmFees } from "../../src/constants/fees";
@@ -45,13 +45,13 @@ const VALIDATORS = [
  * whether Helicon is active); a request that passed them would fail on the
  * first other call.
  */
-function node(helicon = true, validators: object[] = VALIDATORS): Env {
+function node(helicon = true, validators: object[] = VALIDATORS, network = "localflare"): Env {
   const clients = {
     verifyNetwork: () => Promise.resolve(),
     isHeliconActive: () => Promise.resolve(helicon),
     pvm: { getCurrentValidators: () => Promise.resolve({ validators }) },
   };
-  return { network: networkConfig("localflare", {}), clients } as unknown as Env;
+  return { network: networkConfig(network, {}), clients } as unknown as Env;
 }
 
 const refusalOf = (req: TxRequest, env: Env): Promise<string> =>
@@ -96,6 +96,7 @@ describe("checks before a P-chain request is built", () => {
     Date.now = realNow;
   });
 
+  // These hold on every network, also where no limit of staked nodes is counted (Songbird and Coston).
   it("refuses a delegation to a node that is not a current validator", async () => {
     const req: TxRequest = {
       type: "delegate",
@@ -103,7 +104,9 @@ describe("checks before a P-chain request is built", () => {
       amount: asNFlr(10n ** 12n),
       endTime: 1_799_000_000n,
     };
-    expect(await refusalOf(req, node())).to.include("Unknown node id");
+    for (const network of NETWORK_NAMES) {
+      expect(await refusalOf(req, node(true, VALIDATORS, network)), network).to.include("Unknown node id");
+    }
   });
 
   it("refuses a delegation that ends after the validator's current period", async () => {
@@ -113,9 +116,11 @@ describe("checks before a P-chain request is built", () => {
       amount: asNFlr(10n ** 12n),
       endTime: BigInt(PERIOD_END + 1),
     };
-    expect(await refusalOf(req, node())).to.include(
-      `End time must be within the validator's current period, which ends at ${PERIOD_END} (${new Date(PERIOD_END * 1000).toISOString()})`
-    );
+    for (const network of NETWORK_NAMES) {
+      expect(await refusalOf(req, node(true, VALIDATORS, network)), network).to.include(
+        `End time must be within the validator's current period, which ends at ${PERIOD_END} (${new Date(PERIOD_END * 1000).toISOString()})`
+      );
+    }
   });
 
   it("refuses auto-renewed validator requests where Helicon is not active", async () => {
@@ -131,10 +136,12 @@ describe("checks before a P-chain request is built", () => {
       },
       { type: "setAutoRenewedValidatorConfig", nodeId: "NodeID-Ours", period: 0n },
     ];
-    for (const req of requests) {
-      expect(await refusalOf(req, node(false)), req.type).to.include(
-        "Auto-renewed validators (Helicon upgrade) are not active on"
-      );
+    for (const network of NETWORK_NAMES) {
+      for (const req of requests) {
+        expect(await refusalOf(req, node(false, VALIDATORS, network)), `${network} ${req.type}`).to.include(
+          `Auto-renewed validators (Helicon upgrade) are not active on ${network}`
+        );
+      }
     }
   });
 
@@ -192,33 +199,48 @@ describe("checks before a P-chain request is built", () => {
       delegatedTo("NodeID-Three"),
       validator("NodeID-Fourth", "tx-fourth"),
     ];
-    const LIMIT = "In the selected time period the account already has active stakes to 3 different nodes";
+    const LIMIT =
+      "In the selected time period the account already has active stakes to 3 different nodes; " +
+      "the C-chain's stake mirror (PChainStakeMirror) takes at most 3 per account";
     const endTime = BigInt(PERIOD_END - 86_400);
     const bls = { blsPublicKey: new Uint8Array(48), blsSignature: new Uint8Array(96) };
+    const FOURTH_NODE: TxRequest[] = [
+      {
+        type: "stake",
+        nodeId: "NodeID-New",
+        amount: asNFlr(10n ** 13n),
+        endTime,
+        delegationFeeShares: 200_000,
+        ...bls,
+      },
+      { type: "delegate", nodeId: "NodeID-Fourth", amount: asNFlr(10n ** 12n), endTime },
+      // no end: it overlaps every stake that has not ended
+      {
+        type: "addAutoRenewedValidator",
+        nodeId: "NodeID-New",
+        amount: asNFlr(10n ** 13n),
+        period: 1_209_600n,
+        delegationFeeShares: 200_000,
+        ...bls,
+      },
+    ];
 
     it("refuses a stake, a delegation or an auto-renewed validator on a fourth node, on every path", async () => {
-      const requests: TxRequest[] = [
-        {
-          type: "stake",
-          nodeId: "NodeID-New",
-          amount: asNFlr(10n ** 13n),
-          endTime,
-          delegationFeeShares: 200_000,
-          ...bls,
-        },
-        { type: "delegate", nodeId: "NodeID-Fourth", amount: asNFlr(10n ** 12n), endTime },
-        // no end: it overlaps every stake that has not ended
-        {
-          type: "addAutoRenewedValidator",
-          nodeId: "NodeID-New",
-          amount: asNFlr(10n ** 13n),
-          period: 1_209_600n,
-          delegationFeeShares: 200_000,
-          ...bls,
-        },
-      ];
-      for (const req of requests) {
-        expect(await refusalOf(req, node(true, STAKED)), req.type).to.include(LIMIT);
+      for (const network of ["flare", "costwo", "localflare"]) {
+        for (const req of FOURTH_NODE) {
+          expect(await refusalOf(req, node(true, STAKED, network)), `${network} ${req.type}`).to.include(LIMIT);
+        }
+      }
+    });
+
+    it("doesn't apply on Songbird and Coston, whose C-chain doesn't mirror P-chain stakes", async () => {
+      for (const network of ["songbird", "coston"]) {
+        for (const req of FOURTH_NODE) {
+          // past every check, the request fails when the builder asks the fake node for the chain context
+          expect(await refusalOf(req, node(true, STAKED, network)), `${network} ${req.type}`).to.include(
+            "env.clients.context is not a function"
+          );
+        }
       }
     });
 
@@ -236,13 +258,13 @@ describe("checks before a P-chain request is built", () => {
         stake("NodeID-Two", end, end + 86_400n), // starts at the request's end: overlaps it
         stake("NodeID-Three", now - 86_400n, end + 86_400n),
       ] as unknown as Parameters<typeof checkNodeLimit>[0];
-      expect(() => checkNodeLimit(validators, ACCOUNT, "NodeID-Fourth", end, now)).to.throw(LIMIT);
+      expect(() => checkNodeLimit(validators, ACCOUNT, "NodeID-Fourth", end, 3, now)).to.throw(LIMIT);
       expect(
-        () => checkNodeLimit(validators, ACCOUNT, "NodeID-Fourth", end, now + 1n),
+        () => checkNodeLimit(validators, ACCOUNT, "NodeID-Fourth", end, 3, now + 1n),
         "a second later"
       ).not.to.throw();
       expect(
-        () => checkNodeLimit(validators, ACCOUNT, "NodeID-Fourth", end - 1n, now),
+        () => checkNodeLimit(validators, ACCOUNT, "NodeID-Fourth", end - 1n, 3, now),
         "ends a second earlier"
       ).not.to.throw();
       // a delegation may end exactly when the validator's period does
