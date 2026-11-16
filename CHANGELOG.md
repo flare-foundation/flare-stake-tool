@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* `info stakes` (or `stakes`): the account's current validations and delegations, each with its node, amount, end time and transaction id, the number of distinct nodes with the network's limit (3 on Flare and Coston2, none on Songbird and Coston) and the total staked. It reads the P-chain's validator list, so it works on every network.
+* `info stakes` (or `stakes`): the account's current validations and delegations, each with its node, amount, end time and transaction id, the number of distinct nodes with the network's limit (3 on Flare and Coston2, none on Songbird and Coston) and the total staked. It reads the P-chain's validator list, so it works on every network. Interactive mode shows the same as "View stakes".
 
 ## [[v5.0.2](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.0.2)] - 2026-11-16
 
