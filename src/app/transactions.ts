@@ -20,9 +20,6 @@ import {
 } from "../core/types";
 import { logIssued } from "../output";
 
-/** A P-chain account may stake to at most this many distinct nodes in overlapping periods. */
-export const MAX_NODES_PER_ACCOUNT = 3;
-
 export async function runTransaction(
   req: TxRequest,
   env: Env,
@@ -64,15 +61,19 @@ export function underpricedFeeWarning(fee: NFlr, estimate: NFlr, symbol: string)
 }
 
 async function preflight(req: TxRequest, env: Env, account: Account): Promise<void> {
+  const limit = env.network.maxStakedNodes;
   switch (req.type) {
     case "stake": {
-      const validators = await currentValidators(env);
-      checkNodeLimit(validators, account, req.nodeId, req.endTime);
+      if (limit !== undefined) {
+        checkNodeLimit(await currentValidators(env), account, req.nodeId, req.endTime, limit);
+      }
       return;
     }
     case "delegate": {
       const validators = await currentValidators(env);
-      checkNodeLimit(validators, account, req.nodeId, req.endTime);
+      if (limit !== undefined) {
+        checkNodeLimit(validators, account, req.nodeId, req.endTime, limit);
+      }
       const target = validators.find((v) => v.nodeID === req.nodeId);
       if (!target) {
         throw new Error("Unknown node id");
@@ -86,8 +87,9 @@ async function preflight(req: TxRequest, env: Env, account: Account): Promise<vo
     }
     case "addAutoRenewedValidator": {
       await requireHelicon(env);
-      const validators = await currentValidators(env);
-      checkNodeLimit(validators, account, req.nodeId, undefined);
+      if (limit !== undefined) {
+        checkNodeLimit(await currentValidators(env), account, req.nodeId, undefined, limit);
+      }
       return;
     }
     case "setAutoRenewedValidatorConfig":
@@ -119,8 +121,9 @@ async function requireHelicon(env: Env): Promise<void> {
 }
 
 /**
- * Refuses a stake or delegation to a fourth distinct node while stakes to three
- * other nodes overlap its period. The period starts now whatever start time the
+ * Refuses a stake or delegation to another distinct node while stakes to `limit`
+ * other nodes overlap its period (the network's `maxStakedNodes`: the C-chain
+ * stake mirror takes no more). The period starts now whatever start time the
  * transaction carries: since Durango the chain starts a stake when it accepts it.
  * The account's delegations are read from the validators' lists, so a node that
  * counts delegations without listing them is refused rather than trusted to
@@ -131,6 +134,7 @@ export function checkNodeLimit(
   account: Account,
   nodeId: string,
   endTime: bigint | undefined,
+  limit: number,
   now: bigint = nowSeconds()
 ): void {
   const unlisted = validators.find((v) => BigInt(v.delegatorCount ?? "0") > BigInt(v.delegators?.length ?? 0));
@@ -138,16 +142,17 @@ export function checkNodeLimit(
     throw new Error(
       `The node lists ${unlisted.delegators?.length ?? 0} of the ${unlisted.delegatorCount} delegations to ` +
         `${unlisted.nodeID}, so the account's stakes cannot be checked against the limit of ` +
-        `${MAX_NODES_PER_ACCOUNT} nodes; use a node that lists them (--rpc-url)`
+        `${limit} nodes; use a node that lists them (--rpc-url)`
     );
   }
   const overlapping = stakesOf(validators, account.pAddress).filter(
     (stake) => stake.endTime >= now && (endTime === undefined || stake.startTime <= endTime)
   );
   const nodeIds = new Set(overlapping.map((stake) => stake.nodeId.toLowerCase()));
-  if (nodeIds.size >= MAX_NODES_PER_ACCOUNT && !nodeIds.has(nodeId.toLowerCase())) {
+  if (nodeIds.size >= limit && !nodeIds.has(nodeId.toLowerCase())) {
     throw new Error(
-      `In the selected time period the account already has active stakes to ${nodeIds.size} different nodes`
+      `In the selected time period the account already has active stakes to ${nodeIds.size} different nodes; ` +
+        `the C-chain's stake mirror (PChainStakeMirror) takes at most ${limit} per account`
     );
   }
 }

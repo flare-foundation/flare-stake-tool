@@ -20,6 +20,11 @@ export interface NetworkConfig {
   readonly apiKey: string | undefined;
   /** Native token symbol, for display only. */
   readonly symbol: string;
+  /**
+   * The most distinct nodes an account may stake to in overlapping periods, on a network whose C-chain mirrors
+   * P-chain stakes (`PChainStakeMirror`, at most three nodes per account); undefined where nothing limits it.
+   */
+  readonly maxStakedNodes: number | undefined;
 }
 
 /** Node settings given on the command line; they win over the environment variables. */
@@ -40,14 +45,23 @@ interface Definition {
   chainId: number;
   apiUrl: string;
   symbol: string;
+  maxStakedNodes?: number;
 }
 
+// Flare and Coston2 have the stake mirror, Songbird and Coston don't; localflare has none either, but keeps Flare's
+// limit so that the tests run against it.
 const DEFINITIONS: Record<NetworkName, Definition> = {
-  flare: { networkId: 14, chainId: 14, apiUrl: "https://flare-api.flare.network", symbol: "FLR" },
+  flare: { networkId: 14, chainId: 14, apiUrl: "https://flare-api.flare.network", symbol: "FLR", maxStakedNodes: 3 },
   songbird: { networkId: 5, chainId: 19, apiUrl: "https://songbird-api.flare.network", symbol: "SGB" },
-  costwo: { networkId: 114, chainId: 114, apiUrl: "https://coston2-api.flare.network", symbol: "C2FLR" },
+  costwo: {
+    networkId: 114,
+    chainId: 114,
+    apiUrl: "https://coston2-api.flare.network",
+    symbol: "C2FLR",
+    maxStakedNodes: 3,
+  },
   coston: { networkId: 7, chainId: 16, apiUrl: "https://coston-api.flare.network", symbol: "CFLR" },
-  localflare: { networkId: 162, chainId: 162, apiUrl: "http://localhost:9650", symbol: "LFLR" },
+  localflare: { networkId: 162, chainId: 162, apiUrl: "http://localhost:9650", symbol: "LFLR", maxStakedNodes: 3 },
 };
 
 export const NETWORK_NAMES = Object.keys(DEFINITIONS) as readonly NetworkName[];
@@ -250,5 +264,6 @@ export function networkConfig(
       node?.apiKey ??
       (nonEmpty(overrides.apiUrl) === undefined ? nonEmpty(env[API_KEY_ENV]) : undefined),
     symbol: definition.symbol,
+    maxStakedNodes: definition.maxStakedNodes,
   };
 }

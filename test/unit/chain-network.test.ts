@@ -23,6 +23,17 @@ describe("chain/network", () => {
     expect(DEFAULT_NETWORK).to.equal("flare");
   });
 
+  it("limits the nodes an account stakes to only where the C-chain mirrors P-chain stakes (and on localflare)", () => {
+    const limits = NETWORK_NAMES.map((name) => [name, networkConfig(name, {}).maxStakedNodes]);
+    expect(Object.fromEntries(limits)).to.deep.equal({
+      flare: 3,
+      songbird: undefined,
+      costwo: 3,
+      coston: undefined,
+      localflare: 3,
+    });
+  });
+
   it("has the documented ids, including the chain ids that differ from the network ids", () => {
     expect(networkConfig("flare", {})).to.include({ networkId: 14, chainId: 14, symbol: "FLR" });
     expect(networkConfig("songbird", {})).to.include({ networkId: 5, chainId: 19, symbol: "SGB" });

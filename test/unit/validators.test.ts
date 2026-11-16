@@ -74,13 +74,13 @@ describe("chain/validators", () => {
       weight: "1",
       validationRewardOwner: owner([target]),
     }));
-    // (account, node, end time, now)
-    expect(() => checkNodeLimit(three, account, "NodeID-D", 3000n, 2000n)).to.throw(
+    // (validators, account, node, end time, limit, now)
+    expect(() => checkNodeLimit(three, account, "NodeID-D", 3000n, 3, 2000n)).to.throw(
       /already has active stakes to 3 different nodes/
     );
-    expect(() => checkNodeLimit(three, account, "NodeID-A", 3000n, 2000n)).to.not.throw();
-    expect(() => checkNodeLimit(three, account, "NodeID-D", 9500n, 9001n)).to.not.throw(); // after they end
-    expect(() => checkNodeLimit(three.slice(0, 2), account, "NodeID-D", 3000n, 2000n)).to.not.throw();
+    expect(() => checkNodeLimit(three, account, "NodeID-A", 3000n, 3, 2000n)).to.not.throw();
+    expect(() => checkNodeLimit(three, account, "NodeID-D", 9500n, 3, 9001n)).to.not.throw(); // after they end
+    expect(() => checkNodeLimit(three.slice(0, 2), account, "NodeID-D", 3000n, 3, 2000n)).to.not.throw();
   });
 
   it("refuses to count on a node that counts delegations without listing them", () => {
@@ -92,17 +92,19 @@ describe("chain/validators", () => {
     });
     // two delegations counted, fewer listed: one left out may be the account's
     for (const listed of [0, 1]) {
-      expect(() => checkNodeLimit([node("2", listed)], account, "NodeID-D", 3000n, 2000n)).to.throw(
+      expect(() => checkNodeLimit([node("2", listed)], account, "NodeID-D", 3000n, 3, 2000n)).to.throw(
         `The node lists ${listed} of the 2 delegations to NodeID-A, so the account's stakes cannot be checked against the limit of 3 nodes`
       );
     }
     // the delegators field left out altogether
     const omitted = node("2", 0);
     delete omitted.delegators;
-    expect(() => checkNodeLimit([omitted], account, "NodeID-D", 3000n, 2000n)).to.throw(/lists 0 of the 2 delegations/);
+    expect(() => checkNodeLimit([omitted], account, "NodeID-D", 3000n, 3, 2000n)).to.throw(
+      /lists 0 of the 2 delegations/
+    );
     // every delegation listed, or no count given: counted as before
-    expect(() => checkNodeLimit([node("2", 2)], account, "NodeID-D", 3000n, 2000n)).to.not.throw();
-    expect(() => checkNodeLimit(validators, account, "NodeID-D", 3000n, 2000n)).to.not.throw();
+    expect(() => checkNodeLimit([node("2", 2)], account, "NodeID-D", 3000n, 3, 2000n)).to.not.throw();
+    expect(() => checkNodeLimit(validators, account, "NodeID-D", 3000n, 3, 2000n)).to.not.throw();
   });
 
   it("counts the period from now, since the chain starts a stake when it accepts it (a later --start-time is not used)", () => {
@@ -116,7 +118,7 @@ describe("chain/validators", () => {
       validationRewardOwner: owner([target]),
     }));
     // A fourth node until 20000, asked for at 2000 with a start time after 9000: the stake would start at 2000.
-    expect(() => checkNodeLimit(three, account, "NodeID-D", 20_000n, 2000n)).to.throw(
+    expect(() => checkNodeLimit(three, account, "NodeID-D", 20_000n, 3, 2000n)).to.throw(
       /already has active stakes to 3 different nodes/
     );
   });
