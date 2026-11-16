@@ -60,8 +60,11 @@ export interface Stake {
   /** P-chain address of the reward owner. */
   owner: string;
   startTime: bigint;
+  /** For an auto-renewed validator: the end of the current cycle. */
   endTime: bigint;
   amount: NFlr;
+  /** An auto-renewed validator (Helicon); delegations are never. */
+  autoRenewed: boolean;
 }
 
 const ownerOf = (owners: OutputOwners | undefined): string | undefined => owners?.addresses[0];
@@ -83,6 +86,7 @@ export function stakesOf(validators: CurrentValidator[], pAddress: string): Stak
         startTime: BigInt(validator.startTime),
         endTime: BigInt(validator.endTime),
         amount: amountOf(validator),
+        autoRenewed: isAutoRenewed(validator),
       });
     }
     for (const delegator of validator.delegators ?? []) {
@@ -96,6 +100,7 @@ export function stakesOf(validators: CurrentValidator[], pAddress: string): Stak
           startTime: BigInt(delegator.startTime),
           endTime: BigInt(delegator.endTime),
           amount: amountOf(delegator),
+          autoRenewed: false,
         });
       }
     }

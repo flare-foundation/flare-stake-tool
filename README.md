@@ -220,6 +220,12 @@ To check whether a validator has been added successfully, fetch lists of current
 flare-stake-tool info validators --network <network> --ledger
 ```
 
+To list your own stakes and delegations, with the number of nodes and the total staked:
+
+```bash
+flare-stake-tool info stakes --network <network> --ledger
+```
+
 ### Auto-renewed validators (Helicon upgrade)
 
 After the Helicon upgrade a validator can be registered without an end time; it
