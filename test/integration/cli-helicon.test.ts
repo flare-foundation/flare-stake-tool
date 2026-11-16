@@ -152,6 +152,20 @@ describe("CLI auto-renewed validators (Helicon, with network)", function () {
     expect(after!.delegators?.length ?? 0).to.be.greaterThan(0);
   });
 
+  it("info stakes: lists the auto-renewed validation with its cycle end, and the delegation to it", function () {
+    if (!node) this.skip();
+    const result = runCli(["info", "stakes", ...signArgs()], { timeoutMs: 60_000 });
+    expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
+    const lines = result.stdout.trimEnd().split("\n");
+    expect(lines[1]).to.equal(`${account.pAddress}: 2 stakes on 1 node (at most 3 nodes at once on localflare)`);
+    expect(lines.slice(2, -1).sort()).to.satisfy(
+      (stakes: string[]) =>
+        stakes[0]!.startsWith(`delegation ${node!.nodeID} ${STAKE_AMOUNT} LFLR, ends `) &&
+        stakes[1]!.startsWith(`validation ${node!.nodeID} ${STAKE_AMOUNT} LFLR, auto-renewed, cycle ends `)
+    );
+    expect(lines.at(-1)).to.equal("Total staked: 20000 LFLR");
+  });
+
   it("refuses a delegation that outlasts the current cycle", function () {
     if (!node) this.skip();
     const result = runCli([
