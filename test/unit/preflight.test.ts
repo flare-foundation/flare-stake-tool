@@ -7,7 +7,7 @@
 import { expect } from "chai";
 import { checkNodeLimit, runTransaction } from "../../src/app/transactions";
 import { accountFromPublicKey } from "../../src/chain/keys";
-import { networkConfig } from "../../src/chain/network";
+import { NETWORK_NAMES, networkConfig } from "../../src/chain/network";
 import { resolveAutoRenewedValidator } from "../../src/core/builders/pchain";
 import { asNFlr, asWei } from "../../src/chain/units";
 import { resolveEvmFees } from "../../src/constants/fees";
@@ -96,6 +96,7 @@ describe("checks before a P-chain request is built", () => {
     Date.now = realNow;
   });
 
+  // These hold on every network, also where no limit of staked nodes is counted (Songbird and Coston).
   it("refuses a delegation to a node that is not a current validator", async () => {
     const req: TxRequest = {
       type: "delegate",
@@ -103,7 +104,9 @@ describe("checks before a P-chain request is built", () => {
       amount: asNFlr(10n ** 12n),
       endTime: 1_799_000_000n,
     };
-    expect(await refusalOf(req, node())).to.include("Unknown node id");
+    for (const network of NETWORK_NAMES) {
+      expect(await refusalOf(req, node(true, VALIDATORS, network)), network).to.include("Unknown node id");
+    }
   });
 
   it("refuses a delegation that ends after the validator's current period", async () => {
@@ -113,9 +116,11 @@ describe("checks before a P-chain request is built", () => {
       amount: asNFlr(10n ** 12n),
       endTime: BigInt(PERIOD_END + 1),
     };
-    expect(await refusalOf(req, node())).to.include(
-      `End time must be within the validator's current period, which ends at ${PERIOD_END} (${new Date(PERIOD_END * 1000).toISOString()})`
-    );
+    for (const network of NETWORK_NAMES) {
+      expect(await refusalOf(req, node(true, VALIDATORS, network)), network).to.include(
+        `End time must be within the validator's current period, which ends at ${PERIOD_END} (${new Date(PERIOD_END * 1000).toISOString()})`
+      );
+    }
   });
 
   it("refuses auto-renewed validator requests where Helicon is not active", async () => {
@@ -131,10 +136,12 @@ describe("checks before a P-chain request is built", () => {
       },
       { type: "setAutoRenewedValidatorConfig", nodeId: "NodeID-Ours", period: 0n },
     ];
-    for (const req of requests) {
-      expect(await refusalOf(req, node(false)), req.type).to.include(
-        "Auto-renewed validators (Helicon upgrade) are not active on"
-      );
+    for (const network of NETWORK_NAMES) {
+      for (const req of requests) {
+        expect(await refusalOf(req, node(false, VALIDATORS, network)), `${network} ${req.type}`).to.include(
+          `Auto-renewed validators (Helicon upgrade) are not active on ${network}`
+        );
+      }
     }
   });
 
