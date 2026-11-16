@@ -17,6 +17,26 @@ export function log(msg: string) {
   console.log(redactSecretsInResult(msg));
 }
 
+/**
+ * Prints `value` as JSON on stdout (the validators, `info --json`). Every string in it, keys included, is cleaned of
+ * secrets before it is serialized: cleaning the serialized text, as `log` does, could break its syntax (a masked
+ * `x-apikey` taking the backslash of an escaped quote, or a secret that matches the JSON around a value).
+ */
+export function logJson(value: unknown) {
+  console.log(JSON.stringify(redactStrings(value), null, 2));
+}
+
+function redactStrings(value: unknown): unknown {
+  if (typeof value === "string") return redactSecretsInResult(value);
+  if (Array.isArray(value)) return value.map(redactStrings);
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [redactSecretsInResult(key), redactStrings(item)])
+    );
+  }
+  return value;
+}
+
 export function logInfo(msg: string) {
   console.log(styleText("blue", redactSecretsInResult(msg)));
 }

@@ -66,7 +66,7 @@ import {
 import { API_KEY_DESCRIPTION, API_KEY_OPTION, RPC_URL_DESCRIPTION, RPC_URL_OPTION, nodeOverrides } from "./cli/node";
 import { interactiveCli } from "./interactive/cli";
 import { checkDerivationPath } from "./ledger/path";
-import { log, logInfo, logProgress, logSuccess, logWarning, reportOutcome } from "./output";
+import { log, logInfo, logJson, logProgress, logSuccess, logWarning, reportOutcome } from "./output";
 import { confirmLedgerAccount, ledgerDevice } from "./signers/ledger";
 import { version } from "../package.json";
 
@@ -544,7 +544,7 @@ async function info(type: string, options: GlobalOptions, json: boolean): Promis
   if (type === "validators") {
     const validators = await getValidators(env);
     if (!json) logInfo(`Validators on the network "${env.network.name}"`);
-    log(JSON.stringify(validators, null, 2));
+    logJson(validators);
     // on stderr, so that stdout stays the header and the JSON, as 4.4.0 printed it
     for (const validator of validators) {
       const summary = describeAutoRenewal(validator);
@@ -555,13 +555,13 @@ async function info(type: string, options: GlobalOptions, json: boolean): Promis
   const account = await resolveAccount(options, env);
   if (json) {
     if (type === "addresses") {
-      log(JSON.stringify(addressesJson(account, env.network), null, 2));
+      logJson(addressesJson(account, env.network));
     } else if (type === "balance") {
-      log(JSON.stringify(balancesJson(await getBalances(env, account), account, env.network), null, 2));
+      logJson(balancesJson(await getBalances(env, account), account, env.network));
     } else if (type === "stakes") {
       const report = await getStakes(env, account);
       report.unlisted.forEach((entry) => logWarning(unlistedDelegationsWarning(entry)));
-      log(JSON.stringify(stakesJson(report, account.pAddress, env.network), null, 2));
+      logJson(stakesJson(report, account.pAddress, env.network));
     }
     return;
   }
