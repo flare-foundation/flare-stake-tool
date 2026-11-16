@@ -5,7 +5,8 @@
 import { expect } from "chai";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { describeStakes, getStakes, stakesReport, unlistedDelegationsWarning } from "../../src/app/info";
+import { balancesJson, describeStakes, getStakes, stakesReport, unlistedDelegationsWarning } from "../../src/app/info";
+import { asNFlr, asWei } from "../../src/chain/units";
 import { accountFromPublicKey } from "../../src/chain/keys";
 import { networkConfig } from "../../src/chain/network";
 import type { CurrentValidator } from "../../src/chain/validators";
@@ -157,6 +158,16 @@ describe("info stakes", () => {
       `validation NodeID-C 1000000 FLR, ends 1970-01-01T01:06:40.000Z (4000), tx tx-shared-validation, reward owners ${OTHER}, ${ACCOUNT.pAddress}`,
       "Total staked: 1050000 FLR",
     ]);
+  });
+
+  it("keeps every wei and nFLR of a balance in its JSON", () => {
+    const json = balancesJson(
+      { cChainWei: asWei(1_000_000_000_000_000_001n), pChainNFlr: asNFlr(18_446_744_073_709_551_615n) },
+      ACCOUNT,
+      networkConfig("flare", {})
+    );
+    expect(json.cChain).to.include({ balance: "1.000000000000000001", wei: "1000000000000000001" });
+    expect(json.pChain).to.include({ balance: "18446744073.709551615", nFlr: "18446744073709551615" });
   });
 
   it("reports a validator whose delegations the node counts but doesn't list in full", () => {
