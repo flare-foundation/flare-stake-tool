@@ -124,6 +124,19 @@ one they sign for (and `send` the one it checks the signature against): the
 key file with `--get-hacked --env-path`, else the Ledger with `--ledger`, else
 the key file of `--env-path`, else the context file.
 
+With `--json` (also after a shortcut: `stakes --json`) stdout holds nothing
+but the result as JSON, for scripts; warnings and progress stay on stderr.
+Amounts are exact strings, in the coin as the text output prints them and as
+the integer of the base unit (nFLR on the P-chain, wei on the C-chain); times
+are unix seconds.
+
+| Type | JSON |
+|---|---|
+| `addresses` | `{"network", "pChainAddress", "cChainAddress", "publicKey"}` |
+| `balance` | `{"network", "symbol", "cChain": {"address", "balance", "wei"}, "pChain": {"address", "balance", "nFlr"}}` |
+| `validators` | the list of current validators, as without `--json` but without the header line |
+| `stakes` | `{"network", "symbol", "pChainAddress", "nodeLimit" (null where none), "nodes", "total", "totalNFlr", "stakes": [{"kind" ("validation" or "delegation"), "nodeId", "amount", "amountNFlr", "startTime", "endTime" (an auto-renewed validator's cycle end), "autoRenewed", "txId", "rewardOwners"}]}` |
+
 ### info addresses
 
 Output the C-chain hex address, P-chain bech32 address, and compressed

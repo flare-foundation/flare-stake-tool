@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { keccak256 } from "ethers";
 import fs from "fs";
 import { cleanupTempDir, makeTempDir } from "../helpers/cli";
+import { parseFlr, parseFlrToWei } from "../../src/chain/units";
 import { ATOMIC_SUBMISSION_METHODS, RpcReplayServer, atomicTxId } from "./rpc-replay";
 import { evmContractStubs } from "./evm-stubs";
 import { localflareNetworkIdStub } from "./node-stubs";
@@ -104,4 +105,32 @@ describe("characterization goldens (offline replay)", function () {
       expect(comparableOutcome(outcome)).to.deep.equal(comparableOutcome(golden.outcome));
     });
   }
+
+  // `--json` prints the same values as the recorded text, and nothing else on stdout.
+  it("info-balance-pk with --json: the balances the text shows, exact, in the coin and the base unit", async () => {
+    const golden = readGolden("info-balance-pk");
+    const outcome = await replay("info-balance-pk", { ...golden.spec, args: [...golden.spec.args, "--json"] });
+    expect(outcome.exitCode, outcome.stderr).to.equal(0);
+    const json = JSON.parse(outcome.stdout) as {
+      network: string;
+      symbol: string;
+      cChain: { address: string; balance: string; wei: string };
+      pChain: { address: string; balance: string; nFlr: string };
+    };
+    const text = golden.outcome.stdout;
+    expect(text).to.include(`C-chain ${json.cChain.address}: ${json.cChain.balance} ${json.symbol}`);
+    expect(text).to.include(`P-chain ${json.pChain.address}: ${json.pChain.balance} ${json.symbol}`);
+    expect(json.network).to.equal("localflare");
+    expect(BigInt(json.cChain.wei)).to.equal(parseFlrToWei(json.cChain.balance));
+    expect(BigInt(json.pChain.nFlr)).to.equal(parseFlr(json.pChain.balance));
+  });
+
+  it("info-validators-pk with --json: the recorded validators, without the header line", async () => {
+    const golden = readGolden("info-validators-pk");
+    const outcome = await replay("info-validators-pk", { ...golden.spec, args: [...golden.spec.args, "--json"] });
+    expect(outcome.exitCode, outcome.stderr).to.equal(0);
+    const [header, ...rest] = golden.outcome.stdout.split("\n");
+    expect(header).to.include("Validators on the network");
+    expect(JSON.parse(outcome.stdout)).to.deep.equal(JSON.parse(rest.join("\n")));
+  });
 });

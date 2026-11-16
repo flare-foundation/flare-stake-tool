@@ -23,10 +23,13 @@ import {
 import { fetchForDefiSignature, sendToForDefi } from "./app/fordefi";
 import {
   describeAutoRenewal,
+  addressesJson,
+  balancesJson,
   describeStakes,
   getBalances,
   getStakes,
   getValidators,
+  stakesJson,
   unlistedDelegationsWarning,
 } from "./app/info";
 import { sendSignedTransaction } from "./app/send";
@@ -191,9 +194,10 @@ export function cli(program: Command): void {
     .command("info")
     .description("Relevant information")
     .addArgument(new Argument("<addresses|balance|validators|stakes>", "Type of information").choices(INFO_TYPES))
-    .action(async (type: string) => {
+    .option("--json", "Print the result as JSON only, for scripts (exact amounts as strings)")
+    .action(async (type: string, commandOptions: { json?: boolean }) => {
       refuseFeeOptions(program, `info ${type}`);
-      await info(type, globalOptions(program.opts()));
+      await info(type, globalOptions(program.opts()), commandOptions.json === true);
     });
 
   program
@@ -530,7 +534,8 @@ async function initCtx(options: GlobalOptions & InitCtxOptions): Promise<void> {
   logSuccess("Context file created");
 }
 
-async function info(type: string, options: GlobalOptions): Promise<void> {
+/** Prints the information `type` names: lines for people, or with `json` nothing but the JSON on stdout. */
+async function info(type: string, options: GlobalOptions, json: boolean): Promise<void> {
   if (!INFO_TYPES.includes(type)) {
     throw new Error(`Unknown information type "${type}"; use ${INFO_TYPES.join(", ")}`);
   }
@@ -538,7 +543,7 @@ async function info(type: string, options: GlobalOptions): Promise<void> {
   warnOnDefaultNetwork(options); // info names the network itself
   if (type === "validators") {
     const validators = await getValidators(env);
-    logInfo(`Validators on the network "${env.network.name}"`);
+    if (!json) logInfo(`Validators on the network "${env.network.name}"`);
     log(JSON.stringify(validators, null, 2));
     // on stderr, so that stdout stays the header and the JSON, as 4.4.0 printed it
     for (const validator of validators) {
@@ -548,6 +553,18 @@ async function info(type: string, options: GlobalOptions): Promise<void> {
     return;
   }
   const account = await resolveAccount(options, env);
+  if (json) {
+    if (type === "addresses") {
+      log(JSON.stringify(addressesJson(account, env.network), null, 2));
+    } else if (type === "balance") {
+      log(JSON.stringify(balancesJson(await getBalances(env, account), account, env.network), null, 2));
+    } else if (type === "stakes") {
+      const report = await getStakes(env, account);
+      report.unlisted.forEach((entry) => logWarning(unlistedDelegationsWarning(entry)));
+      log(JSON.stringify(stakesJson(report, account.pAddress, env.network), null, 2));
+    }
+    return;
+  }
   if (type === "addresses") {
     logInfo(`Addresses on the network "${env.network.name}"`);
     log(`P-chain address: ${account.pAddress}`);
