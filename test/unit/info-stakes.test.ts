@@ -54,7 +54,8 @@ const VALIDATORS: CurrentValidator[] = [
         nodeID: "NodeID-B",
         startTime: "1000",
         endTime: "3000",
-        stakeAmount: "15000000000000000",
+        // one nFLR above a round amount: a total summed as a float would lose it
+        stakeAmount: "15000000000000001",
         rewardOwner: owner(ACCOUNT.pAddress.toUpperCase()),
       },
       {
@@ -72,9 +73,9 @@ const VALIDATORS: CurrentValidator[] = [
 const LINES = [
   `${ACCOUNT.pAddress}: 3 stakes on 2 nodes (at most 3 nodes at once on localflare)`,
   "delegation NodeID-A 50000 LFLR, ends 1970-01-01T00:33:20.000Z (2000), tx tx-delegation-a",
-  "delegation NodeID-B 15000000 LFLR, ends 1970-01-01T00:50:00.000Z (3000), tx tx-delegation-b",
+  "delegation NodeID-B 15000000.000000001 LFLR, ends 1970-01-01T00:50:00.000Z (3000), tx tx-delegation-b",
   "validation NodeID-A 2000000 LFLR, auto-renewed, cycle ends 1970-01-01T02:30:00.000Z (9000), tx tx-validation-a",
-  "Total staked: 17050000 LFLR",
+  "Total staked: 17050000.000000001 LFLR",
 ];
 
 describe("info stakes", () => {
@@ -86,7 +87,7 @@ describe("info stakes", () => {
       "tx-validation-a",
     ]);
     expect(report.nodes).to.equal(2);
-    expect(report.total).to.equal(17_050_000_000_000_000n);
+    expect(report.total).to.equal(17_050_000_000_000_001n);
     expect(report.unlisted).to.deep.equal([]);
     expect(describeStakes(report, ACCOUNT.pAddress, networkConfig("localflare", {}))).to.deep.equal(LINES);
   });
@@ -194,6 +195,8 @@ describe("info stakes", () => {
     const cwd = makeTempDir("info-stakes-test-");
     let server: http.Server;
     let url = "";
+    /** What the stand-in node lists as the current validators. */
+    let listed: CurrentValidator[] = VALIDATORS;
     before(async () => {
       server = http.createServer((req, res) => {
         let body = "";
@@ -204,7 +207,7 @@ describe("info stakes", () => {
             method === "info.getNetworkID"
               ? { networkID: "162" }
               : method === "platform.getCurrentValidators"
-                ? { validators: VALIDATORS }
+                ? { validators: listed }
                 : undefined;
           res.setHeader("content-type", "application/json");
           res.end(
@@ -234,6 +237,25 @@ describe("info stakes", () => {
       expect(result.stdout).to.equal(['Stakes on the network "localflare"', ...LINES].join("\n") + "\n");
       const shortcut = await runCliAsync(["stakes", "--rpc-url", url], { cwd, env: plain });
       expect(shortcut.stdout).to.equal(result.stdout);
+    });
+
+    it("warns on stderr about a validator whose delegations the node doesn't list in full, and still lists the rest", async () => {
+      listed = [{ ...VALIDATORS[1]!, delegators: VALIDATORS[1]!.delegators!.slice(1) }, VALIDATORS[0]!];
+      try {
+        const result = await runCliAsync(["info", "stakes", "--rpc-url", url], {
+          cwd,
+          env: { NO_COLOR: "1", FORCE_COLOR: "0" },
+        });
+        expect(result.exitCode, result.stderr).to.equal(0);
+        expect(result.stderr).to.include(
+          "The node lists 1 of the 2 delegations to NodeID-B, so some of the account's stakes there may be missing; " +
+            "use a node that lists them (--rpc-url)"
+        );
+        expect(result.stdout).to.not.include("The node lists");
+        expect(result.stdout).to.include(`${ACCOUNT.pAddress}: 2 stakes on 1 node`);
+      } finally {
+        listed = VALIDATORS;
+      }
     });
   });
 });
