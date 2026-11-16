@@ -100,11 +100,37 @@ describe("chain/units", () => {
       );
     });
 
-    it("refuses commas, which up to 4.x were dropped as thousands separators ('1,5' became 15)", () => {
-      for (const bad of ["1,5", "0,5", "1,500", "10,000", "1,000.5", "1.000,5", ",5", "1,"]) {
-        expect(() => parseFlr(bad), bad).to.throw(/Invalid amount .*commas are not accepted/);
+    it("reads commas as thousands separators between groups of three, as 4.4.0 did", () => {
+      expect(parseFlr("15,000,000")).to.equal(15_000_000n * 10n ** 9n);
+      expect(parseFlr("50,000")).to.equal(50_000n * 10n ** 9n);
+      expect(parseFlr("1,500")).to.equal(1_500n * 10n ** 9n); // never 1.5
+      expect(parseFlr(" 1,000.5 ")).to.equal(1_000_500_000_000n);
+      expect(parseFlr("1,000.")).to.equal(1_000n * 10n ** 9n);
+      expect(parseFlr("18,446,744,073.709551615")).to.equal(2n ** 64n - 1n);
+      expect(parseFlrToWei("1,234,567.000000000000000001")).to.equal(1_234_567n * 10n ** 18n + 1n);
+      expect(() => parseFlr("18,446,744,074"), "the uint64 limit still holds").to.throw(
+        /at most 18446744073.709551615/
+      );
+      expect(() => parseFlr("1,000.0000000001"), "and the precision").to.throw(/at most 9 decimal places/);
+      // any amount, its whole part written in groups of three, reads as written without them
+      fc.assert(
+        fc.property(fc.bigInt({ min: 0n, max: 2n ** 64n - 1n }), (nFlr) => {
+          const [whole = "", fraction] = formatFlr(asNFlr(nFlr)).split(".");
+          const grouped = whole.replace(/\B(?=(\d{3})+$)/g, ",") + (fraction === undefined ? "" : `.${fraction}`);
+          expect(parseFlr(grouped), grouped).to.equal(nFlr);
+        })
+      );
+    });
+
+    it("refuses any other comma, which 4.4.0 dropped ('1,5' became 15)", () => {
+      const bad = ["1,5", "0,5", "1,50", "1,5000", "12,34,567", "1,000,00", "0,500", "01,000", "1.000,5"];
+      for (const amount of [...bad, ",5", ",000", "1,", "1,,000", "1, 000", "1,000,", "-1,000", "1,000.5,0"]) {
+        expect(() => parseFlr(amount), amount).to.throw(
+          `Invalid amount "${amount}": commas are accepted only as thousands separators (15,000,000); use "." for decimals, e.g. 1.5`
+        );
       }
-      expect(() => parsePercentToShares("2,5")).to.throw(/commas are not accepted/);
+      expect(() => parsePercentToShares("2,5")).to.throw(/commas are accepted only as thousands separators/);
+      expect(() => parsePercentToShares("1,000")).to.throw(/must be between 0 and 100/);
     });
 
     it("takes a typed atomic fee of at most 20 FLR: 4.4.0's -f 1000, a gas price in nFLR, would burn 1000 FLR", () => {

@@ -333,7 +333,7 @@ Unclaimed rewards: 5 LFLR[39m
 > "No"
 ? input "\u001b[35mPlease enter the amount to claim:\u001b[39m"
 > "1,25"
-  ! Invalid amount "1,25": commas are not accepted, neither as decimal nor as thousands separator; use "." for decimals, e.g. 1.5 or 10000
+  ! Invalid amount "1,25": commas are accepted only as thousands separators (15,000,000); use "." for decimals, e.g. 1.5
 > "0.0000000000000000001"
   ! Invalid amount "0.0000000000000000001": at most 18 decimal places are supported
 > "1.25"

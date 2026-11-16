@@ -8,21 +8,27 @@ export const WEI_DECIMALS = 18;
 
 /** Digits with an optional fraction; either side of the point may be empty, not both (`.5` and `1.` as 4.4.0 took). */
 const DECIMAL_RE = /^(?:(\d+)(?:\.(\d*))?|\.(\d+))$/;
+/** Whole digits in thousands groups: one to three digits, not starting with 0, then groups of three; a fraction may follow. */
+const THOUSANDS_RE = /^[1-9]\d{0,2}(?:,\d{3})+(?:\.\d*)?$/;
 
 /**
  * Parses a non-negative decimal string into an integer with `decimals`
  * fractional digits. Digits beyond `decimals` are refused unless they are
- * zeros, never cut off. A comma is refused rather than read as a thousands
- * separator: "1,5" may mean 1.5, and "1,500" is ambiguous between 1.5 and 1500
- * even when written in groups of three.
+ * zeros, never cut off. Commas are read only as thousands separators between
+ * groups of three digits ("15,000,000", "1,000.5"), which is what 4.4.0 made of
+ * them; any other comma is refused: 4.4.0 dropped it, so "1,5" became 15.
+ * "1,500" is 1500, as in 4.4.0, never 1.5.
  */
 export function parseDecimal(input: string, decimals: number): bigint {
-  const cleaned = input.trim();
+  let cleaned = input.trim();
   if (cleaned.includes(",")) {
-    throw new Error(
-      `Invalid amount "${input}": commas are not accepted, neither as decimal nor as thousands separator; ` +
-        `use "." for decimals, e.g. 1.5 or 10000`
-    );
+    if (!THOUSANDS_RE.test(cleaned)) {
+      throw new Error(
+        `Invalid amount "${input}": commas are accepted only as thousands separators (15,000,000); ` +
+          `use "." for decimals, e.g. 1.5`
+      );
+    }
+    cleaned = cleaned.replaceAll(",", "");
   }
   const match = DECIMAL_RE.exec(cleaned);
   if (!match) {
