@@ -1,7 +1,9 @@
+import { utils as futils, type Utxo } from "@flarenetwork/flarejs";
 import type { Account } from "../chain/keys";
 import type { NetworkConfig } from "../chain/network";
 import { SHARES_PER_PERCENT, asNFlr, asWei, formatFlr, formatWei, type NFlr, type Wei } from "../chain/units";
 import { currentValidators, isAutoRenewed, stakesOf, type CurrentValidator, type Stake } from "../chain/validators";
+import { allUtxos } from "../core/builders/pchain";
 import type { Env } from "../core/types";
 
 export interface Balances {
@@ -11,11 +13,27 @@ export interface Balances {
 
 export async function getBalances(env: Env, account: Account): Promise<Balances> {
   await env.clients.verifyNetwork();
-  const [cChainWei, pBalance] = await Promise.all([
+  const [cChainWei, context, utxos] = await Promise.all([
     env.clients.provider.getBalance(account.cAddress),
-    env.clients.pvm.getBalance({ addresses: [account.pAddress] }),
+    env.clients.context(),
+    allUtxos((query) => env.clients.pvm.getUTXOs(query), { addresses: [account.pAddress] }),
   ]);
-  return { cChainWei: asWei(cChainWei), pChainNFlr: asNFlr(BigInt(pBalance.balance)) };
+  return { cChainWei: asWei(cChainWei), pChainNFlr: pChainBalance(utxos, context.avaxAssetID) };
+}
+
+/**
+ * The P-chain balance of an address, added up as `platform.getBalance` added up its `balance` (avalanchego 1.15.4
+ * removes it): the chain's own asset in every UTXO the address owns, alone or with others, locked or not (plain and
+ * stakeable-locked outputs). The total is exact, also above the uint64 maximum (18,446,744,073.709551615 FLR), where
+ * getBalance stopped counting. Staked funds are not UTXOs; `info stakes` lists them.
+ */
+export function pChainBalance(utxos: readonly Utxo[], avaxAssetID: string): NFlr {
+  let total = 0n;
+  for (const utxo of utxos) {
+    const { assetId, amount } = futils.getUtxoInfo(utxo); // amount 0 for any other output type, which the node skipped
+    if (assetId === avaxAssetID) total += amount;
+  }
+  return asNFlr(total);
 }
 
 export async function getValidators(env: Env): Promise<CurrentValidator[]> {

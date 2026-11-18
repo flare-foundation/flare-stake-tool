@@ -146,7 +146,11 @@ secp256k1 public key derived from the configured key/context.
 
 Output the C-chain (in wei → display as FLR with 18 decimals) and P-chain
 (in nFLR → display as FLR with 9 decimals) balances for the configured
-addresses.
+addresses. The P-chain balance is added up from the address's UTXOs
+(`platform.getUTXOs`), as `platform.getBalance` added it up: every FLR UTXO
+the address owns, alone or with others, locked or not. The total is exact, also
+above 18,446,744,073.709551615 FLR (the uint64 maximum), where `getBalance`
+stopped counting. Staked funds are not UTXOs; `info stakes` lists them.
 
 ### info validators
 

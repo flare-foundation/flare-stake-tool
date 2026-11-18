@@ -11,8 +11,8 @@
  *                         node that is not validating yet for the stake tests
  */
 import { randomBytes } from "crypto";
-import { utils as futils } from "@flarenetwork/flarejs";
-import { rpcCall, sleep } from "../helpers/rpc";
+import { avm, pvm, utils as futils } from "@flarenetwork/flarejs";
+import { RpcError, rpcCall, sleep } from "../helpers/rpc";
 
 const trimSlash = (url: string): string => url.trim().replace(/\/+$/, "");
 
@@ -144,12 +144,46 @@ export async function waitForPTxCommitted(txID: string, timeoutMs = 60_000): Pro
   throw new Error(`P-chain tx ${txID} not committed within ${timeoutMs}ms`);
 }
 
-/** The P-chain balance of `address` in nFLR. */
+/**
+ * The P-chain balance of `address` in nFLR: FLR in every UTXO it owns, alone or with others, locked or not, read with
+ * platform.getUTXOs page by page, as platform.getBalance (which avalanchego 1.15.4 removes) added it up.
+ */
 export async function getPBalance(address: string): Promise<bigint> {
-  const result = await rpcCall<{ balance: string }>(LOCAL_RPC_URL, "/ext/bc/P", "platform.getBalance", {
-    addresses: [address],
-  });
-  return BigInt(result.balance);
+  const pvmApi = new pvm.PVMApi(LOCAL_RPC_URL);
+  const { assetID } = await new avm.AVMApi(LOCAL_RPC_URL).getAssetDescription("AVAX");
+  const seen = new Set<string>();
+  let total = 0n;
+  let startIndex: { address: string; utxo: string } | undefined;
+  for (;;) {
+    const page = await pvmApi.getUTXOs({ addresses: [address], ...(startIndex ? { startIndex } : {}) });
+    for (const utxo of page.utxos) {
+      const { utxoId, assetId, amount } = futils.getUtxoInfo(utxo);
+      if (seen.has(utxoId)) continue; // a page may start with the last UTXO of the previous one
+      seen.add(utxoId);
+      if (assetId === assetID) total += amount;
+    }
+    if (Number(page.numFetched) < 1024 || page.utxos.length === 0) return total;
+    startIndex = page.endIndex;
+  }
+}
+
+/** platform.getBalance's `balance` of `address`, or undefined from a node without the method (avalanchego 1.15.4+). */
+export async function legacyPBalance(address: string): Promise<bigint | undefined> {
+  try {
+    const result = await rpcCall<{ balance: string }>(LOCAL_RPC_URL, "/ext/bc/P", "platform.getBalance", {
+      addresses: [address],
+    });
+    return BigInt(result.balance);
+  } catch (error) {
+    // only the method's absence; any other failure fails the test
+    if (
+      error instanceof RpcError &&
+      /^rpc: can't find method "platform\.[Gg]etBalance"$/.test(error.nodeMessage ?? "")
+    ) {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 /** A random P-chain address no run has used, so its balance is whatever the test sends it. */
