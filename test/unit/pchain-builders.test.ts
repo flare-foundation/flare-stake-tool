@@ -698,7 +698,7 @@ describe("core/builders/pchain", function () {
           getBaseFee: () => Promise.resolve(25_000_000_000n),
           // sending: the replay answers with the recorded import's id and status, whatever is sent
           issueSignedTx: (tx: Parameters<typeof recorded.issueSignedTx>[0]) => recorded.issueSignedTx(tx),
-          getAtomicTxStatus: (txId: string) => recorded.getAtomicTxStatus(txId),
+          getAtomicTx: (params: Parameters<typeof recorded.getAtomicTx>[0]) => recorded.getAtomicTx(params),
         },
       };
       return { network: replay.env.network, clients } as unknown as Env;

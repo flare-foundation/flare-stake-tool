@@ -28,6 +28,28 @@ export function stableStringify(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(",")}}`;
 }
 
+/** A JSON-RPC error answer, with the node's own message; the error's message stays "RPC <method> error: <JSON>". */
+export class RpcError extends Error {
+  override readonly name = "RpcError";
+  constructor(
+    method: string,
+    readonly rpcError: unknown
+  ) {
+    super(`RPC ${method} error: ${JSON.stringify(rpcError)}`);
+  }
+
+  /** The node's message (`error.message` of the answer), or undefined when it has none. */
+  get nodeMessage(): string | undefined {
+    const { rpcError } = this;
+    return typeof rpcError === "object" &&
+      rpcError !== null &&
+      "message" in rpcError &&
+      typeof rpcError.message === "string"
+      ? rpcError.message
+      : undefined;
+  }
+}
+
 export async function rpcCall<T = unknown>(
   baseUrl: string,
   path: string,
@@ -44,7 +66,7 @@ export async function rpcCall<T = unknown>(
   }
   const json = (await response.json()) as JsonRpcResponse;
   if (json.error) {
-    throw new Error(`RPC ${method} error: ${JSON.stringify(json.error)}`);
+    throw new RpcError(method, json.error);
   }
   return json.result as T;
 }

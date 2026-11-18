@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [[v5.2.1](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.2.1)] - Unreleased
+
+### Fixed
+
+* `exportCP` and `importPC`, run as commands, with `send`, or as steps of an interactive transfer, are confirmed with `avax.getAtomicTx`, which answers once the C-chain has accepted the transaction and "fetching tx: reading tx: not found" before; any other error of that lookup is reported at once. avalanchego 1.15.2 removed `avax.getAtomicTxStatus`, which the tool used: against a node on go-flare 1.15.2 or later, the transaction was sent, but the tool then reported that its status could not be read, and an interactive C→P transfer stopped before the import. Since Helicon the C-chain reports no dropped atomic transaction, so a C-chain atomic transaction it does not accept ends in the timeout ("was submitted but not accepted within …"), and its signed file keeps `isSentToChain`. Works with go-flare 1.15.1 as well.
+
 ## [[v5.2.0](https://github.com/flare-foundation/flare-stake-tool/releases/tag/v5.2.0)] - 2026-11-16
 
 ### Added

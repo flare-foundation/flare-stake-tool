@@ -332,8 +332,8 @@ describe("output/describeError: node errors", () => {
     expect(describeError(submitted)).to.equal(
       `Transaction 2TxId was submitted, but its status could not be read: fetch failed (bad port; node ${CLOSED})`
     );
-    const refused = new TxNotAcceptedError("Transaction 2TxId was dropped by the C-chain");
-    expect(describeError(refused)).to.equal("Transaction 2TxId was dropped by the C-chain");
+    const refused = new TxNotAcceptedError("Transaction 2TxId was dropped by the P-chain");
+    expect(describeError(refused)).to.equal("Transaction 2TxId was dropped by the P-chain");
   });
 
   it("leaves other errors' causes out, as their messages already carry them", () => {
