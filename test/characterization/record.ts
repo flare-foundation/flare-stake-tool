@@ -13,7 +13,8 @@ import fs from "fs";
 import path from "path";
 import { JsonRpcProvider, Wallet, parseEther } from "ethers";
 import { cleanupTempDir, makeTempDir, REPO_ROOT, runCliAsync, writeEnvFile } from "../helpers/cli";
-import { rpcCall, sleep } from "../helpers/rpc";
+import { NOT_ACCEPTED_YET } from "../../src/core/submit";
+import { RpcError, rpcCall, sleep } from "../helpers/rpc";
 import { EWOQ_ETH_ADDRESS, EWOQ_P_ADDRESS, EWOQ_PRIVATE_KEY_HEX } from "../helpers/keys";
 import { RpcReplayServer } from "./rpc-replay";
 import { evmContractStubs } from "./evm-stubs";
@@ -156,14 +157,17 @@ const waitForPTx = (outcome: ScenarioOutcome) =>
     return status.status === "Committed";
   });
 
+// avax.getAtomicTx answers once the C-chain has accepted the transaction, NOT_ACCEPTED_YET before; any other error fails
 const waitForCAtomicTx = (outcome: ScenarioOutcome) =>
-  poll(`C-chain atomic tx ${outcome.txIds[0]} accepted`, async () => {
-    const status = await rpcCall<{ status: string }>(UPSTREAM, "/ext/bc/C/avax", "avax.getAtomicTxStatus", {
-      txID: outcome.txIds[0],
-    });
-    if (status.status === "Rejected") throw new Error(`tx ${outcome.txIds[0]} rejected`);
-    return status.status === "Accepted";
-  });
+  poll(`C-chain atomic tx ${outcome.txIds[0]} accepted`, () =>
+    rpcCall(UPSTREAM, "/ext/bc/C/avax", "avax.getAtomicTx", { txID: outcome.txIds[0], encoding: "hex" }).then(
+      () => true,
+      (error: unknown) => {
+        if (error instanceof RpcError && error.nodeMessage === NOT_ACCEPTED_YET) return false;
+        throw error;
+      }
+    )
+  );
 
 const waitForEvmTx = (outcome: ScenarioOutcome) =>
   poll(`EVM tx ${outcome.txIds[0]} mined`, async () => {

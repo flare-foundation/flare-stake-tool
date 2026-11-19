@@ -29,7 +29,7 @@ interface Receipt {
 
 const FIXTURES = path.join(__dirname, "..", "fixtures", "rpc");
 const FIXTURE_FILES = fs.readdirSync(FIXTURES).filter((f) => f.endsWith(".json"));
-const ATOMIC_STATUS_METHODS = new Set(["platform.getTxStatus", "avax.getAtomicTxStatus"]);
+const ATOMIC_STATUS_METHODS = new Set(["platform.getTxStatus", "avax.getAtomicTx"]);
 
 function entriesOf(file: string): Entry[] {
   return (JSON.parse(fs.readFileSync(path.join(FIXTURES, file), "utf8")) as { entries: Entry[] }).entries;
@@ -77,7 +77,13 @@ describe("characterization fixtures: recorded atomic submissions", () => {
         return id;
       });
       for (const status of entries.filter((e) => ATOMIC_STATUS_METHODS.has(e.method))) {
-        expect(ids, "a status query names a recorded submission").to.include((status.params as { txID: string }).txID);
+        const txID = (status.params as { txID: string }).txID;
+        expect(ids, "a status query names a recorded submission").to.include(txID);
+        // the C-chain's answer for an accepted transaction is the transaction itself
+        const accepted = status.response.result as { tx?: string } | undefined;
+        if (status.method === "avax.getAtomicTx" && accepted !== undefined) {
+          expect(atomicTxId(accepted.tx ?? ""), "the accepted transaction is the one asked for").to.equal(txID);
+        }
       }
     });
   }

@@ -146,7 +146,11 @@ secp256k1 public key derived from the configured key/context.
 
 Output the C-chain (in wei → display as FLR with 18 decimals) and P-chain
 (in nFLR → display as FLR with 9 decimals) balances for the configured
-addresses.
+addresses. The P-chain balance is added up from the address's UTXOs
+(`platform.getUTXOs`), as `platform.getBalance` added it up: every FLR UTXO
+the address owns, alone or with others, locked or not. The total is exact, also
+above 18,446,744,073.709551615 FLR (the uint64 maximum), where `getBalance`
+stopped counting. Staked funds are not UTXOs; `info stakes` lists them.
 
 ### info validators
 
@@ -352,7 +356,7 @@ Submit a previously-built signed transaction to the network.
 |---|---|
 | Inputs | `-i <id>`: letters, digits, `.`, `_` and `-`, not starting with `.` (every command taking `-i` refuses other ids, which could name a file outside `ForDefiTxnFiles`) |
 | Reads | `ForDefiTxnFiles/SignedTxns/<id>.signedTx.json` |
-| Side effects | Submits the signed tx to the appropriate VM API and prints its id on stderr; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the chain refuses the transaction (P-chain `Aborted`/`Dropped`, C-chain `Dropped`), which may then be sent again |
+| Side effects | Submits the signed tx to the appropriate VM API and prints its id on stderr; sets `isSentToChain: true` in the JSON file as soon as the node takes the transaction (also when the wait for it then times out or fails), and removes it again when the P-chain refuses the transaction (`Aborted`, `Dropped` or `Rejected`), which may then be sent again; the C-chain reports no refused atomic transaction since Helicon |
 | Output | "Signed transaction <id> with hash <txId> sent to the node" |
 | Failures | "Tx already sent to chain" (the flag was already set). A missing signed tx file, or one that is not JSON or lacks a field the tool reads (the error names the file and the field; files from earlier versions load, unknown fields included). A file whose `message` is not the hash of its transaction, whose `unsignedTransactionBuffer` is not the transaction in its `serialization`, or whose `forDefiHash` is not that hash in base64 ("… rebuild the file"), refused before anything is sent. A file built for another network than the selected one ("Transaction … is for network id …" for P-chain and atomic transactions, "… chain id …" for C-chain ones; select its network with `--network`). A file that records the account it was built for (`signer`, written since 5.0.0) signed by another account: "Transaction … was built for …, but it is signed by …". The signature does not belong to the account the options select, in the order transactions use (`--get-hacked` with its `--env-path`, `--ledger`, `--env-path`, else the context file); `--get-hacked` without `--env-path` is refused, and so is a given `--ctx-file` that does not exist. |
 

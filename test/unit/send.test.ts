@@ -58,7 +58,14 @@ function scriptedEnv(node: ScriptedNode, id: string, cwd: string, network = "loc
   const clients: SendEnv["clients"] = {
     verifyNetwork: () => Promise.resolve(),
     pvm: { issueSignedTx: issue, getTxStatus: async () => ({ status: await poll(), reason: node.reason ?? "" }) },
-    evm: { issueSignedTx: issue, getAtomicTxStatus: async () => ({ status: await poll() }) },
+    // the C-chain answers getAtomicTx once it has accepted the transaction, "not found" before
+    evm: {
+      issueSignedTx: issue,
+      getAtomicTx: async () => {
+        if ((await poll()) !== "Accepted") throw new Error("fetching tx: reading tx: not found");
+        return { encoding: "hex" } as Awaited<ReturnType<SendEnv["clients"]["evm"]["getAtomicTx"]>>;
+      },
+    },
     provider: {
       send: () => (node.hashless ? taken(null) : taken("0xEvmHashFromTheScriptedNode")),
       // "Committed": mined and executed; "Reverted": mined, but the call failed; anything else: not mined yet
@@ -175,6 +182,42 @@ describe("app/send: the isSentToChain mark", () => {
     }
   });
 
+  it("reports at once a C-chain lookup failure that merely says 'not found', instead of waiting for acceptance", async () => {
+    // only "fetching tx: reading tx: not found" means not accepted yet; a gateway's or a decoding error is a failure
+    for (const [id, pollError] of [
+      ["m", "Method not found"],
+      ["d", "codec id(1) not found"],
+    ] as const) {
+      writeSigned("exportCP-file", id, cwd);
+      let polls = 0;
+      const env = scriptedEnv({ statuses: ["Processing"], pollError }, id, cwd);
+      const counted: SendEnv = {
+        ...env,
+        clients: {
+          ...env.clients,
+          evm: {
+            ...env.clients.evm,
+            getAtomicTx: (params) => {
+              polls++;
+              return env.clients.evm.getAtomicTx(params);
+            },
+          },
+        },
+      };
+      await sendSignedTransaction(id, counted, undefined, cwd, FAST).then(
+        () => expect.fail(`${pollError}: the status lookup should fail`),
+        (error: unknown) => {
+          expect(error, pollError).to.be.instanceOf(SubmittedTxError);
+          expect(String(error), pollError).to.include(
+            `Transaction 2TxIdFromTheScriptedNode was submitted, but its status could not be read: ${pollError}`
+          );
+        }
+      );
+      expect(polls, pollError).to.equal(1);
+      expect(isAlreadySentToChain(id, cwd), pollError).to.equal(true);
+    }
+  });
+
   it("keeps the gateway's answer readable and the submitted transaction named (EVM receipt refused with HTTP 403)", async () => {
     writeSigned("withdrawal-file", "e", cwd);
     const forbidden =
@@ -241,21 +284,27 @@ describe("app/send: the isSentToChain mark", () => {
     }
   });
 
-  it("is removed when the C-chain drops or rejects an atomic transaction", async () => {
-    for (const status of ["Dropped", "Rejected"]) {
-      writeSigned("exportCP-file", status, cwd);
-      const env = scriptedEnv({ statuses: ["Processing", status] }, status, cwd);
-      await sendSignedTransaction(status, env, undefined, cwd, FAST).then(
-        () => expect.fail(`${status} should fail`),
-        (error: unknown) => {
-          expect(error, status).to.be.instanceOf(TxNotAcceptedError);
-          expect((error as Error).message, status).to.equal(
-            `Transaction 2TxIdFromTheScriptedNode was ${status.toLowerCase()} by the C-chain`
-          );
-        }
-      );
-      expect(isAlreadySentToChain(status, cwd), status).to.equal(false);
-    }
+  it("waits while the C-chain has not accepted an atomic transaction, then reports it accepted", async () => {
+    writeSigned("exportCP-file", "c", cwd);
+    let polls = 0;
+    const env = scriptedEnv({ statuses: ["Processing", "Processing", "Accepted"] }, "c", cwd);
+    const counted: SendEnv = {
+      ...env,
+      clients: {
+        ...env.clients,
+        evm: {
+          ...env.clients.evm,
+          getAtomicTx: (params) => {
+            polls++;
+            return env.clients.evm.getAtomicTx(params);
+          },
+        },
+      },
+    };
+    const sent = await sendSignedTransaction("c", counted, undefined, cwd, FAST);
+    expect(sent).to.deep.include({ txId: "2TxIdFromTheScriptedNode", chainStatus: "Accepted" });
+    expect(polls, "two answers of not found, then the transaction").to.equal(3);
+    expect(isAlreadySentToChain("c", cwd)).to.equal(true);
   });
 
   it("stays set when an EVM transaction is mined but reverted, since its nonce is used", async () => {

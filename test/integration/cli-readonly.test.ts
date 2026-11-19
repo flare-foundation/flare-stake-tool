@@ -10,9 +10,11 @@ import {
   writeTestEnv,
   EWOQ_PUBLIC_KEY_COMPRESSED,
   EWOQ_ETH_ADDRESS,
+  EWOQ_P_ADDRESS,
 } from "./cli-helper";
 import { runCliAsync } from "../helpers/cli";
-import { LOCAL_RPC_URL, waitForLocalNetwork } from "./local-network";
+import { LOCAL_RPC_URL, getPBalance, legacyPBalance, waitForLocalNetwork } from "./local-network";
+import { UINT64_MAX } from "../../src/chain/units";
 
 const GENESIS_NODE_ID = "NodeID-7Xhw2mDxuDS44j42TCB6U5579esbSt3Lg";
 
@@ -63,6 +65,32 @@ describe("CLI read-only commands (with network)", function () {
       expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
       expect(result.stdout.toLowerCase()).to.include("c-chain");
       expect(result.stdout.toLowerCase()).to.include("p-chain");
+    });
+
+    it("reports the FLR the account's UTXOs hold, and what platform.getBalance reports while nodes have it", async () => {
+      const before = await getPBalance(EWOQ_P_ADDRESS);
+      const legacy = await legacyPBalance(EWOQ_P_ADDRESS);
+      const result = runCli([
+        "info",
+        "balance",
+        "--json",
+        "--get-hacked",
+        "--env-path",
+        envPath,
+        "--network",
+        "localflare",
+      ]);
+      const after = await getPBalance(EWOQ_P_ADDRESS);
+      expect(result.exitCode, `stderr: ${result.stderr}`).to.equal(0);
+      expect(after, "no transaction of the account in between").to.equal(before);
+      const json = JSON.parse(result.stdout) as { pChain: { address: string; nFlr: string } };
+      expect(json.pChain.address).to.equal(EWOQ_P_ADDRESS);
+      const shown = BigInt(json.pChain.nFlr);
+      expect(shown).to.equal(before);
+      // the tool shows the exact total; getBalance stopped at the uint64 maximum
+      if (legacy !== undefined) {
+        expect(legacy, "platform.getBalance").to.equal(shown < UINT64_MAX ? shown : UINT64_MAX);
+      }
     });
   });
 

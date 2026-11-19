@@ -329,7 +329,7 @@ describe("chain/clients", () => {
         // fetch options of its own
         for (const [name, request] of [
           ["pvm", () => clients.pvm.getFeeConfig()],
-          ["evm (atomic transactions)", () => clients.evm.getAtomicTxStatus("synthetic-tx")],
+          ["evm (atomic transactions)", () => clients.evm.getAtomicTx({ txID: "synthetic-tx" })],
           ["evm (inner C-chain client)", () => clients.evm.getBaseFee()],
         ] as const) {
           await request().then(

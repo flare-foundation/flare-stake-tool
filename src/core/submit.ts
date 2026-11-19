@@ -5,7 +5,7 @@ import type { UnsignedTxBundle } from "./types";
 /** The node calls that submitting and confirming a transaction makes. */
 export interface SubmitClients {
   readonly pvm: Pick<pvm.PVMApi, "issueSignedTx" | "getTxStatus">;
-  readonly evm: Pick<evm.EVMApi, "issueSignedTx" | "getAtomicTxStatus">;
+  readonly evm: Pick<evm.EVMApi, "issueSignedTx" | "getAtomicTx">;
   readonly provider: {
     send(method: string, params: unknown[]): Promise<unknown>;
     /** Only the receipt's status is read. */
@@ -24,8 +24,8 @@ export interface ConfirmOptions {
 }
 
 /**
- * The chain refused the transaction after it was issued (P-chain Aborted or
- * Dropped, C-chain Dropped): it is not on chain and nothing it spends was used.
+ * The P-chain refused the transaction after it was issued (Aborted, Dropped or
+ * Rejected): it is not on chain and nothing it spends was used.
  */
 export class TxNotAcceptedError extends Error {
   override readonly name = "TxNotAcceptedError";
@@ -33,9 +33,14 @@ export class TxNotAcceptedError extends Error {
 
 const DEFAULTS = { timeoutMs: 90_000, pollMs: 1_000 };
 
-/** Final statuses that mean the transaction will never be on chain. */
+/** Final P-chain statuses that mean the transaction will never be on chain. */
 const P_CHAIN_REFUSED = new Set(["Aborted", "Dropped", "Rejected"]);
-const C_CHAIN_REFUSED = new Set(["Dropped", "Rejected"]);
+
+/**
+ * How `avax.getAtomicTx` fails for a transaction the C-chain has not accepted, and only then (go-flare 1.15.1 and
+ * 1.15.2, `vms/saevm/cchain`). Other failures also say "not found" ("Method not found", a codec id): they are errors.
+ */
+export const NOT_ACCEPTED_YET = "fetching tx: reading tx: not found";
 
 /**
  * A failure after the node took the transaction, which may still land: the
@@ -62,6 +67,22 @@ async function statusOf<T>(txId: string, lookup: () => Promise<T>): Promise<T> {
     return await lookup();
   } catch (error) {
     throw new SubmittedTxError(txId, `Transaction ${txId} was submitted, but its status could not be read`, error);
+  }
+}
+
+/**
+ * Whether the C-chain has accepted atomic transaction `txId`. `avax.getAtomicTx` answers with the transaction once it
+ * is accepted and fails with exactly `NOT_ACCEPTED_YET` until then; any other failure is reported at once. It replaces
+ * `avax.getAtomicTxStatus`, which avalanchego 1.15.2 removed and which, since Helicon, answered "Accepted" or "Unknown"
+ * from the same lookup: the C-chain reports no dropped atomic transaction, so one it never accepts ends in the timeout.
+ */
+async function cChainAccepted(evmApi: SubmitClients["evm"], txId: string): Promise<boolean> {
+  try {
+    await evmApi.getAtomicTx({ txID: txId });
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message === NOT_ACCEPTED_YET) return false;
+    throw error;
   }
 }
 
@@ -98,11 +119,7 @@ export async function submitAndConfirm(
     const { txID } = await clients.evm.issueSignedTx(signedTx);
     options.onIssued?.(txID);
     while (Date.now() < deadline) {
-      const { status } = await statusOf(txID, () => clients.evm.getAtomicTxStatus(txID));
-      if (status === "Accepted") return { txId: txID, chainStatus: status };
-      if (C_CHAIN_REFUSED.has(status)) {
-        throw new TxNotAcceptedError(`Transaction ${txID} was ${status.toLowerCase()} by the C-chain`);
-      }
+      if (await statusOf(txID, () => cChainAccepted(clients.evm, txID))) return { txId: txID, chainStatus: "Accepted" };
       await sleep(pollMs);
     }
     throw new Error(`Transaction ${txID} was submitted but not accepted within ${timeoutMs}ms`);
